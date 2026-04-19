@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShareAndFun</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ocean: #1B6CA8; --ocean-light: #E8F4FD; --ocean-mid: #4A9FD4;
+    --sand: #F5F0E8; --sand-dark: #E8DDD0; --coral: #E07B54; --coral-light: #FDF0EB;
+    --white: #FFFFFF; --text: #1A2332; --text-mid: #5A6A7A; --text-light: #9AAABB;
+    --border: #E2EAF0; --green: #2EAA6B; --green-light: #E8F8F0;
+    --red: #E05454; --red-light: #FDF0F0; --yellow: #F0B429; --yellow-light: #FDF8E8;
+    --radius: 12px; --radius-sm: 8px;
+    --shadow: 0 2px 12px rgba(27,108,168,0.08); --shadow-md: 0 4px 24px rgba(27,108,168,0.12);
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(--text); min-height: 100vh; }
+
+  /* UTILS */
+  .hidden { display: none !important; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* TOPNAV */
+  .topnav {
+    background: var(--white); border-bottom: 1px solid var(--border);
+    padding: 0 32px; display: flex; align-items: center; justify-content: space-between;
+    height: 60px; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow);
+  }
+  .logo { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--ocean); display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .nav-right { display: flex; align-items: center; gap: 12px; }
+  .nav-user { font-size: 13px; color: var(--text-mid); }
+  .btn-nav { padding: 7px 16px; border-radius: 20px; border: 1.5px solid var(--ocean); background: transparent; color: var(--ocean); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-nav:hover { background: var(--ocean); color: white; }
+  .btn-nav.filled { background: var(--ocean); color: white; border-color: var(--ocean); }
+  .btn-nav.filled:hover { background: #155a8a; }
+
+  /* BUTTONS */
+  .btn { padding: 11px 24px; border-radius: var(--radius-sm); border: none; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-primary { background: var(--ocean); color: white; }
+  .btn-primary:hover { background: #155a8a; }
+  .btn-coral { background: var(--coral); color: white; }
+  .btn-coral:hover { background: #c96a44; }
+  .btn-outline { background: transparent; color: var(--ocean); border: 1.5px solid var(--ocean); }
+  .btn-outline:hover { background: var(--ocean-light); }
+  .btn-sm { padding: 8px 16px; font-size: 13px; }
+  .btn-danger { background: var(--red-light); color: var(--red); border: 1.5px solid var(--red); }
+  .btn-danger:hover { background: var(--red); color: white; }
+  .btn-green { background: var(--green); color: white; }
+  .btn-green:hover { background: #269960; }
+  .btn-full { width: 100%; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* CARDS */
+  .card { background: var(--white); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .card-body { padding: 20px; }
+
+  /* FORMS */
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 13px; font-weight: 500; color: var(--text-mid); margin-bottom: 6px; display: block; }
+  .form-input { width: 100%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: var(--white); transition: border-color 0.2s; }
+  .form-input:focus { outline: none; border-color: var(--ocean); }
+  .form-input::placeholder { color: var(--text-light); }
+  .form-select { width: 100%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: var(--white); }
+  .form-select:focus { outline: none; border-color: var(--ocean); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-error { font-size: 12px; color: var(--red); margin-top: 4px; }
+
+  /* ALERTS */
+  .alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; }
+  .alert-error { background: var(--red-light); color: var(--red); border: 1px solid #f0c0c0; }
+  .alert-success { background: var(--green-light); color: var(--green); border: 1px solid #a0ddb8; }
+  .alert-info { background: var(--ocean-light); color: var(--ocean); border: 1px solid #b0d8f0; }
+
+  /* LOADING */
+  .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--ocean); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; z-index: 999; flex-direction: column; gap: 12px; }
+  .loading-overlay p { font-size: 14px; color: var(--text-mid); }
+
+  /* ======================== LANDING ======================== */
+  .hero {
+    background: linear-gradient(160deg, var(--ocean) 0%, #2B8DC8 50%, var(--ocean-mid) 100%);
+    color: white; padding: 80px 40px 100px; text-align: center; position: relative; overflow: hidden;
+  }
+  .hero::before { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 60px; background: var(--sand); clip-path: ellipse(55% 100% at 50% 100%); }
+  .hero-waves { font-size: 40px; margin-bottom: 20px; letter-spacing: 8px; }
+  .hero h1 { font-family: 'DM Serif Display', serif; font-size: 48px; line-height: 1.1; margin-bottom: 16px; }
+  .hero h1 span { font-style: italic; }
+  .hero p { font-size: 18px; opacity: 0.88; max-width: 520px; margin: 0 auto 36px; line-height: 1.6; font-weight: 300; }
+  .hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn-hero-primary { background: var(--coral); color: white; border: none; padding: 14px 32px; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 16px rgba(224,123,84,0.4); }
+  .btn-hero-primary:hover { background: #c96a44; transform: translateY(-1px); }
+  .btn-hero-outline { background: rgba(255,255,255,0.15); color: white; border: 1.5px solid rgba(255,255,255,0.6); padding: 14px 32px; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+  .btn-hero-outline:hover { background: rgba(255,255,255,0.25); }
+  .landing-content { max-width: 1000px; margin: 0 auto; padding: 60px 24px; }
+  .section-label { font-size: 12px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--ocean); margin-bottom: 12px; }
+  .section-title { font-family: 'DM Serif Display', serif; font-size: 30px; color: var(--text); margin-bottom: 40px; }
+  .how-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 64px; }
+  .step-card { background: var(--white); border-radius: var(--radius); padding: 28px 24px; border: 1px solid var(--border); box-shadow: var(--shadow); text-align: center; }
+  .step-icon { width: 52px; height: 52px; border-radius: 14px; background: var(--ocean-light); display: flex; align-items: center; justify-content: center; font-size: 22px; margin: 0 auto 16px; }
+  .step-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+  .step-card p { font-size: 13px; color: var(--text-mid); line-height: 1.6; }
+  .roles-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .role-card { background: var(--white); border-radius: var(--radius); padding: 32px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .role-card.manager { border-top: 4px solid var(--ocean); }
+  .role-card.seasonal { border-top: 4px solid var(--coral); }
+  .role-card h3 { font-family: 'DM Serif Display', serif; font-size: 20px; margin-bottom: 8px; }
+  .role-card .role-sub { font-size: 13px; color: var(--text-mid); margin-bottom: 20px; }
+  .feature-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+  .feature-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--text-mid); line-height: 1.5; }
+  .feature-list li::before { content: '✓'; background: var(--green-light); color: var(--green); font-size: 11px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+
+  /* ======================== AUTH ======================== */
+  .auth-container { max-width: 440px; margin: 60px auto; padding: 0 20px; }
+  .auth-card { background: var(--white); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow-md); padding: 40px; }
+  .auth-logo { text-align: center; margin-bottom: 28px; }
+  .auth-logo .logo-text { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--ocean); }
+  .auth-title { font-family: 'DM Serif Display', serif; font-size: 22px; text-align: center; margin-bottom: 6px; }
+  .auth-sub { font-size: 14px; color: var(--text-mid); text-align: center; margin-bottom: 28px; }
+  .auth-tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 24px; }
+  .auth-tab { flex: 1; padding: 10px; text-align: center; font-size: 14px; font-weight: 500; color: var(--text-mid); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+  .auth-tab.active { color: var(--ocean); border-bottom-color: var(--ocean); font-weight: 600; }
+  .role-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .role-option { padding: 12px; border: 2px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; text-align: center; transition: all 0.2s; }
+  .role-option:hover { border-color: var(--ocean-mid); }
+  .role-option.selected { border-color: var(--ocean); background: var(--ocean-light); }
+  .role-option .role-icon { font-size: 24px; margin-bottom: 6px; }
+  .role-option .role-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .role-option .role-desc { font-size: 11px; color: var(--text-mid); margin-top: 2px; }
+  .auth-switch { text-align: center; margin-top: 20px; font-size: 13px; color: var(--text-mid); }
+  .auth-switch a { color: var(--ocean); cursor: pointer; font-weight: 600; }
+
+  /* ======================== DASHBOARD LAYOUT ======================== */
+  .dash-layout { display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 60px); }
+  .sidebar { background: var(--white); border-right: 1px solid var(--border); padding: 20px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .sidebar-title { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-light); padding: 0 10px; margin: 14px 0 6px; }
+  .sidebar-title:first-child { margin-top: 0; }
+  .sidebar-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; color: var(--text-mid); cursor: pointer; transition: all 0.15s; border: none; background: transparent; font-family: 'DM Sans', sans-serif; width: 100%; text-align: left; }
+  .sidebar-item:hover { background: var(--ocean-light); color: var(--ocean); }
+  .sidebar-item.active { background: var(--ocean-light); color: var(--ocean); font-weight: 600; }
+  .sidebar-item .icon { font-size: 15px; width: 18px; text-align: center; }
+  .badge { margin-left: auto; background: var(--coral); color: white; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; }
+  .main-content { padding: 28px 32px; overflow-y: auto; }
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+  .page-title { font-family: 'DM Serif Display', serif; font-size: 24px; color: var(--text); }
+  .page-subtitle { font-size: 13px; color: var(--text-mid); margin-top: 3px; }
+
+  /* STATS */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--white); border-radius: var(--radius); padding: 18px 20px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .stat-label { font-size: 11px; color: var(--text-light); font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; margin-bottom: 4px; }
+  .stat-value.ocean { color: var(--ocean); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.coral { color: var(--coral); }
+  .stat-sub { font-size: 11px; color: var(--text-light); }
+
+  /* TRANSACTION LOG */
+  .tx-list { display: flex; flex-direction: column; }
+  .tx-item { padding: 12px 20px; display: flex; align-items: flex-start; gap: 10px; border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  .tx-item:last-child { border-bottom: none; }
+  .tx-item:hover { background: var(--sand); }
+  .tx-dot { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .tx-dot.green { background: var(--green-light); }
+  .tx-dot.blue { background: var(--ocean-light); }
+  .tx-dot.coral { background: var(--coral-light); }
+  .tx-dot.yellow { background: var(--yellow-light); }
+  .tx-dot.red { background: var(--red-light); }
+  .tx-info { flex: 1; }
+  .tx-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .tx-sub { font-size: 12px; color: var(--text-light); }
+  .tx-time { font-size: 11px; color: var(--text-light); white-space: nowrap; }
+  .tx-empty { padding: 32px; text-align: center; color: var(--text-light); font-size: 13px; }
+
+  /* BEACH MAP */
+  .beach-map-wrap { padding: 16px 20px 8px; }
+  .map-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-mid); }
+  .legend-dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+  .map-rows { display: flex; flex-direction: column; gap: 6px; }
+  .map-row { display: flex; align-items: center; gap: 5px; }
+  .row-label { font-size: 10px; font-weight: 700; color: var(--text-light); width: 18px; text-align: center; }
+  .ombrellone { width: 36px; height: 36px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; cursor: pointer; transition: all 0.15s; border: 2px solid transparent; position: relative; }
+  .ombrellone:hover { transform: scale(1.12); z-index: 1; }
+  .ombrellone.occupied { background: var(--ocean-light); color: var(--ocean); border-color: var(--ocean-mid); }
+  .ombrellone.free { background: var(--green-light); color: var(--green); border-color: #96DDB8; box-shadow: 0 0 0 2px rgba(46,170,107,0.15); }
+  .ombrellone.subleased { background: var(--yellow-light); color: #B07000; border-color: var(--yellow); }
+  .sea-label { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--ocean-mid); padding: 10px 0 4px; border-top: 2px dashed var(--ocean-light); margin-top: 10px; }
+
+  /* TWO COL */
+  .two-col { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+  /* TABS */
+  .tab-bar { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+  .tab-item { padding: 10px 16px; font-size: 13px; font-weight: 500; color: var(--text-mid); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+  .tab-item.active { color: var(--ocean); border-bottom-color: var(--ocean); font-weight: 600; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* TABLE */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-light); padding: 10px 16px; text-align: left; border-bottom: 2px solid var(--border); }
+  .data-table td { padding: 12px 16px; font-size: 13px; color: var(--text); border-bottom: 1px solid var(--border); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--sand); }
+  .table-wrap { overflow-x: auto; }
+
+  /* PILLS */
+  .pill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .pill-green { background: var(--green-light); color: var(--green); }
+  .pill-yellow { background: var(--yellow-light); color: #B07000; }
+  .pill-blue { background: var(--ocean-light); color: var(--ocean); }
+  .pill-red { background: var(--red-light); color: var(--red); }
+  .pill-gray { background: #F2F4F6; color: var(--text-mid); }
+
+  /* USER HEADER STAGIONALE */
+  .user-hero { background: linear-gradient(135deg, var(--ocean) 0%, var(--ocean-mid) 100%); border-radius: var(--radius); padding: 24px 28px; color: white; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow-md); }
+  .user-greet { font-size: 13px; opacity: 0.8; margin-bottom: 4px; }
+  .user-name { font-family: 'DM Serif Display', serif; font-size: 22px; margin-bottom: 6px; }
+  .user-ombrellone { font-size: 13px; opacity: 0.85; }
+  .credit-box { background: rgba(255,255,255,0.15); border-radius: var(--radius); padding: 16px 24px; text-align: center; }
+  .credit-label { font-size: 11px; opacity: 0.8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .credit-amount { font-size: 32px; font-weight: 700; }
+  .credit-sub { font-size: 11px; opacity: 0.7; margin-top: 2px; }
+
+  /* CALENDAR */
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .cal-month { font-size: 15px; font-weight: 600; }
+  .cal-nav { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 14px; color: var(--text); }
+  .cal-nav:hover { background: var(--ocean-light); }
+  .cal-days-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-bottom: 5px; }
+  .cal-day-name { text-align: center; font-size: 10px; font-weight: 600; color: var(--text-light); text-transform: uppercase; }
+  .cal-days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .cal-day { aspect-ratio: 1; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: 2px solid transparent; color: var(--text); }
+  .cal-day:hover:not(.empty):not(.past) { border-color: var(--ocean-mid); background: var(--ocean-light); }
+  .cal-day.empty, .cal-day.past { color: var(--text-light); cursor: default; }
+  .cal-day.today { background: var(--ocean); color: white; font-weight: 700; }
+  .cal-day.free { background: var(--green-light); color: var(--green); border-color: #96DDB8; }
+  .cal-day.subleased { background: var(--yellow-light); color: #B07000; border-color: var(--yellow); }
+  .cal-legend { display: flex; gap: 14px; padding: 12px 0 4px; flex-wrap: wrap; }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+  .modal { background: white; border-radius: var(--radius); padding: 28px; max-width: 500px; width: 100%; box-shadow: var(--shadow-md); }
+  .modal-title { font-family: 'DM Serif Display', serif; font-size: 20px; margin-bottom: 6px; }
+  .modal-sub { font-size: 13px; color: var(--text-mid); margin-bottom: 24px; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+  /* SETUP WIZARD */
+  .setup-container { max-width: 600px; margin: 40px auto; padding: 0 20px; }
+  .setup-step { display: none; }
+  .setup-step.active { display: block; }
+  .setup-progress { display: flex; gap: 8px; margin-bottom: 28px; }
+  .setup-dot { flex: 1; height: 4px; border-radius: 2px; background: var(--border); transition: background 0.3s; }
+  .setup-dot.done { background: var(--ocean); }
+  .setup-title { font-family: 'DM Serif Display', serif; font-size: 22px; margin-bottom: 8px; }
+  .setup-sub { font-size: 14px; color: var(--text-mid); margin-bottom: 24px; line-height: 1.6; }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    .how-steps, .roles-grid { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .dash-layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .two-col, .three-col { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+    .user-hero { flex-direction: column; gap: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-overlay" class="loading-overlay">
+  <div class="spinner"></div>
+  <p>Caricamento...</p>
+</div>
+
+<!-- TOPNAV -->
+<nav class="topnav" id="topnav">
+  <div class="logo" onclick="goHome()">🌊 ShareAndFun</div>
+  <div class="nav-right" id="nav-right">
+    <button class="btn-nav" onclick="showView('auth', 'login')">Accedi</button>
+    <button class="btn-nav filled" onclick="showView('auth', 'register')">Registrati</button>
+  </div>
+</nav>
+
+<!-- ======================== VIEWS ======================== -->
+
+<!-- LANDING -->
+<div id="view-landing" class="view active">
+  <div class="hero">
+    <div class="hero-waves">☀️ 🌊 ☂️</div>
+    <h1>Ogni ombrellone vuoto<br><span>è un'opportunità persa.</span></h1>
+    <p>ShareAndFun connette gli stabilimenti balneari con i loro clienti stagionali per trasformare i giorni liberi in valore per tutti.</p>
+    <div class="hero-ctas">
+      <button class="btn-hero-primary" onclick="showView('auth','register')">Registra il tuo stabilimento →</button>
+      <button class="btn-hero-outline" onclick="showView('auth','login')">Hai già un account? Accedi</button>
+    </div>
+  </div>
+  <div class="landing-content">
+    <div class="section-label">Come funziona</div>
+    <div class="section-title">Semplice per tutti</div>
+    <div class="how-steps">
+      <div class="step-card"><div class="step-icon">🏖️</div><h3>Lo stabilimento registra la mappa</h3><p>Il proprietario carica gli ombrelloni, associa ogni cliente stagionale e imposta il credito per ogni posizione.</p></div>
+      <div class="step-card"><div class="step-icon">📅</div><h3>Il stagionale dichiara i giorni liberi</h3><p>Con un click sul calendario, il cliente indica i giorni in cui non userà il suo ombrellone.</p></div>
+      <div class="step-card"><div class="step-icon">💰</div><h3>Lo stabilimento sub-affitta e tutti guadagnano</h3><p>L'ombrellone viene affittato a un cliente giornaliero e il titolare riceve credito da spendere allo stabilimento.</p></div>
+    </div>
+    <div class="section-label">Due strumenti, un'unica piattaforma</div>
+    <div class="section-title">Progettato per entrambi</div>
+    <div class="roles-grid">
+      <div class="role-card manager">
+        <h3>🏖️ Proprietario dello Stabilimento</h3>
+        <div class="role-sub">Visibilità totale, controllo completo</div>
+        <ul class="feature-list">
+          <li>Mappa visuale degli ombrelloni in tempo reale</li>
+          <li>Vedi subito quali ombrelloni sono liberi oggi</li>
+          <li>Imposta il credito per ogni ombrellone</li>
+          <li>Caricamento massivo via CSV</li>
+          <li>Log completo di tutte le transazioni</li>
+        </ul>
+        <button class="btn btn-primary btn-full" onclick="showView('auth','register')">Inizia gratis →</button>
+      </div>
+      <div class="role-card seasonal">
+        <h3>☂️ Cliente Stagionale</h3>
+        <div class="role-sub">Semplice, trasparente, conveniente</div>
+        <ul class="feature-list">
+          <li>Calendario per dichiarare i giorni liberi</li>
+          <li>Notifica se l'ombrellone viene sub-affittato</li>
+          <li>Wallet crediti sempre aggiornato</li>
+          <li>Storico completo delle disponibilità</li>
+        </ul>
+        <button class="btn btn-coral btn-full" onclick="showView('auth','login')">Accedi →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AUTH -->
+<div id="view-auth" class="view">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-logo"><div class="logo-text">🌊 ShareAndFun</div></div>
+      <!-- LOGIN -->
+      <div id="auth-login">
+        <div class="auth-title">Bentornato</div>
+        <div class="auth-sub">Accedi al tuo account</div>
+        <div id="login-alert"></div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" id="login-email" class="form-input" placeholder="mario@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="login-password" class="form-input" placeholder="••••••••">
+        </div>
+        <button class="btn btn-primary btn-full" onclick="doLogin()" id="btn-login">Accedi</button>
+        <div class="auth-switch">Non hai un account? <a onclick="toggleAuth('register')">Registrati</a></div>
+      </div>
+      <!-- REGISTER -->
+      <div id="auth-register" class="hidden">
+        <div class="auth-title">Crea account</div>
+        <div class="auth-sub">Scegli come vuoi usare ShareAndFun</div>
+        <div id="register-alert"></div>
+        <div class="role-selector">
+          <div class="role-option selected" id="role-proprietario" onclick="selectRole('proprietario')">
+            <div class="role-icon">🏖️</div>
+            <div class="role-name">Proprietario</div>
+            <div class="role-desc">Gestisco uno stabilimento</div>
+          </div>
+          <div class="role-option" id="role-stagionale" onclick="selectRole('stagionale')">
+            <div class="role-icon">☂️</div>
+            <div class="role-name">Stagionale</div>
+            <div class="role-desc">Ho un ombrellone in affitto</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Nome</label><input type="text" id="reg-nome" class="form-input" placeholder="Mario"></div>
+          <div class="form-group"><label class="form-label">Cognome</label><input type="text" id="reg-cognome" class="form-input" placeholder="Rossi"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Email</label><input type="email" id="reg-email" class="form-input" placeholder="mario@example.com"></div>
+        <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="reg-telefono" class="form-input" placeholder="+39 333 1234567"></div>
+        <div class="form-group"><label class="form-label">Password</label><input type="password" id="reg-password" class="form-input" placeholder="Minimo 6 caratteri"></div>
+        <button class="btn btn-primary btn-full" onclick="doRegister()" id="btn-register">Crea account</button>
+        <div class="auth-switch">Hai già un account? <a onclick="toggleAuth('login')">Accedi</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETUP STABILIMENTO -->
+<div id="view-setup" class="view">
+  <div class="setup-container">
+    <div class="setup-progress">
+      <div class="setup-dot done" id="sp1"></div>
+      <div class="setup-dot" id="sp2"></div>
+    </div>
+    <!-- STEP 1: Dati stabilimento -->
+    <div class="setup-step active" id="setup-1">
+      <div class="setup-title">🏖️ Configura il tuo stabilimento</div>
+      <div class="setup-sub">Iniziamo con le informazioni base del tuo stabilimento balneare.</div>
+      <div id="setup1-alert"></div>
+      <div class="card"><div class="card-body">
+        <div class="form-group"><label class="form-label">Nome stabilimento</label><input type="text" id="stab-nome" class="form-input" placeholder="es. Bagno Azzurro"></div>
+        <div class="form-group"><label class="form-label">Città</label><input type="text" id="stab-citta" class="form-input" placeholder="es. Rimini"></div>
+        <div class="form-group"><label class="form-label">Indirizzo</label><input type="text" id="stab-indirizzo" class="form-input" placeholder="es. Via del Mare 12"></div>
+        <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="stab-telefono" class="form-input" placeholder="+39 0541 000000"></div>
+        <button class="btn btn-primary btn-full" onclick="saveStabilimento()">Continua →</button>
+      </div></div>
+    </div>
+    <!-- STEP 2: Ombrelloni -->
+    <div class="setup-step" id="setup-2">
+      <div class="setup-title">☂️ Aggiungi i tuoi ombrelloni</div>
+      <div class="setup-sub">Puoi aggiungere ombrelloni uno alla volta o caricare un CSV. Ogni ombrellone ha una fila (A, B, C...) e un numero, e un credito giornaliero personalizzato.</div>
+      <div id="setup2-alert"></div>
+      <div class="card" style="margin-bottom:16px"><div class="card-body">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Fila</label><input type="text" id="omb-fila" class="form-input" placeholder="es. A" maxlength="3"></div>
+          <div class="form-group"><label class="form-label">Numero</label><input type="number" id="omb-numero" class="form-input" placeholder="es. 1" min="1"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Credito giornaliero (€)</label><input type="number" id="omb-credito" class="form-input" placeholder="es. 12.00" step="0.50" min="0"></div>
+        <button class="btn btn-outline btn-sm" onclick="addOmbrellone()">+ Aggiungi ombrellone</button>
+      </div></div>
+      <div id="ombrelloni-list" style="margin-bottom:16px"></div>
+      <div class="card" style="margin-bottom:16px"><div class="card-body">
+        <div class="card-title" style="margin-bottom:10px">📂 Carica CSV</div>
+        <p style="font-size:13px;color:var(--text-mid);margin-bottom:12px">Formato: <code>fila,numero,credito_giornaliero</code> (una riga per ombrellone)</p>
+        <input type="file" id="csv-file" accept=".csv" onchange="loadCSV(event)" class="form-input">
+      </div></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-outline" onclick="goSetupStep(1)">← Indietro</button>
+        <button class="btn btn-primary" onclick="finishSetup()" style="flex:1">Vai alla dashboard →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD MANAGER -->
+<div id="view-manager" class="view">
+  <div class="dash-layout">
+    <div class="sidebar">
+      <div class="sidebar-title">Principale</div>
+      <button class="sidebar-item active" onclick="managerTab('panoramica',this)"><span class="icon">📊</span> Panoramica</button>
+      <button class="sidebar-item" onclick="managerTab('ombrelloni',this)"><span class="icon">🗺️</span> Ombrelloni</button>
+      <button class="sidebar-item" onclick="managerTab('clienti',this)"><span class="icon">👥</span> Clienti Stagionali</button>
+      <button class="sidebar-item" onclick="managerTab('transazioni',this)"><span class="icon">📋</span> Transazioni</button>
+      <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Crediti</button>
+    </div>
+    <div class="main-content">
+      <!-- PANORAMICA -->
+      <div id="mtab-panoramica" class="tab-content active">
+        <div class="page-header">
+          <div><div class="page-title" id="manager-stab-nome">Dashboard</div><div class="page-subtitle" id="manager-today-label"></div></div>
+          <button class="btn btn-primary btn-sm" onclick="openSubaffittoModal()">+ Segna sub-affitto</button>
+        </div>
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-label">Ombrelloni totali</div><div class="stat-value" id="stat-totali">–</div><div class="stat-sub">registrati</div></div>
+          <div class="stat-card"><div class="stat-label">Liberi oggi</div><div class="stat-value green" id="stat-liberi">–</div><div class="stat-sub">disponibili</div></div>
+          <div class="stat-card"><div class="stat-label">Sub-affittati oggi</div><div class="stat-value coral" id="stat-subaffittati">–</div><div class="stat-sub" id="stat-incassati"></div></div>
+          <div class="stat-card"><div class="stat-label">Crediti distribuiti</div><div class="stat-value ocean" id="stat-crediti">–</div><div class="stat-sub">questa settimana</div></div>
+        </div>
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header"><div class="card-title">🗺️ Mappa ombrelloni — oggi</div><button class="btn btn-outline btn-sm" onclick="managerTab('ombrelloni',null)">Gestisci</button></div>
+            <div class="beach-map-wrap">
+              <div class="map-legend">
+                <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Stagionale presente</div>
+                <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Libero</div>
+                <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+              </div>
+              <div class="map-rows" id="manager-map"></div>
+              <div class="sea-label">~ ~ ~ MARE ~ ~ ~</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">📋 Ultime transazioni</div></div>
+            <div id="manager-tx-list"><div class="tx-empty">Caricamento...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OMBRELLONI TAB -->
+      <div id="mtab-ombrelloni" class="tab-content">
+        <div class="page-header">
+          <div><div class="page-title">Ombrelloni</div><div class="page-subtitle">Gestisci e modifica gli ombrelloni del tuo stabilimento</div></div>
+          <button class="btn btn-primary btn-sm" onclick="openAddOmbModal()">+ Aggiungi</button>
+        </div>
+        <div class="card">
+          <div class="table-wrap"><table class="data-table">
+            <thead><tr><th>Fila</th><th>N°</th><th>Credito/giorno</th><th>Cliente Stagionale</th><th>Stato oggi</th><th>Azioni</th></tr></thead>
+            <tbody id="ombrelloni-table"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- CLIENTI TAB -->
+      <div id="mtab-clienti" class="tab-content">
+        <div class="page-header">
+          <div><div class="page-title">Clienti Stagionali</div><div class="page-subtitle">Gestisci i tuoi clienti e i loro ombrelloni</div></div>
+          <button class="btn btn-primary btn-sm" onclick="openAddClienteModal()">+ Aggiungi cliente</button>
+        </div>
+        <div class="card">
+          <div class="table-wrap"><table class="data-table">
+            <thead><tr><th>Nome</th><th>Email</th><th>Telefono</th><th>Ombrellone</th><th>Credito</th><th>Azioni</th></tr></thead>
+            <tbody id="clienti-table"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- TRANSAZIONI TAB -->
+      <div id="mtab-transazioni" class="tab-content">
+        <div class="page-header"><div><div class="page-title">Transazioni</div><div class="page-subtitle">Storico completo di tutte le operazioni</div></div></div>
+        <div class="card">
+          <div id="all-tx-list"><div class="tx-empty">Caricamento...</div></div>
+        </div>
+      </div>
+
+      <!-- CREDITI TAB -->
+      <div id="mtab-crediti" class="tab-content">
+        <div class="page-header">
+          <div><div class="page-title">Gestione Crediti</div><div class="page-subtitle">Registra l'utilizzo dei crediti al bar o ristorante</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Registra utilizzo credito</div></div>
+          <div class="card-body">
+            <div id="crediti-alert"></div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">Cliente</label>
+                <select id="credito-cliente" class="form-select"></select>
+              </div>
+              <div class="form-group"><label class="form-label">Importo (€)</label><input type="number" id="credito-importo" class="form-input" placeholder="es. 20.00" min="0.01" step="0.01"></div>
+            </div>
+            <div class="form-group"><label class="form-label">Note (opzionale)</label><input type="text" id="credito-nota" class="form-input" placeholder="es. Pranzo al ristorante"></div>
+            <button class="btn btn-primary" onclick="usaCredito()">Registra utilizzo</button>
+          </div>
+        </div>
+        <div style="margin-top:20px" class="card">
+          <div class="card-header"><div class="card-title">Saldo crediti per cliente</div></div>
+          <div class="table-wrap"><table class="data-table">
+            <thead><tr><th>Cliente</th><th>Ombrellone</th><th>Credito disponibile</th></tr></thead>
+            <tbody id="crediti-table"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD STAGIONALE -->
+<div id="view-stagionale" class="view">
+  <div class="main-content" style="max-width:880px;margin:0 auto;">
+    <div class="user-hero">
+      <div>
+        <div class="user-greet">Benvenuto,</div>
+        <div class="user-name" id="stag-nome">–</div>
+        <div class="user-ombrellone" id="stag-ombrellone">Caricamento...</div>
+      </div>
+      <div class="credit-box">
+        <div class="credit-label">Credito disponibile</div>
+        <div class="credit-amount" id="stag-credito">€ –</div>
+        <div class="credit-sub">Da usare al bar / ristorante</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📅 Disponibilità</div>
+          <button class="btn btn-green btn-sm" onclick="toggleTodayFree()">+ Oggi sono assente</button>
+        </div>
+        <div class="card-body">
+          <div id="stag-alert" style="margin-bottom:8px"></div>
+          <div class="cal-header">
+            <button class="cal-nav" onclick="calNav(-1)">‹</button>
+            <div class="cal-month" id="cal-label"></div>
+            <button class="cal-nav" onclick="calNav(1)">›</button>
+          </div>
+          <div class="cal-days-header">
+            <div class="cal-day-name">Lun</div><div class="cal-day-name">Mar</div><div class="cal-day-name">Mer</div>
+            <div class="cal-day-name">Gio</div><div class="cal-day-name">Ven</div><div class="cal-day-name">Sab</div><div class="cal-day-name">Dom</div>
+          </div>
+          <div class="cal-days-grid" id="stag-calendar"></div>
+          <div class="cal-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Dichiarato libero</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">📋 Le mie transazioni</div></div>
+        <div id="stag-tx-list"><div class="tx-empty">Caricamento...</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div id="modal-subaffitto" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Sub-affitto ombrellone</div>
+    <div class="modal-sub">Seleziona l'ombrellone libero che vuoi sub-affittare oggi</div>
+    <div id="subaffitto-alert"></div>
+    <div class="form-group"><label class="form-label">Ombrellone</label>
+      <select id="sa-ombrellone" class="form-select"></select>
+    </div>
+    <div class="form-group"><label class="form-label">Data</label>
+      <input type="date" id="sa-data" class="form-input">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-subaffitto')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmSubaffitto()">Conferma sub-affitto</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-add-omb" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Aggiungi ombrellone</div>
+    <div class="modal-sub">Inserisci i dati del nuovo ombrellone</div>
+    <div id="add-omb-alert"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Fila</label><input type="text" id="modal-omb-fila" class="form-input" placeholder="A" maxlength="3"></div>
+      <div class="form-group"><label class="form-label">Numero</label><input type="number" id="modal-omb-numero" class="form-input" placeholder="1" min="1"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Credito giornaliero (€)</label><input type="number" id="modal-omb-credito" class="form-input" placeholder="12.00" step="0.50" min="0"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-omb')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmAddOmb()">Aggiungi</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-add-cliente" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Aggiungi cliente stagionale</div>
+    <div class="modal-sub">Inserisci i dati del cliente e associa l'ombrellone</div>
+    <div id="add-cliente-alert"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nome</label><input type="text" id="cl-nome" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Cognome</label><input type="text" id="cl-cognome" class="form-input"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Email</label><input type="email" id="cl-email" class="form-input"></div>
+    <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="cl-telefono" class="form-input"></div>
+    <div class="form-group"><label class="form-label">Ombrellone</label>
+      <select id="cl-ombrellone" class="form-select"><option value="">– Seleziona –</option></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-cliente')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmAddCliente()">Aggiungi cliente</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ======================== SUPABASE ========================
+const SUPABASE_URL = 'https://btnyzzpibedkslhtiizu.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_7MGsfC7Pl9UAj76IphFMrw_Qk1II-DT';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ======================== STATE ========================
+let currentUser = null;
+let currentProfile = null;
+let currentStabilimento = null;
+let ombrelloniList = [];
+let clientiList = [];
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+let stagClienteId = null;
+let stagOmbrelloneId = null;
+let setupOmbrelloni = [];
+
+// ======================== INIT ========================
+window.addEventListener('DOMContentLoaded', async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await loadUserAndRoute();
+  }
+  hideLoading();
+});
+
+function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
+function showLoading() { document.getElementById('loading-overlay').style.display = 'flex'; }
+
+// ======================== ROUTING ========================
+function showView(viewId, sub) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + viewId).classList.add('active');
+  if (viewId === 'auth' && sub) {
+    if (sub === 'login') { document.getElementById('auth-login').classList.remove('hidden'); document.getElementById('auth-register').classList.add('hidden'); }
+    else { document.getElementById('auth-register').classList.remove('hidden'); document.getElementById('auth-login').classList.add('hidden'); }
+  }
+}
+
+function goHome() {
+  if (currentUser) {
+    if (currentProfile?.ruolo === 'proprietario') showView('manager');
+    else showView('stagionale');
+  } else showView('landing');
+}
+
+function toggleAuth(mode) {
+  if (mode === 'login') { document.getElementById('auth-login').classList.remove('hidden'); document.getElementById('auth-register').classList.add('hidden'); }
+  else { document.getElementById('auth-register').classList.remove('hidden'); document.getElementById('auth-login').classList.add('hidden'); }
+}
+
+async function loadUserAndRoute() {
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  currentProfile = profile;
+  updateNav();
+  if (!profile) { showView('auth', 'register'); return; }
+  if (profile.ruolo === 'proprietario') {
+    const { data: stab } = await sb.from('stabilimenti').select('*').eq('proprietario_id', currentUser.id).single();
+    if (!stab) { showView('setup'); return; }
+    currentStabilimento = stab;
+    await loadManagerData();
+    showView('manager');
+  } else {
+    await loadStagionaleData();
+    showView('stagionale');
+  }
+}
+
+function updateNav() {
+  const nr = document.getElementById('nav-right');
+  if (currentProfile) {
+    nr.innerHTML = `<span class="nav-user">👋 ${currentProfile.nome}</span><button class="btn-nav" onclick="doLogout()">Esci</button>`;
+  } else {
+    nr.innerHTML = `<button class="btn-nav" onclick="showView('auth','login')">Accedi</button><button class="btn-nav filled" onclick="showView('auth','register')">Registrati</button>`;
+  }
+}
+
+// ======================== AUTH ========================
+let selectedRole = 'proprietario';
+function selectRole(r) {
+  selectedRole = r;
+  document.getElementById('role-proprietario').classList.toggle('selected', r === 'proprietario');
+  document.getElementById('role-stagionale').classList.toggle('selected', r === 'stagionale');
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn = document.getElementById('btn-login');
+  if (!email || !password) { showAlert('login-alert', 'Compila tutti i campi', 'error'); return; }
+  btn.disabled = true; btn.textContent = 'Accesso in corso...';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) { showAlert('login-alert', 'Email o password errati', 'error'); btn.disabled = false; btn.textContent = 'Accedi'; return; }
+  currentUser = data.user;
+  await loadUserAndRoute();
+  btn.disabled = false; btn.textContent = 'Accedi';
+}
+
+async function doRegister() {
+  const nome = document.getElementById('reg-nome').value.trim();
+  const cognome = document.getElementById('reg-cognome').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const telefono = document.getElementById('reg-telefono').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const btn = document.getElementById('btn-register');
+  if (!nome || !cognome || !email || !password) { showAlert('register-alert', 'Compila tutti i campi obbligatori', 'error'); return; }
+  if (password.length < 6) { showAlert('register-alert', 'La password deve avere almeno 6 caratteri', 'error'); return; }
+  btn.disabled = true; btn.textContent = 'Registrazione...';
+  const { data, error } = await sb.auth.signUp({ email, password });
+  if (error) { showAlert('register-alert', error.message, 'error'); btn.disabled = false; btn.textContent = 'Crea account'; return; }
+  currentUser = data.user;
+  const { error: pe } = await sb.from('profiles').insert({ id: currentUser.id, nome, cognome, telefono, ruolo: selectedRole });
+  if (pe) { showAlert('register-alert', pe.message, 'error'); btn.disabled = false; btn.textContent = 'Crea account'; return; }
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  currentProfile = profile;
+  updateNav();
+  if (selectedRole === 'proprietario') showView('setup');
+  else { await loadStagionaleData(); showView('stagionale'); }
+  btn.disabled = false; btn.textContent = 'Crea account';
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  currentUser = null; currentProfile = null; currentStabilimento = null;
+  updateNav();
+  showView('landing');
+}
+
+// ======================== SETUP STABILIMENTO ========================
+function goSetupStep(step) {
+  document.querySelectorAll('.setup-step').forEach(s => s.classList.remove('active'));
+  document.getElementById('setup-' + step).classList.add('active');
+  for (let i = 1; i <= 2; i++) document.getElementById('sp' + i).classList.toggle('done', i <= step);
+}
+
+async function saveStabilimento() {
+  const nome = document.getElementById('stab-nome').value.trim();
+  const citta = document.getElementById('stab-citta').value.trim();
+  const indirizzo = document.getElementById('stab-indirizzo').value.trim();
+  const telefono = document.getElementById('stab-telefono').value.trim();
+  if (!nome || !citta) { showAlert('setup1-alert', 'Nome e città sono obbligatori', 'error'); return; }
+  const { data, error } = await sb.from('stabilimenti').insert({ proprietario_id: currentUser.id, nome, citta, indirizzo, telefono }).select().single();
+  if (error) { showAlert('setup1-alert', error.message, 'error'); return; }
+  currentStabilimento = data;
+  goSetupStep(2);
+}
+
+function addOmbrellone() {
+  const fila = document.getElementById('omb-fila').value.trim().toUpperCase();
+  const numero = parseInt(document.getElementById('omb-numero').value);
+  const credito = parseFloat(document.getElementById('omb-credito').value) || 10;
+  if (!fila || !numero) { showAlert('setup2-alert', 'Fila e numero sono obbligatori', 'error'); return; }
+  setupOmbrelloni.push({ fila, numero, credito_giornaliero: credito });
+  renderSetupOmbrelloni();
+  document.getElementById('omb-fila').value = '';
+  document.getElementById('omb-numero').value = '';
+  document.getElementById('omb-credito').value = '';
+}
+
+function renderSetupOmbrelloni() {
+  const el = document.getElementById('ombrelloni-list');
+  if (!setupOmbrelloni.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="card"><div class="card-body" style="padding:12px 16px">
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px">Ombrelloni da aggiungere (${setupOmbrelloni.length})</div>
+    ${setupOmbrelloni.map((o,i) => `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+      <span>☂️ Fila ${o.fila} — N° ${o.numero} — € ${o.credito_giornaliero.toFixed(2)}/giorno</span>
+      <button onclick="removeSetupOmb(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px">✕</button>
+    </div>`).join('')}
+  </div></div>`;
+}
+
+function removeSetupOmb(i) { setupOmbrelloni.splice(i, 1); renderSetupOmbrelloni(); }
+
+function loadCSV(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const lines = ev.target.result.split('\n').filter(l => l.trim());
+    lines.forEach(line => {
+      const parts = line.split(',');
+      if (parts.length >= 2) {
+        const fila = parts[0].trim().toUpperCase();
+        const numero = parseInt(parts[1].trim());
+        const credito = parseFloat(parts[2]?.trim()) || 10;
+        if (fila && numero) setupOmbrelloni.push({ fila, numero, credito_giornaliero: credito });
+      }
+    });
+    renderSetupOmbrelloni();
+    showAlert('setup2-alert', `${setupOmbrelloni.length} ombrelloni caricati dal CSV`, 'success');
+  };
+  reader.readAsText(file);
+}
+
+async function finishSetup() {
+  if (setupOmbrelloni.length === 0) { showAlert('setup2-alert', 'Aggiungi almeno un ombrellone per continuare', 'error'); return; }
+  showLoading();
+  const rows = setupOmbrelloni.map(o => ({ ...o, stabilimento_id: currentStabilimento.id }));
+  const { error } = await sb.from('ombrelloni').insert(rows);
+  hideLoading();
+  if (error) { showAlert('setup2-alert', error.message, 'error'); return; }
+  await loadManagerData();
+  showView('manager');
+}
+
+// ======================== MANAGER DATA ========================
+async function loadManagerData() {
+  const today = todayStr();
+  document.getElementById('manager-stab-nome').textContent = currentStabilimento.nome;
+  document.getElementById('manager-today-label').textContent = currentStabilimento.citta + ' — ' + formatDate(today);
+
+  const { data: ombs } = await sb.from('ombrelloni').select('*').eq('stabilimento_id', currentStabilimento.id).order('fila').order('numero');
+  ombrelloniList = ombs || [];
+
+  const { data: clienti } = await sb.from('clienti_stagionali').select('*').eq('stabilimento_id', currentStabilimento.id);
+  clientiList = clienti || [];
+
+  const { data: disp } = await sb.from('disponibilita').select('*').eq('data', today).in('ombrellone_id', ombrelloniList.map(o => o.id));
+  const dispMap = {};
+  (disp || []).forEach(d => { dispMap[d.ombrellone_id] = d.stato; });
+
+  // Stats
+  const free = ombrelloniList.filter(o => dispMap[o.id] === 'libero').length;
+  const subleased = ombrelloniList.filter(o => dispMap[o.id] === 'sub_affittato').length;
+  document.getElementById('stat-totali').textContent = ombrelloniList.length;
+  document.getElementById('stat-liberi').textContent = free;
+  document.getElementById('stat-subaffittati').textContent = subleased;
+
+  // Crediti settimana
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+  const { data: txWeek } = await sb.from('transazioni').select('importo').eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_ricevuto').gte('created_at', weekAgo.toISOString());
+  const totCrediti = (txWeek || []).reduce((s, t) => s + parseFloat(t.importo), 0);
+  const totIncassati = subleased * 0; // placeholder
+  document.getElementById('stat-crediti').textContent = '€ ' + totCrediti.toFixed(2);
+
+  renderManagerMap(ombrelloniList, dispMap);
+  renderOmbrelloniTable(ombrelloniList, dispMap, clientiList);
+  renderClientiTable(clientiList, ombrelloniList);
+  renderCreditiTable(clientiList, ombrelloniList);
+  await loadManagerTx();
+  await loadAllTx();
+  populateClienteSelect();
+}
+
+function renderManagerMap(ombs, dispMap) {
+  const el = document.getElementById('manager-map');
+  el.innerHTML = '';
+  const byRow = {};
+  ombs.forEach(o => { if (!byRow[o.fila]) byRow[o.fila] = []; byRow[o.fila].push(o); });
+  Object.keys(byRow).sort().forEach(fila => {
+    const row = document.createElement('div'); row.className = 'map-row';
+    const lbl = document.createElement('div'); lbl.className = 'row-label'; lbl.textContent = fila;
+    row.appendChild(lbl);
+    byRow[fila].sort((a,b) => a.numero - b.numero).forEach(o => {
+      const stato = dispMap[o.id] || 'occupied';
+      const el2 = document.createElement('div');
+      el2.className = 'ombrellone ' + (stato === 'libero' ? 'free' : stato === 'sub_affittato' ? 'subleased' : 'occupied');
+      el2.textContent = '☂️';
+      el2.title = `${fila}${o.numero} — €${o.credito_giornaliero}/gg`;
+      row.appendChild(el2);
+    });
+    el.appendChild(row);
+  });
+}
+
+function renderOmbrelloniTable(ombs, dispMap, clienti) {
+  const tb = document.getElementById('ombrelloni-table');
+  if (!ombs.length) { tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-light);padding:24px">Nessun ombrellone. Aggiungine uno!</td></tr>'; return; }
+  const clienteByOmb = {};
+  clienti.forEach(c => { if (c.ombrellone_id) clienteByOmb[c.ombrellone_id] = c; });
+  tb.innerHTML = ombs.map(o => {
+    const cl = clienteByOmb[o.id];
+    const stato = dispMap?.[o.id] || 'occupied';
+    const pillClass = stato === 'libero' ? 'pill-green' : stato === 'sub_affittato' ? 'pill-yellow' : 'pill-blue';
+    const pillText = stato === 'libero' ? 'Libero' : stato === 'sub_affittato' ? 'Sub-affittato' : 'Stagionale presente';
+    return `<tr>
+      <td><strong>${o.fila}</strong></td>
+      <td>${o.numero}</td>
+      <td>€ ${parseFloat(o.credito_giornaliero).toFixed(2)}</td>
+      <td>${cl ? cl.nome + ' ' + cl.cognome : '<span style="color:var(--text-light)">–</span>'}</td>
+      <td><span class="pill ${pillClass}">${pillText}</span></td>
+      <td><button class="btn btn-outline btn-sm" onclick="editOmbrellone('${o.id}')">Modifica</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderClientiTable(clienti, ombs) {
+  const tb = document.getElementById('clienti-table');
+  if (!clienti.length) { tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-light);padding:24px">Nessun cliente. Aggiungine uno!</td></tr>'; return; }
+  const ombById = {};
+  ombs.forEach(o => ombById[o.id] = o);
+  tb.innerHTML = clienti.map(c => {
+    const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
+    return `<tr>
+      <td><strong>${c.nome} ${c.cognome}</strong></td>
+      <td>${c.email}</td>
+      <td>${c.telefono || '–'}</td>
+      <td>${o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">–</span>'}</td>
+      <td>€ ${parseFloat(c.credito_saldo || 0).toFixed(2)}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteCliente('${c.id}')">Rimuovi</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderCreditiTable(clienti, ombs) {
+  const tb = document.getElementById('crediti-table');
+  const ombById = {};
+  ombs.forEach(o => ombById[o.id] = o);
+  tb.innerHTML = clienti.map(c => {
+    const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
+    return `<tr>
+      <td>${c.nome} ${c.cognome}</td>
+      <td>${o ? `${o.fila}${o.numero}` : '–'}</td>
+      <td><strong>€ ${parseFloat(c.credito_saldo || 0).toFixed(2)}</strong></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text-light);padding:24px">Nessun cliente</td></tr>';
+}
+
+function populateClienteSelect() {
+  const sel = document.getElementById('credito-cliente');
+  sel.innerHTML = clientiList.map(c => `<option value="${c.id}">${c.nome} ${c.cognome} (€${parseFloat(c.credito_saldo||0).toFixed(2)})</option>`).join('');
+}
+
+async function loadManagerTx() {
+  const { data } = await sb.from('transazioni').select('*').eq('stabilimento_id', currentStabilimento.id).order('created_at', { ascending: false }).limit(8);
+  document.getElementById('manager-tx-list').innerHTML = renderTxList(data || []);
+}
+
+async function loadAllTx() {
+  const { data } = await sb.from('transazioni').select('*').eq('stabilimento_id', currentStabilimento.id).order('created_at', { ascending: false }).limit(50);
+  document.getElementById('all-tx-list').innerHTML = renderTxList(data || []);
+}
+
+function renderTxList(txs) {
+  if (!txs.length) return '<div class="tx-empty">Nessuna transazione ancora</div>';
+  const icons = { disponibilita_aggiunta: {e:'📅',c:'green'}, disponibilita_rimossa: {e:'🗑️',c:'red'}, sub_affitto: {e:'💰',c:'yellow'}, credito_ricevuto: {e:'⭐',c:'yellow'}, credito_usato: {e:'🎉',c:'coral'} };
+  const labels = { disponibilita_aggiunta: 'Disponibilità dichiarata', disponibilita_rimossa: 'Disponibilità rimossa', sub_affitto: 'Sub-affitto confermato', credito_ricevuto: 'Credito ricevuto', credito_usato: 'Credito utilizzato' };
+  return txs.map(t => {
+    const ic = icons[t.tipo] || {e:'📌',c:'blue'};
+    return `<div class="tx-item">
+      <div class="tx-dot ${ic.c}">${ic.e}</div>
+      <div class="tx-info">
+        <div class="tx-title">${labels[t.tipo] || t.tipo}${t.importo ? ` — € ${parseFloat(t.importo).toFixed(2)}` : ''}</div>
+        <div class="tx-sub">${t.nota || ''}</div>
+      </div>
+      <div class="tx-time">${formatDateShort(t.created_at)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ======================== MANAGER ACTIONS ========================
+function managerTab(tab, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('mtab-' + tab).classList.add('active');
+  document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+function openSubaffittoModal() {
+  const today = todayStr();
+  document.getElementById('sa-data').value = today;
+  const freeOmbs = ombrelloniList.filter(o => {
+    const disp = document.getElementById('manager-map').querySelectorAll('.ombrellone.free');
+    return true; // will populate all
+  });
+  document.getElementById('sa-ombrellone').innerHTML = ombrelloniList.map(o =>
+    `<option value="${o.id}">Fila ${o.fila} N°${o.numero} — €${o.credito_giornaliero}/gg</option>`
+  ).join('');
+  document.getElementById('modal-subaffitto').classList.remove('hidden');
+}
+
+async function confirmSubaffitto() {
+  const ombId = document.getElementById('sa-ombrellone').value;
+  const data = document.getElementById('sa-data').value;
+  if (!ombId || !data) { showAlert('subaffitto-alert', 'Compila tutti i campi', 'error'); return; }
+  const omb = ombrelloniList.find(o => o.id === ombId);
+  const cliente = clientiList.find(c => c.ombrellone_id === ombId);
+
+  // Upsert disponibilità come sub_affittato
+  const { error } = await sb.from('disponibilita').upsert({ ombrellone_id: ombId, cliente_id: cliente?.id || null, data, stato: 'sub_affittato' }, { onConflict: 'ombrellone_id,data' });
+  if (error) { showAlert('subaffitto-alert', error.message, 'error'); return; }
+
+  // Log transazione sub_affitto
+  await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, ombrellone_id: ombId, cliente_id: cliente?.id || null, tipo: 'sub_affitto', importo: omb.credito_giornaliero, nota: `Ombrellone ${omb.fila}${omb.numero} sub-affittato il ${formatDate(data)}` });
+
+  // Credito al cliente
+  if (cliente) {
+    await sb.from('clienti_stagionali').update({ credito_saldo: (parseFloat(cliente.credito_saldo) + parseFloat(omb.credito_giornaliero)).toFixed(2) }).eq('id', cliente.id);
+    await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, ombrellone_id: ombId, cliente_id: cliente.id, tipo: 'credito_ricevuto', importo: omb.credito_giornaliero, nota: `Credito per sub-affitto ${omb.fila}${omb.numero}` });
+  }
+
+  closeModal('modal-subaffitto');
+  await loadManagerData();
+  showAlert('', '', '');
+}
+
+async function usaCredito() {
+  const clienteId = document.getElementById('credito-cliente').value;
+  const importo = parseFloat(document.getElementById('credito-importo').value);
+  const nota = document.getElementById('credito-nota').value.trim();
+  if (!clienteId || !importo || importo <= 0) { showAlert('crediti-alert', 'Seleziona cliente e inserisci un importo valido', 'error'); return; }
+  const cliente = clientiList.find(c => c.id === clienteId);
+  if (parseFloat(cliente.credito_saldo) < importo) { showAlert('crediti-alert', 'Credito insufficiente', 'error'); return; }
+  await sb.from('clienti_stagionali').update({ credito_saldo: (parseFloat(cliente.credito_saldo) - importo).toFixed(2) }).eq('id', clienteId);
+  await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, cliente_id: clienteId, tipo: 'credito_usato', importo, nota: nota || 'Utilizzo credito' });
+  showAlert('crediti-alert', `Credito di €${importo.toFixed(2)} registrato per ${cliente.nome}`, 'success');
+  document.getElementById('credito-importo').value = '';
+  document.getElementById('credito-nota').value = '';
+  await loadManagerData();
+}
+
+function openAddOmbModal() {
+  document.getElementById('modal-omb-fila').value = '';
+  document.getElementById('modal-omb-numero').value = '';
+  document.getElementById('modal-omb-credito').value = '';
+  document.getElementById('modal-add-omb').classList.remove('hidden');
+}
+
+async function confirmAddOmb() {
+  const fila = document.getElementById('modal-omb-fila').value.trim().toUpperCase();
+  const numero = parseInt(document.getElementById('modal-omb-numero').value);
+  const credito = parseFloat(document.getElementById('modal-omb-credito').value) || 10;
+  if (!fila || !numero) { showAlert('add-omb-alert', 'Fila e numero sono obbligatori', 'error'); return; }
+  const { error } = await sb.from('ombrelloni').insert({ stabilimento_id: currentStabilimento.id, fila, numero, credito_giornaliero: credito });
+  if (error) { showAlert('add-omb-alert', error.message, 'error'); return; }
+  closeModal('modal-add-omb');
+  await loadManagerData();
+}
+
+function openAddClienteModal() {
+  ['cl-nome','cl-cognome','cl-email','cl-telefono'].forEach(id => document.getElementById(id).value = '');
+  const sel = document.getElementById('cl-ombrellone');
+  sel.innerHTML = '<option value="">– Nessuno –</option>' + ombrelloniList.map(o => `<option value="${o.id}">Fila ${o.fila} N°${o.numero}</option>`).join('');
+  document.getElementById('modal-add-cliente').classList.remove('hidden');
+}
+
+async function confirmAddCliente() {
+  const nome = document.getElementById('cl-nome').value.trim();
+  const cognome = document.getElementById('cl-cognome').value.trim();
+  const email = document.getElementById('cl-email').value.trim();
+  const telefono = document.getElementById('cl-telefono').value.trim();
+  const ombId = document.getElementById('cl-ombrellone').value || null;
+  if (!nome || !cognome || !email) { showAlert('add-cliente-alert', 'Nome, cognome ed email sono obbligatori', 'error'); return; }
+  const { error } = await sb.from('clienti_stagionali').insert({ stabilimento_id: currentStabilimento.id, ombrellone_id: ombId, nome, cognome, email, telefono });
+  if (error) { showAlert('add-cliente-alert', error.message, 'error'); return; }
+  closeModal('modal-add-cliente');
+  await loadManagerData();
+}
+
+async function deleteCliente(id) {
+  if (!confirm('Rimuovere questo cliente?')) return;
+  await sb.from('clienti_stagionali').delete().eq('id', id);
+  await loadManagerData();
+}
+
+async function editOmbrellone(id) {
+  const o = ombrelloniList.find(x => x.id === id);
+  const newCredito = prompt(`Credito giornaliero per Fila ${o.fila} N°${o.numero} (attuale: €${o.credito_giornaliero}):`, o.credito_giornaliero);
+  if (newCredito === null) return;
+  const val = parseFloat(newCredito);
+  if (isNaN(val) || val < 0) { alert('Valore non valido'); return; }
+  await sb.from('ombrelloni').update({ credito_giornaliero: val }).eq('id', id);
+  await loadManagerData();
+}
+
+// ======================== STAGIONALE DATA ========================
+async function loadStagionaleData() {
+  const { data: cliente } = await sb.from('clienti_stagionali').select('*, ombrelloni(*, stabilimenti(*))').eq('email', currentUser.email).single();
+  if (!cliente) {
+    document.getElementById('stag-nome').textContent = currentProfile?.nome || '';
+    document.getElementById('stag-ombrellone').textContent = 'Nessun ombrellone associato. Contatta il tuo stabilimento.';
+    document.getElementById('stag-credito').textContent = '€ 0.00';
+    document.getElementById('stag-tx-list').innerHTML = '<div class="tx-empty">Nessuna transazione</div>';
+    buildCalendar([],[]);
+    return;
+  }
+  stagClienteId = cliente.id;
+  stagOmbrelloneId = cliente.ombrellone_id;
+  const omb = cliente.ombrelloni;
+  const stab = omb?.stabilimenti;
+  document.getElementById('stag-nome').textContent = `${currentProfile?.nome || cliente.nome} ${currentProfile?.cognome || cliente.cognome}`;
+  document.getElementById('stag-ombrellone').textContent = omb ? `☂️ Ombrellone ${omb.fila}${omb.numero} · ${stab?.nome || ''} · ${stab?.citta || ''}` : 'Nessun ombrellone';
+  document.getElementById('stag-credito').textContent = `€ ${parseFloat(cliente.credito_saldo || 0).toFixed(2)}`;
+
+  // Disponibilità
+  const { data: disp } = await sb.from('disponibilita').select('*').eq('ombrellone_id', stagOmbrelloneId);
+  const dispMap = {};
+  (disp || []).forEach(d => { dispMap[d.data] = d.stato; });
+  buildCalendar(dispMap, disp || []);
+
+  // Transazioni
+  const { data: txs } = await sb.from('transazioni').select('*').eq('cliente_id', stagClienteId).order('created_at', { ascending: false }).limit(20);
+  document.getElementById('stag-tx-list').innerHTML = renderTxList(txs || []);
+}
+
+let currentDispMap = {};
+function buildCalendar(dispMap, dispList) {
+  currentDispMap = dispMap;
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const el = document.getElementById('stag-calendar');
+  const label = document.getElementById('cal-label');
+  const months = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  label.textContent = months[calMonth] + ' ' + calYear;
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const offset = (firstDay + 6) % 7; // Monday first
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const today = new Date();
+  el.innerHTML = '';
+  for (let i = 0; i < offset; i++) {
+    const d = document.createElement('div'); d.className = 'cal-day empty'; el.appendChild(d);
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const cellDate = new Date(calYear, calMonth, d);
+    const isToday = cellDate.toDateString() === today.toDateString();
+    const isPast = cellDate < today && !isToday;
+    const stato = currentDispMap[dateStr];
+    let cls = 'cal-day';
+    if (isPast) cls += ' past';
+    else if (isToday) cls += ' today';
+    if (stato === 'libero') cls += ' free';
+    if (stato === 'sub_affittato') cls += ' subleased';
+    const div = document.createElement('div');
+    div.className = cls;
+    div.textContent = d;
+    if (!isPast && stagOmbrelloneId) {
+      div.onclick = () => toggleDay(dateStr, stato);
+    }
+    el.appendChild(div);
+  }
+}
+
+function calNav(dir) {
+  calMonth += dir;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+}
+
+async function toggleDay(dateStr, currentStato) {
+  if (!stagOmbrelloneId) return;
+  if (currentStato === 'sub_affittato') { showAlert('stag-alert', 'Questo giorno è già sub-affittato, non puoi modificarlo', 'error'); return; }
+  showLoading();
+  if (currentStato === 'libero') {
+    // Rimuovi disponibilità
+    await sb.from('disponibilita').delete().eq('ombrellone_id', stagOmbrelloneId).eq('data', dateStr);
+    const { data: cliente } = await sb.from('clienti_stagionali').select('stabilimento_id').eq('id', stagClienteId).single();
+    await sb.from('transazioni').insert({ stabilimento_id: cliente.stabilimento_id, ombrellone_id: stagOmbrelloneId, cliente_id: stagClienteId, tipo: 'disponibilita_rimossa', nota: `Disponibilità rimossa per ${formatDate(dateStr)}` });
+    delete currentDispMap[dateStr];
+  } else {
+    // Aggiungi disponibilità
+    await sb.from('disponibilita').upsert({ ombrellone_id: stagOmbrelloneId, cliente_id: stagClienteId, data: dateStr, stato: 'libero' }, { onConflict: 'ombrellone_id,data' });
+    const { data: cliente } = await sb.from('clienti_stagionali').select('stabilimento_id').eq('id', stagClienteId).single();
+    await sb.from('transazioni').insert({ stabilimento_id: cliente.stabilimento_id, ombrellone_id: stagOmbrelloneId, cliente_id: stagClienteId, tipo: 'disponibilita_aggiunta', nota: `Disponibilità dichiarata per ${formatDate(dateStr)}` });
+    currentDispMap[dateStr] = 'libero';
+  }
+  hideLoading();
+  renderCalendar();
+  await loadStagionaleData();
+}
+
+async function toggleTodayFree() {
+  const today = todayStr();
+  await toggleDay(today, currentDispMap[today]);
+}
+
+// ======================== UTILS ========================
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+function showAlert(containerId, msg, type) {
+  if (!containerId) return;
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!msg) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+  if (type === 'success') setTimeout(() => { el.innerHTML = ''; }, 3000);
+}
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function formatDate(str) {
+  if (!str) return '';
+  const d = new Date(str + 'T00:00:00');
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function formatDateShort(str) {
+  if (!str) return '';
+  const d = new Date(str);
+  const today = new Date();
+  const diff = Math.floor((today - d) / 86400000);
+  if (diff === 0) return 'Oggi ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  if (diff === 1) return 'Ieri';
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+}
+</script>
+</body>
+</html>
