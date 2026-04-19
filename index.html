@@ -468,13 +468,27 @@
         </div>
         <div class="two-col">
           <div class="card">
-            <div class="card-header"><div class="card-title">🗺️ Mappa ombrelloni — oggi</div><button class="btn btn-outline btn-sm" onclick="managerTab('ombrelloni',null)">Gestisci</button></div>
+            <div class="card-header">
+              <div class="card-title">🗺️ Mappa ombrelloni</div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
+                  <span>Dal</span>
+                  <input type="date" id="map-date-from" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="refreshMap()">
+                  <span>al</span>
+                  <input type="date" id="map-date-to" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="refreshMap()">
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="managerTab('ombrelloni',null)">Gestisci</button>
+              </div>
+            </div>
             <div class="beach-map-wrap">
-              <div class="map-legend">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+                <div class="map-legend">
                 <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Stagionale presente</div>
                 <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Libero</div>
                 <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
               </div>
+              <div id="map-free-count" style="margin-bottom:10px"></div>
+              <div style="font-size:12px;color:var(--text-light);margin-bottom:10px">Periodo: <strong id="map-range-label">oggi</strong></div>
               <div class="map-rows" id="manager-map"></div>
               <div class="sea-label">~ ~ ~ MARE ~ ~ ~</div>
             </div>
@@ -866,8 +880,90 @@ async function finishSetup() {
 }
 
 // ======================== MANAGER DATA ========================
+let currentMapDate = todayStr();
+
+function getDatesInRange(from, to) {
+  const dates = [];
+  const d = new Date(from + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  while (d <= end) {
+    dates.push(d.toISOString().split('T')[0]);
+    d.setDate(d.getDate() + 1);
+  }
+  return dates;
+}
+
+function changeMapDate(dir) {
+  const d = new Date(currentMapDate + 'T00:00:00');
+  d.setDate(d.getDate() + dir);
+  currentMapDate = d.toISOString().split('T')[0];
+  document.getElementById('map-date').value = currentMapDate;
+  refreshMap();
+}
+
+async function refreshMap() {
+  const from = document.getElementById('map-date-from').value;
+  const to = document.getElementById('map-date-to').value || from;
+  if (!from) return;
+  const dates = getDatesInRange(from, to);
+  if (dates.length === 0) return;
+
+  // Fetch disponibilità per tutto il range
+  const { data: disp } = await sb.from('disponibilita')
+    .select('*')
+    .gte('data', from)
+    .lte('data', to)
+    .in('ombrellone_id', ombrelloniList.map(o => o.id));
+
+  // Per ogni ombrellone, controlla se è libero in TUTTI i giorni del range
+  const dispByOmbDate = {};
+  (disp || []).forEach(d => {
+    if (!dispByOmbDate[d.ombrellone_id]) dispByOmbDate[d.ombrellone_id] = {};
+    dispByOmbDate[d.ombrellone_id][d.data] = d.stato;
+  });
+
+  const rangeDispMap = {};
+  ombrelloniList.forEach(o => {
+    const ombDisp = dispByOmbDate[o.id] || {};
+    const allFree = dates.every(d => ombDisp[d] === 'libero');
+    const anySub = dates.some(d => ombDisp[d] === 'sub_affittato');
+    if (anySub) rangeDispMap[o.id] = 'sub_affittato';
+    else if (allFree) rangeDispMap[o.id] = 'libero';
+    else rangeDispMap[o.id] = 'occupied';
+  });
+
+  const isSingleDay = from === to;
+  const isToday = isSingleDay && from === todayStr();
+  const label = isSingleDay
+    ? (isToday ? 'oggi' : formatDate(from))
+    : `${formatDate(from)} → ${formatDate(to)}`;
+
+  document.getElementById('map-range-label').textContent = label;
+
+  const free = ombrelloniList.filter(o => rangeDispMap[o.id] === 'libero').length;
+  const subleased = ombrelloniList.filter(o => rangeDispMap[o.id] === 'sub_affittato').length;
+
+  if (isToday) {
+    document.getElementById('stat-liberi').textContent = free;
+    document.getElementById('stat-subaffittati').textContent = subleased;
+  }
+
+  renderManagerMap(ombrelloniList, rangeDispMap);
+
+  // Mostra counter ombrelloni liberi nel range
+  const freeEl = document.getElementById('map-free-count');
+  if (free > 0) {
+    freeEl.innerHTML = `<span style="background:var(--green-light);color:var(--green);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600">✓ ${free} ombrellone${free > 1 ? 'i' : ''} liber${free > 1 ? 'i' : 'o'} per tutto il periodo</span>`;
+  } else {
+    freeEl.innerHTML = `<span style="background:var(--red-light);color:var(--red);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600">Nessun ombrellone libero per tutto il periodo</span>`;
+  }
+}
+
 async function loadManagerData() {
   const today = todayStr();
+  currentMapDate = today;
+  document.getElementById('map-date-from').value = today;
+  document.getElementById('map-date-to').value = today;
   document.getElementById('manager-stab-nome').textContent = currentStabilimento.nome;
   document.getElementById('manager-today-label').textContent = currentStabilimento.citta + ' — ' + formatDate(today);
 
