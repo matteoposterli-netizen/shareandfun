@@ -263,6 +263,50 @@
   .setup-title { font-family: 'DM Serif Display', serif; font-size: 22px; margin-bottom: 8px; }
   .setup-sub { font-size: 14px; color: var(--text-mid); margin-bottom: 24px; line-height: 1.6; }
 
+  /* MATCH ANALYSIS */
+  .match-card { background: var(--white); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; }
+  .match-card-header { padding: 14px 18px; display: flex; align-items: center; gap: 10px; justify-content: space-between; border-bottom: 1px solid var(--border); }
+  .match-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .match-100 { background: var(--green-light); color: var(--green); }
+  .match-parziale { background: var(--yellow-light); color: #B07000; }
+  .match-nessuno { background: var(--red-light); color: var(--red); }
+  .match-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .match-field { padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .match-field:nth-child(odd) { border-right: 1px solid var(--border); }
+  .match-field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-light); margin-bottom: 3px; }
+  .match-field-val { font-size: 13px; color: var(--text); }
+  .match-field.ok .match-field-val { color: var(--green); font-weight: 600; }
+  .match-field.diff .match-field-val { color: var(--coral); }
+  .match-actions { padding: 14px 18px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  /* CSV CLIENTI PREVIEW */
+  .csv-preview-wrap { max-height: 280px; overflow-y: auto; }
+  .csv-check-all { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  .csv-row { display: grid; grid-template-columns: 32px 1fr 1fr 1fr 1fr; align-items: center; gap: 8px; padding: 9px 16px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .csv-row:hover { background: var(--sand); }
+  .csv-row.header { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-light); letter-spacing: 0.5px; background: var(--sand); }
+  .csv-row input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--ocean); }
+
+  /* EMAIL TEMPLATE EDITOR */
+  .email-section { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; overflow: hidden; }
+  .email-section-header { padding: 14px 18px; background: var(--sand); display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+  .email-section-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .email-section-body { padding: 20px; display: none; }
+  .email-section-body.open { display: block; }
+  .char-counter { font-size: 11px; color: var(--text-light); text-align: right; margin-top: 4px; }
+  .char-counter.warn { color: var(--coral); }
+  .email-preview-box { background: var(--ocean-light); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; font-size: 13px; color: var(--text-mid); line-height: 1.6; margin-top: 12px; }
+  .email-preview-fixed { color: var(--text-light); font-style: italic; font-size: 12px; margin-top: 8px; }
+
+  /* INVITO VIEW */
+  .invito-container { max-width: 480px; margin: 60px auto; padding: 0 20px; }
+  .invito-card { background: var(--white); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow-md); padding: 40px; }
+  .invito-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--green-light); color: var(--green); padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 16px; }
+
+  /* PENDING SECTION */
+  .pending-empty { padding: 32px; text-align: center; color: var(--text-light); font-size: 13px; }
+  .section-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-light); padding: 12px 0 8px; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
+
   /* RESPONSIVE */
   @media (max-width: 768px) {
     .how-steps, .roles-grid { grid-template-columns: 1fr; }
@@ -343,6 +387,29 @@
   </div>
 </div>
 
+<!-- INVITO (completamento registrazione via link) -->
+<div id="view-invito" class="view">
+  <div class="invito-container">
+    <div class="invito-card">
+      <div class="auth-logo"><div class="logo-text">🌊 ShareAndFun</div></div>
+      <div class="invito-badge">✉️ Invito personale</div>
+      <div class="auth-title" id="invito-title">Completa la registrazione</div>
+      <div class="auth-sub" id="invito-sub">Sei stato invitato. Imposta la tua password per accedere.</div>
+      <div id="invito-alert"></div>
+      <div id="invito-info" style="background:var(--sand);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:20px;font-size:13px;color:var(--text-mid)"></div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="invito-password" class="form-input" placeholder="Minimo 6 caratteri">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Conferma password</label>
+        <input type="password" id="invito-password2" class="form-input" placeholder="Ripeti la password">
+      </div>
+      <button class="btn btn-primary btn-full" onclick="completeInviteRegistration()" id="btn-invito">Accedi a ShareAndFun →</button>
+    </div>
+  </div>
+</div>
+
 <!-- AUTH -->
 <div id="view-auth" class="view">
   <div class="auth-container">
@@ -387,6 +454,20 @@
         </div>
         <div class="form-group"><label class="form-label">Email</label><input type="email" id="reg-email" class="form-input" placeholder="mario@example.com"></div>
         <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="reg-telefono" class="form-input" placeholder="+39 333 1234567"></div>
+        <div id="reg-stagionale-fields" class="hidden">
+          <div class="form-group">
+            <label class="form-label">Stabilimento balneare <span style="color:var(--red)">*</span></label>
+            <select id="reg-stabilimento" class="form-select" onchange="onRegStabilimentoChange()">
+              <option value="">— Seleziona stabilimento —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Il tuo ombrellone <span style="color:var(--red)">*</span></label>
+            <select id="reg-ombrellone" class="form-select">
+              <option value="">— Prima seleziona lo stabilimento —</option>
+            </select>
+          </div>
+        </div>
         <div class="form-group"><label class="form-label">Password</label><input type="password" id="reg-password" class="form-input" placeholder="Minimo 6 caratteri"></div>
         <button class="btn btn-primary btn-full" onclick="doRegister()" id="btn-register">Crea account</button>
         <div class="auth-switch">Hai già un account? <a onclick="toggleAuth('login')">Accedi</a></div>
@@ -411,7 +492,10 @@
         <div class="form-group"><label class="form-label">Nome stabilimento</label><input type="text" id="stab-nome" class="form-input" placeholder="es. Bagno Azzurro"></div>
         <div class="form-group"><label class="form-label">Città</label><input type="text" id="stab-citta" class="form-input" placeholder="es. Rimini"></div>
         <div class="form-group"><label class="form-label">Indirizzo</label><input type="text" id="stab-indirizzo" class="form-input" placeholder="es. Via del Mare 12"></div>
-        <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="stab-telefono" class="form-input" placeholder="+39 0541 000000"></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="stab-telefono" class="form-input" placeholder="+39 0541 000000"></div>
+          <div class="form-group"><label class="form-label">Email stabilimento</label><input type="email" id="stab-email" class="form-input" placeholder="info@bagnoblu.it"></div>
+        </div>
         <button class="btn btn-primary btn-full" onclick="saveStabilimento()">Continua →</button>
       </div></div>
     </div>
@@ -449,9 +533,10 @@
       <div class="sidebar-title">Principale</div>
       <button class="sidebar-item active" onclick="managerTab('panoramica',this)"><span class="icon">📊</span> Panoramica</button>
       <button class="sidebar-item" onclick="managerTab('ombrelloni',this)"><span class="icon">🗺️</span> Ombrelloni</button>
-      <button class="sidebar-item" onclick="managerTab('clienti',this)"><span class="icon">👥</span> Clienti Stagionali</button>
+      <button class="sidebar-item" id="sidebar-clienti" onclick="managerTab('clienti',this)"><span class="icon">👥</span> Clienti Stagionali <span class="badge hidden" id="badge-pending">0</span></button>
       <button class="sidebar-item" onclick="managerTab('transazioni',this)"><span class="icon">📋</span> Transazioni</button>
       <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Crediti</button>
+      <button class="sidebar-item" onclick="managerTab('email',this)"><span class="icon">✉️</span> Email</button>
     </div>
     <div class="main-content">
       <!-- PANORAMICA -->
@@ -517,14 +602,128 @@
       <!-- CLIENTI TAB -->
       <div id="mtab-clienti" class="tab-content">
         <div class="page-header">
-          <div><div class="page-title">Clienti Stagionali</div><div class="page-subtitle">Gestisci i tuoi clienti e i loro ombrelloni</div></div>
+          <div><div class="page-title">Clienti Stagionali</div><div class="page-subtitle">Gestisci clienti, inviti e richieste di approvazione</div></div>
           <button class="btn btn-primary btn-sm" onclick="openAddClienteModal()">+ Aggiungi cliente</button>
         </div>
+
+        <!-- Richieste in attesa -->
+        <div id="pending-section" style="margin-bottom:24px">
+          <div class="section-divider">⏳ Richieste in attesa di approvazione</div>
+          <div id="pending-container"><div class="pending-empty">Nessuna richiesta in attesa</div></div>
+        </div>
+
+        <!-- CSV upload inviti -->
+        <div class="section-divider">📂 Invita clienti via CSV</div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--text-mid);margin-bottom:12px">
+              Carica un CSV con i tuoi clienti stagionali. Colonne richieste (in ordine):
+              <code>numero_ombrellone, nome, cognome, telefono, email</code>. Massimo 1000 righe.
+            </p>
+            <div id="csv-clienti-alert"></div>
+            <input type="file" id="csv-clienti-file" accept=".csv" onchange="loadCSVClienti(event)" class="form-input" style="margin-bottom:12px">
+            <div id="csv-clienti-preview"></div>
+            <div id="csv-invito-actions" class="hidden" style="margin-top:12px;display:flex;gap:10px;align-items:center">
+              <button class="btn btn-primary btn-sm" onclick="inviaInvitiSelezionati()">✉️ Invia invito ai selezionati</button>
+              <span id="csv-invito-count" style="font-size:13px;color:var(--text-mid)"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista clienti approvati -->
+        <div class="section-divider">✅ Clienti attivi</div>
         <div class="card">
           <div class="table-wrap"><table class="data-table">
-            <thead><tr><th>Nome</th><th>Email</th><th>Telefono</th><th>Ombrellone</th><th>Credito</th><th>Azioni</th></tr></thead>
+            <thead><tr><th>Nome</th><th>Email</th><th>Telefono</th><th>Ombrellone</th><th>Credito</th><th>Fonte</th><th>Azioni</th></tr></thead>
             <tbody id="clienti-table"></tbody>
           </table></div>
+        </div>
+      </div>
+
+      <!-- EMAIL TAB -->
+      <div id="mtab-email" class="tab-content">
+        <div class="page-header">
+          <div><div class="page-title">Gestione Email</div><div class="page-subtitle">Personalizza i testi delle email ai tuoi clienti</div></div>
+          <button class="btn btn-primary btn-sm" onclick="saveEmailTemplates()">Salva tutto</button>
+        </div>
+        <div id="email-save-alert" style="margin-bottom:16px"></div>
+        <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
+          Le email includeranno sempre in automatico il nome, telefono ed email del tuo stabilimento. Il tono è caldo e accogliente.
+        </div>
+
+        <!-- Benvenuto -->
+        <div class="email-section">
+          <div class="email-section-header" onclick="toggleEmailSection('benvenuto')">
+            <div class="email-section-title">☀️ Email di benvenuto <span style="font-size:12px;color:var(--text-light);font-weight:400">(dopo registrazione via invito)</span></div>
+            <span>▾</span>
+          </div>
+          <div class="email-section-body" id="email-body-benvenuto">
+            <div class="form-group">
+              <label class="form-label">Oggetto email</label>
+              <input type="text" id="email-benvenuto-oggetto" class="form-input" maxlength="80" oninput="updateCounter('benvenuto-oggetto',80)" placeholder="es. Benvenuto su ShareAndFun!">
+              <div class="char-counter" id="counter-benvenuto-oggetto">0/80</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Messaggio personalizzato</label>
+              <textarea id="email-benvenuto-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('benvenuto-testo',500)" placeholder="es. Siamo felicissimi di averti con noi!..." style="resize:vertical"></textarea>
+              <div class="char-counter" id="counter-benvenuto-testo">0/500</div>
+            </div>
+            <div class="email-preview-box">
+              <strong>Anteprima:</strong> <span id="preview-benvenuto-oggetto" style="color:var(--ocean)"></span><br>
+              <span id="preview-benvenuto-testo"></span>
+              <div class="email-preview-fixed">+ nome stabilimento · telefono · email stabilimento (automatici)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attesa approvazione -->
+        <div class="email-section">
+          <div class="email-section-header" onclick="toggleEmailSection('attesa')">
+            <div class="email-section-title">⏳ Email di attesa approvazione <span style="font-size:12px;color:var(--text-light);font-weight:400">(dopo registrazione diretta)</span></div>
+            <span>▾</span>
+          </div>
+          <div class="email-section-body" id="email-body-attesa">
+            <div class="form-group">
+              <label class="form-label">Oggetto email</label>
+              <input type="text" id="email-attesa-oggetto" class="form-input" maxlength="80" oninput="updateCounter('attesa-oggetto',80)" placeholder="es. Richiesta ricevuta">
+              <div class="char-counter" id="counter-attesa-oggetto">0/80</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Messaggio personalizzato</label>
+              <textarea id="email-attesa-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('attesa-testo',500)" placeholder="es. La tua richiesta è stata ricevuta..." style="resize:vertical"></textarea>
+              <div class="char-counter" id="counter-attesa-testo">0/500</div>
+            </div>
+            <div class="email-preview-box">
+              <strong>Anteprima:</strong> <span id="preview-attesa-oggetto" style="color:var(--ocean)"></span><br>
+              <span id="preview-attesa-testo"></span>
+              <div class="email-preview-fixed">+ nome stabilimento · telefono · email stabilimento (automatici)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Approvazione -->
+        <div class="email-section">
+          <div class="email-section-header" onclick="toggleEmailSection('approvazione')">
+            <div class="email-section-title">✅ Email di approvazione <span style="font-size:12px;color:var(--text-light);font-weight:400">(dopo approvazione manuale)</span></div>
+            <span>▾</span>
+          </div>
+          <div class="email-section-body" id="email-body-approvazione">
+            <div class="form-group">
+              <label class="form-label">Oggetto email</label>
+              <input type="text" id="email-approvazione-oggetto" class="form-input" maxlength="80" oninput="updateCounter('approvazione-oggetto',80)" placeholder="es. Iscrizione approvata!">
+              <div class="char-counter" id="counter-approvazione-oggetto">0/80</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Messaggio personalizzato</label>
+              <textarea id="email-approvazione-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('approvazione-testo',500)" placeholder="es. Ottima notizia! La tua iscrizione è stata approvata..." style="resize:vertical"></textarea>
+              <div class="char-counter" id="counter-approvazione-testo">0/500</div>
+            </div>
+            <div class="email-preview-box">
+              <strong>Anteprima:</strong> <span id="preview-approvazione-oggetto" style="color:var(--ocean)"></span><br>
+              <span id="preview-approvazione-testo"></span>
+              <div class="email-preview-fixed">+ nome stabilimento · telefono · email stabilimento (automatici)</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -691,7 +890,17 @@ let stagOmbrelloneId = null;
 let setupOmbrelloni = [];
 
 // ======================== INIT ========================
+let currentInviteToken = null;
+
 window.addEventListener('DOMContentLoaded', async () => {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('invito');
+  if (token) {
+    currentInviteToken = token;
+    await showInvitoView(token);
+    hideLoading();
+    return;
+  }
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     currentUser = session.user;
@@ -753,10 +962,31 @@ function updateNav() {
 
 // ======================== AUTH ========================
 let selectedRole = 'proprietario';
-function selectRole(r) {
+async function selectRole(r) {
   selectedRole = r;
   document.getElementById('role-proprietario').classList.toggle('selected', r === 'proprietario');
   document.getElementById('role-stagionale').classList.toggle('selected', r === 'stagionale');
+  const fields = document.getElementById('reg-stagionale-fields');
+  if (r === 'stagionale') {
+    fields.classList.remove('hidden');
+    const sel = document.getElementById('reg-stabilimento');
+    sel.innerHTML = '<option value="">Caricamento...</option>';
+    const { data: stabs } = await sb.from('stabilimenti').select('id, nome, citta').order('nome');
+    sel.innerHTML = '<option value="">— Seleziona stabilimento —</option>' +
+      (stabs || []).map(s => `<option value="${s.id}">${s.nome}${s.citta ? ' — ' + s.citta : ''}</option>`).join('');
+  } else {
+    fields.classList.add('hidden');
+  }
+}
+
+async function onRegStabilimentoChange() {
+  const stabId = document.getElementById('reg-stabilimento').value;
+  const sel = document.getElementById('reg-ombrellone');
+  if (!stabId) { sel.innerHTML = '<option value="">— Prima seleziona lo stabilimento —</option>'; return; }
+  sel.innerHTML = '<option value="">Caricamento...</option>';
+  const { data: ombs } = await sb.from('ombrelloni').select('id, fila, numero').eq('stabilimento_id', stabId).order('fila').order('numero');
+  sel.innerHTML = '<option value="">— Seleziona ombrellone —</option>' +
+    (ombs || []).map(o => `<option value="${o.id}">Fila ${o.fila} N°${o.numero}</option>`).join('');
 }
 
 async function doLogin() {
@@ -790,8 +1020,25 @@ async function doRegister() {
   const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
   currentProfile = profile;
   updateNav();
-  if (selectedRole === 'proprietario') showView('setup');
-  else { await loadStagionaleData(); showView('stagionale'); }
+  if (selectedRole === 'proprietario') {
+    showView('setup');
+  } else {
+    const stabId = document.getElementById('reg-stabilimento').value;
+    const ombId = document.getElementById('reg-ombrellone').value;
+    if (!stabId) { showAlert('register-alert', 'Seleziona il tuo stabilimento balneare', 'error'); btn.disabled = false; btn.textContent = 'Crea account'; return; }
+    if (!ombId) { showAlert('register-alert', 'Seleziona il tuo ombrellone', 'error'); btn.disabled = false; btn.textContent = 'Crea account'; return; }
+    // Inserisci record in clienti_stagionali (approvato=false, fonte=diretta)
+    const { error: ce } = await sb.from('clienti_stagionali').insert({
+      stabilimento_id: stabId, ombrellone_id: ombId, user_id: currentUser.id,
+      nome, cognome, email, telefono, approvato: false, fonte: 'diretta'
+    });
+    if (ce) { showAlert('register-alert', ce.message, 'error'); btn.disabled = false; btn.textContent = 'Crea account'; return; }
+    // Invia email attesa approvazione
+    const { data: stab } = await sb.from('stabilimenti').select('nome,telefono,email,email_attesa_oggetto,email_attesa_testo').eq('id', stabId).single();
+    await inviaEmail('attesa', { email, nome, cognome }, stab);
+    await loadStagionaleData();
+    showView('stagionale');
+  }
   btn.disabled = false; btn.textContent = 'Crea account';
 }
 
@@ -815,7 +1062,8 @@ async function saveStabilimento() {
   const indirizzo = document.getElementById('stab-indirizzo').value.trim();
   const telefono = document.getElementById('stab-telefono').value.trim();
   if (!nome || !citta) { showAlert('setup1-alert', 'Nome e città sono obbligatori', 'error'); return; }
-  const { data, error } = await sb.from('stabilimenti').insert({ proprietario_id: currentUser.id, nome, citta, indirizzo, telefono }).select().single();
+  const emailStab = document.getElementById('stab-email').value.trim();
+  const { data, error } = await sb.from('stabilimenti').insert({ proprietario_id: currentUser.id, nome, citta, indirizzo, telefono, email: emailStab || null }).select().single();
   if (error) { showAlert('setup1-alert', error.message, 'error'); return; }
   currentStabilimento = data;
   goSetupStep(2);
@@ -972,6 +1220,10 @@ async function loadManagerData() {
 
   const { data: clienti } = await sb.from('clienti_stagionali').select('*').eq('stabilimento_id', currentStabilimento.id);
   clientiList = clienti || [];
+  // Aggiorna badge pending
+  const pending = clientiList.filter(c => !c.approvato && !c.rifiutato && c.user_id);
+  const badge = document.getElementById('badge-pending');
+  if (pending.length > 0) { badge.textContent = pending.length; badge.classList.remove('hidden'); } else { badge.classList.add('hidden'); }
 
   const { data: disp } = await sb.from('disponibilita').select('*').eq('data', today).in('ombrellone_id', ombrelloniList.map(o => o.id));
   const dispMap = {};
@@ -1044,20 +1296,27 @@ function renderOmbrelloniTable(ombs, dispMap, clienti) {
 
 function renderClientiTable(clienti, ombs) {
   const tb = document.getElementById('clienti-table');
-  if (!clienti.length) { tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-light);padding:24px">Nessun cliente. Aggiungine uno!</td></tr>'; return; }
+  const approvati = clienti.filter(c => c.approvato);
+  if (!approvati.length) { tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-light);padding:24px">Nessun cliente attivo. Aggiungi clienti o approva le richieste in attesa.</td></tr>'; return; }
   const ombById = {};
   ombs.forEach(o => ombById[o.id] = o);
-  tb.innerHTML = clienti.map(c => {
+  tb.innerHTML = approvati.map(c => {
     const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
+    const fontePill = c.fonte === 'diretta'
+      ? '<span class="pill pill-blue">Diretta</span>'
+      : c.invitato_at ? '<span class="pill pill-green">Invitato</span>' : '<span class="pill pill-gray">CSV</span>';
     return `<tr>
       <td><strong>${c.nome} ${c.cognome}</strong></td>
       <td>${c.email}</td>
       <td>${c.telefono || '–'}</td>
       <td>${o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">–</span>'}</td>
       <td>€ ${parseFloat(c.credito_saldo || 0).toFixed(2)}</td>
+      <td>${fontePill}</td>
       <td><button class="btn btn-danger btn-sm" onclick="deleteCliente('${c.id}')">Rimuovi</button></td>
     </tr>`;
   }).join('');
+  // Render pending
+  renderPendingRequests(clienti.filter(c => !c.approvato && !c.rifiutato && c.user_id), clienti.filter(c => !c.user_id), ombs);
 }
 
 function renderCreditiTable(clienti, ombs) {
@@ -1112,6 +1371,7 @@ function managerTab(tab, btn) {
   document.getElementById('mtab-' + tab).classList.add('active');
   document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  if (tab === 'email') loadEmailTemplates();
 }
 
 function openSubaffittoModal() {
@@ -1223,7 +1483,11 @@ async function editOmbrellone(id) {
 
 // ======================== STAGIONALE DATA ========================
 async function loadStagionaleData() {
-  const { data: cliente } = await sb.from('clienti_stagionali').select('*, ombrelloni(*, stabilimenti(*))').eq('email', currentUser.email).single();
+  const { data: cliente } = await sb.from('clienti_stagionali').select('*, ombrelloni(*, stabilimenti(*))').eq('user_id', currentUser.id).single();
+  // Rimuovi banner precedente
+  const oldBanner = document.getElementById('stag-pending-banner');
+  if (oldBanner) oldBanner.remove();
+
   if (!cliente) {
     document.getElementById('stag-nome').textContent = currentProfile?.nome || '';
     document.getElementById('stag-ombrellone').textContent = 'Nessun ombrellone associato. Contatta il tuo stabilimento.';
@@ -1232,6 +1496,27 @@ async function loadStagionaleData() {
     buildCalendar([],[]);
     return;
   }
+
+  // Se non ancora approvato, mostra banner e blocca interazione
+  if (!cliente.approvato) {
+    const omb = cliente.ombrelloni;
+    const stab = omb?.stabilimenti;
+    document.getElementById('stag-nome').textContent = `${currentProfile?.nome || cliente.nome} ${currentProfile?.cognome || cliente.cognome}`;
+    document.getElementById('stag-ombrellone').textContent = stab ? `${stab.nome}${stab.citta ? ' — ' + stab.citta : ''}` : '';
+    document.getElementById('stag-credito').textContent = '€ –';
+    const banner = document.createElement('div');
+    banner.id = 'stag-pending-banner';
+    banner.className = 'alert alert-info';
+    banner.style.cssText = 'margin:0 0 20px;font-size:14px;line-height:1.7';
+    banner.innerHTML = `⏳ <strong>Iscrizione in attesa di approvazione.</strong><br>
+      Il proprietario di <strong>${stab?.nome || 'questo stabilimento'}</strong> deve confermare la tua registrazione.
+      Riceverai un'email non appena sarà approvata. Per urgenze contatta direttamente lo stabilimento.`;
+    document.getElementById('stag-ombrellone').closest('.user-hero').insertAdjacentElement('afterend', banner);
+    document.getElementById('stag-tx-list').innerHTML = '<div class="tx-empty">Disponibile dopo l\'approvazione</div>';
+    buildCalendar([],[]);
+    return;
+  }
+
   stagClienteId = cliente.id;
   stagOmbrelloneId = cliente.ombrellone_id;
   const omb = cliente.ombrelloni;
@@ -1323,6 +1608,368 @@ async function toggleDay(dateStr, currentStato) {
 async function toggleTodayFree() {
   const today = todayStr();
   await toggleDay(today, currentDispMap[today]);
+}
+
+// ======================== INVITE FLOW ========================
+let currentInviteData = null;
+
+async function showInvitoView(token) {
+  const { data, error } = await sb.rpc('get_cliente_by_invito_token', { p_token: token });
+  if (error || !data || data.length === 0) {
+    showView('landing');
+    alert('Link di invito non valido o già utilizzato.');
+    return;
+  }
+  currentInviteData = data[0];
+  document.getElementById('invito-title').textContent = `Benvenuto, ${currentInviteData.nome}!`;
+  document.getElementById('invito-sub').textContent = `Sei stato invitato da ${currentInviteData.stabilimento_nome}. Imposta la tua password per accedere.`;
+  const ombInfo = currentInviteData.ombrellone_fila
+    ? `Ombrellone: Fila ${currentInviteData.ombrellone_fila} N°${currentInviteData.ombrellone_numero}`
+    : '';
+  document.getElementById('invito-info').innerHTML = `
+    <strong>${currentInviteData.nome} ${currentInviteData.cognome}</strong><br>
+    📧 ${currentInviteData.email}${currentInviteData.telefono ? ' · 📞 ' + currentInviteData.telefono : ''}<br>
+    🏖️ ${currentInviteData.stabilimento_nome}${ombInfo ? ' · ☂️ ' + ombInfo : ''}`;
+  showView('invito');
+}
+
+async function completeInviteRegistration() {
+  if (!currentInviteData || !currentInviteToken) return;
+  const pwd = document.getElementById('invito-password').value;
+  const pwd2 = document.getElementById('invito-password2').value;
+  if (pwd.length < 6) { showAlert('invito-alert', 'La password deve avere almeno 6 caratteri', 'error'); return; }
+  if (pwd !== pwd2) { showAlert('invito-alert', 'Le password non coincidono', 'error'); return; }
+  const btn = document.getElementById('btn-invito');
+  btn.disabled = true; btn.textContent = 'Registrazione in corso...';
+  const { data, error } = await sb.auth.signUp({ email: currentInviteData.email, password: pwd });
+  if (error) { showAlert('invito-alert', error.message, 'error'); btn.disabled = false; btn.textContent = 'Accedi a ShareAndFun →'; return; }
+  currentUser = data.user;
+  // Crea profilo
+  await sb.from('profiles').insert({ id: currentUser.id, nome: currentInviteData.nome, cognome: currentInviteData.cognome, ruolo: 'stagionale' });
+  // Collega il record esistente all'utente (SECURITY DEFINER RPC)
+  await sb.rpc('completa_registrazione_invito', { p_token: currentInviteToken, p_user_id: currentUser.id });
+  // Invia email benvenuto
+  const { data: stab } = await sb.from('stabilimenti').select('nome,telefono,email,email_benvenuto_oggetto,email_benvenuto_testo').eq('id', currentInviteData.stabilimento_id).single();
+  const ombLabel = currentInviteData.ombrellone_fila ? `Fila ${currentInviteData.ombrellone_fila} N°${currentInviteData.ombrellone_numero}` : null;
+  await inviaEmail('benvenuto', { email: currentInviteData.email, nome: currentInviteData.nome, cognome: currentInviteData.cognome, ombrellone: ombLabel }, stab);
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  currentProfile = profile;
+  updateNav();
+  // Pulisci URL
+  window.history.replaceState({}, '', '/');
+  await loadStagionaleData();
+  showView('stagionale');
+  btn.disabled = false;
+}
+
+// ======================== CSV CLIENTI ========================
+let csvClientiRows = [];
+
+function loadCSVClienti(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  showAlert('csv-clienti-alert', '', '');
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const lines = ev.target.result.split('\n').map(l => l.trim()).filter(l => l);
+    // Rimuovi eventuale header
+    const dataLines = lines[0].toLowerCase().includes('nome') || lines[0].toLowerCase().includes('ombrellone') ? lines.slice(1) : lines;
+    if (dataLines.length > 1000) {
+      showAlert('csv-clienti-alert', `❌ Il file contiene ${dataLines.length} righe. Il limite massimo è 1000 righe. Riduci il file e riprova.`, 'error');
+      e.target.value = '';
+      return;
+    }
+    const rows = [];
+    dataLines.forEach((line, i) => {
+      const parts = line.split(',').map(p => p.trim());
+      if (parts.length < 3) return;
+      const numero = parseInt(parts[0]);
+      const nome = parts[1] || '';
+      const cognome = parts[2] || '';
+      const telefono = parts[3] || '';
+      const email = parts[4] || '';
+      if (!numero || !nome) return;
+      rows.push({ numero, nome, cognome, telefono, email, _idx: i });
+    });
+    if (!rows.length) { showAlert('csv-clienti-alert', 'Nessuna riga valida trovata nel CSV', 'error'); return; }
+    csvClientiRows = rows;
+    renderCSVAnteprima(rows);
+    showAlert('csv-clienti-alert', `✅ ${rows.length} clienti caricati dal CSV`, 'success');
+  };
+  reader.readAsText(file);
+}
+
+function renderCSVAnteprima(rows) {
+  const wrap = document.getElementById('csv-clienti-preview');
+  const actions = document.getElementById('csv-invito-actions');
+  wrap.innerHTML = `
+    <div class="csv-preview-wrap">
+      <div class="csv-check-all">
+        <input type="checkbox" id="csv-check-all" onchange="toggleAllCSV(this.checked)" checked>
+        <label for="csv-check-all">Seleziona tutti (${rows.length})</label>
+      </div>
+      <div class="csv-row header"><div></div><div>Nome</div><div>Cognome</div><div>Telefono</div><div>Email</div></div>
+      ${rows.map((r, i) => `
+        <div class="csv-row">
+          <input type="checkbox" class="csv-check" data-idx="${i}" checked onchange="updateCSVCount()">
+          <div>${r.nome}</div>
+          <div>${r.cognome}</div>
+          <div>${r.telefono || '–'}</div>
+          <div>${r.email || '<span style="color:var(--red)">mancante</span>'}</div>
+        </div>`).join('')}
+    </div>`;
+  actions.classList.remove('hidden');
+  actions.style.display = 'flex';
+  updateCSVCount();
+}
+
+function toggleAllCSV(checked) {
+  document.querySelectorAll('.csv-check').forEach(cb => cb.checked = checked);
+  updateCSVCount();
+}
+
+function updateCSVCount() {
+  const total = document.querySelectorAll('.csv-check:checked').length;
+  document.getElementById('csv-invito-count').textContent = `${total} selezionati`;
+}
+
+async function inviaInvitiSelezionati() {
+  const selected = [];
+  document.querySelectorAll('.csv-check:checked').forEach(cb => {
+    const idx = parseInt(cb.dataset.idx);
+    selected.push(csvClientiRows[idx]);
+  });
+  if (!selected.length) { showAlert('csv-clienti-alert', 'Seleziona almeno un cliente', 'error'); return; }
+  const withoutEmail = selected.filter(r => !r.email);
+  if (withoutEmail.length) { showAlert('csv-clienti-alert', `⚠️ ${withoutEmail.length} clienti non hanno email e verranno saltati`, 'error'); }
+  const withEmail = selected.filter(r => r.email);
+  if (!withEmail.length) { showAlert('csv-clienti-alert', 'Nessun cliente con email valida selezionato', 'error'); return; }
+
+  showLoading();
+  // Trova gli ombrelloni per numero
+  const ombByNumero = {};
+  ombrelloniList.forEach(o => { ombByNumero[o.numero] = o; });
+
+  let inviati = 0;
+  for (const row of withEmail) {
+    const omb = ombByNumero[row.numero];
+    // Upsert in clienti_stagionali (fonte=csv, approvato=false, user_id=null)
+    const { data: existing } = await sb.from('clienti_stagionali')
+      .select('id,invito_token,invitato_at')
+      .eq('stabilimento_id', currentStabilimento.id)
+      .eq('email', row.email)
+      .maybeSingle();
+    let clienteId, token;
+    if (existing) {
+      clienteId = existing.id;
+      token = existing.invito_token;
+      await sb.from('clienti_stagionali').update({ nome: row.nome, cognome: row.cognome, telefono: row.telefono, ombrellone_id: omb?.id || null, invitato_at: new Date().toISOString() }).eq('id', clienteId);
+    } else {
+      const { data: ins } = await sb.from('clienti_stagionali').insert({
+        stabilimento_id: currentStabilimento.id, ombrellone_id: omb?.id || null,
+        nome: row.nome, cognome: row.cognome, email: row.email, telefono: row.telefono,
+        fonte: 'csv', approvato: false, invitato_at: new Date().toISOString()
+      }).select('id,invito_token').single();
+      clienteId = ins?.id;
+      token = ins?.invito_token;
+    }
+    if (token) {
+      const inviteLink = `${window.location.origin}/?invito=${token}`;
+      await inviaEmail('invito', { email: row.email, nome: row.nome, cognome: row.cognome, invite_link: inviteLink }, currentStabilimento);
+      inviati++;
+    }
+  }
+  hideLoading();
+  await loadManagerData();
+  showAlert('csv-clienti-alert', `✅ Inviti inviati a ${inviati} clienti`, 'success');
+}
+
+// ======================== PENDING REQUESTS & MATCH ========================
+function renderPendingRequests(pending, csvRecords, ombs) {
+  const container = document.getElementById('pending-container');
+  if (!pending.length) { container.innerHTML = '<div class="pending-empty">Nessuna richiesta in attesa ✓</div>'; return; }
+  const ombById = {};
+  ombs.forEach(o => ombById[o.id] = o);
+  container.innerHTML = pending.map(p => {
+    const match = calcolaMatch(p, csvRecords, ombById);
+    const ombPLabel = p.ombrellone_id ? ombById[p.ombrellone_id] : null;
+    return `<div class="match-card">
+      <div class="match-card-header">
+        <div>
+          <strong>${p.nome} ${p.cognome}</strong>
+          <span style="font-size:12px;color:var(--text-light);margin-left:8px">${p.email}</span>
+        </div>
+        <span class="match-badge ${match.tipo === 'completo' ? 'match-100' : match.tipo === 'parziale' ? 'match-parziale' : 'match-nessuno'}">
+          ${match.tipo === 'completo' ? '✓ Corrispondenza trovata' : match.tipo === 'parziale' ? '⚠ Match parziale' : '✗ Non nel CSV'}
+        </span>
+      </div>
+      ${match.tipo !== 'nessuno' ? renderMatchFields(p, match.record, ombById) : ''}
+      ${match.tipo === 'nessuno' ? `<div style="padding:12px 18px;font-size:13px;color:var(--text-light)">
+        Il cliente non è presente nella lista pre-caricata via CSV. Puoi approvarlo manualmente.
+      </div>` : ''}
+      <div class="match-actions">
+        ${match.tipo === 'completo' ? `<button class="btn btn-green btn-sm" onclick="approvaCliente('${p.id}')">✓ Approva subito</button>` : ''}
+        ${match.tipo === 'parziale' ? `
+          <button class="btn btn-green btn-sm" onclick="approvaCliente('${p.id}')">Approva</button>
+          ${match.record ? `<button class="btn btn-outline btn-sm" onclick="approvaConMerge('${p.id}','${match.record.id}')">Approva e aggiorna dati CSV</button>` : ''}` : ''}
+        ${match.tipo === 'nessuno' ? `<button class="btn btn-green btn-sm" onclick="approvaCliente('${p.id}')">Approva comunque</button>` : ''}
+        <button class="btn btn-danger btn-sm" onclick="rifiutaCliente('${p.id}')">Rifiuta</button>
+        <span style="font-size:11px;color:var(--text-light);margin-left:auto">
+          Ombrellone richiesto: ${ombPLabel ? 'Fila ' + ombPLabel.fila + ' N°' + ombPLabel.numero : '–'}
+        </span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderMatchFields(p, csv, ombById) {
+  if (!csv) return '';
+  const ombP = p.ombrellone_id ? ombById[p.ombrellone_id] : null;
+  const ombC = csv.ombrellone_id ? ombById[csv.ombrellone_id] : null;
+  const fields = [
+    { label: 'Nome', pVal: p.nome, cVal: csv.nome },
+    { label: 'Cognome', pVal: p.cognome, cVal: csv.cognome },
+    { label: 'Email', pVal: p.email, cVal: csv.email },
+    { label: 'Telefono', pVal: p.telefono || '–', cVal: csv.telefono || '–' },
+    { label: 'Ombrellone', pVal: ombP ? `Fila ${ombP.fila} N°${ombP.numero}` : '–', cVal: ombC ? `Fila ${ombC.fila} N°${ombC.numero}` : '–' },
+  ];
+  return `<div style="padding:0 0 0 0">
+    <div style="display:grid;grid-template-columns:1fr 1fr;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-light);padding:8px 16px;background:var(--sand);border-bottom:1px solid var(--border)">
+      <div>Dati del cliente</div><div>Dati nel CSV</div>
+    </div>
+    <div class="match-fields">
+      ${fields.map(f => {
+        const ok = f.pVal?.toLowerCase() === f.cVal?.toLowerCase();
+        return `<div class="match-field ${ok ? 'ok' : 'diff'}">
+          <div class="match-field-label">${f.label}</div>
+          <div class="match-field-val">👤 ${f.pVal}</div>
+        </div>
+        <div class="match-field ${ok ? 'ok' : 'diff'}">
+          <div class="match-field-label">${f.label} CSV</div>
+          <div class="match-field-val">📋 ${f.cVal}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function calcolaMatch(diretta, csvRecords, ombById) {
+  if (!csvRecords.length) return { tipo: 'nessuno', record: null };
+  // Match 100%: stessa email O stesso ombrellone + nome simile
+  const exact = csvRecords.find(c =>
+    c.email?.toLowerCase() === diretta.email?.toLowerCase() &&
+    (c.ombrellone_id === diretta.ombrellone_id || !c.ombrellone_id)
+  );
+  if (exact) return { tipo: 'completo', record: exact };
+  // Match parziale: stesso ombrellone O stesso nome/cognome
+  const partial = csvRecords.find(c =>
+    c.ombrellone_id === diretta.ombrellone_id ||
+    (c.nome?.toLowerCase() === diretta.nome?.toLowerCase() && c.cognome?.toLowerCase() === diretta.cognome?.toLowerCase())
+  );
+  if (partial) return { tipo: 'parziale', record: partial };
+  return { tipo: 'nessuno', record: null };
+}
+
+async function approvaCliente(id) {
+  await sb.from('clienti_stagionali').update({ approvato: true }).eq('id', id);
+  const { data: c } = await sb.from('clienti_stagionali').select('email,nome,cognome,stabilimento_id').eq('id', id).single();
+  if (c) {
+    const { data: stab } = await sb.from('stabilimenti').select('nome,telefono,email,email_approvazione_oggetto,email_approvazione_testo').eq('id', c.stabilimento_id).single();
+    await inviaEmail('approvazione', { email: c.email, nome: c.nome, cognome: c.cognome }, stab);
+  }
+  await loadManagerData();
+}
+
+async function approvaConMerge(direttaId, csvId) {
+  const { data: diretta } = await sb.from('clienti_stagionali').select('*').eq('id', direttaId).single();
+  if (!diretta) return;
+  // Aggiorna il record CSV con i dati nuovi e lo user_id del cliente
+  await sb.from('clienti_stagionali').update({
+    user_id: diretta.user_id, approvato: true,
+    nome: diretta.nome, cognome: diretta.cognome,
+    email: diretta.email, telefono: diretta.telefono,
+    ombrellone_id: diretta.ombrellone_id || undefined
+  }).eq('id', csvId);
+  // Rimuovi il record diretta
+  await sb.from('clienti_stagionali').delete().eq('id', direttaId);
+  const { data: stab } = await sb.from('stabilimenti').select('nome,telefono,email,email_approvazione_oggetto,email_approvazione_testo').eq('id', diretta.stabilimento_id).single();
+  await inviaEmail('approvazione', { email: diretta.email, nome: diretta.nome, cognome: diretta.cognome }, stab);
+  await loadManagerData();
+}
+
+async function rifiutaCliente(id) {
+  if (!confirm('Vuoi rifiutare questa richiesta di iscrizione?')) return;
+  await sb.from('clienti_stagionali').update({ rifiutato: true }).eq('id', id);
+  await loadManagerData();
+}
+
+// ======================== EMAIL TEMPLATES ========================
+function toggleEmailSection(tipo) {
+  const body = document.getElementById('email-body-' + tipo);
+  body.classList.toggle('open');
+}
+
+function updateCounter(id, max) {
+  const val = document.getElementById('email-' + id).value.length;
+  const el = document.getElementById('counter-' + id);
+  el.textContent = `${val}/${max}`;
+  el.classList.toggle('warn', val > max * 0.9);
+  // Aggiorna preview
+  const tipo = id.split('-')[0];
+  const campo = id.split('-')[1];
+  document.getElementById(`preview-${tipo}-${campo}`).textContent = document.getElementById('email-' + id).value;
+}
+
+async function loadEmailTemplates() {
+  if (!currentStabilimento) return;
+  const { data: stab } = await sb.from('stabilimenti').select('email_benvenuto_oggetto,email_benvenuto_testo,email_attesa_oggetto,email_attesa_testo,email_approvazione_oggetto,email_approvazione_testo').eq('id', currentStabilimento.id).single();
+  if (!stab) return;
+  const fields = ['benvenuto-oggetto','benvenuto-testo','attesa-oggetto','attesa-testo','approvazione-oggetto','approvazione-testo'];
+  const keys = ['email_benvenuto_oggetto','email_benvenuto_testo','email_attesa_oggetto','email_attesa_testo','email_approvazione_oggetto','email_approvazione_testo'];
+  const maxes = [80,500,80,500,80,500];
+  fields.forEach((f, i) => {
+    const el = document.getElementById('email-' + f);
+    if (el && stab[keys[i]]) { el.value = stab[keys[i]]; updateCounter(f, maxes[i]); }
+  });
+}
+
+async function saveEmailTemplates() {
+  const { error } = await sb.from('stabilimenti').update({
+    email_benvenuto_oggetto: document.getElementById('email-benvenuto-oggetto').value,
+    email_benvenuto_testo: document.getElementById('email-benvenuto-testo').value,
+    email_attesa_oggetto: document.getElementById('email-attesa-oggetto').value,
+    email_attesa_testo: document.getElementById('email-attesa-testo').value,
+    email_approvazione_oggetto: document.getElementById('email-approvazione-oggetto').value,
+    email_approvazione_testo: document.getElementById('email-approvazione-testo').value,
+  }).eq('id', currentStabilimento.id);
+  showAlert('email-save-alert', error ? error.message : 'Template email salvati con successo!', error ? 'error' : 'success');
+  if (!error) {
+    const { data } = await sb.from('stabilimenti').select('*').eq('id', currentStabilimento.id).single();
+    if (data) currentStabilimento = data;
+  }
+}
+
+// ======================== INVIO EMAIL (helper) ========================
+async function inviaEmail(tipo, clienteData, stab) {
+  try {
+    await sb.functions.invoke('invia-email', {
+      body: {
+        tipo,
+        email: clienteData.email,
+        nome: clienteData.nome,
+        cognome: clienteData.cognome || '',
+        ombrellone: clienteData.ombrellone || null,
+        invite_link: clienteData.invite_link || null,
+        stabilimento_nome: stab?.nome || '',
+        stabilimento_telefono: stab?.telefono || '',
+        stabilimento_email: stab?.email || '',
+        oggetto_custom: tipo === 'benvenuto' ? stab?.email_benvenuto_oggetto : tipo === 'attesa' ? stab?.email_attesa_oggetto : tipo === 'approvazione' ? stab?.email_approvazione_oggetto : null,
+        testo_custom: tipo === 'benvenuto' ? stab?.email_benvenuto_testo : tipo === 'attesa' ? stab?.email_attesa_testo : tipo === 'approvazione' ? stab?.email_approvazione_testo : null,
+      }
+    });
+  } catch (e) {
+    console.warn('Errore invio email:', e);
+  }
 }
 
 // ======================== UTILS ========================
