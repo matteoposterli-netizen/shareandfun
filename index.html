@@ -945,8 +945,8 @@ async function loadUserAndRoute() {
     await loadManagerData();
     showView('manager');
   } else {
-    await loadStagionaleData();
     showView('stagionale');
+    await loadStagionaleData();
   }
 }
 
@@ -1482,7 +1482,8 @@ async function editOmbrellone(id) {
 
 // ======================== STAGIONALE DATA ========================
 async function loadStagionaleData() {
-  const { data: cliente } = await sb.from('clienti_stagionali').select('*, ombrelloni(*, stabilimenti(*))').eq('user_id', currentUser.id).single();
+  const { data: cliente, error: clienteErr } = await sb.from('clienti_stagionali').select('*, ombrelloni(*, stabilimenti(*))').eq('user_id', currentUser.id).single();
+  console.log('[SAF] loadStagionaleData:', { cliente, clienteErr, userId: currentUser?.id });
   // Rimuovi banner precedente
   const oldBanner = document.getElementById('stag-pending-banner');
   if (oldBanner) oldBanner.remove();
