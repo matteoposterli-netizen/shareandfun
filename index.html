@@ -1497,11 +1497,14 @@ async function loadStagionaleData() {
     return;
   }
 
+  console.log('[SAF] approvato:', cliente.approvato, 'ombrelloni:', cliente.ombrelloni);
   // Se non ancora approvato, mostra banner e blocca interazione
   if (!cliente.approvato) {
+    console.log('[SAF] ramo pending');
     const omb = cliente.ombrelloni;
     const stab = omb?.stabilimenti;
     document.getElementById('stag-nome').textContent = `${currentProfile?.nome || cliente.nome} ${currentProfile?.cognome || cliente.cognome}`;
+    console.log('[SAF] stag-nome ok');
     document.getElementById('stag-ombrellone').textContent = stab ? `${stab.nome}${stab.citta ? ' — ' + stab.citta : ''}` : '';
     document.getElementById('stag-credito').textContent = '€ –';
     const banner = document.createElement('div');
@@ -1512,13 +1515,17 @@ async function loadStagionaleData() {
       Il proprietario di <strong>${stab?.nome || 'questo stabilimento'}</strong> deve confermare la tua registrazione.
       Riceverai un'email non appena sarà approvata. Per urgenze contatta direttamente lo stabilimento.`;
     const heroEl = document.getElementById('stag-ombrellone')?.closest('.user-hero');
+    console.log('[SAF] heroEl:', heroEl);
     if (heroEl) heroEl.insertAdjacentElement('afterend', banner);
     else document.getElementById('view-stagionale').querySelector('.main-content')?.prepend(banner);
     document.getElementById('stag-tx-list').innerHTML = '<div class="tx-empty">Disponibile dopo l\'approvazione</div>';
+    console.log('[SAF] buildCalendar pending');
     buildCalendar([],[]);
+    console.log('[SAF] pending done');
     return;
   }
 
+  console.log('[SAF] ramo approvato');
   stagClienteId = cliente.id;
   stagOmbrelloneId = cliente.ombrellone_id;
   const omb = cliente.ombrelloni;
@@ -1526,16 +1533,21 @@ async function loadStagionaleData() {
   document.getElementById('stag-nome').textContent = `${currentProfile?.nome || cliente.nome} ${currentProfile?.cognome || cliente.cognome}`;
   document.getElementById('stag-ombrellone').textContent = omb ? `☂️ Ombrellone ${omb.fila}${omb.numero} · ${stab?.nome || ''} · ${stab?.citta || ''}` : 'Nessun ombrellone';
   document.getElementById('stag-credito').textContent = `€ ${parseFloat(cliente.credito_saldo || 0).toFixed(2)}`;
+  console.log('[SAF] DOM aggiornato');
 
   // Disponibilità
   const { data: disp } = await sb.from('disponibilita').select('*').eq('ombrellone_id', stagOmbrelloneId);
+  console.log('[SAF] disp:', disp);
   const dispMap = {};
   (disp || []).forEach(d => { dispMap[d.data] = d.stato; });
   buildCalendar(dispMap, disp || []);
+  console.log('[SAF] calendar ok');
 
   // Transazioni
   const { data: txs } = await sb.from('transazioni').select('*').eq('cliente_id', stagClienteId).order('created_at', { ascending: false }).limit(20);
+  console.log('[SAF] txs:', txs);
   document.getElementById('stag-tx-list').innerHTML = renderTxList(txs || []);
+  console.log('[SAF] tutto ok');
 }
 
 let currentDispMap = {};
