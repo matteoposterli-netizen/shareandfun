@@ -1,0 +1,21 @@
+const SUPABASE_URL = 'https://btnyzzpibedkslhtiizu.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_7MGsfC7Pl9UAj76IphFMrw_Qk1II-DT';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let currentProfile = null;
+let currentStabilimento = null;
+let ombrelloniList = [];
+let clientiList = [];
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+let stagClienteId = null;
+let stagOmbrelloneId = null;
+let setupOmbrelloni = [];
+let currentInviteToken = null;
+let currentInviteData = null;
+let selectedRole = 'proprietario';
+let currentMapDate;
+let currentDispMap = {};
+let csvClientiRows = [];
