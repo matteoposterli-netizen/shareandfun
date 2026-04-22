@@ -118,7 +118,7 @@ function renderManagerMap(ombs, dispMap) {
   el.innerHTML = '';
   const byRow = {};
   ombs.forEach(o => { if (!byRow[o.fila]) byRow[o.fila] = []; byRow[o.fila].push(o); });
-  Object.keys(byRow).sort().forEach(fila => {
+  Object.keys(byRow).sort().reverse().forEach(fila => {
     const row = document.createElement('div'); row.className = 'map-row';
     const lbl = document.createElement('div'); lbl.className = 'row-label'; lbl.textContent = fila;
     row.appendChild(lbl);
