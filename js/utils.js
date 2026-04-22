@@ -35,7 +35,7 @@ function formatDateShort(str) {
 
 async function inviaEmail(tipo, clienteData, stab) {
   try {
-    await sb.functions.invoke('invia-email', {
+    const { data, error } = await sb.functions.invoke('invia-email', {
       body: {
         tipo,
         email: clienteData.email,
@@ -50,7 +50,10 @@ async function inviaEmail(tipo, clienteData, stab) {
         testo_custom: tipo === 'benvenuto' ? stab?.email_benvenuto_testo : tipo === 'attesa' ? stab?.email_attesa_testo : tipo === 'approvazione' ? stab?.email_approvazione_testo : null,
       }
     });
+    if (error) console.error(`Email ${tipo} fallita:`, error);
+    else if (data?.warning) console.warn(`Email ${tipo}:`, data.warning);
+    else console.log(`Email ${tipo} inviata:`, data);
   } catch (e) {
-    console.warn('Errore invio email:', e);
+    console.error(`Email ${tipo} eccezione:`, e);
   }
 }
