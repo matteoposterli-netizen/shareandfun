@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "onboarding@resend.dev";
+const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "ShareAndFun <noreply@condombrellone.com>";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
@@ -212,11 +212,15 @@ Deno.serve(async (req: Request) => {
   }
 
   if (!RESEND_API_KEY) {
-    console.warn("RESEND_API_KEY non configurata — email non inviata");
-    return new Response(JSON.stringify({ warning: "RESEND_API_KEY mancante", subject }), {
-      headers: { "Content-Type": "application/json" },
+    console.error("RESEND_API_KEY non configurata — email non inviata");
+    return new Response(JSON.stringify({ error: "RESEND_API_KEY non configurata sul server" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
     });
   }
+
+  const payload: Record<string, unknown> = { from: FROM_EMAIL, to: email, subject, html };
+  if (stabilimento_email) payload.reply_to = stabilimento_email;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -224,7 +228,7 @@ Deno.serve(async (req: Request) => {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${RESEND_API_KEY}`,
     },
-    body: JSON.stringify({ from: FROM_EMAIL, to: email, subject, html }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
@@ -232,7 +236,7 @@ Deno.serve(async (req: Request) => {
     console.error("Resend error:", err);
     return new Response(JSON.stringify({ error: err }), {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
     });
   }
 
