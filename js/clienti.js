@@ -114,38 +114,74 @@ async function inviaInvitiSelezionati() {
   showAlert('csv-clienti-alert', `✅ Inviti inviati a ${inviati} clienti`, 'success');
 }
 
-function renderPendingRequests(pending, csvRecords, ombs) {
+function renderPendingRequests(pending, listRecords, ombs) {
   const container = document.getElementById('pending-container');
   if (!pending.length) { container.innerHTML = '<div class="pending-empty">Nessuna richiesta in attesa ✓</div>'; return; }
   const ombById = {};
   ombs.forEach(o => ombById[o.id] = o);
   container.innerHTML = pending.map(p => {
-    const match = calcolaMatch(p, csvRecords, ombById);
+    const match = calcolaMatch(p, listRecords, ombById);
     const ombPLabel = p.ombrellone_id ? ombById[p.ombrellone_id] : null;
+
+    const conflittoOmb = p.ombrellone_id
+      ? listRecords.find(c => c.ombrellone_id === p.ombrellone_id && (c.email || '').toLowerCase() !== (p.email || '').toLowerCase())
+      : null;
+
+    const richiedenteInfo = `
+      <div style="padding:12px 18px;background:var(--sand);border-bottom:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-light);margin-bottom:8px">Dati del richiedente</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 18px;font-size:13px">
+          <div><span style="color:var(--text-light)">Nome:</span> <strong>${p.nome} ${p.cognome}</strong></div>
+          <div><span style="color:var(--text-light)">Email:</span> ${p.email}</div>
+          <div><span style="color:var(--text-light)">Telefono:</span> ${p.telefono || '–'}</div>
+          <div><span style="color:var(--text-light)">Ombrellone richiesto:</span> <strong>${ombPLabel ? 'Fila ' + ombPLabel.fila + ' N°' + ombPLabel.numero : '–'}</strong></div>
+        </div>
+      </div>`;
+
+    let badge, body, actions;
+
+    if (conflittoOmb) {
+      badge = '<span class="match-badge match-parziale">⚠ Ombrellone già assegnato</span>';
+      body = `
+        <div style="padding:12px 18px;background:var(--yellow-light);border-bottom:1px solid var(--border);font-size:13px">
+          <div style="font-weight:600;color:#B07000;margin-bottom:8px">⚠ Questo ombrellone è già assegnato a un altro cliente</div>
+          <div style="background:var(--white);padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border)">
+            <div><strong>${conflittoOmb.nome} ${conflittoOmb.cognome}</strong></div>
+            <div style="color:var(--text-mid);font-size:12px">${conflittoOmb.email || '–'} · ${conflittoOmb.telefono || '–'}</div>
+          </div>
+          <div style="margin-top:10px;color:var(--text-mid)">Scegli quale cliente mantenere per questo ombrellone:</div>
+        </div>`;
+      actions = `
+        <button class="btn btn-green btn-sm" onclick="approvaConMerge('${p.id}','${conflittoOmb.id}')">Sostituisci con il nuovo</button>
+        <button class="btn btn-outline btn-sm" onclick="rifiutaCliente('${p.id}')">Mantieni esistente</button>`;
+    } else if (match.tipo === 'completo') {
+      badge = '<span class="match-badge match-100">✓ Corrispondenza trovata</span>';
+      body = renderMatchFields(p, match.record, ombById);
+      actions = `<button class="btn btn-green btn-sm" onclick="approvaCliente('${p.id}')">✓ Approva subito</button>`;
+    } else if (match.tipo === 'parziale') {
+      badge = '<span class="match-badge match-parziale">⚠ Match parziale</span>';
+      body = renderMatchFields(p, match.record, ombById);
+      actions = `
+        <button class="btn btn-green btn-sm" onclick="approvaCliente('${p.id}')">Approva</button>
+        ${match.record ? `<button class="btn btn-outline btn-sm" onclick="approvaConMerge('${p.id}','${match.record.id}')">Approva e aggiorna dati esistenti</button>` : ''}`;
+    } else {
+      badge = '<span class="match-badge match-nessuno">+ Nuovo cliente</span>';
+      body = `<div style="padding:12px 18px;font-size:13px;color:var(--text-light)">
+        Il cliente non risulta nell'elenco clienti stagionali. Puoi approvarlo manualmente.
+      </div>`;
+      actions = `<button class="btn btn-green btn-sm" onclick="approvaCliente('${p.id}')">Approva comunque</button>`;
+    }
+
     return `<div class="match-card">
       <div class="match-card-header">
-        <div>
-          <strong>${p.nome} ${p.cognome}</strong>
-          <span style="font-size:12px;color:var(--text-light);margin-left:8px">${p.email}</span>
-        </div>
-        <span class="match-badge ${match.tipo === 'completo' ? 'match-100' : match.tipo === 'parziale' ? 'match-parziale' : 'match-nessuno'}">
-          ${match.tipo === 'completo' ? '✓ Corrispondenza trovata' : match.tipo === 'parziale' ? '⚠ Match parziale' : '✗ Non nel CSV'}
-        </span>
+        <div><strong>${p.nome} ${p.cognome}</strong></div>
+        ${badge}
       </div>
-      ${match.tipo !== 'nessuno' ? renderMatchFields(p, match.record, ombById) : ''}
-      ${match.tipo === 'nessuno' ? `<div style="padding:12px 18px;font-size:13px;color:var(--text-light)">
-        Il cliente non è presente nella lista pre-caricata via CSV. Puoi approvarlo manualmente.
-      </div>` : ''}
+      ${richiedenteInfo}
+      ${body}
       <div class="match-actions">
-        ${match.tipo === 'completo' ? `<button class="btn btn-green btn-sm" onclick="approvaCliente('${p.id}')">✓ Approva subito</button>` : ''}
-        ${match.tipo === 'parziale' ? `
-          <button class="btn btn-green btn-sm" onclick="approvaCliente('${p.id}')">Approva</button>
-          ${match.record ? `<button class="btn btn-outline btn-sm" onclick="approvaConMerge('${p.id}','${match.record.id}')">Approva e aggiorna dati CSV</button>` : ''}` : ''}
-        ${match.tipo === 'nessuno' ? `<button class="btn btn-green btn-sm" onclick="approvaCliente('${p.id}')">Approva comunque</button>` : ''}
+        ${actions}
         <button class="btn btn-danger btn-sm" onclick="rifiutaCliente('${p.id}')">Rifiuta</button>
-        <span style="font-size:11px;color:var(--text-light);margin-left:auto">
-          Ombrellone richiesto: ${ombPLabel ? 'Fila ' + ombPLabel.fila + ' N°' + ombPLabel.numero : '–'}
-        </span>
       </div>
     </div>`;
   }).join('');
@@ -164,7 +200,7 @@ function renderMatchFields(p, csv, ombById) {
   ];
   return `<div style="padding:0 0 0 0">
     <div style="display:grid;grid-template-columns:1fr 1fr;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-light);padding:8px 16px;background:var(--sand);border-bottom:1px solid var(--border)">
-      <div>Dati del cliente</div><div>Dati nel CSV</div>
+      <div>Dati del cliente</div><div>Dati nell'elenco</div>
     </div>
     <div class="match-fields">
       ${fields.map(f => {
@@ -174,7 +210,7 @@ function renderMatchFields(p, csv, ombById) {
           <div class="match-field-val">👤 ${f.pVal}</div>
         </div>
         <div class="match-field ${ok ? 'ok' : 'diff'}">
-          <div class="match-field-label">${f.label} CSV</div>
+          <div class="match-field-label">${f.label} elenco</div>
           <div class="match-field-val">📋 ${f.cVal}</div>
         </div>`;
       }).join('')}
@@ -182,15 +218,15 @@ function renderMatchFields(p, csv, ombById) {
   </div>`;
 }
 
-function calcolaMatch(diretta, csvRecords, ombById) {
-  if (!csvRecords.length) return { tipo: 'nessuno', record: null };
-  const exact = csvRecords.find(c =>
+function calcolaMatch(diretta, listRecords, ombById) {
+  if (!listRecords.length) return { tipo: 'nessuno', record: null };
+  const exact = listRecords.find(c =>
     c.email?.toLowerCase() === diretta.email?.toLowerCase() &&
     (c.ombrellone_id === diretta.ombrellone_id || !c.ombrellone_id)
   );
   if (exact) return { tipo: 'completo', record: exact };
-  const partial = csvRecords.find(c =>
-    c.ombrellone_id === diretta.ombrellone_id ||
+  const partial = listRecords.find(c =>
+    c.email?.toLowerCase() === diretta.email?.toLowerCase() ||
     (c.nome?.toLowerCase() === diretta.nome?.toLowerCase() && c.cognome?.toLowerCase() === diretta.cognome?.toLowerCase())
   );
   if (partial) return { tipo: 'parziale', record: partial };
