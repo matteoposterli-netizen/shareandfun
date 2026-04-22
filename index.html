@@ -197,7 +197,7 @@
           <div class="form-group"><label class="form-label">Fila</label><input type="text" id="omb-fila" class="form-input" placeholder="es. A" maxlength="3"></div>
           <div class="form-group"><label class="form-label">Numero</label><input type="number" id="omb-numero" class="form-input" placeholder="es. 1" min="1"></div>
         </div>
-        <div class="form-group"><label class="form-label">Credito giornaliero (€)</label><input type="number" id="omb-credito" class="form-input" placeholder="es. 12.00" step="0.50" min="0"></div>
+        <div class="form-group"><label class="form-label" data-coin-label="Credito giornaliero">Credito giornaliero</label><input type="number" id="omb-credito" class="form-input" placeholder="es. 12.00" step="0.50" min="0"></div>
         <button class="btn btn-outline btn-sm" onclick="addOmbrellone()">+ Aggiungi ombrellone</button>
       </div></div>
       <div id="ombrelloni-list" style="margin-bottom:16px"></div>
@@ -441,7 +441,7 @@
               <div class="form-group"><label class="form-label">Cliente</label>
                 <select id="credito-cliente" class="form-select"></select>
               </div>
-              <div class="form-group"><label class="form-label">Importo (€)</label><input type="number" id="credito-importo" class="form-input" placeholder="es. 20.00" min="0.01" step="0.01"></div>
+              <div class="form-group"><label class="form-label" data-coin-label="Importo">Importo</label><input type="number" id="credito-importo" class="form-input" placeholder="es. 20.00" min="0.01" step="0.01"></div>
             </div>
             <div class="form-group"><label class="form-label">Note (opzionale)</label><input type="text" id="credito-nota" class="form-input" placeholder="es. Pranzo al ristorante"></div>
             <button class="btn btn-primary" onclick="usaCredito()">Registra utilizzo</button>
@@ -470,7 +470,7 @@
       </div>
       <div class="credit-box">
         <div class="credit-label">Credito disponibile</div>
-        <div class="credit-amount" id="stag-credito">€ –</div>
+        <div class="credit-amount" id="stag-credito">–</div>
         <div class="credit-sub">Da usare al bar / ristorante</div>
       </div>
     </div>
@@ -534,7 +534,7 @@
       <div class="form-group"><label class="form-label">Fila</label><input type="text" id="modal-omb-fila" class="form-input" placeholder="A" maxlength="3"></div>
       <div class="form-group"><label class="form-label">Numero</label><input type="number" id="modal-omb-numero" class="form-input" placeholder="1" min="1"></div>
     </div>
-    <div class="form-group"><label class="form-label">Credito giornaliero (€)</label><input type="number" id="modal-omb-credito" class="form-input" placeholder="12.00" step="0.50" min="0"></div>
+    <div class="form-group"><label class="form-label" data-coin-label="Credito giornaliero">Credito giornaliero</label><input type="number" id="modal-omb-credito" class="form-input" placeholder="12.00" step="0.50" min="0"></div>
     <div class="modal-footer">
       <button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-omb')">Annulla</button>
       <button class="btn btn-primary btn-sm" onclick="confirmAddOmb()">Aggiungi</button>

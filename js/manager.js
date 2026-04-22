@@ -79,6 +79,7 @@ async function loadManagerData() {
   document.getElementById('map-date-to').value = today;
   document.getElementById('manager-stab-nome').textContent = currentStabilimento.nome;
   document.getElementById('manager-today-label').textContent = currentStabilimento.citta + ' — ' + formatDate(today);
+  refreshCoinLabels(currentStabilimento);
 
   const { data: ombs } = await sb.from('ombrelloni').select('*').eq('stabilimento_id', currentStabilimento.id).order('fila').order('numero');
   ombrelloniList = ombs || [];
@@ -102,7 +103,7 @@ async function loadManagerData() {
   const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
   const { data: txWeek } = await sb.from('transazioni').select('importo').eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_ricevuto').gte('created_at', weekAgo.toISOString());
   const totCrediti = (txWeek || []).reduce((s, t) => s + parseFloat(t.importo), 0);
-  document.getElementById('stat-crediti').textContent = '€ ' + totCrediti.toFixed(2);
+  document.getElementById('stat-crediti').textContent = formatCoin(totCrediti);
 
   renderManagerMap(ombrelloniList, dispMap);
   renderOmbrelloniTable(ombrelloniList, dispMap, clientiList);
@@ -127,7 +128,7 @@ function renderManagerMap(ombs, dispMap) {
       const el2 = document.createElement('div');
       el2.className = 'ombrellone ' + (stato === 'libero' ? 'free' : stato === 'sub_affittato' ? 'subleased' : 'occupied');
       el2.textContent = '☂️';
-      el2.title = `${fila}${o.numero} — €${o.credito_giornaliero}/gg`;
+      el2.title = `${fila}${o.numero} — ${formatCoin(o.credito_giornaliero)}/gg`;
       row.appendChild(el2);
     });
     el.appendChild(row);
@@ -147,7 +148,7 @@ function renderOmbrelloniTable(ombs, dispMap, clienti) {
     return `<tr>
       <td><strong>${o.fila}</strong></td>
       <td>${o.numero}</td>
-      <td>€ ${parseFloat(o.credito_giornaliero).toFixed(2)}</td>
+      <td>${formatCoin(o.credito_giornaliero)}</td>
       <td>${cl ? cl.nome + ' ' + cl.cognome : '<span style="color:var(--text-light)">–</span>'}</td>
       <td><span class="pill ${pillClass}">${pillText}</span></td>
       <td><button class="btn btn-outline btn-sm" onclick="editOmbrellone('${o.id}')">Modifica</button></td>
@@ -173,7 +174,7 @@ function renderClientiTable(clienti, ombs) {
         <td>${c.email}</td>
         <td>${c.telefono || '–'}</td>
         <td>${o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">–</span>'}</td>
-        <td>€ ${parseFloat(c.credito_saldo || 0).toFixed(2)}</td>
+        <td>${formatCoin(c.credito_saldo)}</td>
         <td>${fontePill}</td>
         <td><button class="btn btn-danger btn-sm" onclick="deleteCliente('${c.id}')">Rimuovi</button></td>
       </tr>`;
@@ -191,14 +192,14 @@ function renderCreditiTable(clienti, ombs) {
     return `<tr>
       <td>${c.nome} ${c.cognome}</td>
       <td>${o ? `${o.fila}${o.numero}` : '–'}</td>
-      <td><strong>€ ${parseFloat(c.credito_saldo || 0).toFixed(2)}</strong></td>
+      <td><strong>${formatCoin(c.credito_saldo)}</strong></td>
     </tr>`;
   }).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text-light);padding:24px">Nessun cliente</td></tr>';
 }
 
 function populateClienteSelect() {
   const sel = document.getElementById('credito-cliente');
-  sel.innerHTML = clientiList.map(c => `<option value="${c.id}">${c.nome} ${c.cognome} (€${parseFloat(c.credito_saldo||0).toFixed(2)})</option>`).join('');
+  sel.innerHTML = clientiList.map(c => `<option value="${c.id}">${c.nome} ${c.cognome} (${formatCoin(c.credito_saldo)})</option>`).join('');
 }
 
 async function loadManagerTx() {
@@ -211,7 +212,7 @@ async function loadAllTx() {
   document.getElementById('all-tx-list').innerHTML = renderTxList(data || []);
 }
 
-function renderTxList(txs) {
+function renderTxList(txs, stab) {
   if (!txs.length) return '<div class="tx-empty">Nessuna transazione ancora</div>';
   const icons = { disponibilita_aggiunta: {e:'📅',c:'green'}, disponibilita_rimossa: {e:'🗑️',c:'red'}, sub_affitto: {e:'💰',c:'yellow'}, credito_ricevuto: {e:'⭐',c:'yellow'}, credito_usato: {e:'🎉',c:'coral'} };
   const labels = { disponibilita_aggiunta: 'Disponibilità dichiarata', disponibilita_rimossa: 'Disponibilità rimossa', sub_affitto: 'Sub-affitto confermato', credito_ricevuto: 'Credito ricevuto', credito_usato: 'Credito utilizzato' };
@@ -220,7 +221,7 @@ function renderTxList(txs) {
     return `<div class="tx-item">
       <div class="tx-dot ${ic.c}">${ic.e}</div>
       <div class="tx-info">
-        <div class="tx-title">${labels[t.tipo] || t.tipo}${t.importo ? ` — € ${parseFloat(t.importo).toFixed(2)}` : ''}</div>
+        <div class="tx-title">${labels[t.tipo] || t.tipo}${t.importo ? ` — ${formatCoin(t.importo, stab)}` : ''}</div>
         <div class="tx-sub">${t.nota || ''}</div>
       </div>
       <div class="tx-time">${formatDateShort(t.created_at)}</div>
@@ -240,7 +241,7 @@ function openSubaffittoModal() {
   const today = todayStr();
   document.getElementById('sa-data').value = today;
   document.getElementById('sa-ombrellone').innerHTML = ombrelloniList.map(o =>
-    `<option value="${o.id}">Fila ${o.fila} N°${o.numero} — €${o.credito_giornaliero}/gg</option>`
+    `<option value="${o.id}">Fila ${o.fila} N°${o.numero} — ${formatCoin(o.credito_giornaliero)}/gg</option>`
   ).join('');
   document.getElementById('modal-subaffitto').classList.remove('hidden');
 }
@@ -276,7 +277,7 @@ async function usaCredito() {
   if (parseFloat(cliente.credito_saldo) < importo) { showAlert('crediti-alert', 'Credito insufficiente', 'error'); return; }
   await sb.from('clienti_stagionali').update({ credito_saldo: (parseFloat(cliente.credito_saldo) - importo).toFixed(2) }).eq('id', clienteId);
   await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, cliente_id: clienteId, tipo: 'credito_usato', importo, nota: nota || 'Utilizzo credito' });
-  showAlert('crediti-alert', `Credito di €${importo.toFixed(2)} registrato per ${cliente.nome}`, 'success');
+  showAlert('crediti-alert', `Credito di ${formatCoin(importo)} registrato per ${cliente.nome}`, 'success');
   document.getElementById('credito-importo').value = '';
   document.getElementById('credito-nota').value = '';
   await loadManagerData();
@@ -328,7 +329,7 @@ async function deleteCliente(id) {
 
 async function editOmbrellone(id) {
   const o = ombrelloniList.find(x => x.id === id);
-  const newCredito = prompt(`Credito giornaliero per Fila ${o.fila} N°${o.numero} (attuale: €${o.credito_giornaliero}):`, o.credito_giornaliero);
+  const newCredito = prompt(`Credito giornaliero per Fila ${o.fila} N°${o.numero} in ${coinName()} (attuale: ${formatCoin(o.credito_giornaliero)}):`, o.credito_giornaliero);
   if (newCredito === null) return;
   const val = parseFloat(newCredito);
   if (isNaN(val) || val < 0) { alert('Valore non valido'); return; }
