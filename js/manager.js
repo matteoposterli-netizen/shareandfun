@@ -158,24 +158,27 @@ function renderOmbrelloniTable(ombs, dispMap, clienti) {
 function renderClientiTable(clienti, ombs) {
   const tb = document.getElementById('clienti-table');
   const approvati = clienti.filter(c => c.approvato);
-  if (!approvati.length) { tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-light);padding:24px">Nessun cliente attivo. Aggiungi clienti o approva le richieste in attesa.</td></tr>'; return; }
-  const ombById = {};
-  ombs.forEach(o => ombById[o.id] = o);
-  tb.innerHTML = approvati.map(c => {
-    const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
-    const fontePill = c.fonte === 'diretta'
-      ? '<span class="pill pill-blue">Diretta</span>'
-      : c.invitato_at ? '<span class="pill pill-green">Invitato</span>' : '<span class="pill pill-gray">CSV</span>';
-    return `<tr>
-      <td><strong>${c.nome} ${c.cognome}</strong></td>
-      <td>${c.email}</td>
-      <td>${c.telefono || '–'}</td>
-      <td>${o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">–</span>'}</td>
-      <td>€ ${parseFloat(c.credito_saldo || 0).toFixed(2)}</td>
-      <td>${fontePill}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteCliente('${c.id}')">Rimuovi</button></td>
-    </tr>`;
-  }).join('');
+  if (!approvati.length) {
+    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-light);padding:24px">Nessun cliente attivo. Aggiungi clienti o approva le richieste in attesa.</td></tr>';
+  } else {
+    const ombById = {};
+    ombs.forEach(o => ombById[o.id] = o);
+    tb.innerHTML = approvati.map(c => {
+      const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
+      const fontePill = c.fonte === 'diretta'
+        ? '<span class="pill pill-blue">Diretta</span>'
+        : c.invitato_at ? '<span class="pill pill-green">Invitato</span>' : '<span class="pill pill-gray">CSV</span>';
+      return `<tr>
+        <td><strong>${c.nome} ${c.cognome}</strong></td>
+        <td>${c.email}</td>
+        <td>${c.telefono || '–'}</td>
+        <td>${o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">–</span>'}</td>
+        <td>€ ${parseFloat(c.credito_saldo || 0).toFixed(2)}</td>
+        <td>${fontePill}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteCliente('${c.id}')">Rimuovi</button></td>
+      </tr>`;
+    }).join('');
+  }
   renderPendingRequests(clienti.filter(c => !c.approvato && !c.rifiutato && c.user_id), clienti.filter(c => !c.user_id), ombs);
 }
 
