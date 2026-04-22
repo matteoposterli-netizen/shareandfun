@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Dev Board — ShareAndFun</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Georgia', serif; }
+  select, button, textarea, input { font-family: inherit; }
+  .gate-wrap {
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 40%, #f0fdf4 100%);
+    padding: 24px;
+  }
+  .gate-card {
+    background: white; border-radius: 14px; padding: 28px; max-width: 380px; width: 100%;
+    box-shadow: 0 8px 32px rgba(3,105,161,0.15); border: 1px solid #bae6fd;
+  }
+  .gate-title { font-weight: bold; color: #0369a1; font-size: 20px; margin-bottom: 6px; }
+  .gate-sub { color: #64748b; font-size: 13px; margin-bottom: 18px; }
+  .gate-input {
+    width: 100%; padding: 10px 12px; border: 1px solid #bae6fd; border-radius: 8px;
+    font-size: 14px; margin-bottom: 10px; outline: none; color: #1e293b;
+  }
+  .gate-input:focus { border-color: #0ea5e9; }
+  .gate-btn {
+    width: 100%; padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer;
+    background: linear-gradient(90deg, #0369a1, #0ea5e9); color: white; font-weight: bold;
+    font-size: 14px; margin-top: 4px;
+  }
+  .gate-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+  .gate-err { color: #ef4444; font-size: 12px; margin-top: 10px; min-height: 16px; }
+</style>
+</head>
+<body>
+
+<!-- AUTH GATE -->
+<div id="gate" class="gate-wrap">
+  <div class="gate-card">
+    <div class="gate-title">🔒 Dev Board</div>
+    <div class="gate-sub">Area riservata. Accedi con il tuo account.</div>
+    <form id="gate-form" onsubmit="return false;">
+      <input id="gate-email" class="gate-input" type="email" placeholder="Email" autocomplete="username" />
+      <input id="gate-password" class="gate-input" type="password" placeholder="Password" autocomplete="current-password" />
+      <button id="gate-btn" class="gate-btn" type="submit">Accedi</button>
+      <div id="gate-err" class="gate-err"></div>
+    </form>
+  </div>
+</div>
+
+<!-- BOARD ROOT (hidden until auth ok) -->
+<div id="root" style="display:none"></div>
+
+<script>
+  const SUPABASE_URL = 'https://btnyzzpibedkslhtiizu.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_7MGsfC7Pl9UAj76IphFMrw_Qk1II-DT';
+  const OWNER_EMAIL = 'matteo.posterli@gmail.com';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  window.sb = sb;
+
+  const gateEl = document.getElementById('gate');
+  const rootEl = document.getElementById('root');
+  const errEl = document.getElementById('gate-err');
+  const btnEl = document.getElementById('gate-btn');
+  const formEl = document.getElementById('gate-form');
+
+  function showError(msg) { errEl.textContent = msg || ''; }
+  function unlock() {
+    gateEl.style.display = 'none';
+    rootEl.style.display = 'block';
+    if (window.__mountDevBoard) window.__mountDevBoard();
+  }
+  async function denyAndSignOut(msg) {
+    await sb.auth.signOut();
+    showError(msg);
+    btnEl.disabled = false; btnEl.textContent = 'Accedi';
+  }
+
+  async function checkSession() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session && session.user && session.user.email === OWNER_EMAIL) {
+      unlock();
+      return true;
+    }
+    return false;
+  }
+
+  formEl.addEventListener('submit', async () => {
+    showError('');
+    const email = document.getElementById('gate-email').value.trim();
+    const password = document.getElementById('gate-password').value;
+    if (!email || !password) { showError('Inserisci email e password'); return; }
+    btnEl.disabled = true; btnEl.textContent = 'Accesso...';
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { showError('Email o password errati'); btnEl.disabled = false; btnEl.textContent = 'Accedi'; return; }
+    if (!data.user || data.user.email !== OWNER_EMAIL) {
+      await denyAndSignOut('Accesso non autorizzato');
+      return;
+    }
+    unlock();
+  });
+
+  checkSession();
+</script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const CATEGORIES = [
+  { id: "feature", label: "✨ Feature", color: "#0ea5e9", bg: "#e0f2fe" },
+  { id: "bug",     label: "🐛 Bug",     color: "#ef4444", bg: "#fee2e2" },
+  { id: "ux",      label: "🎨 UI/UX",   color: "#8b5cf6", bg: "#ede9fe" },
+  { id: "idea",    label: "💡 Idea",    color: "#f59e0b", bg: "#fef3c7" },
+  { id: "tech",    label: "⚙️ Tech/Infra", color: "#10b981", bg: "#d1fae5" },
+  { id: "content", label: "📝 Contenuto", color: "#64748b", bg: "#f1f5f9" },
+];
+const PRIORITIES = [
+  { id: "high", label: "Alta",  color: "#ef4444" },
+  { id: "mid",  label: "Media", color: "#f59e0b" },
+  { id: "low",  label: "Bassa", color: "#10b981" },
+];
+const STATUSES = [
+  { id: "todo", label: "Da fare" },
+  { id: "wip",  label: "In corso" },
+  { id: "done", label: "Fatto ✓" },
+];
+
+const STORAGE_KEY = "saf-devboard-notes";
+const load = () => { try { const v = localStorage.getItem(STORAGE_KEY); return v ? JSON.parse(v) : []; } catch { return []; } };
+const save = (notes) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(notes)); } catch {} };
+const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+async function doLogout() {
+  if (window.sb) await window.sb.auth.signOut();
+  location.reload();
+}
+
+function DevBoard() {
+  const [notes, setNotes] = useState(load);
+  const [input, setInput] = useState("");
+  const [selCat, setSelCat] = useState("feature");
+  const [selPri, setSelPri] = useState("mid");
+  const [filterCat, setFilterCat] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [view, setView] = useState("board");
+  const [editId, setEditId] = useState(null);
+  const [editText, setEditText] = useState("");
+
+  useEffect(() => { save(notes); }, [notes]);
+
+  function addNote() {
+    const text = input.trim();
+    if (!text) return;
+    setNotes(prev => [{ id: genId(), text, category: selCat, priority: selPri, status: "todo", createdAt: new Date().toISOString() }, ...prev]);
+    setInput("");
+  }
+
+  function deleteNote(id) { setNotes(prev => prev.filter(n => n.id !== id)); }
+  function updateStatus(id, status) { setNotes(prev => prev.map(n => n.id === id ? { ...n, status } : n)); }
+  function saveEdit(id) {
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, text: editText.trim() } : n));
+    setEditId(null); setEditText("");
+  }
+
+  const filtered = notes.filter(n => {
+    if (filterCat !== "all" && n.category !== filterCat) return false;
+    if (filterStatus !== "all" && n.status !== filterStatus) return false;
+    return true;
+  });
+  const grouped = CATEGORIES.reduce((acc, c) => { acc[c.id] = filtered.filter(n => n.category === c.id); return acc; }, {});
+  const stats = { total: notes.length, todo: notes.filter(n => n.status === "todo").length, wip: notes.filter(n => n.status === "wip").length, done: notes.filter(n => n.status === "done").length };
+  const cat = id => CATEGORIES.find(c => c.id === id);
+  const pri = id => PRIORITIES.find(p => p.id === id);
+
+  return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 40%, #f0fdf4 100%)" }}>
+      {/* Header */}
+      <div style={{ background: "linear-gradient(90deg, #0369a1, #0ea5e9)", padding: "16px 24px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 2px 12px rgba(3,105,161,0.3)" }}>
+        <span style={{ fontSize: 24 }}>🏖️</span>
+        <div>
+          <div style={{ color: "white", fontWeight: "bold", fontSize: 18, letterSpacing: 0.5 }}>ShareAndFun</div>
+          <div style={{ color: "#bae6fd", fontSize: 12 }}>Dev Board — appunti & backlog</div>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+          {["board", "list"].map(v => (
+            <button key={v} onClick={() => setView(v)} style={{ background: view === v ? "white" : "rgba(255,255,255,0.2)", color: view === v ? "#0369a1" : "white", border: "none", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontSize: 12, fontWeight: "bold" }}>
+              {v === "board" ? "📋 Board" : "📝 Lista"}
+            </button>
+          ))}
+          <button onClick={doLogout} title="Esci" style={{ background: "rgba(255,255,255,0.15)", color: "white", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12, marginLeft: 6 }}>
+            🚪 Esci
+          </button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: "flex", gap: 12, padding: "12px 24px", background: "white", borderBottom: "1px solid #e0f2fe", flexWrap: "wrap" }}>
+        {[{ label: "Totale", val: stats.total, color: "#0ea5e9" }, { label: "Da fare", val: stats.todo, color: "#64748b" }, { label: "In corso", val: stats.wip, color: "#f59e0b" }, { label: "Fatto", val: stats.done, color: "#10b981" }].map(s => (
+          <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontWeight: "bold", color: s.color, fontSize: 18 }}>{s.val}</span>
+            <span style={{ color: "#94a3b8", fontSize: 12 }}>{s.label}</span>
+            <span style={{ color: "#e2e8f0", marginLeft: 4 }}>|</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Input */}
+      <div style={{ padding: "20px 24px 0" }}>
+        <div style={{ background: "white", borderRadius: 12, padding: 16, boxShadow: "0 2px 12px rgba(14,165,233,0.1)", border: "1px solid #bae6fd" }}>
+          <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addNote(); }}
+            placeholder="Scrivi un appunto, idea, bug... (⌘+Enter per aggiungere)" rows={3}
+            style={{ width: "100%", border: "none", outline: "none", resize: "vertical", fontFamily: "Georgia, serif", fontSize: 14, color: "#1e293b", lineHeight: 1.6 }} />
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 10 }}>
+            <select value={selCat} onChange={e => setSelCat(e.target.value)} style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid #bae6fd", fontSize: 12, color: "#0369a1", background: "#f0f9ff", cursor: "pointer" }}>
+              {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+            </select>
+            <select value={selPri} onChange={e => setSelPri(e.target.value)} style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid #bae6fd", fontSize: 12, color: "#0369a1", background: "#f0f9ff", cursor: "pointer" }}>
+              {PRIORITIES.map(p => <option key={p.id} value={p.id}>🔴 {p.label} priorità</option>)}
+            </select>
+            <button onClick={addNote} disabled={!input.trim()} style={{ marginLeft: "auto", background: input.trim() ? "linear-gradient(90deg, #0369a1, #0ea5e9)" : "#cbd5e1", color: "white", border: "none", borderRadius: 8, padding: "7px 18px", cursor: input.trim() ? "pointer" : "not-allowed", fontWeight: "bold", fontSize: 13 }}>
+              + Aggiungi
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div style={{ padding: "12px 24px", display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button onClick={() => setFilterCat("all")} style={{ padding: "4px 12px", borderRadius: 20, border: `1px solid ${filterCat === "all" ? "#0ea5e9" : "#e2e8f0"}`, background: filterCat === "all" ? "#0ea5e9" : "white", color: filterCat === "all" ? "white" : "#64748b", fontSize: 11, cursor: "pointer" }}>Tutte</button>
+        {CATEGORIES.map(c => (
+          <button key={c.id} onClick={() => setFilterCat(filterCat === c.id ? "all" : c.id)} style={{ padding: "4px 12px", borderRadius: 20, border: `1px solid ${filterCat === c.id ? c.color : "#e2e8f0"}`, background: filterCat === c.id ? c.bg : "white", color: filterCat === c.id ? c.color : "#64748b", fontSize: 11, cursor: "pointer" }}>
+            {c.label} <span style={{ fontWeight: "bold" }}>{notes.filter(n => n.category === c.id).length}</span>
+          </button>
+        ))}
+        <div style={{ width: 1, background: "#e2e8f0", margin: "0 4px" }} />
+        {STATUSES.map(s => (
+          <button key={s.id} onClick={() => setFilterStatus(filterStatus === s.id ? "all" : s.id)} style={{ padding: "4px 12px", borderRadius: 20, border: `1px solid ${filterStatus === s.id ? "#0369a1" : "#e2e8f0"}`, background: filterStatus === s.id ? "#0369a1" : "white", color: filterStatus === s.id ? "white" : "#64748b", fontSize: 11, cursor: "pointer" }}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{ padding: "8px 24px 40px" }}>
+        {filtered.length === 0 && (
+          <div style={{ textAlign: "center", color: "#94a3b8", padding: "60px 0", fontSize: 14 }}>
+            <div style={{ fontSize: 40 }}>🌊</div>
+            <div style={{ marginTop: 8 }}>Nessun appunto ancora. Inizia a scrivere!</div>
+          </div>
+        )}
+        {view === "list" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {filtered.map(note => <NoteCard key={note.id} note={note} cat={cat} pri={pri} editId={editId} editText={editText} setEditId={setEditId} setEditText={setEditText} saveEdit={saveEdit} updateStatus={updateStatus} deleteNote={deleteNote} />)}
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+            {CATEGORIES.map(c => {
+              const items = grouped[c.id] || [];
+              if (items.length === 0 && filterCat === "all") return null;
+              return (
+                <div key={c.id}>
+                  <div style={{ fontWeight: "bold", color: c.color, fontSize: 13, marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
+                    <span>{c.label}</span>
+                    <span style={{ background: c.bg, borderRadius: 10, padding: "1px 8px", fontSize: 11 }}>{items.length}</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {items.map(note => <NoteCard key={note.id} note={note} cat={cat} pri={pri} editId={editId} editText={editText} setEditId={setEditId} setEditText={setEditText} saveEdit={saveEdit} updateStatus={updateStatus} deleteNote={deleteNote} />)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NoteCard({ note, cat, pri, editId, editText, setEditId, setEditText, saveEdit, updateStatus, deleteNote }) {
+  const c = cat(note.category);
+  const p = pri(note.priority);
+  const isEditing = editId === note.id;
+  const date = new Date(note.createdAt).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+  return (
+    <div style={{ background: "white", borderRadius: 10, padding: "12px 14px", boxShadow: "0 1px 6px rgba(14,165,233,0.08)", border: `1px solid ${note.status === "done" ? "#d1fae5" : "#f1f5f9"}`, opacity: note.status === "done" ? 0.7 : 1, transition: "all 0.2s" }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
+        <span style={{ background: c?.bg, color: c?.color, fontSize: 10, fontWeight: "bold", padding: "2px 7px", borderRadius: 10 }}>{c?.label}</span>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: p?.color, flexShrink: 0 }} title={`Priorità ${p?.label}`} />
+        <span style={{ color: "#cbd5e1", fontSize: 10, marginLeft: "auto" }}>{date}</span>
+      </div>
+      {isEditing ? (
+        <div>
+          <textarea value={editText} onChange={e => setEditText(e.target.value)} autoFocus rows={3}
+            style={{ width: "100%", border: "1px solid #bae6fd", borderRadius: 6, padding: 8, fontFamily: "Georgia, serif", fontSize: 13, resize: "vertical", outline: "none" }} />
+          <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+            <button onClick={() => saveEdit(note.id)} style={{ background: "#0ea5e9", color: "white", border: "none", borderRadius: 5, padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>Salva</button>
+            <button onClick={() => setEditId(null)} style={{ background: "#f1f5f9", color: "#64748b", border: "none", borderRadius: 5, padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>Annulla</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ fontSize: 13, color: note.status === "done" ? "#94a3b8" : "#1e293b", lineHeight: 1.6, textDecoration: note.status === "done" ? "line-through" : "none" }}>
+          {note.text}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 4, marginTop: 10, alignItems: "center" }}>
+        <select value={note.status} onChange={e => updateStatus(note.id, e.target.value)} style={{ fontSize: 10, border: "1px solid #e2e8f0", borderRadius: 5, padding: "2px 6px", color: "#64748b", background: "#f8fafc", cursor: "pointer" }}>
+          {[{ id: "todo", label: "Da fare" }, { id: "wip", label: "In corso 🔧" }, { id: "done", label: "Fatto ✓" }].map(s => (
+            <option key={s.id} value={s.id}>{s.label}</option>
+          ))}
+        </select>
+        <button onClick={() => { setEditId(note.id); setEditText(note.text); }} style={{ marginLeft: "auto", background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12, padding: "2px 4px" }}>✏️</button>
+        <button onClick={() => deleteNote(note.id)} style={{ background: "none", border: "none", color: "#fca5a5", cursor: "pointer", fontSize: 12, padding: "2px 4px" }}>🗑️</button>
+      </div>
+    </div>
+  );
+}
+
+window.__mountDevBoard = function() {
+  ReactDOM.createRoot(document.getElementById("root")).render(<DevBoard />);
+};
+</script>
+</body>
+</html>
