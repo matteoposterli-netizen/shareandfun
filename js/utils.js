@@ -35,8 +35,13 @@ function formatDateShort(str) {
 
 async function inviaEmail(tipo, clienteData, stab) {
   try {
-    const { data, error } = await sb.functions.invoke('invia-email', {
-      body: {
+    const { data: { session } } = await sb.auth.getSession();
+    const headers = { 'Content-Type': 'application/json' };
+    if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/invia-email`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
         tipo,
         email: clienteData.email,
         nome: clienteData.nome,
@@ -48,9 +53,10 @@ async function inviaEmail(tipo, clienteData, stab) {
         stabilimento_email: stab?.email || '',
         oggetto_custom: tipo === 'benvenuto' ? stab?.email_benvenuto_oggetto : tipo === 'attesa' ? stab?.email_attesa_oggetto : tipo === 'approvazione' ? stab?.email_approvazione_oggetto : null,
         testo_custom: tipo === 'benvenuto' ? stab?.email_benvenuto_testo : tipo === 'attesa' ? stab?.email_attesa_testo : tipo === 'approvazione' ? stab?.email_approvazione_testo : null,
-      }
+      })
     });
-    if (error) console.error(`Email ${tipo} fallita:`, error);
+    const data = await res.json();
+    if (!res.ok) console.error(`Email ${tipo} fallita:`, data);
     else if (data?.warning) console.warn(`Email ${tipo}:`, data.warning);
     else console.log(`Email ${tipo} inviata:`, data);
   } catch (e) {
