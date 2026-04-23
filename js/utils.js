@@ -29,9 +29,12 @@ function refreshCoinLabels(stab) {
   });
 }
 
-function todayStr() {
-  const d = new Date();
+function toLocalDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function todayStr() {
+  return toLocalDateStr(new Date());
 }
 
 function formatDate(str) {
