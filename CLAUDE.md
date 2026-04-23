@@ -37,7 +37,7 @@ RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select au
 
 ### Edge Functions
 
-- `invia-email` — invia email transazionali via Resend. Tipi attivamente usati dalla UI: `benvenuto` (post-completamento invito) e `invito` (link personale). Entrambi accettano `oggetto_custom`/`testo_custom` (oggetto + paragrafo introduttivo, NL→`<br>` per `invito`); se omessi si usano i default. I tipi `attesa`/`approvazione` sono ancora supportati dalla function ma non più invocati dal frontend (registrazione è solo su invito). JWT verify ON. Env richieste: `RESEND_API_KEY`, `FROM_EMAIL`, `SUPABASE_SERVICE_ROLE_KEY`.
+- `invia-email` — invia email transazionali via Resend. Dominio mittente: `spiaggiamia.com` (verificato su Resend, DNS gestiti da Vercel). Tipi attivamente usati dalla UI: `benvenuto` (post-completamento invito) e `invito` (link personale). Entrambi accettano `oggetto_custom`/`testo_custom` (oggetto + paragrafo introduttivo, NL→`<br>` per `invito`); se omessi si usano i default. I tipi `attesa`/`approvazione` sono ancora supportati dalla function ma non più invocati dal frontend (registrazione è solo su invito). JWT verify ON. Env richieste: `RESEND_API_KEY`, `FROM_EMAIL` (default fallback `SpiaggiaMia <noreply@spiaggiamia.com>`), `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## Flow registrazione clienti stagionali (invite-only)
 
