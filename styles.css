@@ -117,13 +117,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .auth-tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 24px; }
 .auth-tab { flex: 1; padding: 10px; text-align: center; font-size: 14px; font-weight: 500; color: var(--text-mid); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
 .auth-tab.active { color: var(--ocean); border-bottom-color: var(--ocean); font-weight: 600; }
-.role-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-.role-option { padding: 12px; border: 2px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; text-align: center; transition: all 0.2s; }
-.role-option:hover { border-color: var(--ocean-mid); }
-.role-option.selected { border-color: var(--ocean); background: var(--ocean-light); }
-.role-option .role-icon { font-size: 24px; margin-bottom: 6px; }
-.role-option .role-name { font-size: 13px; font-weight: 600; color: var(--text); }
-.role-option .role-desc { font-size: 11px; color: var(--text-mid); margin-top: 2px; }
 .auth-switch { text-align: center; margin-top: 20px; font-size: 13px; color: var(--text-mid); }
 .auth-switch a { color: var(--ocean); cursor: pointer; font-weight: 600; }
 
@@ -254,22 +247,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .setup-title { font-family: 'DM Serif Display', serif; font-size: 22px; margin-bottom: 8px; }
 .setup-sub { font-size: 14px; color: var(--text-mid); margin-bottom: 24px; line-height: 1.6; }
 
-/* MATCH ANALYSIS */
-.match-card { background: var(--white); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; }
-.match-card-header { padding: 14px 18px; display: flex; align-items: center; gap: 10px; justify-content: space-between; border-bottom: 1px solid var(--border); }
-.match-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-.match-100 { background: var(--green-light); color: var(--green); }
-.match-parziale { background: var(--yellow-light); color: #B07000; }
-.match-nessuno { background: var(--red-light); color: var(--red); }
-.match-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
-.match-field { padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 13px; }
-.match-field:nth-child(odd) { border-right: 1px solid var(--border); }
-.match-field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-light); margin-bottom: 3px; }
-.match-field-val { font-size: 13px; color: var(--text); }
-.match-field.ok .match-field-val { color: var(--green); font-weight: 600; }
-.match-field.diff .match-field-val { color: var(--coral); }
-.match-actions { padding: 14px 18px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-
 /* CSV CLIENTI PREVIEW */
 .csv-preview-wrap { max-height: 280px; overflow-y: auto; }
 .csv-check-all { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 10px 16px; border-bottom: 1px solid var(--border); }
@@ -300,7 +277,17 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 
 /* PENDING SECTION */
 .pending-empty { padding: 32px; text-align: center; color: var(--text-light); font-size: 13px; }
-.section-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-light); padding: 12px 0 8px; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
+.section-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-light); padding: 12px 0 8px; border-bottom: 2px solid var(--border); margin-bottom: 16px; margin-top: 8px; }
+
+/* ACTION CARDS (ombrelloni/clienti upload & invite) */
+.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+.action-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px; }
+.action-card.highlight { border: 2px dashed var(--ocean-mid); background: linear-gradient(180deg, var(--ocean-light) 0%, var(--white) 55%); }
+.action-card .action-icon { font-size: 28px; line-height: 1; }
+.action-card .action-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.action-card .action-desc { font-size: 13px; color: var(--text-mid); line-height: 1.55; }
+.action-card code { background: var(--sand); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+@media (max-width: 768px) { .action-grid { grid-template-columns: 1fr; gap: 12px; } }
 
 /* STAGIONALE GRID (responsive) */
 .stag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -348,10 +335,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
   .auth-logo .logo-text { font-size: 22px; }
   .auth-title { font-size: 18px; }
   .auth-sub { font-size: 13px; margin-bottom: 22px; }
-  .role-selector { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .role-option { padding: 10px 8px; }
-  .role-option .role-icon { font-size: 20px; }
-
   /* INVITO */
   .invito-container { margin: 24px auto; padding: 0 14px; }
   .invito-card { padding: 26px 20px; }
@@ -487,14 +470,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
   .csv-row > div:nth-child(3) { font-weight: 600; flex: 1 1 auto; }
   .csv-row > div:nth-child(4),
   .csv-row > div:nth-child(5) { flex: 0 0 100%; padding-left: 24px; font-size: 11px; color: var(--text-mid); }
-
-  /* PENDING match card */
-  .match-card-header { padding: 12px 14px; flex-wrap: wrap; gap: 6px; }
-  .match-fields { grid-template-columns: 1fr; }
-  .match-field { padding: 9px 14px; }
-  .match-field:nth-child(odd) { border-right: none; }
-  .match-actions { padding: 12px 14px; }
-  .match-actions .btn { flex: 1 1 calc(50% - 4px); min-width: 0; }
 
   /* EMAIL template editor */
   .email-section-header { padding: 12px 14px; }
