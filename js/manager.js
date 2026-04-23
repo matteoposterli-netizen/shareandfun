@@ -600,8 +600,21 @@ async function confirmSubaffitto() {
   await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, ombrellone_id: ombId, cliente_id: cliente?.id || null, tipo: 'sub_affitto', importo: omb.credito_giornaliero, nota: `Ombrellone ${omb.fila}${omb.numero} sub-affittato il ${formatDate(data)}` });
 
   if (cliente) {
-    await sb.from('clienti_stagionali').update({ credito_saldo: (parseFloat(cliente.credito_saldo) + parseFloat(omb.credito_giornaliero)).toFixed(2) }).eq('id', cliente.id);
-    await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, ombrellone_id: ombId, cliente_id: cliente.id, tipo: 'credito_ricevuto', importo: omb.credito_giornaliero, nota: `Credito per sub-affitto ${omb.fila}${omb.numero}` });
+    const nuovoSaldo = (parseFloat(cliente.credito_saldo) + parseFloat(omb.credito_giornaliero)).toFixed(2);
+    await sb.from('clienti_stagionali').update({ credito_saldo: nuovoSaldo }).eq('id', cliente.id);
+    const nota = `Credito per sub-affitto ${omb.fila}${omb.numero}`;
+    await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, ombrellone_id: ombId, cliente_id: cliente.id, tipo: 'credito_ricevuto', importo: omb.credito_giornaliero, nota });
+    if (cliente.email) {
+      inviaEmail('credito_accreditato', {
+        email: cliente.email,
+        nome: cliente.nome,
+        cognome: cliente.cognome,
+        ombrellone: `Fila ${omb.fila} N°${omb.numero}`,
+        importo_formatted: formatCoin(omb.credito_giornaliero, currentStabilimento),
+        saldo_formatted: formatCoin(nuovoSaldo, currentStabilimento),
+        nota,
+      }, currentStabilimento);
+    }
   }
 
   closeModal('modal-subaffitto');
@@ -616,8 +629,20 @@ async function usaCredito() {
   if (!clienteId || !importo || importo <= 0) { showAlert('crediti-alert', 'Seleziona cliente e inserisci un importo valido', 'error'); return; }
   const cliente = clientiList.find(c => c.id === clienteId);
   if (parseFloat(cliente.credito_saldo) < importo) { showAlert('crediti-alert', 'Credito insufficiente', 'error'); return; }
-  await sb.from('clienti_stagionali').update({ credito_saldo: (parseFloat(cliente.credito_saldo) - importo).toFixed(2) }).eq('id', clienteId);
-  await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, cliente_id: clienteId, tipo: 'credito_usato', importo, nota: nota || 'Utilizzo credito' });
+  const nuovoSaldo = (parseFloat(cliente.credito_saldo) - importo).toFixed(2);
+  const notaFinale = nota || 'Utilizzo credito';
+  await sb.from('clienti_stagionali').update({ credito_saldo: nuovoSaldo }).eq('id', clienteId);
+  await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, cliente_id: clienteId, tipo: 'credito_usato', importo, nota: notaFinale });
+  if (cliente.email) {
+    inviaEmail('credito_ritirato', {
+      email: cliente.email,
+      nome: cliente.nome,
+      cognome: cliente.cognome,
+      importo_formatted: formatCoin(importo, currentStabilimento),
+      saldo_formatted: formatCoin(nuovoSaldo, currentStabilimento),
+      nota: notaFinale,
+    }, currentStabilimento);
+  }
   showAlert('crediti-alert', `Credito di ${formatCoin(importo)} registrato per ${cliente.nome}`, 'success');
   document.getElementById('credito-importo').value = '';
   document.getElementById('credito-nota').value = '';

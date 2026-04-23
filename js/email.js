@@ -8,6 +8,16 @@ const DEFAULT_EMAIL_TEMPLATES = {
   benvenuto_oggetto: "Benvenuto {{nome}}, la tua estate con noi inizia qui ☀️",
   benvenuto_testo:
     "Sei ufficialmente dei nostri! 🎉 Da adesso puoi mettere a disposizione il tuo ombrellone nei giorni in cui non vieni in spiaggia: ogni sub-affitto ti regala crediti da spendere al bar o al ristorante. Accedi, scegli le date libere e lascia fare a noi. Buona stagione!",
+  credito_accreditato_oggetto: "⭐ {{importo}} accreditati — la spiaggia ti ringrazia!",
+  credito_accreditato_testo:
+    "Ciao {{nome}}! 🌊\n\n" +
+    "Abbiamo appena accreditato {{importo}} sul tuo saldo. Il tuo nuovo saldo è {{saldo}}.\n\n" +
+    "Puoi spenderli quando vuoi al bar o al ristorante. Buona estate! ☀️",
+  credito_ritirato_oggetto: "🧾 Hai utilizzato {{importo}} — {{stabilimento}}",
+  credito_ritirato_testo:
+    "Ciao {{nome}}!\n\n" +
+    "Abbiamo registrato l'utilizzo di {{importo}} dal tuo saldo. Ti restano {{saldo}}.\n\n" +
+    "Grazie, e a presto sotto l'ombrellone! ☂️",
 };
 
 function toggleEmailSection(tipo) {
@@ -20,21 +30,20 @@ function updateCounter(id, max) {
   const el = document.getElementById('counter-' + id);
   el.textContent = `${val}/${max}`;
   el.classList.toggle('warn', val > max * 0.9);
-  const tipo = id.split('-')[0];
-  const campo = id.split('-')[1];
-  document.getElementById(`preview-${tipo}-${campo}`).textContent = document.getElementById('email-' + id).value;
+  const preview = document.getElementById('preview-' + id);
+  if (preview) preview.textContent = document.getElementById('email-' + id).value;
 }
 
 async function loadEmailTemplates() {
   if (!currentStabilimento) return;
   const { data: stab } = await sb.from('stabilimenti')
-    .select('email_benvenuto_oggetto,email_benvenuto_testo,email_invito_oggetto,email_invito_testo')
+    .select('email_benvenuto_oggetto,email_benvenuto_testo,email_invito_oggetto,email_invito_testo,email_credito_accreditato_oggetto,email_credito_accreditato_testo,email_credito_ritirato_oggetto,email_credito_ritirato_testo')
     .eq('id', currentStabilimento.id).single();
   if (!stab) return;
-  const fields = ['benvenuto-oggetto','benvenuto-testo','invito-oggetto','invito-testo'];
-  const keys = ['email_benvenuto_oggetto','email_benvenuto_testo','email_invito_oggetto','email_invito_testo'];
-  const defaults = ['benvenuto_oggetto','benvenuto_testo','invito_oggetto','invito_testo'];
-  const maxes = [80,500,80,500];
+  const fields = ['benvenuto-oggetto','benvenuto-testo','invito-oggetto','invito-testo','credito-accreditato-oggetto','credito-accreditato-testo','credito-ritirato-oggetto','credito-ritirato-testo'];
+  const keys = ['email_benvenuto_oggetto','email_benvenuto_testo','email_invito_oggetto','email_invito_testo','email_credito_accreditato_oggetto','email_credito_accreditato_testo','email_credito_ritirato_oggetto','email_credito_ritirato_testo'];
+  const defaults = ['benvenuto_oggetto','benvenuto_testo','invito_oggetto','invito_testo','credito_accreditato_oggetto','credito_accreditato_testo','credito_ritirato_oggetto','credito_ritirato_testo'];
+  const maxes = [80,500,80,500,80,500,80,500];
   fields.forEach((f, i) => {
     const el = document.getElementById('email-' + f);
     if (!el) return;
@@ -49,6 +58,10 @@ async function saveEmailTemplates() {
     email_benvenuto_testo: document.getElementById('email-benvenuto-testo').value,
     email_invito_oggetto: document.getElementById('email-invito-oggetto').value,
     email_invito_testo: document.getElementById('email-invito-testo').value,
+    email_credito_accreditato_oggetto: document.getElementById('email-credito-accreditato-oggetto').value,
+    email_credito_accreditato_testo: document.getElementById('email-credito-accreditato-testo').value,
+    email_credito_ritirato_oggetto: document.getElementById('email-credito-ritirato-oggetto').value,
+    email_credito_ritirato_testo: document.getElementById('email-credito-ritirato-testo').value,
   }).eq('id', currentStabilimento.id);
   showAlert('email-save-alert', error ? error.message : 'Template email salvati con successo!', error ? 'error' : 'success');
   if (!error) {

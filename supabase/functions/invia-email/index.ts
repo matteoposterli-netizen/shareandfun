@@ -16,7 +16,7 @@ function buildFromHeader(displayName: string | undefined): string {
 }
 
 interface EmailRequest {
-  tipo: "benvenuto" | "attesa" | "approvazione" | "invito";
+  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato";
   email: string;
   nome: string;
   cognome?: string;
@@ -25,6 +25,10 @@ interface EmailRequest {
   stabilimento_email?: string;
   ombrellone?: string;
   invite_link?: string;
+  // Dati transazione coin (per tipi credito_accreditato/ritirato)
+  importo_formatted?: string;
+  saldo_formatted?: string;
+  nota?: string;
   // Testi personalizzati dall'owner
   oggetto_custom?: string;
   testo_custom?: string;
@@ -119,7 +123,7 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const { tipo, email, nome, cognome = "", stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, oggetto_custom, testo_custom } = body;
+  const { tipo, email, nome, cognome = "", stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, importo_formatted, saldo_formatted, nota, oggetto_custom, testo_custom } = body;
 
   if (!tipo || !email || !nome) {
     return new Response(JSON.stringify({ error: "Parametri mancanti: tipo, email, nome" }), {
@@ -214,6 +218,50 @@ Deno.serve(async (req: Request) => {
       stabilimento_telefono,
       stabilimento_email,
       footer_extra: `Hai ricevuto questa email perché il tuo stabilimento ti ha invitato. Per qualsiasi domanda contatta direttamente <strong>${stabilimento_nome}</strong>.`,
+    });
+
+  } else if (tipo === "credito_accreditato") {
+    subject = oggetto_custom || `Hai ricevuto ${importo_formatted ?? "dei coin"} — ${stabilimento_nome}`;
+    const testoCustom = testo_custom
+      ? testo_custom.replace(/\n/g, "<br>")
+      : `Abbiamo appena accreditato <strong>${importo_formatted ?? ""}</strong> sul tuo saldo ShareAndFun.${saldo_formatted ? ` Il tuo nuovo saldo è <strong>${saldo_formatted}</strong>.` : ""}${nota ? `<br><br><em>${nota}</em>` : ""}`;
+    html = buildEmailHtml({
+      headerColor: "linear-gradient(135deg,#2EAA6B 0%,#38c97e 100%)",
+      headerEmoji: "⭐ 💰",
+      headerSub: `Coin accreditati da ${stabilimento_nome}`,
+      nome,
+      testoPrincipale: `Bella notizia! Il tuo saldo è appena cresciuto.`,
+      boxColor: "#E8F8F0",
+      boxBorderColor: "#2EAA6B",
+      boxTitoloColor: "#1a7a4a",
+      boxTitolo: "💰 Coin accreditati",
+      boxTesto: testoCustom,
+      stabilimento_nome,
+      stabilimento_telefono,
+      stabilimento_email,
+      footer_extra: `Puoi usare i tuoi coin al bar o al ristorante di <strong>${stabilimento_nome}</strong>. Buona estate! ☀️`,
+    });
+
+  } else if (tipo === "credito_ritirato") {
+    subject = oggetto_custom || `Hai utilizzato ${importo_formatted ?? "dei coin"} — ${stabilimento_nome}`;
+    const testoCustom = testo_custom
+      ? testo_custom.replace(/\n/g, "<br>")
+      : `Abbiamo registrato l'utilizzo di <strong>${importo_formatted ?? ""}</strong> dal tuo saldo ShareAndFun.${saldo_formatted ? ` Il tuo saldo residuo è <strong>${saldo_formatted}</strong>.` : ""}${nota ? `<br><br><em>${nota}</em>` : ""}`;
+    html = buildEmailHtml({
+      headerColor: "linear-gradient(135deg,#E07B54 0%,#f09060 100%)",
+      headerEmoji: "🎉 🧾",
+      headerSub: `Coin utilizzati presso ${stabilimento_nome}`,
+      nome,
+      testoPrincipale: `Hai appena utilizzato parte dei tuoi coin. Ecco il riepilogo.`,
+      boxColor: "#FDF0EB",
+      boxBorderColor: "#E07B54",
+      boxTitoloColor: "#a05030",
+      boxTitolo: "🧾 Utilizzo coin",
+      boxTesto: testoCustom,
+      stabilimento_nome,
+      stabilimento_telefono,
+      stabilimento_email,
+      footer_extra: `Per qualsiasi dubbio sul saldo contatta direttamente <strong>${stabilimento_nome}</strong>.`,
     });
 
   } else {

@@ -22,7 +22,7 @@ Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono ren
 | Tabella | Scopo |
 |---|---|
 | `profiles` | Utenti (ruolo: `proprietario` o `stagionale`), FK ad `auth.users` |
-| `stabilimenti` | Stabilimento balneare, owned da un proprietario. Template email personalizzabili: `email_benvenuto_*` e `email_invito_oggetto`/`email_invito_testo` (fallback ai default se NULL). Le colonne `email_attesa_*`/`email_approvazione_*` esistono ancora nello schema ma non sono più esposte dalla UI (flow invite-only). |
+| `stabilimenti` | Stabilimento balneare, owned da un proprietario. Template email personalizzabili: `email_benvenuto_*`, `email_invito_*`, `email_credito_accreditato_*`, `email_credito_ritirato_*` (fallback ai default in `js/email.js` se NULL). Le colonne `email_attesa_*`/`email_approvazione_*` esistono ancora nello schema ma non sono più esposte dalla UI (flow invite-only). |
 | `ombrelloni` | Ombrelloni di uno stabilimento (fila, numero, credito giornaliero) |
 | `clienti_stagionali` | Clienti stagionali con `approvato`/`rifiutato`/`fonte` e `invito_token` per registrazione via link. **Nessuna registrazione autonoma**: esistono solo record creati dal proprietario (invito singolo o CSV); `user_id` viene popolato quando il cliente completa l'invito. |
 | `disponibilita` | Giornate in cui un ombrellone è messo a disposizione o sub-affittato |
@@ -37,7 +37,13 @@ RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select au
 
 ### Edge Functions
 
-- `invia-email` — invia email transazionali via Resend. Dominio mittente: `spiaggiamia.com` (verificato su Resend, DNS gestiti da Vercel). Tipi attivamente usati dalla UI: `benvenuto` (post-completamento invito) e `invito` (link personale). Entrambi accettano `oggetto_custom`/`testo_custom` (oggetto + paragrafo introduttivo, NL→`<br>` per `invito`); se omessi si usano i default. I tipi `attesa`/`approvazione` sono ancora supportati dalla function ma non più invocati dal frontend (registrazione è solo su invito). JWT verify ON. Env richieste: `RESEND_API_KEY`, `FROM_EMAIL` (default fallback `SpiaggiaMia <noreply@spiaggiamia.com>`), `SUPABASE_SERVICE_ROLE_KEY`. **Attenzione**: la `RESEND_API_KEY` deve avere accesso al dominio `spiaggiamia.com` (permission "Full access" oppure "Sending access" con `spiaggiamia.com` selezionato). Una key ristretta a un altro dominio produce 500 con `statusCode:400 "The associated domain...key with full access or with a verified domain"`.
+- `invia-email` — invia email transazionali via Resend. Dominio mittente: `spiaggiamia.com` (verificato su Resend, DNS gestiti da Vercel). Tipi attivamente usati dalla UI:
+  - `invito` (link personale)
+  - `benvenuto` (post-completamento invito)
+  - `credito_accreditato` (ad ogni inserimento di transazione `credito_ricevuto` — incluso il sub-affitto automatico)
+  - `credito_ritirato` (ad ogni inserimento di transazione `credito_usato`)
+
+  Tutti accettano `oggetto_custom`/`testo_custom` (NL→`<br>` per `invito`/`credito_*`); se omessi si usano i default. I tipi `credito_*` accettano anche `importo_formatted`, `saldo_formatted`, `nota`. Placeholders supportati nei template: `{{nome}}`, `{{cognome}}`, `{{ombrellone}}`, `{{importo}}`, `{{saldo}}`, `{{nota}}`, `{{stabilimento}}` (sostituiti lato client in `js/utils.js → substitutePlaceholders`). I tipi `attesa`/`approvazione` sono ancora supportati dalla function ma non più invocati dal frontend (registrazione è solo su invito). JWT verify ON. Env richieste: `RESEND_API_KEY`, `FROM_EMAIL` (default fallback `SpiaggiaMia <noreply@spiaggiamia.com>`), `SUPABASE_SERVICE_ROLE_KEY`. **Attenzione**: la `RESEND_API_KEY` deve avere accesso al dominio `spiaggiamia.com` (permission "Full access" oppure "Sending access" con `spiaggiamia.com` selezionato). Una key ristretta a un altro dominio produce 500 con `statusCode:400 "The associated domain...key with full access or with a verified domain"`.
 
 ## Flow registrazione clienti stagionali (invite-only)
 
@@ -52,7 +58,7 @@ Non esiste più il ramo "registrazione diretta" (`fonte='diretta'`) né il conce
 ## Workflow Git
 
 - **Production branch**: `main` → deploy Vercel produzione
-- **Feature/review branch corrente**: `claude/consolidate-management-tabs-qwYCz`
+- **Feature/review branch corrente**: `claude/coin-transaction-emails-0r7ia`
   Tutti i lavori vanno qui. Vercel crea un preview URL per questo branch.
 - **Mai pushare direttamente su `main`** senza conferma esplicita dell'utente. Merge su main = deploy produzione.
 
