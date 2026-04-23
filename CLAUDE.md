@@ -22,7 +22,7 @@ Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono ren
 | Tabella | Scopo |
 |---|---|
 | `profiles` | Utenti (ruolo: `proprietario` o `stagionale`), FK ad `auth.users` |
-| `stabilimenti` | Stabilimento balneare, owned da un proprietario. Template email personalizzabili (`email_benvenuto_*`). Le colonne `email_attesa_*`/`email_approvazione_*` esistono ancora nello schema ma non sono più esposte dalla UI (flow invite-only). |
+| `stabilimenti` | Stabilimento balneare, owned da un proprietario. Template email personalizzabili: `email_benvenuto_*` e `email_invito_oggetto`/`email_invito_testo` (fallback ai default se NULL). Le colonne `email_attesa_*`/`email_approvazione_*` esistono ancora nello schema ma non sono più esposte dalla UI (flow invite-only). |
 | `ombrelloni` | Ombrelloni di uno stabilimento (fila, numero, credito giornaliero) |
 | `clienti_stagionali` | Clienti stagionali con `approvato`/`rifiutato`/`fonte` e `invito_token` per registrazione via link. **Nessuna registrazione autonoma**: esistono solo record creati dal proprietario (invito singolo o CSV); `user_id` viene popolato quando il cliente completa l'invito. |
 | `disponibilita` | Giornate in cui un ombrellone è messo a disposizione o sub-affittato |
@@ -37,7 +37,7 @@ RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select au
 
 ### Edge Functions
 
-- `invia-email` — invia email transazionali via Resend. Tipi attivamente usati dalla UI: `benvenuto` (post-completamento invito) e `invito` (link personale). I tipi `attesa`/`approvazione` sono ancora supportati dalla function ma non più invocati dal frontend (registrazione è solo su invito). JWT verify ON. Env richieste: `RESEND_API_KEY`, `FROM_EMAIL`, `SUPABASE_SERVICE_ROLE_KEY`.
+- `invia-email` — invia email transazionali via Resend. Tipi attivamente usati dalla UI: `benvenuto` (post-completamento invito) e `invito` (link personale). Entrambi accettano `oggetto_custom`/`testo_custom` (oggetto + paragrafo introduttivo, NL→`<br>` per `invito`); se omessi si usano i default. I tipi `attesa`/`approvazione` sono ancora supportati dalla function ma non più invocati dal frontend (registrazione è solo su invito). JWT verify ON. Env richieste: `RESEND_API_KEY`, `FROM_EMAIL`, `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## Flow registrazione clienti stagionali (invite-only)
 
@@ -52,7 +52,7 @@ Non esiste più il ramo "registrazione diretta" (`fonte='diretta'`) né il conce
 ## Workflow Git
 
 - **Production branch**: `main` → deploy Vercel produzione
-- **Feature/review branch corrente**: `claude/beach-invite-only-registration-wlsjM`
+- **Feature/review branch corrente**: `claude/beach-client-management-19akz`
   Tutti i lavori vanno qui. Vercel crea un preview URL per questo branch.
 - **Mai pushare direttamente su `main`** senza conferma esplicita dell'utente. Merge su main = deploy produzione.
 
