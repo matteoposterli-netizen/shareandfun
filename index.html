@@ -203,7 +203,10 @@
       <div id="ombrelloni-list" style="margin-bottom:16px"></div>
       <div class="card" style="margin-bottom:16px"><div class="card-body">
         <div class="card-title" style="margin-bottom:10px">📂 Carica CSV</div>
-        <p style="font-size:13px;color:var(--text-mid);margin-bottom:12px">Formato: <code>fila,numero,credito_giornaliero</code> (una riga per ombrellone)</p>
+        <p style="font-size:13px;color:var(--text-mid);margin-bottom:12px">
+          Formato: <code>fila,numero,credito_giornaliero</code> (una riga per ombrellone).
+          <a href="#" onclick="event.preventDefault();scaricaCSVOmbrelloniTemplate()" style="color:var(--ocean);font-weight:600">Scarica esempio</a>
+        </p>
         <input type="file" id="csv-file" accept=".csv" onchange="loadCSV(event)" class="form-input">
         <div id="csv-omb-preview"></div>
         <div id="csv-omb-actions" class="hidden" style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -318,6 +321,7 @@
             <p style="font-size:13px;color:var(--text-mid);margin-bottom:12px">
               Carica un CSV con i tuoi clienti stagionali. Colonne richieste (in ordine):
               <code>fila, numero_ombrellone, nome, cognome, telefono, email</code>. Massimo 1000 righe.
+              <a href="#" onclick="event.preventDefault();scaricaCSVClientiTemplate()" style="color:var(--ocean);font-weight:600">Scarica esempio</a>
             </p>
             <div id="csv-clienti-alert"></div>
             <input type="file" id="csv-clienti-file" accept=".csv" onchange="loadCSVClienti(event)" class="form-input" style="margin-bottom:12px">

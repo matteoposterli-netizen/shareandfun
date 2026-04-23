@@ -56,10 +56,12 @@ async function inviaEmail(tipo, clienteData, stab) {
       })
     });
     const data = await res.json();
-    if (!res.ok) console.error(`Email ${tipo} fallita:`, data);
-    else if (data?.warning) console.warn(`Email ${tipo}:`, data.warning);
+    if (!res.ok) { console.error(`Email ${tipo} fallita:`, data); return false; }
+    if (data?.warning) console.warn(`Email ${tipo}:`, data.warning);
     else console.log(`Email ${tipo} inviata:`, data);
+    return true;
   } catch (e) {
     console.error(`Email ${tipo} eccezione:`, e);
+    return false;
   }
 }

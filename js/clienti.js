@@ -40,24 +40,40 @@ function renderCSVAnteprima(rows) {
   const wrap = document.getElementById('csv-clienti-preview');
   const actions = document.getElementById('csv-invito-actions');
   const known = new Set((ombrelloniList || []).map(o => `${o.fila}|${o.numero}`));
+  const seenEmails = new Set();
+  const statuses = rows.map(r => {
+    const email = (r.email || '').trim().toLowerCase();
+    if (!email) return { kind: 'block', label: 'email mancante' };
+    if (!EMAIL_RE.test(email)) return { kind: 'block', label: 'email non valida' };
+    if (seenEmails.has(email)) return { kind: 'block', label: 'email duplicata' };
+    seenEmails.add(email);
+    if (!known.has(`${r.fila}|${r.numero}`)) return { kind: 'warn', label: 'ombrellone non esiste' };
+    return { kind: 'ok', label: 'ok' };
+  });
+  const blocked = statuses.filter(s => s.kind === 'block').length;
+  const warned = statuses.filter(s => s.kind === 'warn').length;
   wrap.innerHTML = `
     <div class="csv-preview-wrap">
       <div class="csv-check-all">
         <input type="checkbox" id="csv-check-all" onchange="toggleAllCSV(this.checked)" checked>
-        <label for="csv-check-all">Seleziona tutti (${rows.length})</label>
+        <label for="csv-check-all">Seleziona tutti (${rows.length - blocked})</label>
+        ${blocked ? `<span style="color:var(--red);font-size:12px;font-weight:600;margin-left:auto">${blocked} non invitabili</span>` : ''}
+        ${warned ? `<span style="color:#B07000;font-size:12px;font-weight:600;margin-left:${blocked?'8px':'auto'}">${warned} con avviso</span>` : ''}
       </div>
-      <div class="csv-row header"><div></div><div>Ombrellone</div><div>Nome</div><div>Cognome</div><div>Telefono</div><div>Email</div></div>
+      <div class="csv-row header"><div></div><div>Ombrellone</div><div>Nome</div><div>Cognome</div><div>Telefono</div><div>Email</div><div>Stato</div></div>
       ${rows.map((r, i) => {
-        const missing = !known.has(`${r.fila}|${r.numero}`);
-        const ombCell = `${escapeHtml(r.fila)} ${r.numero}` + (missing ? ' <span class="omb-missing">non esiste</span>' : '');
+        const s = statuses[i];
+        const badgeColor = s.kind === 'ok' ? 'var(--green)' : s.kind === 'warn' ? '#B07000' : 'var(--red)';
+        const attrs = s.kind === 'block' ? 'disabled' : 'checked';
         return `
         <div class="csv-row">
-          <input type="checkbox" class="csv-check" data-idx="${i}" checked onchange="updateCSVCount()">
-          <div>${ombCell}</div>
+          <input type="checkbox" class="csv-check" data-idx="${i}" ${attrs} onchange="updateCSVCount()">
+          <div>${escapeHtml(r.fila)} ${r.numero}</div>
           <div>${escapeHtml(r.nome)}</div>
           <div>${escapeHtml(r.cognome)}</div>
           <div>${escapeHtml(r.telefono) || '–'}</div>
-          <div>${r.email ? escapeHtml(r.email) : '<span style="color:var(--red)">mancante</span>'}</div>
+          <div>${escapeHtml(r.email) || '–'}</div>
+          <div style="color:${badgeColor};font-size:11px;font-weight:600">${s.label}</div>
         </div>`;
       }).join('')}
     </div>`;
@@ -67,7 +83,7 @@ function renderCSVAnteprima(rows) {
 }
 
 function toggleAllCSV(checked) {
-  document.querySelectorAll('.csv-check').forEach(cb => cb.checked = checked);
+  document.querySelectorAll('.csv-check:not(:disabled)').forEach(cb => cb.checked = checked);
   updateCSVCount();
 }
 
@@ -161,17 +177,21 @@ async function inviaInvitiSelezionati() {
     if (u.token) targets.push({ email: u.row.email, nome: u.row.nome, cognome: u.row.cognome, token: u.token });
   });
 
-  let sent = 0;
+  let sent = 0, failed = 0;
   await runWithConcurrency(targets, 5, async (t) => {
     const inviteLink = `${window.location.origin}/?invito=${t.token}`;
-    await inviaEmail('invito', { email: t.email, nome: t.nome, cognome: t.cognome, invite_link: inviteLink }, currentStabilimento);
-    sent++;
+    const ok = await inviaEmail('invito', { email: t.email, nome: t.nome, cognome: t.cognome, invite_link: inviteLink }, currentStabilimento);
+    if (ok) sent++; else failed++;
   }, (done, total) => renderInvitiProgress('Invio email…', done, total));
 
   if (btn) btn.disabled = false;
   await loadManagerData();
-  const suffix = skipped ? ` (${skipped} saltati: email mancante o duplicata)` : '';
-  showAlert('csv-clienti-alert', `✅ Inviti inviati a ${sent} clienti${suffix}`, 'success');
+  const parts = [];
+  if (skipped) parts.push(`${skipped} saltati nel CSV`);
+  if (failed) parts.push(`${failed} email fallite (vedi console)`);
+  const suffix = parts.length ? ` (${parts.join(', ')})` : '';
+  const type = failed ? 'error' : 'success';
+  showAlert('csv-clienti-alert', `${failed ? '⚠️' : '✅'} Inviti inviati a ${sent} clienti${suffix}`, type);
 }
 
 function renderPendingRequests(pending, listRecords, ombs) {

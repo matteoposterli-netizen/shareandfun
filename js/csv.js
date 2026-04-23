@@ -60,3 +60,27 @@ async function runWithConcurrency(items, limit, fn, onProgress) {
   const n = Math.min(limit, total) || 0;
   await Promise.all(Array.from({ length: n }, worker));
 }
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function downloadCSVTemplate(filename, content) {
+  const blob = new Blob(['﻿' + content], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function scaricaCSVOmbrelloniTemplate() {
+  downloadCSVTemplate('esempio-ombrelloni.csv',
+    'fila,numero,credito_giornaliero\nA,1,12.00\nA,2,12.00\nB,1,10.00\n');
+}
+
+function scaricaCSVClientiTemplate() {
+  downloadCSVTemplate('esempio-clienti.csv',
+    'fila,numero_ombrellone,nome,cognome,telefono,email\nA,1,Mario,Rossi,3331234567,mario@example.com\nB,5,Anna,Bianchi,,anna@example.com\n');
+}
