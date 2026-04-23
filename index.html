@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ShareAndFun</title>
+<title>SpiaggiaMia</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
@@ -19,7 +19,7 @@
 
 <!-- TOPNAV -->
 <nav class="topnav" id="topnav">
-  <div class="logo" onclick="goHome()">🌊 ShareAndFun</div>
+  <div class="logo" onclick="goHome()">🌊 SpiaggiaMia</div>
   <div class="nav-right" id="nav-right">
     <button class="btn-nav" onclick="showView('auth', 'login')">Accedi</button>
     <button class="btn-nav filled" onclick="showView('auth', 'register')">Registra stabilimento</button>
@@ -33,7 +33,7 @@
   <div class="hero">
     <div class="hero-waves">☀️ 🌊 ☂️</div>
     <h1>Ogni ombrellone vuoto<br><span>è un'opportunità persa.</span></h1>
-    <p>ShareAndFun connette gli stabilimenti balneari con i loro clienti stagionali per trasformare i giorni liberi in valore per tutti.</p>
+    <p>SpiaggiaMia connette gli stabilimenti balneari con i loro clienti stagionali per trasformare i giorni liberi in valore per tutti.</p>
     <div class="hero-ctas">
       <button class="btn-hero-primary" onclick="showView('auth','register')">Registra il tuo stabilimento →</button>
       <button class="btn-hero-outline" onclick="showView('auth','login')">Hai già un account? Accedi</button>
@@ -73,7 +73,7 @@
           <li>Storico completo delle disponibilità</li>
         </ul>
         <div style="background:var(--sand);border-radius:var(--radius-sm);padding:14px 16px;font-size:13px;color:var(--text-mid);line-height:1.6">
-          ✉️ <strong>L'accesso è solo su invito.</strong> Se vuoi usare ShareAndFun, contatta il tuo stabilimento balneare e chiedi di essere invitato: riceverai un'email con il link personale per creare la password. Una volta attivato, usa <em>Accedi</em> in alto a destra.
+          ✉️ <strong>L'accesso è solo su invito.</strong> Se vuoi usare SpiaggiaMia, contatta il tuo stabilimento balneare e chiedi di essere invitato: riceverai un'email con il link personale per creare la password. Una volta attivato, usa <em>Accedi</em> in alto a destra.
         </div>
       </div>
     </div>
@@ -84,7 +84,7 @@
 <div id="view-invito" class="view">
   <div class="invito-container">
     <div class="invito-card">
-      <div class="auth-logo"><div class="logo-text">🌊 ShareAndFun</div></div>
+      <div class="auth-logo"><div class="logo-text">🌊 SpiaggiaMia</div></div>
       <div class="invito-badge">✉️ Invito personale</div>
       <div class="auth-title" id="invito-title">Completa la registrazione</div>
       <div class="auth-sub" id="invito-sub">Sei stato invitato. Imposta la tua password per accedere.</div>
@@ -98,7 +98,7 @@
         <label class="form-label">Conferma password</label>
         <input type="password" id="invito-password2" class="form-input" placeholder="Ripeti la password" autocomplete="new-password">
       </div>
-      <button class="btn btn-primary btn-full" onclick="completeInviteRegistration()" id="btn-invito">Accedi a ShareAndFun →</button>
+      <button class="btn btn-primary btn-full" onclick="completeInviteRegistration()" id="btn-invito">Accedi a SpiaggiaMia →</button>
     </div>
   </div>
 </div>
@@ -107,7 +107,7 @@
 <div id="view-auth" class="view">
   <div class="auth-container">
     <div class="auth-card">
-      <div class="auth-logo"><div class="logo-text">🌊 ShareAndFun</div></div>
+      <div class="auth-logo"><div class="logo-text">🌊 SpiaggiaMia</div></div>
       <!-- LOGIN -->
       <div id="auth-login">
         <div class="auth-title">Bentornato</div>
@@ -321,12 +321,12 @@
           <div class="email-section-body" id="email-body-invito">
             <div class="form-group">
               <label class="form-label">Oggetto email</label>
-              <input type="text" id="email-invito-oggetto" class="form-input" maxlength="80" oninput="updateCounter('invito-oggetto',80)" placeholder="es. Sei stato invitato su ShareAndFun">
+              <input type="text" id="email-invito-oggetto" class="form-input" maxlength="80" oninput="updateCounter('invito-oggetto',80)" placeholder="es. Sei stato invitato su SpiaggiaMia">
               <div class="char-counter" id="counter-invito-oggetto">0/80</div>
             </div>
             <div class="form-group">
               <label class="form-label">Messaggio personalizzato</label>
-              <textarea id="email-invito-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('invito-testo',500)" placeholder="es. Ciao {{nome}}, quest'anno usiamo ShareAndFun per gestire gli ombrelloni..." style="resize:vertical"></textarea>
+              <textarea id="email-invito-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('invito-testo',500)" placeholder="es. Ciao {{nome}}, quest'anno usiamo SpiaggiaMia per gestire gli ombrelloni..." style="resize:vertical"></textarea>
               <div class="char-counter" id="counter-invito-testo">0/500</div>
               <div style="font-size:12px;color:var(--text-light);margin-top:4px">Puoi usare <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{cognome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{ombrellone}}</code>.</div>
             </div>
@@ -347,7 +347,7 @@
           <div class="email-section-body" id="email-body-benvenuto">
             <div class="form-group">
               <label class="form-label">Oggetto email</label>
-              <input type="text" id="email-benvenuto-oggetto" class="form-input" maxlength="80" oninput="updateCounter('benvenuto-oggetto',80)" placeholder="es. Benvenuto su ShareAndFun!">
+              <input type="text" id="email-benvenuto-oggetto" class="form-input" maxlength="80" oninput="updateCounter('benvenuto-oggetto',80)" placeholder="es. Benvenuto su SpiaggiaMia!">
               <div class="char-counter" id="counter-benvenuto-oggetto">0/80</div>
             </div>
             <div class="form-group">
@@ -592,11 +592,11 @@
     </div>
     <div class="form-group">
       <label class="form-label">Oggetto</label>
-      <input type="text" id="bulk-invite-oggetto" class="form-input" maxlength="120" placeholder="Sei stato invitato su ShareAndFun">
+      <input type="text" id="bulk-invite-oggetto" class="form-input" maxlength="120" placeholder="Sei stato invitato su SpiaggiaMia">
     </div>
     <div class="form-group">
       <label class="form-label">Messaggio</label>
-      <textarea id="bulk-invite-testo" class="form-input" rows="5" maxlength="800" placeholder="Ciao {{nome}}, quest'anno stiamo usando ShareAndFun..." style="resize:vertical"></textarea>
+      <textarea id="bulk-invite-testo" class="form-input" rows="5" maxlength="800" placeholder="Ciao {{nome}}, quest'anno stiamo usando SpiaggiaMia..." style="resize:vertical"></textarea>
       <div style="font-size:12px;color:var(--text-light);margin-top:4px">Il pulsante "Completa la registrazione" viene aggiunto automaticamente.</div>
     </div>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-mid);cursor:pointer">

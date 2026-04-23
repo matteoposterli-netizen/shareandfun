@@ -72,7 +72,7 @@ async function completeInviteRegistration() {
   const btn = document.getElementById('btn-invito');
   btn.disabled = true; btn.textContent = 'Registrazione in corso...';
   const { data, error } = await sb.auth.signUp({ email: currentInviteData.email, password: pwd });
-  if (error) { showAlert('invito-alert', error.message, 'error'); btn.disabled = false; btn.textContent = 'Accedi a ShareAndFun →'; return; }
+  if (error) { showAlert('invito-alert', error.message, 'error'); btn.disabled = false; btn.textContent = 'Accedi a SpiaggiaMia →'; return; }
   currentUser = data.user;
   await sb.from('profiles').insert({ id: currentUser.id, nome: currentInviteData.nome, cognome: currentInviteData.cognome, ruolo: 'stagionale' });
   await sb.rpc('completa_registrazione_invito', { p_token: currentInviteToken, p_user_id: currentUser.id });

@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS public.stabilimenti (
   telefono                   text,
   created_at                 timestamp DEFAULT now(),
   email                      text,
-  email_benvenuto_oggetto    text DEFAULT 'Benvenuto su ShareAndFun!'::text,
+  email_benvenuto_oggetto    text DEFAULT 'Benvenuto su SpiaggiaMia!'::text,
   email_benvenuto_testo      text DEFAULT 'Siamo felici di averti con noi! Il tuo accesso è attivo.'::text,
   email_attesa_oggetto       text DEFAULT 'Richiesta di iscrizione ricevuta'::text,
   email_attesa_testo         text DEFAULT 'La tua richiesta è stata ricevuta. Il proprietario la esaminerà a breve.'::text,

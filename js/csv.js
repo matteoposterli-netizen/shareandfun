@@ -57,7 +57,7 @@ function scaricaExcelTemplate() {
   ws['!cols'] = [{ wch: 8 }, { wch: 8 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 24 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Ombrelloni');
-  XLSX.writeFile(wb, 'shareandfun-template.xlsx');
+  XLSX.writeFile(wb, 'spiaggiamia-template.xlsx');
 }
 
 function normalizeHeader(h) {
