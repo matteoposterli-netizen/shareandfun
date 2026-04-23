@@ -109,6 +109,11 @@ async function loadManagerData() {
   await loadManagerTx();
   await loadAllTx();
   populateClienteSelect();
+  if (!document.getElementById('analytics-date-from').value) {
+    setAnalyticsRange(30);
+  } else {
+    await loadCreditiAnalytics();
+  }
 }
 
 function renderManagerMap(ombs, dispMap) {
@@ -327,6 +332,117 @@ function renderCreditiTable(clienti, ombs) {
 function populateClienteSelect() {
   const sel = document.getElementById('credito-cliente');
   sel.innerHTML = clientiList.map(c => `<option value="${c.id}">${c.nome} ${c.cognome} (${formatCoin(c.credito_saldo)})</option>`).join('');
+}
+
+function setAnalyticsRange(days) {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - (days - 1));
+  document.getElementById('analytics-date-from').value = from.toISOString().split('T')[0];
+  document.getElementById('analytics-date-to').value = to.toISOString().split('T')[0];
+  loadCreditiAnalytics();
+}
+
+async function loadCreditiAnalytics() {
+  const from = document.getElementById('analytics-date-from').value;
+  const to = document.getElementById('analytics-date-to').value;
+  if (!from || !to) return;
+  if (from > to) { showAlert('crediti-alert', 'Periodo non valido: la data iniziale è successiva a quella finale', 'error'); return; }
+
+  const fromIso = new Date(from + 'T00:00:00').toISOString();
+  const toIso = new Date(to + 'T23:59:59.999').toISOString();
+
+  const { data: txs, error } = await sb.from('transazioni')
+    .select('ombrellone_id, cliente_id, tipo, importo')
+    .eq('stabilimento_id', currentStabilimento.id)
+    .in('tipo', ['sub_affitto', 'credito_ricevuto', 'credito_usato'])
+    .gte('created_at', fromIso)
+    .lte('created_at', toIso);
+  if (error) { console.error(error); return; }
+
+  const ombById = {};
+  ombrelloniList.forEach(o => { ombById[o.id] = o; });
+  const cliById = {};
+  clientiList.forEach(c => { cliById[c.id] = c; });
+  const cliByOmb = {};
+  clientiList.forEach(c => { if (c.ombrellone_id) cliByOmb[c.ombrellone_id] = c; });
+
+  const stats = {};
+  const ensure = (key) => stats[key] || (stats[key] = { ombrellone_id: null, cliente_id: null, ricevuti: 0, spesi: 0, subaffitti: 0 });
+
+  let totRic = 0, totSpe = 0, totSub = 0;
+
+  (txs || []).forEach(t => {
+    const importo = parseFloat(t.importo || 0);
+    if (t.tipo === 'sub_affitto') {
+      const key = t.ombrellone_id || `nob:${t.cliente_id || 'unknown'}`;
+      const s = ensure(key);
+      s.ombrellone_id = t.ombrellone_id;
+      if (!s.cliente_id) s.cliente_id = t.cliente_id || (t.ombrellone_id ? (cliByOmb[t.ombrellone_id]?.id || null) : null);
+      s.subaffitti += 1;
+      totSub += 1;
+    } else if (t.tipo === 'credito_ricevuto') {
+      const key = t.ombrellone_id || `cli:${t.cliente_id || 'unknown'}`;
+      const s = ensure(key);
+      s.ombrellone_id = t.ombrellone_id;
+      if (!s.cliente_id) s.cliente_id = t.cliente_id;
+      s.ricevuti += importo;
+      totRic += importo;
+    } else if (t.tipo === 'credito_usato') {
+      const cliId = t.cliente_id;
+      const ombId = cliId ? (clientiList.find(c => c.id === cliId)?.ombrellone_id || null) : null;
+      const key = ombId || `cli:${cliId || 'unknown'}`;
+      const s = ensure(key);
+      s.ombrellone_id = ombId;
+      if (!s.cliente_id) s.cliente_id = cliId;
+      s.spesi += importo;
+      totSpe += importo;
+    }
+  });
+
+  document.getElementById('analytics-tot-ricevuti').textContent = formatCoin(totRic);
+  document.getElementById('analytics-tot-spesi').textContent = formatCoin(totSpe);
+  document.getElementById('analytics-tot-subaffitti').textContent = totSub;
+  document.getElementById('analytics-tot-subaffitti-sub').textContent = totSub === 1 ? 'giornata sub-affittata' : 'giornate sub-affittate';
+
+  const rows = Object.values(stats);
+  rows.sort((a, b) => {
+    const oa = a.ombrellone_id ? ombById[a.ombrellone_id] : null;
+    const ob = b.ombrellone_id ? ombById[b.ombrellone_id] : null;
+    if (oa && ob) {
+      if (oa.fila !== ob.fila) return String(oa.fila).localeCompare(String(ob.fila));
+      return (oa.numero || 0) - (ob.numero || 0);
+    }
+    if (oa) return -1;
+    if (ob) return 1;
+    return 0;
+  });
+
+  const tb = document.getElementById('analytics-table');
+  const empty = document.getElementById('analytics-empty');
+  if (!rows.length) {
+    tb.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  tb.innerHTML = rows.map(s => {
+    const o = s.ombrellone_id ? ombById[s.ombrellone_id] : null;
+    const c = s.cliente_id ? cliById[s.cliente_id] : null;
+    const ombStr = o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">— ombrellone rimosso</span>';
+    const cliStr = c ? `${c.nome} ${c.cognome}` : '<span style="color:var(--text-light)">—</span>';
+    const saldo = s.ricevuti - s.spesi;
+    const saldoColor = saldo > 0 ? 'var(--ocean)' : saldo < 0 ? 'var(--coral)' : 'var(--text-light)';
+    const saldoSign = saldo > 0 ? '+' : '';
+    return `<tr>
+      <td><strong>${ombStr}</strong></td>
+      <td>${cliStr}</td>
+      <td style="text-align:right">${s.subaffitti}</td>
+      <td style="text-align:right;color:var(--ocean)">${formatCoin(s.ricevuti)}</td>
+      <td style="text-align:right;color:var(--coral)">${formatCoin(s.spesi)}</td>
+      <td style="text-align:right;color:${saldoColor};font-weight:600">${saldoSign}${formatCoin(saldo).replace(/^-/, '−')}</td>
+    </tr>`;
+  }).join('');
 }
 
 async function loadManagerTx() {

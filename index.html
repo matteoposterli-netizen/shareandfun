@@ -430,6 +430,41 @@
             <tbody id="crediti-table"></tbody>
           </table></div>
         </div>
+        <div style="margin-top:20px" class="card">
+          <div class="card-header">
+            <div class="card-title">📊 Distribuzione crediti per ombrellone</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
+                <span>Dal</span>
+                <input type="date" id="analytics-date-from" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="loadCreditiAnalytics()">
+                <span>al</span>
+                <input type="date" id="analytics-date-to" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="loadCreditiAnalytics()">
+              </div>
+              <button class="btn btn-outline btn-sm" onclick="setAnalyticsRange(7)">Ultimi 7 gg</button>
+              <button class="btn btn-outline btn-sm" onclick="setAnalyticsRange(30)">Ultimi 30 gg</button>
+              <button class="btn btn-outline btn-sm" onclick="setAnalyticsRange(90)">Ultimi 90 gg</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="stats-row" style="margin-bottom:16px">
+              <div class="stat-card"><div class="stat-label">Crediti distribuiti</div><div class="stat-value ocean" id="analytics-tot-ricevuti">–</div><div class="stat-sub">ai clienti nel periodo</div></div>
+              <div class="stat-card"><div class="stat-label">Crediti spesi</div><div class="stat-value coral" id="analytics-tot-spesi">–</div><div class="stat-sub">utilizzati dai clienti</div></div>
+              <div class="stat-card"><div class="stat-label">Sub-affitti</div><div class="stat-value green" id="analytics-tot-subaffitti">–</div><div class="stat-sub" id="analytics-tot-subaffitti-sub">giornate sub-affittate</div></div>
+            </div>
+            <div class="table-wrap"><table class="data-table">
+              <thead><tr>
+                <th>Ombrellone</th>
+                <th>Cliente</th>
+                <th style="text-align:right">Sub-affitti</th>
+                <th style="text-align:right">Crediti distribuiti</th>
+                <th style="text-align:right">Crediti spesi</th>
+                <th style="text-align:right">Saldo periodo</th>
+              </tr></thead>
+              <tbody id="analytics-table"></tbody>
+            </table></div>
+            <div id="analytics-empty" class="hidden" style="text-align:center;color:var(--text-light);padding:24px">Nessuna attività di credito nel periodo selezionato</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
