@@ -472,11 +472,13 @@ body {
   position: fixed; inset: 0; background: rgba(14,27,38,0.4);
   display: flex; align-items: center; justify-content: center;
   z-index: 200; padding: 20px; backdrop-filter: blur(3px);
+  overflow-y: auto;
 }
 .modal {
   background: #fff; border-radius: var(--radius);
   padding: 32px; max-width: 520px; width: 100%;
   box-shadow: var(--shadow-md);
+  max-height: calc(100vh - 40px); overflow-y: auto;
 }
 .modal-title { font-family: 'DM Serif Display', serif; font-size: 24px; margin-bottom: 8px; letter-spacing: -0.01em; }
 .modal-sub { font-size: 14px; color: var(--text-mid); margin-bottom: 24px; line-height: 1.55; }
