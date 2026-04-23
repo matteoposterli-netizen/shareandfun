@@ -28,7 +28,7 @@ Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono ren
 | `disponibilita` | Giornate in cui un ombrellone è messo a disposizione o sub-affittato |
 | `transazioni` | Storico contabile (credito aggiunto/usato, sub-affitti) |
 
-RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select auth.uid())` per performance. Vedi `supabase/migrations/20260422091225_security_performance_hardening.sql`.
+RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select auth.uid())` per performance. L'intero schema `public` (tabelle, FK, indexes, RLS, policies, RPC) è catturato come baseline in `supabase/migrations/20260420000000_baseline.sql`; migrazioni future vanno come file addizionali con timestamp successivo.
 
 ### RPC functions (SECURITY DEFINER)
 
