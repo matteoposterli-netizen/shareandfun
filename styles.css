@@ -302,13 +302,219 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .pending-empty { padding: 32px; text-align: center; color: var(--text-light); font-size: 13px; }
 .section-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-light); padding: 12px 0 8px; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
 
-/* RESPONSIVE */
+/* STAGIONALE GRID (responsive) */
+.stag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+/* ========================================================================
+   RESPONSIVE
+   ======================================================================== */
+
+/* Tablet / small desktop: stop the map+tx two-col before everything else breaks */
+@media (max-width: 960px) {
+  .two-col { grid-template-columns: 1fr; }
+  .three-col { grid-template-columns: 1fr 1fr; }
+  .stag-grid { grid-template-columns: 1fr; }
+}
+
+/* Mobile / large phone */
 @media (max-width: 768px) {
-  .how-steps, .roles-grid { grid-template-columns: 1fr; }
-  .stats-row { grid-template-columns: 1fr 1fr; }
-  .dash-layout { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
-  .two-col, .three-col { grid-template-columns: 1fr; }
-  .form-row { grid-template-columns: 1fr; }
-  .user-hero { flex-direction: column; gap: 16px; }
+  /* TOPNAV */
+  .topnav { padding: 0 14px; height: 54px; }
+  .logo { font-size: 18px; gap: 6px; }
+  .nav-right { gap: 8px; }
+  .btn-nav { padding: 6px 12px; font-size: 12px; }
+  .nav-user { display: none; }
+
+  /* LANDING HERO */
+  .hero { padding: 48px 20px 64px; }
+  .hero::before { height: 36px; }
+  .hero-waves { font-size: 28px; letter-spacing: 6px; margin-bottom: 14px; }
+  .hero h1 { font-size: 30px; line-height: 1.15; margin-bottom: 12px; }
+  .hero h1 br { display: none; }
+  .hero p { font-size: 15px; margin-bottom: 24px; line-height: 1.5; }
+  .hero-ctas { flex-direction: column; gap: 10px; align-items: stretch; }
+  .btn-hero-primary, .btn-hero-outline { padding: 12px 20px; font-size: 14px; width: 100%; }
+  .landing-content { padding: 40px 16px; }
+  .section-label { font-size: 11px; letter-spacing: 1.5px; }
+  .section-title { font-size: 22px; margin-bottom: 24px; }
+  .how-steps, .roles-grid { grid-template-columns: 1fr; gap: 14px; margin-bottom: 36px; }
+  .step-card { padding: 22px 18px; }
+  .role-card { padding: 24px 20px; }
+
+  /* AUTH */
+  .auth-container { margin: 24px auto; padding: 0 14px; }
+  .auth-card { padding: 26px 20px; }
+  .auth-logo { margin-bottom: 20px; }
+  .auth-logo .logo-text { font-size: 22px; }
+  .auth-title { font-size: 18px; }
+  .auth-sub { font-size: 13px; margin-bottom: 22px; }
+  .role-selector { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .role-option { padding: 10px 8px; }
+  .role-option .role-icon { font-size: 20px; }
+
+  /* INVITO */
+  .invito-container { margin: 24px auto; padding: 0 14px; }
+  .invito-card { padding: 26px 20px; }
+
+  /* SETUP WIZARD */
+  .setup-container { margin: 20px auto; padding: 0 14px; }
+  .setup-title { font-size: 20px; }
+  .setup-sub { font-size: 13px; margin-bottom: 20px; }
+  .card-body { padding: 16px; }
+
+  /* FORM */
+  .form-row { grid-template-columns: 1fr; gap: 0; }
+
+  /* ---------- DASHBOARD LAYOUT: sidebar becomes horizontal tab-bar ---------- */
+  .dash-layout { grid-template-columns: 1fr; min-height: calc(100vh - 54px); }
+  .sidebar {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 54px;
+    z-index: 90;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .sidebar::-webkit-scrollbar { display: none; }
+  .sidebar-title { display: none; }
+  .sidebar-item {
+    flex: 0 0 auto;
+    width: auto;
+    white-space: nowrap;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    scroll-snap-align: start;
+    background: var(--sand);
+  }
+  .sidebar-item.active { background: var(--ocean-light); }
+  .sidebar-item .badge { margin-left: 6px; }
+
+  .main-content { padding: 18px 14px; overflow-y: visible; }
+
+  /* PAGE HEADER */
+  .page-header { flex-direction: column; align-items: stretch; gap: 10px; margin-bottom: 18px; }
+  .page-title { font-size: 20px; }
+  .page-subtitle { font-size: 12px; }
+  .page-header > .btn { align-self: flex-start; }
+
+  /* STATS: 2x2 */
+  .stats-row { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  .stat-card { padding: 14px; }
+  .stat-value { font-size: 22px; }
+  .stat-label { font-size: 10px; }
+
+  /* TWO/THREE COL already handled above; ensure stack on phones */
+  .two-col, .three-col { grid-template-columns: 1fr; gap: 14px; }
+
+  /* CARD HEADER (map card has date inputs that overflow) */
+  .card-header { flex-wrap: wrap; gap: 10px; padding: 14px 16px; }
+  .card-header > div:nth-child(2):last-child { width: 100%; justify-content: space-between; }
+  /* date inputs in map card: override the inline width:140px */
+  #map-date-from, #map-date-to { width: 100% !important; min-width: 0; flex: 1; }
+
+  /* BEACH MAP */
+  .beach-map-wrap { padding: 14px 16px 10px; }
+  .beach-map-wrap > div { flex-direction: column; }
+  .map-rows { overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; max-width: 100%; }
+  .map-row { gap: 4px; }
+  .ombrellone { width: 30px; height: 30px; font-size: 8px; border-radius: 6px; border-width: 1.5px; }
+  .sea-label { font-size: 10px; letter-spacing: 2px; padding: 8px 0 2px; }
+  .map-legend { gap: 10px; }
+  .legend-item { font-size: 11px; }
+
+  /* USER HERO (stagionale) */
+  .user-hero { flex-direction: column; gap: 14px; align-items: stretch; padding: 20px; }
+  .user-name { font-size: 20px; }
+  .credit-box { padding: 14px 18px; }
+  .credit-amount { font-size: 26px; }
+
+  /* CALENDAR */
+  .cal-header { margin-bottom: 10px; }
+  .cal-month { font-size: 14px; }
+  .cal-days-grid, .cal-days-header { gap: 2px; }
+  .cal-day { font-size: 11px; border-radius: 6px; border-width: 1.5px; }
+  .cal-day-name { font-size: 9px; }
+  .cal-legend { gap: 10px; padding: 10px 0 2px; }
+
+  /* TABLES: keep horizontal scroll but compact */
+  .data-table th, .data-table td { padding: 10px 12px; font-size: 12px; }
+  .data-table th { font-size: 10px; }
+  .table-wrap { -webkit-overflow-scrolling: touch; }
+
+  /* TX LIST */
+  .tx-item { padding: 11px 14px; gap: 8px; }
+  .tx-title { font-size: 12px; }
+  .tx-sub { font-size: 11px; }
+  .tx-time { font-size: 10px; }
+  .tx-dot { width: 26px; height: 26px; font-size: 12px; }
+
+  /* MODAL */
+  .modal-overlay { padding: 0; align-items: stretch; }
+  .modal {
+    border-radius: var(--radius) var(--radius) 0 0;
+    max-width: 100%;
+    width: 100%;
+    padding: 22px 18px;
+    margin-top: auto;
+    max-height: 94vh;
+    overflow-y: auto;
+  }
+  .modal-title { font-size: 18px; }
+  .modal-footer { flex-direction: column-reverse; gap: 8px; }
+  .modal-footer .btn { width: 100%; }
+
+  /* CSV PREVIEW: flex-based stacked layout on mobile */
+  .csv-preview-wrap { max-height: 360px; }
+  .csv-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 10px 14px; }
+  .csv-row.header { display: none; }
+  .csv-row > input[type=checkbox] { margin-right: 4px; }
+  .csv-row > div:nth-child(2) { font-weight: 600; }
+  .csv-row > div:nth-child(3) { font-weight: 600; flex: 1 1 auto; }
+  .csv-row > div:nth-child(4),
+  .csv-row > div:nth-child(5) { flex: 0 0 100%; padding-left: 24px; font-size: 11px; color: var(--text-mid); }
+
+  /* PENDING match card */
+  .match-card-header { padding: 12px 14px; flex-wrap: wrap; gap: 6px; }
+  .match-fields { grid-template-columns: 1fr; }
+  .match-field { padding: 9px 14px; }
+  .match-field:nth-child(odd) { border-right: none; }
+  .match-actions { padding: 12px 14px; }
+  .match-actions .btn { flex: 1 1 calc(50% - 4px); min-width: 0; }
+
+  /* EMAIL template editor */
+  .email-section-header { padding: 12px 14px; }
+  .email-section-body { padding: 16px 14px; }
+  .email-section-title { font-size: 13px; }
+
+  /* ALERT padding */
+  .alert { padding: 10px 12px; font-size: 12px; }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .topnav { padding: 0 12px; }
+  .logo { font-size: 17px; }
+  .hero { padding: 40px 18px 56px; }
+  .hero h1 { font-size: 26px; }
+  .hero p { font-size: 14px; }
+  .hero-waves { font-size: 24px; }
+  .auth-card, .invito-card { padding: 22px 16px; }
+  .main-content { padding: 14px 12px; }
+  .stats-row { gap: 8px; }
+  .stat-value { font-size: 20px; }
+  .ombrellone { width: 26px; height: 26px; font-size: 8px; border-radius: 5px; }
+  .cal-day { font-size: 10px; }
+  .modal { padding: 20px 16px; }
+  .btn { padding: 10px 18px; font-size: 13px; }
+  .btn-sm { padding: 7px 12px; font-size: 12px; }
+  .data-table th, .data-table td { padding: 9px 10px; }
 }
