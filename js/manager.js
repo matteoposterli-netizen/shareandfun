@@ -101,7 +101,8 @@ async function loadManagerData() {
   const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
   const { data: txWeek } = await sb.from('transazioni').select('importo').eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_ricevuto').gte('created_at', weekAgo.toISOString());
   const totCrediti = (txWeek || []).reduce((s, t) => s + parseFloat(t.importo), 0);
-  document.getElementById('stat-crediti').textContent = formatCoin(totCrediti);
+  document.getElementById('stat-crediti').textContent = parseFloat(totCrediti || 0).toFixed(2);
+  document.getElementById('stat-crediti-unit').textContent = coinName(currentStabilimento);
 
   renderManagerMap(ombrelloniList, dispMap);
   renderGestioneTable(ombrelloniList, dispMap, clientiList);
