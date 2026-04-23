@@ -68,8 +68,8 @@ async function inviaEmail(tipo, clienteData, stab) {
         stabilimento_nome: stab?.nome || '',
         stabilimento_telefono: stab?.telefono || '',
         stabilimento_email: stab?.email || '',
-        oggetto_custom: tipo === 'benvenuto' ? stab?.email_benvenuto_oggetto : tipo === 'attesa' ? stab?.email_attesa_oggetto : tipo === 'approvazione' ? stab?.email_approvazione_oggetto : null,
-        testo_custom: tipo === 'benvenuto' ? stab?.email_benvenuto_testo : tipo === 'attesa' ? stab?.email_attesa_testo : tipo === 'approvazione' ? stab?.email_approvazione_testo : null,
+        oggetto_custom: tipo === 'benvenuto' ? stab?.email_benvenuto_oggetto : null,
+        testo_custom: tipo === 'benvenuto' ? stab?.email_benvenuto_testo : null,
       })
     });
     const data = await res.json();

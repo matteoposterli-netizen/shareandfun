@@ -15,7 +15,6 @@ let stagOmbrelloneId = null;
 let setupOmbrelloni = [];
 let currentInviteToken = null;
 let currentInviteData = null;
-let selectedRole = 'proprietario';
 let currentMapDate;
 let currentDispMap = {};
 let csvClientiRows = [];

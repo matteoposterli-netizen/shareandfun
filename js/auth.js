@@ -1,30 +1,3 @@
-async function selectRole(r) {
-  selectedRole = r;
-  document.getElementById('role-proprietario').classList.toggle('selected', r === 'proprietario');
-  document.getElementById('role-stagionale').classList.toggle('selected', r === 'stagionale');
-  const fields = document.getElementById('reg-stagionale-fields');
-  if (r === 'stagionale') {
-    fields.classList.remove('hidden');
-    const sel = document.getElementById('reg-stabilimento');
-    sel.innerHTML = '<option value="">Caricamento...</option>';
-    const { data: stabs } = await sb.from('stabilimenti').select('id, nome, citta').order('nome');
-    sel.innerHTML = '<option value="">— Seleziona stabilimento —</option>' +
-      (stabs || []).map(s => `<option value="${s.id}">${s.nome}${s.citta ? ' — ' + s.citta : ''}</option>`).join('');
-  } else {
-    fields.classList.add('hidden');
-  }
-}
-
-async function onRegStabilimentoChange() {
-  const stabId = document.getElementById('reg-stabilimento').value;
-  const sel = document.getElementById('reg-ombrellone');
-  if (!stabId) { sel.innerHTML = '<option value="">— Prima seleziona lo stabilimento —</option>'; return; }
-  sel.innerHTML = '<option value="">Caricamento...</option>';
-  const { data: ombs } = await sb.from('ombrelloni').select('id, fila, numero').eq('stabilimento_id', stabId).order('fila').order('numero');
-  sel.innerHTML = '<option value="">— Seleziona ombrellone —</option>' +
-    (ombs || []).map(o => `<option value="${o.id}">Fila ${o.fila} N°${o.numero}</option>`).join('');
-}
-
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
@@ -51,28 +24,12 @@ async function doRegister() {
   const { data, error } = await sb.auth.signUp({ email, password });
   if (error) { showAlert('register-alert', error.message, 'error'); btn.disabled = false; btn.textContent = 'Crea account'; return; }
   currentUser = data.user;
-  const { error: pe } = await sb.from('profiles').insert({ id: currentUser.id, nome, cognome, telefono, ruolo: selectedRole });
+  const { error: pe } = await sb.from('profiles').insert({ id: currentUser.id, nome, cognome, telefono, ruolo: 'proprietario' });
   if (pe) { showAlert('register-alert', pe.message, 'error'); btn.disabled = false; btn.textContent = 'Crea account'; return; }
   const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
   currentProfile = profile;
   updateNav();
-  if (selectedRole === 'proprietario') {
-    showView('setup');
-  } else {
-    const stabId = document.getElementById('reg-stabilimento').value;
-    const ombId = document.getElementById('reg-ombrellone').value;
-    if (!stabId) { showAlert('register-alert', 'Seleziona il tuo stabilimento balneare', 'error'); btn.disabled = false; btn.textContent = 'Crea account'; return; }
-    if (!ombId) { showAlert('register-alert', 'Seleziona il tuo ombrellone', 'error'); btn.disabled = false; btn.textContent = 'Crea account'; return; }
-    const { error: ce } = await sb.from('clienti_stagionali').insert({
-      stabilimento_id: stabId, ombrellone_id: ombId, user_id: currentUser.id,
-      nome, cognome, email, telefono, approvato: false, fonte: 'diretta'
-    });
-    if (ce) { showAlert('register-alert', ce.message, 'error'); btn.disabled = false; btn.textContent = 'Crea account'; return; }
-    const { data: stab } = await sb.from('stabilimenti').select('nome,telefono,email,email_attesa_oggetto,email_attesa_testo').eq('id', stabId).single();
-    await inviaEmail('attesa', { email, nome, cognome }, stab);
-    showView('stagionale');
-    await loadStagionaleData();
-  }
+  showView('setup');
   btn.disabled = false; btn.textContent = 'Crea account';
 }
 

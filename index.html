@@ -20,7 +20,7 @@
   <div class="logo" onclick="goHome()">🌊 ShareAndFun</div>
   <div class="nav-right" id="nav-right">
     <button class="btn-nav" onclick="showView('auth', 'login')">Accedi</button>
-    <button class="btn-nav filled" onclick="showView('auth', 'register')">Registrati</button>
+    <button class="btn-nav filled" onclick="showView('auth', 'register')">Registra stabilimento</button>
   </div>
 </nav>
 
@@ -36,6 +36,7 @@
       <button class="btn-hero-primary" onclick="showView('auth','register')">Registra il tuo stabilimento →</button>
       <button class="btn-hero-outline" onclick="showView('auth','login')">Hai già un account? Accedi</button>
     </div>
+    <p style="margin-top:18px;font-size:13px;opacity:0.85;font-weight:300">Sei un cliente stagionale? Accedi solo su invito del tuo stabilimento.</p>
   </div>
   <div class="landing-content">
     <div class="section-label">Come funziona</div>
@@ -62,14 +63,17 @@
       </div>
       <div class="role-card seasonal">
         <h3>☂️ Cliente Stagionale</h3>
-        <div class="role-sub">Semplice, trasparente, conveniente</div>
+        <div class="role-sub">Accesso solo su invito del tuo stabilimento</div>
         <ul class="feature-list">
           <li>Calendario per dichiarare i giorni liberi</li>
           <li>Notifica se l'ombrellone viene sub-affittato</li>
           <li>Wallet crediti sempre aggiornato</li>
           <li>Storico completo delle disponibilità</li>
         </ul>
-        <button class="btn btn-coral btn-full" onclick="showView('auth','login')">Accedi →</button>
+        <div style="background:var(--sand);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text-mid);line-height:1.55">
+          ✉️ Riceverai un'email con il link personale dal tuo stabilimento. Segui il link per creare la password e accedere.
+        </div>
+        <button class="btn btn-coral btn-full" onclick="showView('auth','login')">Ho già un account — Accedi →</button>
       </div>
     </div>
   </div>
@@ -119,22 +123,13 @@
         <button class="btn btn-primary btn-full" onclick="doLogin()" id="btn-login">Accedi</button>
         <div class="auth-switch">Non hai un account? <a onclick="toggleAuth('register')">Registrati</a></div>
       </div>
-      <!-- REGISTER -->
+      <!-- REGISTER (solo proprietari) -->
       <div id="auth-register" class="hidden">
-        <div class="auth-title">Crea account</div>
-        <div class="auth-sub">Scegli come vuoi usare ShareAndFun</div>
+        <div class="auth-title">Registra il tuo stabilimento</div>
+        <div class="auth-sub">Crea l'account per gestire ombrelloni, clienti stagionali e sub-affitti.</div>
         <div id="register-alert"></div>
-        <div class="role-selector">
-          <div class="role-option selected" id="role-proprietario" onclick="selectRole('proprietario')">
-            <div class="role-icon">🏖️</div>
-            <div class="role-name">Proprietario</div>
-            <div class="role-desc">Gestisco uno stabilimento</div>
-          </div>
-          <div class="role-option" id="role-stagionale" onclick="selectRole('stagionale')">
-            <div class="role-icon">☂️</div>
-            <div class="role-name">Stagionale</div>
-            <div class="role-desc">Ho un ombrellone in affitto</div>
-          </div>
+        <div class="alert alert-info" style="margin-bottom:18px;font-size:13px;line-height:1.55">
+          ☂️ <strong>Cliente stagionale?</strong> L'accesso è solo su invito. Il tuo stabilimento ti invierà un'email con il link per impostare la password.
         </div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">Nome</label><input type="text" id="reg-nome" class="form-input" placeholder="Mario"></div>
@@ -142,20 +137,6 @@
         </div>
         <div class="form-group"><label class="form-label">Email</label><input type="email" id="reg-email" class="form-input" placeholder="mario@example.com"></div>
         <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="reg-telefono" class="form-input" placeholder="+39 333 1234567"></div>
-        <div id="reg-stagionale-fields" class="hidden">
-          <div class="form-group">
-            <label class="form-label">Stabilimento balneare <span style="color:var(--red)">*</span></label>
-            <select id="reg-stabilimento" class="form-select" onchange="onRegStabilimentoChange()">
-              <option value="">— Seleziona stabilimento —</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Il tuo ombrellone <span style="color:var(--red)">*</span></label>
-            <select id="reg-ombrellone" class="form-select">
-              <option value="">— Prima seleziona lo stabilimento —</option>
-            </select>
-          </div>
-        </div>
         <div class="form-group"><label class="form-label">Password</label><input type="password" id="reg-password" class="form-input" placeholder="Minimo 6 caratteri"></div>
         <button class="btn btn-primary btn-full" onclick="doRegister()" id="btn-register">Crea account</button>
         <div class="auth-switch">Hai già un account? <a onclick="toggleAuth('login')">Accedi</a></div>
@@ -230,7 +211,7 @@
       <div class="sidebar-title">Principale</div>
       <button class="sidebar-item active" onclick="managerTab('panoramica',this)"><span class="icon">📊</span> Panoramica</button>
       <button class="sidebar-item" onclick="managerTab('ombrelloni',this)"><span class="icon">🗺️</span> Ombrelloni</button>
-      <button class="sidebar-item" id="sidebar-clienti" onclick="managerTab('clienti',this)"><span class="icon">👥</span> Clienti Stagionali <span class="badge hidden" id="badge-pending">0</span></button>
+      <button class="sidebar-item" id="sidebar-clienti" onclick="managerTab('clienti',this)"><span class="icon">👥</span> Clienti Stagionali</button>
       <button class="sidebar-item" onclick="managerTab('transazioni',this)"><span class="icon">📋</span> Transazioni</button>
       <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Crediti</button>
       <button class="sidebar-item" onclick="managerTab('email',this)"><span class="icon">✉️</span> Email</button>
@@ -290,9 +271,36 @@
       <!-- OMBRELLONI TAB -->
       <div id="mtab-ombrelloni" class="tab-content">
         <div class="page-header">
-          <div><div class="page-title">Ombrelloni</div><div class="page-subtitle">Gestisci e modifica gli ombrelloni del tuo stabilimento</div></div>
-          <button class="btn btn-primary btn-sm" onclick="openAddOmbModal()">+ Aggiungi</button>
+          <div><div class="page-title">Ombrelloni</div><div class="page-subtitle">Carica, modifica e tieni traccia degli ombrelloni del tuo stabilimento</div></div>
         </div>
+
+        <!-- Azioni principali: aggiungi singolo + CSV -->
+        <div class="action-grid">
+          <div class="action-card">
+            <div class="action-icon">➕</div>
+            <div class="action-title">Aggiungi un ombrellone</div>
+            <div class="action-desc">Inserisci fila, numero e credito giornaliero.</div>
+            <button class="btn btn-primary btn-sm btn-full" onclick="openAddOmbModal()">+ Aggiungi ombrellone</button>
+          </div>
+          <div class="action-card highlight">
+            <div class="action-icon">📂</div>
+            <div class="action-title">Carica in massa via CSV</div>
+            <div class="action-desc">
+              Colonne: <code>fila,numero,credito_giornaliero</code>.
+              <a href="#" onclick="event.preventDefault();scaricaCSVOmbrelloniTemplate()" style="color:var(--ocean);font-weight:600">Scarica esempio</a>
+            </div>
+            <div id="mgr-csv-omb-alert"></div>
+            <input type="file" id="mgr-csv-omb-file" accept=".csv" onchange="loadCSVOmbrelloniManager(event)" class="form-input">
+            <div id="mgr-csv-omb-preview"></div>
+            <div id="mgr-csv-omb-actions" class="hidden" style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <button class="btn btn-primary btn-sm" onclick="confermaCSVOmbrelloniManager()">+ Aggiungi selezionati</button>
+              <button class="btn btn-outline btn-sm" onclick="annullaCSVOmbrelloniManager()">Annulla</button>
+              <span id="mgr-csv-omb-count" style="font-size:13px;color:var(--text-mid)"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-divider">☂️ Ombrelloni registrati</div>
         <div class="card">
           <div class="table-wrap"><table class="data-table">
             <thead><tr><th>Fila</th><th>N°</th><th>Credito/giorno</th><th>Cliente Stagionale</th><th>Stato oggi</th><th>Azioni</th></tr></thead>
@@ -304,40 +312,39 @@
       <!-- CLIENTI TAB -->
       <div id="mtab-clienti" class="tab-content">
         <div class="page-header">
-          <div><div class="page-title">Clienti Stagionali</div><div class="page-subtitle">Gestisci clienti, inviti e richieste di approvazione</div></div>
-          <button class="btn btn-primary btn-sm" onclick="openAddClienteModal()">+ Aggiungi cliente</button>
+          <div><div class="page-title">Clienti Stagionali</div><div class="page-subtitle">Invita i tuoi clienti singolarmente o in massa — accedono solo tramite link personale</div></div>
         </div>
 
-        <!-- Richieste in attesa -->
-        <div id="pending-section" style="margin-bottom:24px">
-          <div class="section-divider">⏳ Richieste in attesa di approvazione</div>
-          <div id="pending-container"><div class="pending-empty">Nessuna richiesta in attesa</div></div>
-        </div>
-
-        <!-- CSV upload inviti -->
-        <div class="section-divider">📂 Invita clienti via CSV</div>
-        <div class="card" style="margin-bottom:16px">
-          <div class="card-body">
-            <p style="font-size:13px;color:var(--text-mid);margin-bottom:12px">
-              Carica un CSV con i tuoi clienti stagionali. Colonne richieste (in ordine):
-              <code>fila, numero_ombrellone, nome, cognome, telefono, email</code>. Massimo 1000 righe.
+        <!-- Azioni invito: singolo + massivo -->
+        <div class="action-grid">
+          <div class="action-card">
+            <div class="action-icon">✉️</div>
+            <div class="action-title">Invita un cliente</div>
+            <div class="action-desc">Inserisci nome, email e ombrellone. Riceverà un link personale per attivare l'account.</div>
+            <button class="btn btn-primary btn-sm btn-full" onclick="openAddClienteModal()">+ Invita singolo cliente</button>
+          </div>
+          <div class="action-card highlight">
+            <div class="action-icon">📂</div>
+            <div class="action-title">Invita in massa via CSV</div>
+            <div class="action-desc">
+              Colonne: <code>fila, numero_ombrellone, nome, cognome, telefono, email</code>. Max 1000 righe.
               <a href="#" onclick="event.preventDefault();scaricaCSVClientiTemplate()" style="color:var(--ocean);font-weight:600">Scarica esempio</a>
-            </p>
+            </div>
             <div id="csv-clienti-alert"></div>
-            <input type="file" id="csv-clienti-file" accept=".csv" onchange="loadCSVClienti(event)" class="form-input" style="margin-bottom:12px">
+            <input type="file" id="csv-clienti-file" accept=".csv" onchange="loadCSVClienti(event)" class="form-input">
             <div id="csv-clienti-preview"></div>
-            <div id="csv-invito-actions" class="hidden" style="margin-top:12px;display:flex;gap:10px;align-items:center">
+            <div id="csv-invito-actions" class="hidden" style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <button class="btn btn-primary btn-sm" onclick="inviaInvitiSelezionati()">✉️ Invia invito ai selezionati</button>
               <span id="csv-invito-count" style="font-size:13px;color:var(--text-mid)"></span>
             </div>
           </div>
         </div>
 
-        <!-- Lista clienti approvati -->
-        <div class="section-divider">✅ Clienti attivi</div>
+        <!-- Lista clienti -->
+        <div class="section-divider">👥 Clienti invitati e attivi</div>
         <div class="card">
           <div class="table-wrap"><table class="data-table">
-            <thead><tr><th>Nome</th><th>Email</th><th>Telefono</th><th>Ombrellone</th><th>Credito</th><th>Fonte</th><th>Azioni</th></tr></thead>
+            <thead><tr><th>Nome</th><th>Email</th><th>Telefono</th><th>Ombrellone</th><th>Credito</th><th>Stato</th><th>Azioni</th></tr></thead>
             <tbody id="clienti-table"></tbody>
           </table></div>
         </div>
@@ -357,7 +364,7 @@
         <!-- Benvenuto -->
         <div class="email-section">
           <div class="email-section-header" onclick="toggleEmailSection('benvenuto')">
-            <div class="email-section-title">☀️ Email di benvenuto <span style="font-size:12px;color:var(--text-light);font-weight:400">(dopo registrazione via invito)</span></div>
+            <div class="email-section-title">☀️ Email di benvenuto <span style="font-size:12px;color:var(--text-light);font-weight:400">(dopo che il cliente completa l'invito)</span></div>
             <span>▾</span>
           </div>
           <div class="email-section-body" id="email-body-benvenuto">
@@ -379,55 +386,6 @@
           </div>
         </div>
 
-        <!-- Attesa approvazione -->
-        <div class="email-section">
-          <div class="email-section-header" onclick="toggleEmailSection('attesa')">
-            <div class="email-section-title">⏳ Email di attesa approvazione <span style="font-size:12px;color:var(--text-light);font-weight:400">(dopo registrazione diretta)</span></div>
-            <span>▾</span>
-          </div>
-          <div class="email-section-body" id="email-body-attesa">
-            <div class="form-group">
-              <label class="form-label">Oggetto email</label>
-              <input type="text" id="email-attesa-oggetto" class="form-input" maxlength="80" oninput="updateCounter('attesa-oggetto',80)" placeholder="es. Richiesta ricevuta">
-              <div class="char-counter" id="counter-attesa-oggetto">0/80</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Messaggio personalizzato</label>
-              <textarea id="email-attesa-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('attesa-testo',500)" placeholder="es. La tua richiesta è stata ricevuta..." style="resize:vertical"></textarea>
-              <div class="char-counter" id="counter-attesa-testo">0/500</div>
-            </div>
-            <div class="email-preview-box">
-              <strong>Anteprima:</strong> <span id="preview-attesa-oggetto" style="color:var(--ocean)"></span><br>
-              <span id="preview-attesa-testo"></span>
-              <div class="email-preview-fixed">+ nome stabilimento · telefono · email stabilimento (automatici)</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Approvazione -->
-        <div class="email-section">
-          <div class="email-section-header" onclick="toggleEmailSection('approvazione')">
-            <div class="email-section-title">✅ Email di approvazione <span style="font-size:12px;color:var(--text-light);font-weight:400">(dopo approvazione manuale)</span></div>
-            <span>▾</span>
-          </div>
-          <div class="email-section-body" id="email-body-approvazione">
-            <div class="form-group">
-              <label class="form-label">Oggetto email</label>
-              <input type="text" id="email-approvazione-oggetto" class="form-input" maxlength="80" oninput="updateCounter('approvazione-oggetto',80)" placeholder="es. Iscrizione approvata!">
-              <div class="char-counter" id="counter-approvazione-oggetto">0/80</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Messaggio personalizzato</label>
-              <textarea id="email-approvazione-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('approvazione-testo',500)" placeholder="es. Ottima notizia! La tua iscrizione è stata approvata..." style="resize:vertical"></textarea>
-              <div class="char-counter" id="counter-approvazione-testo">0/500</div>
-            </div>
-            <div class="email-preview-box">
-              <strong>Anteprima:</strong> <span id="preview-approvazione-oggetto" style="color:var(--ocean)"></span><br>
-              <span id="preview-approvazione-testo"></span>
-              <div class="email-preview-fixed">+ nome stabilimento · telefono · email stabilimento (automatici)</div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- TRANSAZIONI TAB -->
@@ -554,21 +512,21 @@
 
 <div id="modal-add-cliente" class="modal-overlay hidden">
   <div class="modal">
-    <div class="modal-title">Aggiungi cliente stagionale</div>
-    <div class="modal-sub">Inserisci i dati del cliente e associa l'ombrellone</div>
+    <div class="modal-title">✉️ Invita un cliente stagionale</div>
+    <div class="modal-sub">Riceverà un link personale via email per creare la password e accedere.</div>
     <div id="add-cliente-alert"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Nome</label><input type="text" id="cl-nome" class="form-input"></div>
       <div class="form-group"><label class="form-label">Cognome</label><input type="text" id="cl-cognome" class="form-input"></div>
     </div>
-    <div class="form-group"><label class="form-label">Email</label><input type="email" id="cl-email" class="form-input"></div>
+    <div class="form-group"><label class="form-label">Email <span style="color:var(--red)">*</span></label><input type="email" id="cl-email" class="form-input" placeholder="cliente@example.com"></div>
     <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="cl-telefono" class="form-input"></div>
-    <div class="form-group"><label class="form-label">Ombrellone</label>
-      <select id="cl-ombrellone" class="form-select"><option value="">– Seleziona –</option></select>
+    <div class="form-group"><label class="form-label">Ombrellone associato</label>
+      <select id="cl-ombrellone" class="form-select"><option value="">– Nessuno (lo assegnerai dopo) –</option></select>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-cliente')">Annulla</button>
-      <button class="btn btn-primary btn-sm" onclick="confirmAddCliente()">Aggiungi cliente</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmAddCliente()" id="btn-invita-singolo">✉️ Invia invito</button>
     </div>
   </div>
 </div>

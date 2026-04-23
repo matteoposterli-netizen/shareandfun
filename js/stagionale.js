@@ -1,34 +1,11 @@
 async function loadStagionaleData() {
   const { data: cliente } = await sb.from('clienti_stagionali').select('*, ombrelloni(*, stabilimenti(*))').eq('user_id', currentUser.id).single();
-  const oldBanner = document.getElementById('stag-pending-banner');
-  if (oldBanner) oldBanner.remove();
 
   if (!cliente) {
     document.getElementById('stag-nome').textContent = currentProfile?.nome || '';
     document.getElementById('stag-ombrellone').textContent = 'Nessun ombrellone associato. Contatta il tuo stabilimento.';
     document.getElementById('stag-credito').textContent = formatCoin(0);
     document.getElementById('stag-tx-list').innerHTML = '<div class="tx-empty">Nessuna transazione</div>';
-    buildCalendar([],[]);
-    return;
-  }
-
-  if (!cliente.approvato) {
-    const omb = cliente.ombrelloni;
-    const stab = omb?.stabilimenti;
-    document.getElementById('stag-nome').textContent = `${currentProfile?.nome || cliente.nome} ${currentProfile?.cognome || cliente.cognome}`;
-    document.getElementById('stag-ombrellone').textContent = stab ? `${stab.nome}${stab.citta ? ' — ' + stab.citta : ''}` : '';
-    document.getElementById('stag-credito').textContent = `– ${coinName(stab)}`;
-    const banner = document.createElement('div');
-    banner.id = 'stag-pending-banner';
-    banner.className = 'alert alert-info';
-    banner.style.cssText = 'margin:0 0 20px;font-size:14px;line-height:1.7';
-    banner.innerHTML = `⏳ <strong>Iscrizione in attesa di approvazione.</strong><br>
-      Il proprietario di <strong>${stab?.nome || 'questo stabilimento'}</strong> deve confermare la tua registrazione.
-      Riceverai un'email non appena sarà approvata. Per urgenze contatta direttamente lo stabilimento.`;
-    const heroEl = document.getElementById('stag-ombrellone')?.closest('.user-hero');
-    if (heroEl) heroEl.insertAdjacentElement('afterend', banner);
-    else document.getElementById('view-stagionale').querySelector('.main-content')?.prepend(banner);
-    document.getElementById('stag-tx-list').innerHTML = '<div class="tx-empty">Disponibile dopo l\'approvazione</div>';
     buildCalendar([],[]);
     return;
   }
