@@ -76,6 +76,17 @@ function updateCSVCount() {
   document.getElementById('csv-invito-count').textContent = `${total} selezionati`;
 }
 
+function renderInvitiProgress(label, done, total) {
+  const pct = total ? Math.round(done * 100 / total) : 100;
+  document.getElementById('csv-clienti-alert').innerHTML = `
+    <div class="alert alert-success">
+      ${label} ${done} / ${total}
+      <div style="margin-top:6px;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:var(--ocean);transition:width .2s"></div>
+      </div>
+    </div>`;
+}
+
 async function inviaInvitiSelezionati() {
   const selected = [];
   document.querySelectorAll('.csv-check:checked').forEach(cb => {
@@ -83,46 +94,84 @@ async function inviaInvitiSelezionati() {
     selected.push(csvClientiRows[idx]);
   });
   if (!selected.length) { showAlert('csv-clienti-alert', 'Seleziona almeno un cliente', 'error'); return; }
-  const withoutEmail = selected.filter(r => !r.email);
-  if (withoutEmail.length) { showAlert('csv-clienti-alert', `⚠️ ${withoutEmail.length} clienti non hanno email e verranno saltati`, 'error'); }
-  const withEmail = selected.filter(r => r.email);
-  if (!withEmail.length) { showAlert('csv-clienti-alert', 'Nessun cliente con email valida selezionato', 'error'); return; }
 
-  showLoading();
+  const byEmail = new Map();
+  for (const r of selected) {
+    if (!r.email) continue;
+    const k = r.email.trim().toLowerCase();
+    if (!byEmail.has(k)) byEmail.set(k, r);
+  }
+  const skipped = selected.length - byEmail.size;
+  if (!byEmail.size) { showAlert('csv-clienti-alert', 'Nessun cliente con email valida selezionato', 'error'); return; }
+
+  const btn = document.querySelector('#csv-invito-actions button');
+  if (btn) btn.disabled = true;
+
   const ombByKey = {};
   ombrelloniList.forEach(o => { ombByKey[`${o.fila}|${o.numero}`] = o; });
 
-  let inviati = 0;
-  for (const row of withEmail) {
+  renderInvitiProgress('Preparazione…', 0, byEmail.size);
+
+  const emails = [...byEmail.keys()];
+  const { data: existingList, error: selErr } = await sb.from('clienti_stagionali')
+    .select('id,email,invito_token')
+    .eq('stabilimento_id', currentStabilimento.id)
+    .in('email', emails);
+  if (selErr) {
+    if (btn) btn.disabled = false;
+    showAlert('csv-clienti-alert', `Errore lettura clienti: ${selErr.message}`, 'error');
+    return;
+  }
+  const existingByEmail = new Map();
+  (existingList || []).forEach(c => existingByEmail.set((c.email || '').toLowerCase(), c));
+
+  const now = new Date().toISOString();
+  const toUpdate = [], toInsert = [];
+  for (const [k, row] of byEmail) {
     const omb = ombByKey[`${row.fila}|${row.numero}`];
-    const { data: existing } = await sb.from('clienti_stagionali')
-      .select('id,invito_token,invitato_at')
-      .eq('stabilimento_id', currentStabilimento.id)
-      .eq('email', row.email)
-      .maybeSingle();
-    let clienteId, token;
-    if (existing) {
-      clienteId = existing.id;
-      token = existing.invito_token;
-      await sb.from('clienti_stagionali').update({ nome: row.nome, cognome: row.cognome, telefono: row.telefono, ombrellone_id: omb?.id || null, invitato_at: new Date().toISOString() }).eq('id', clienteId);
-    } else {
-      const { data: ins } = await sb.from('clienti_stagionali').insert({
-        stabilimento_id: currentStabilimento.id, ombrellone_id: omb?.id || null,
-        nome: row.nome, cognome: row.cognome, email: row.email, telefono: row.telefono,
-        fonte: 'csv', approvato: false, invitato_at: new Date().toISOString()
-      }).select('id,invito_token').single();
-      clienteId = ins?.id;
-      token = ins?.invito_token;
+    const base = {
+      nome: row.nome, cognome: row.cognome, telefono: row.telefono,
+      ombrellone_id: omb?.id || null, invitato_at: now,
+    };
+    const existing = existingByEmail.get(k);
+    if (existing) toUpdate.push({ id: existing.id, token: existing.invito_token, row, update: base });
+    else toInsert.push({ stabilimento_id: currentStabilimento.id, email: row.email, fonte: 'csv', approvato: false, ...base });
+  }
+
+  const targets = [];
+  if (toInsert.length) {
+    const { data: inserted, error: insErr } = await sb.from('clienti_stagionali')
+      .insert(toInsert)
+      .select('id,email,invito_token');
+    if (insErr) {
+      if (btn) btn.disabled = false;
+      showAlert('csv-clienti-alert', `Errore inserimento: ${insErr.message}`, 'error');
+      return;
     }
-    if (token) {
-      const inviteLink = `${window.location.origin}/?invito=${token}`;
-      await inviaEmail('invito', { email: row.email, nome: row.nome, cognome: row.cognome, invite_link: inviteLink }, currentStabilimento);
-      inviati++;
+    const insByEmail = new Map();
+    (inserted || []).forEach(c => insByEmail.set((c.email || '').toLowerCase(), c));
+    for (const [k, row] of byEmail) {
+      const ins = insByEmail.get(k);
+      if (ins?.invito_token) targets.push({ email: row.email, nome: row.nome, cognome: row.cognome, token: ins.invito_token });
     }
   }
-  hideLoading();
+
+  await runWithConcurrency(toUpdate, 5, async (u) => {
+    await sb.from('clienti_stagionali').update(u.update).eq('id', u.id);
+    if (u.token) targets.push({ email: u.row.email, nome: u.row.nome, cognome: u.row.cognome, token: u.token });
+  });
+
+  let sent = 0;
+  await runWithConcurrency(targets, 5, async (t) => {
+    const inviteLink = `${window.location.origin}/?invito=${t.token}`;
+    await inviaEmail('invito', { email: t.email, nome: t.nome, cognome: t.cognome, invite_link: inviteLink }, currentStabilimento);
+    sent++;
+  }, (done, total) => renderInvitiProgress('Invio email…', done, total));
+
+  if (btn) btn.disabled = false;
   await loadManagerData();
-  showAlert('csv-clienti-alert', `✅ Inviti inviati a ${inviati} clienti`, 'success');
+  const suffix = skipped ? ` (${skipped} saltati: email mancante o duplicata)` : '';
+  showAlert('csv-clienti-alert', `✅ Inviti inviati a ${sent} clienti${suffix}`, 'success');
 }
 
 function renderPendingRequests(pending, listRecords, ombs) {

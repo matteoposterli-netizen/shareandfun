@@ -44,3 +44,19 @@ function isHeaderRow(row, numericColIdx) {
   if (v == null || v === '') return true;
   return !/^\d+$/.test(v);
 }
+
+async function runWithConcurrency(items, limit, fn, onProgress) {
+  const total = items.length;
+  let cursor = 0, done = 0;
+  async function worker() {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= total) return;
+      try { await fn(items[idx], idx); } catch (e) { console.error(e); }
+      done++;
+      if (onProgress) onProgress(done, total);
+    }
+  }
+  const n = Math.min(limit, total) || 0;
+  await Promise.all(Array.from({ length: n }, worker));
+}
