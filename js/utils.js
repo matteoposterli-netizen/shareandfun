@@ -12,6 +12,23 @@ function showAlert(containerId, msg, type) {
   if (type === 'success') setTimeout(() => { el.innerHTML = ''; }, 3000);
 }
 
+function coinName(stab) {
+  const nome = stab?.nome || (typeof currentStabilimento !== 'undefined' ? currentStabilimento?.nome : null);
+  return nome ? `${nome} Coin` : 'Coin';
+}
+
+function formatCoin(amount, stab) {
+  return `${parseFloat(amount || 0).toFixed(2)} ${coinName(stab)}`;
+}
+
+function refreshCoinLabels(stab) {
+  const unit = coinName(stab);
+  document.querySelectorAll('[data-coin-label]').forEach(el => {
+    const base = el.dataset.coinLabel;
+    el.textContent = `${base} (${unit})`;
+  });
+}
+
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;

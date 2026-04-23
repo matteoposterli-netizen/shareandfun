@@ -14,6 +14,7 @@ async function saveStabilimento() {
   const { data, error } = await sb.from('stabilimenti').insert({ proprietario_id: currentUser.id, nome, citta, indirizzo, telefono, email: emailStab || null }).select().single();
   if (error) { showAlert('setup1-alert', error.message, 'error'); return; }
   currentStabilimento = data;
+  refreshCoinLabels(currentStabilimento);
   goSetupStep(2);
 }
 
@@ -35,7 +36,7 @@ function renderSetupOmbrelloni() {
   el.innerHTML = `<div class="card"><div class="card-body" style="padding:12px 16px">
     <div style="font-size:13px;font-weight:600;margin-bottom:10px">Ombrelloni da aggiungere (${setupOmbrelloni.length})</div>
     ${setupOmbrelloni.map((o,i) => `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
-      <span>☂️ Fila ${o.fila} — N° ${o.numero} — € ${o.credito_giornaliero.toFixed(2)}/giorno</span>
+      <span>☂️ Fila ${o.fila} — N° ${o.numero} — ${formatCoin(o.credito_giornaliero)}/giorno</span>
       <button onclick="removeSetupOmb(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px">✕</button>
     </div>`).join('')}
   </div></div>`;

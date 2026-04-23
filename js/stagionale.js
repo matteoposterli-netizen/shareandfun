@@ -6,7 +6,7 @@ async function loadStagionaleData() {
   if (!cliente) {
     document.getElementById('stag-nome').textContent = currentProfile?.nome || '';
     document.getElementById('stag-ombrellone').textContent = 'Nessun ombrellone associato. Contatta il tuo stabilimento.';
-    document.getElementById('stag-credito').textContent = '€ 0.00';
+    document.getElementById('stag-credito').textContent = formatCoin(0);
     document.getElementById('stag-tx-list').innerHTML = '<div class="tx-empty">Nessuna transazione</div>';
     buildCalendar([],[]);
     return;
@@ -17,7 +17,7 @@ async function loadStagionaleData() {
     const stab = omb?.stabilimenti;
     document.getElementById('stag-nome').textContent = `${currentProfile?.nome || cliente.nome} ${currentProfile?.cognome || cliente.cognome}`;
     document.getElementById('stag-ombrellone').textContent = stab ? `${stab.nome}${stab.citta ? ' — ' + stab.citta : ''}` : '';
-    document.getElementById('stag-credito').textContent = '€ –';
+    document.getElementById('stag-credito').textContent = `– ${coinName(stab)}`;
     const banner = document.createElement('div');
     banner.id = 'stag-pending-banner';
     banner.className = 'alert alert-info';
@@ -39,7 +39,7 @@ async function loadStagionaleData() {
   const stab = omb?.stabilimenti;
   document.getElementById('stag-nome').textContent = `${currentProfile?.nome || cliente.nome} ${currentProfile?.cognome || cliente.cognome}`;
   document.getElementById('stag-ombrellone').textContent = omb ? `☂️ Ombrellone ${omb.fila}${omb.numero} · ${stab?.nome || ''} · ${stab?.citta || ''}` : 'Nessun ombrellone';
-  document.getElementById('stag-credito').textContent = `€ ${parseFloat(cliente.credito_saldo || 0).toFixed(2)}`;
+  document.getElementById('stag-credito').textContent = formatCoin(cliente.credito_saldo, stab);
 
   const { data: disp } = await sb.from('disponibilita').select('*').eq('ombrellone_id', stagOmbrelloneId);
   const dispMap = {};
@@ -47,7 +47,7 @@ async function loadStagionaleData() {
   buildCalendar(dispMap, disp || []);
 
   const { data: txs } = await sb.from('transazioni').select('*').eq('cliente_id', stagClienteId).order('created_at', { ascending: false }).limit(20);
-  document.getElementById('stag-tx-list').innerHTML = renderTxList(txs || []);
+  document.getElementById('stag-tx-list').innerHTML = renderTxList(txs || [], stab);
 }
 
 function buildCalendar(dispMap, dispList) {
