@@ -311,20 +311,20 @@
       <!-- CLIENTI TAB -->
       <div id="mtab-clienti" class="tab-content">
         <div class="page-header">
-          <div><div class="page-title">Clienti Stagionali</div><div class="page-subtitle">Invita i tuoi clienti singolarmente o in massa — accedono solo tramite link personale</div></div>
+          <div><div class="page-title">Clienti Stagionali</div><div class="page-subtitle">Carica, modifica e invita i clienti del tuo stabilimento</div></div>
         </div>
 
-        <!-- Azioni invito: singolo + massivo -->
+        <!-- Azioni: aggiunta singola + CSV -->
         <div class="action-grid">
           <div class="action-card">
-            <div class="action-icon">✉️</div>
-            <div class="action-title">Invita un cliente</div>
-            <div class="action-desc">Inserisci nome, email e ombrellone. Riceverà un link personale per attivare l'account.</div>
-            <button class="btn btn-primary btn-sm btn-full" onclick="openAddClienteModal()">+ Invita singolo cliente</button>
+            <div class="action-icon">➕</div>
+            <div class="action-title">Aggiungi un cliente</div>
+            <div class="action-desc">Inserisci nome, email e ombrellone. Potrai invitarlo subito o dopo dalla tabella.</div>
+            <button class="btn btn-primary btn-sm btn-full" onclick="openAddClienteModal()">+ Aggiungi cliente</button>
           </div>
           <div class="action-card highlight">
             <div class="action-icon">📂</div>
-            <div class="action-title">Invita in massa via CSV</div>
+            <div class="action-title">Importa in massa via CSV</div>
             <div class="action-desc">
               Colonne: <code>fila, numero_ombrellone, nome, cognome, telefono, email</code>. Max 1000 righe.
               <a href="#" onclick="event.preventDefault();scaricaCSVClientiTemplate()" style="color:var(--ocean);font-weight:600">Scarica esempio</a>
@@ -333,17 +333,38 @@
             <input type="file" id="csv-clienti-file" accept=".csv" onchange="loadCSVClienti(event)" class="form-input">
             <div id="csv-clienti-preview"></div>
             <div id="csv-invito-actions" class="hidden" style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-              <button class="btn btn-primary btn-sm" onclick="inviaInvitiSelezionati()">✉️ Invia invito ai selezionati</button>
+              <button class="btn btn-primary btn-sm" onclick="importaCSVClienti()">+ Importa selezionati</button>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid);cursor:pointer"><input type="checkbox" id="csv-invia-inviti" checked> Invia anche l'invito via email</label>
               <span id="csv-invito-count" style="font-size:13px;color:var(--text-mid)"></span>
             </div>
           </div>
         </div>
 
-        <!-- Lista clienti -->
-        <div class="section-divider">👥 Clienti invitati e attivi</div>
+        <!-- Lista clienti con toolbar -->
+        <div class="section-divider">👥 I tuoi clienti stagionali</div>
         <div class="card">
+          <div class="card-header" style="flex-wrap:wrap;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <input type="search" id="clienti-filter" class="form-input" placeholder="Cerca nome, email, ombrellone…" style="width:260px;padding:6px 10px;font-size:13px" oninput="renderClientiFiltered()">
+              <select id="clienti-stato-filter" class="form-select" style="width:auto;padding:6px 10px;font-size:13px" onchange="renderClientiFiltered()">
+                <option value="">Tutti gli stati</option>
+                <option value="attivo">Attivi</option>
+                <option value="invitato">Invito inviato</option>
+                <option value="mai">Mai invitati</option>
+              </select>
+              <span id="clienti-count-label" style="font-size:13px;color:var(--text-light)"></span>
+            </div>
+            <div id="clienti-bulk-toolbar" class="hidden" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span id="clienti-selected-count" style="font-size:13px;color:var(--text-mid);font-weight:600"></span>
+              <button class="btn btn-primary btn-sm" onclick="openBulkInviteModal()">✉️ Invia inviti ai selezionati</button>
+              <button class="btn btn-outline btn-sm" onclick="clearClientiSelection()">Deseleziona</button>
+            </div>
+          </div>
           <div class="table-wrap"><table class="data-table">
-            <thead><tr><th>Nome</th><th>Email</th><th>Telefono</th><th>Ombrellone</th><th>Credito</th><th>Stato</th><th>Azioni</th></tr></thead>
+            <thead><tr>
+              <th style="width:36px"><input type="checkbox" id="clienti-check-all" onchange="toggleAllClienti(this.checked)"></th>
+              <th>Nome</th><th>Email</th><th>Telefono</th><th>Ombrellone</th><th>Credito</th><th>Stato</th><th>Azioni</th>
+            </tr></thead>
             <tbody id="clienti-table"></tbody>
           </table></div>
         </div>
@@ -358,6 +379,32 @@
         <div id="email-save-alert" style="margin-bottom:16px"></div>
         <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
           Le email includeranno sempre in automatico il nome, telefono ed email del tuo stabilimento. Il tono è caldo e accogliente.
+        </div>
+
+        <!-- Invito -->
+        <div class="email-section">
+          <div class="email-section-header" onclick="toggleEmailSection('invito')">
+            <div class="email-section-title">✉️ Email di invito <span style="font-size:12px;color:var(--text-light);font-weight:400">(quando invii il link personale al cliente)</span></div>
+            <span>▾</span>
+          </div>
+          <div class="email-section-body" id="email-body-invito">
+            <div class="form-group">
+              <label class="form-label">Oggetto email</label>
+              <input type="text" id="email-invito-oggetto" class="form-input" maxlength="80" oninput="updateCounter('invito-oggetto',80)" placeholder="es. Sei stato invitato su ShareAndFun">
+              <div class="char-counter" id="counter-invito-oggetto">0/80</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Messaggio personalizzato</label>
+              <textarea id="email-invito-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('invito-testo',500)" placeholder="es. Ciao {{nome}}, quest'anno usiamo ShareAndFun per gestire gli ombrelloni..." style="resize:vertical"></textarea>
+              <div class="char-counter" id="counter-invito-testo">0/500</div>
+              <div style="font-size:12px;color:var(--text-light);margin-top:4px">Puoi usare <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{cognome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{ombrellone}}</code>.</div>
+            </div>
+            <div class="email-preview-box">
+              <strong>Anteprima:</strong> <span id="preview-invito-oggetto" style="color:var(--ocean)"></span><br>
+              <span id="preview-invito-testo"></span>
+              <div class="email-preview-fixed">+ pulsante "Completa la registrazione" (automatico) · nome stabilimento · telefono · email</div>
+            </div>
+          </div>
         </div>
 
         <!-- Benvenuto -->
@@ -511,8 +558,8 @@
 
 <div id="modal-add-cliente" class="modal-overlay hidden">
   <div class="modal">
-    <div class="modal-title">✉️ Invita un cliente stagionale</div>
-    <div class="modal-sub">Riceverà un link personale via email per creare la password e accedere.</div>
+    <div class="modal-title">➕ Aggiungi cliente stagionale</div>
+    <div class="modal-sub">Salva i dati e scegli se inviare subito l'invito via email.</div>
     <div id="add-cliente-alert"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Nome</label><input type="text" id="cl-nome" class="form-input"></div>
@@ -523,9 +570,76 @@
     <div class="form-group"><label class="form-label">Ombrellone associato</label>
       <select id="cl-ombrellone" class="form-select"><option value="">– Nessuno (lo assegnerai dopo) –</option></select>
     </div>
+    <label style="display:flex;align-items:center;gap:8px;margin:6px 0 0;font-size:13px;color:var(--text-mid);cursor:pointer">
+      <input type="checkbox" id="cl-invia-invito" checked> Invia subito l'invito via email
+    </label>
     <div class="modal-footer">
       <button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-cliente')">Annulla</button>
-      <button class="btn btn-primary btn-sm" onclick="confirmAddCliente()" id="btn-invita-singolo">✉️ Invia invito</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmAddCliente()" id="btn-invita-singolo">Salva cliente</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modifica cliente -->
+<div id="modal-edit-cliente" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">✏️ Modifica cliente</div>
+    <div class="modal-sub">Aggiorna i dati del cliente. L'email non si può modificare se il cliente è già attivo.</div>
+    <div id="edit-cliente-alert"></div>
+    <input type="hidden" id="edit-cl-id">
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nome</label><input type="text" id="edit-cl-nome" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Cognome</label><input type="text" id="edit-cl-cognome" class="form-input"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Email</label><input type="email" id="edit-cl-email" class="form-input"></div>
+    <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="edit-cl-telefono" class="form-input"></div>
+    <div class="form-group"><label class="form-label">Ombrellone associato</label>
+      <select id="edit-cl-ombrellone" class="form-select"></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-edit-cliente')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmEditCliente()">Salva modifiche</button>
+    </div>
+  </div>
+</div>
+
+<!-- Conflitto ombrellone -->
+<div id="modal-conflict-cliente" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">⚠️ Ombrellone già assegnato</div>
+    <div class="modal-sub" id="conflict-msg"></div>
+    <div class="modal-footer" style="flex-direction:column;align-items:stretch;gap:8px">
+      <button class="btn btn-outline btn-sm" onclick="resolveConflict('keep')">Tieni il cliente esistente (annulla)</button>
+      <button class="btn btn-primary btn-sm" onclick="resolveConflict('replace')">Sostituisci — il cliente precedente resterà senza ombrellone</button>
+    </div>
+  </div>
+</div>
+
+<!-- Invio inviti multiplo con template personalizzato -->
+<div id="modal-bulk-invite" class="modal-overlay hidden">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title">✉️ Invia inviti personalizzati</div>
+    <div class="modal-sub">Modifica oggetto e messaggio. Placeholder supportati: <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{cognome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{ombrellone}}</code>.</div>
+    <div id="bulk-invite-alert"></div>
+    <div class="form-group">
+      <label class="form-label">Destinatari (<span id="bulk-dest-count">0</span>)</label>
+      <div id="bulk-dest-list" style="max-height:140px;overflow-y:auto;background:var(--sand);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--text-mid)"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Oggetto</label>
+      <input type="text" id="bulk-invite-oggetto" class="form-input" maxlength="120" placeholder="Sei stato invitato su ShareAndFun">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Messaggio</label>
+      <textarea id="bulk-invite-testo" class="form-input" rows="5" maxlength="800" placeholder="Ciao {{nome}}, quest'anno stiamo usando ShareAndFun..." style="resize:vertical"></textarea>
+      <div style="font-size:12px;color:var(--text-light);margin-top:4px">Il pulsante "Completa la registrazione" viene aggiunto automaticamente.</div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-mid);cursor:pointer">
+      <input type="checkbox" id="bulk-invite-save-template"> Salva come template predefinito per futuri inviti
+    </label>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-bulk-invite')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmBulkInvite()" id="btn-bulk-invite">Invia inviti</button>
     </div>
   </div>
 </div>

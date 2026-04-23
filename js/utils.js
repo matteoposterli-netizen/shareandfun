@@ -50,8 +50,30 @@ function formatDateShort(str) {
   return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
 }
 
-async function inviaEmail(tipo, clienteData, stab) {
+function substitutePlaceholders(text, data) {
+  if (!text) return text;
+  return text
+    .replace(/\{\{\s*nome\s*\}\}/gi, data?.nome || '')
+    .replace(/\{\{\s*cognome\s*\}\}/gi, data?.cognome || '')
+    .replace(/\{\{\s*ombrellone\s*\}\}/gi, data?.ombrellone || '');
+}
+
+async function inviaEmail(tipo, clienteData, stab, override) {
   try {
+    let oggetto_custom = null, testo_custom = null;
+    if (override && (override.oggetto || override.testo)) {
+      oggetto_custom = override.oggetto || null;
+      testo_custom = override.testo || null;
+    } else if (tipo === 'benvenuto') {
+      oggetto_custom = stab?.email_benvenuto_oggetto || null;
+      testo_custom = stab?.email_benvenuto_testo || null;
+    } else if (tipo === 'invito') {
+      oggetto_custom = stab?.email_invito_oggetto || null;
+      testo_custom = stab?.email_invito_testo || null;
+    }
+    oggetto_custom = substitutePlaceholders(oggetto_custom, clienteData);
+    testo_custom = substitutePlaceholders(testo_custom, clienteData);
+
     const { data: { session } } = await sb.auth.getSession();
     const headers = { 'Content-Type': 'application/json' };
     if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
@@ -68,8 +90,8 @@ async function inviaEmail(tipo, clienteData, stab) {
         stabilimento_nome: stab?.nome || '',
         stabilimento_telefono: stab?.telefono || '',
         stabilimento_email: stab?.email || '',
-        oggetto_custom: tipo === 'benvenuto' ? stab?.email_benvenuto_oggetto : null,
-        testo_custom: tipo === 'benvenuto' ? stab?.email_benvenuto_testo : null,
+        oggetto_custom,
+        testo_custom,
       })
     });
     const data = await res.json();
