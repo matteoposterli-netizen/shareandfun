@@ -67,6 +67,7 @@ async function refreshMap() {
     if (!dispByOmbDate[d.ombrellone_id]) dispByOmbDate[d.ombrellone_id] = {};
     dispByOmbDate[d.ombrellone_id][d.data] = d.stato;
   });
+  currentMapRange = { from, to, dispByOmbDate };
 
   const rangeDispMap = {};
   ombrelloniList.forEach(o => {
@@ -133,11 +134,7 @@ async function loadManagerData() {
   (disp || []).forEach(d => { dispMap[d.ombrellone_id] = d.stato; });
   currentDispMap = dispMap;
 
-  const free = ombrelloniList.filter(o => dispMap[o.id] === 'libero').length;
-  const subleased = ombrelloniList.filter(o => dispMap[o.id] === 'sub_affittato').length;
   document.getElementById('stat-totali').textContent = ombrelloniList.length;
-  document.getElementById('stat-liberi').textContent = free;
-  document.getElementById('stat-subaffittati').textContent = subleased;
 
   const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
   const { data: txWeek } = await sb.from('transazioni').select('importo').eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_ricevuto').gte('created_at', weekAgo.toISOString());
@@ -145,7 +142,7 @@ async function loadManagerData() {
   document.getElementById('stat-crediti').textContent = parseFloat(totCrediti || 0).toFixed(2);
   document.getElementById('stat-crediti-unit').textContent = coinName(currentStabilimento);
 
-  renderManagerMap(ombrelloniList, dispMap);
+  await refreshMap();
   renderGestioneTable(ombrelloniList, dispMap, clientiList);
   renderCreditiTable(clientiList, ombrelloniList);
   await loadManagerTx();
@@ -176,11 +173,65 @@ function renderManagerMap(ombs, dispMap) {
         : 'occupied';
       el2.className = 'ombrellone ' + cls;
       el2.textContent = '☂️';
-      el2.title = `${fila}${o.numero} — ${formatCoin(o.credito_giornaliero)}/gg`;
+      const hint = stato === 'libero' || stato === 'parziale'
+        ? ' — clicca per bloccarlo'
+        : stato === 'sub_affittato' ? ' — sub-affittato' : '';
+      el2.title = `${fila}${o.numero} — ${formatCoin(o.credito_giornaliero)}/gg${hint}`;
+      el2.onclick = () => handleMapOmbClick(o, stato);
       row.appendChild(el2);
     });
     el.appendChild(row);
   });
+}
+
+async function handleMapOmbClick(omb, stato) {
+  if (!currentMapRange) return;
+  const label = `Fila ${omb.fila} N°${omb.numero}`;
+  if (stato === 'sub_affittato') {
+    alert(`${label} è già sub-affittato in parte del periodo. Annullalo dalla tabella "Ombrelloni e clienti" se necessario.`);
+    return;
+  }
+  if (stato === 'occupied') {
+    alert(`${label} non risulta libero nel periodo selezionato: nulla da bloccare.`);
+    return;
+  }
+  const { from, to, dispByOmbDate } = currentMapRange;
+  const ombDisp = dispByOmbDate[omb.id] || {};
+  const liberoDates = Object.keys(ombDisp).filter(d => ombDisp[d] === 'libero').sort();
+  if (!liberoDates.length) return;
+  const periodo = from === to ? formatDate(from) : `${formatDate(from)} → ${formatDate(to)}`;
+  const nGiorni = liberoDates.length;
+  const msg = `Bloccare ${label}?\n\nVerranno rimosse ${nGiorni} giornata${nGiorni > 1 ? 'e' : ''} di disponibilità nel periodo ${periodo}.`;
+  if (!confirm(msg)) return;
+  showLoading();
+  try {
+    const { error } = await sb.from('disponibilita')
+      .delete()
+      .eq('ombrellone_id', omb.id)
+      .eq('stato', 'libero')
+      .gte('data', from)
+      .lte('data', to);
+    if (error) { alert('Errore durante il blocco: ' + error.message); return; }
+    const cliente = (clientiList || []).find(c => c.ombrellone_id === omb.id) || null;
+    const txs = liberoDates.map(d => ({
+      stabilimento_id: currentStabilimento.id,
+      ombrellone_id: omb.id,
+      cliente_id: cliente?.id || null,
+      tipo: 'disponibilita_rimossa',
+      nota: `${label} bloccato dal proprietario per ${formatDate(d)}`,
+    }));
+    if (txs.length) await sb.from('transazioni').insert(txs);
+    const today = todayStr();
+    if (liberoDates.includes(today) && currentDispMap[omb.id] === 'libero') {
+      delete currentDispMap[omb.id];
+      renderGestioneFiltered();
+    }
+  } finally {
+    hideLoading();
+  }
+  await refreshMap();
+  await loadManagerTx();
+  await loadAllTx();
 }
 
 function clienteStato(c) {
