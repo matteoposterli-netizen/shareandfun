@@ -424,7 +424,13 @@
           </div>
         </div>
         <div style="margin-top:20px" class="card">
-          <div class="card-header"><div class="card-title">Saldo crediti per cliente</div></div>
+          <div class="card-header" style="flex-wrap:wrap;gap:10px">
+            <div class="card-title">Saldo crediti per cliente</div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <input type="search" id="crediti-filter" class="form-input" placeholder="Cerca per nome o numero ombrellone…" style="width:280px;padding:6px 10px;font-size:13px" oninput="renderCreditiTable()">
+              <span id="crediti-count-label" style="font-size:13px;color:var(--text-light)"></span>
+            </div>
+          </div>
           <div class="table-wrap"><table class="data-table">
             <thead><tr><th>Cliente</th><th>Ombrellone</th><th>Credito disponibile</th></tr></thead>
             <tbody id="crediti-table"></tbody>

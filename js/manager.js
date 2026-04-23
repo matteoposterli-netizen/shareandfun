@@ -317,16 +317,36 @@ async function invitaSingolo(id) {
 
 function renderCreditiTable(clienti, ombs) {
   const tb = document.getElementById('crediti-table');
+  if (!tb) return;
+  const sourceClienti = clienti || clientiList || [];
+  const sourceOmbs = ombs || ombrelloniList || [];
   const ombById = {};
-  ombs.forEach(o => ombById[o.id] = o);
-  tb.innerHTML = clienti.map(c => {
+  sourceOmbs.forEach(o => ombById[o.id] = o);
+
+  const q = (document.getElementById('crediti-filter')?.value || '').trim().toLowerCase();
+  const filtrati = sourceClienti.filter(c => {
+    if (!q) return true;
+    const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
+    const ombStr = o ? `fila ${o.fila} n°${o.numero} ${o.fila}${o.numero}` : '';
+    const hay = `${c.nome || ''} ${c.cognome || ''} ${ombStr}`.toLowerCase();
+    return hay.includes(q);
+  });
+
+  const countLbl = document.getElementById('crediti-count-label');
+  if (countLbl) {
+    countLbl.textContent = filtrati.length === sourceClienti.length
+      ? `${sourceClienti.length} clienti`
+      : `${filtrati.length} di ${sourceClienti.length} clienti`;
+  }
+
+  tb.innerHTML = filtrati.map(c => {
     const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
     return `<tr>
       <td>${c.nome} ${c.cognome}</td>
       <td>${o ? `${o.fila}${o.numero}` : '–'}</td>
       <td><strong>${formatCoin(c.credito_saldo)}</strong></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text-light);padding:24px">Nessun cliente</td></tr>';
+  }).join('') || `<tr><td colspan="3" style="text-align:center;color:var(--text-light);padding:24px">${q ? 'Nessun risultato per la ricerca' : 'Nessun cliente'}</td></tr>`;
 }
 
 function populateClienteSelect() {
