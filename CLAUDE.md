@@ -1,6 +1,6 @@
-# ShareAndFun
+# SpiaggiaMia
 
-Piattaforma in italiano per **sub-affitto di ombrelloni balneari stagionali**.
+Piattaforma in italiano per **sub-affitto di ombrelloni balneari stagionali**. Dominio: `spiaggiamia.com`.
 Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono rendere disponibili i propri ombrelloni per il sub-affitto giornaliero.
 
 ## Stack

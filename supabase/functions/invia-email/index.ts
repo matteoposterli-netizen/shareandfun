@@ -68,7 +68,7 @@ function buildEmailHtml(opts: {
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(27,108,168,0.1)">
         <tr><td style="background:${opts.headerColor};padding:36px 40px 28px;text-align:center">
           <div style="font-size:36px;margin-bottom:8px">${opts.headerEmoji}</div>
-          <div style="font-family:Georgia,serif;font-size:26px;color:#ffffff;font-weight:bold">ShareAndFun</div>
+          <div style="font-family:Georgia,serif;font-size:26px;color:#ffffff;font-weight:bold">SpiaggiaMia</div>
           <div style="font-size:13px;color:rgba(255,255,255,0.85);margin-top:4px">${opts.headerSub}</div>
         </td></tr>
         <tr><td style="padding:36px 40px">
@@ -139,7 +139,7 @@ Deno.serve(async (req: Request) => {
       headerEmoji: "🌊 ☂️",
       headerSub: `${stabilimento_nome}`,
       nome,
-      testoPrincipale: `Grazie per esserti registrato su <strong>ShareAndFun</strong>!`,
+      testoPrincipale: `Grazie per esserti registrato su <strong>SpiaggiaMia</strong>!`,
       boxColor: "#FDF8E8",
       boxBorderColor: "#F0B429",
       boxTitoloColor: "#856404",
@@ -172,7 +172,7 @@ Deno.serve(async (req: Request) => {
     });
 
   } else if (tipo === "benvenuto") {
-    subject = oggetto_custom || `Benvenuto su ShareAndFun — ${stabilimento_nome}`;
+    subject = oggetto_custom || `Benvenuto su SpiaggiaMia — ${stabilimento_nome}`;
     const testoCustom = testo_custom || "Siamo felicissimi di averti con noi per questa stagione! Il tuo account è attivo e puoi già accedere alla piattaforma.";
     const ombrelloneText = ombrellone ? `Il tuo ombrellone è <strong>${ombrellone}</strong>. ` : "";
     html = buildEmailHtml({
@@ -180,7 +180,7 @@ Deno.serve(async (req: Request) => {
       headerEmoji: "☀️ ☂️",
       headerSub: `${stabilimento_nome} ti dà il benvenuto!`,
       nome,
-      testoPrincipale: `Benvenuto su <strong>ShareAndFun</strong>! ${ombrelloneText}`,
+      testoPrincipale: `Benvenuto su <strong>SpiaggiaMia</strong>! ${ombrelloneText}`,
       boxColor: "#FDF0EB",
       boxBorderColor: "#E07B54",
       boxTitoloColor: "#a05030",
@@ -193,10 +193,10 @@ Deno.serve(async (req: Request) => {
     });
 
   } else if (tipo === "invito") {
-    subject = oggetto_custom || `Sei stato invitato su ShareAndFun — ${stabilimento_nome}`;
+    subject = oggetto_custom || `Sei stato invitato su SpiaggiaMia — ${stabilimento_nome}`;
     const testoPrincipaleCustom = testo_custom
       ? testo_custom.replace(/\n/g, "<br>")
-      : `<strong>${stabilimento_nome}</strong> ti ha invitato a registrarti su <strong>ShareAndFun</strong>, la piattaforma per la gestione degli ombrelloni stagionali.`;
+      : `<strong>${stabilimento_nome}</strong> ti ha invitato a registrarti su <strong>SpiaggiaMia</strong>, la piattaforma per la gestione degli ombrelloni stagionali.`;
     html = buildEmailHtml({
       headerColor: "linear-gradient(135deg,#1B6CA8 0%,#2B8DC8 100%)",
       headerEmoji: "🌊 ☂️",
