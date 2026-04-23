@@ -5,7 +5,7 @@ function loadCSVClienti(e) {
   const reader = new FileReader();
   reader.onload = (ev) => {
     let parsed = parseCSV(ev.target.result);
-    if (parsed.length && isHeaderRow(parsed[0], 0)) parsed = parsed.slice(1);
+    if (parsed.length && isHeaderRow(parsed[0], 1)) parsed = parsed.slice(1);
     if (parsed.length > 1000) {
       showAlert('csv-clienti-alert', `❌ Il file contiene ${parsed.length} righe. Il limite massimo è 1000 righe. Riduci il file e riprova.`, 'error');
       e.target.value = '';
@@ -13,14 +13,15 @@ function loadCSVClienti(e) {
     }
     const rows = [];
     parsed.forEach(parts => {
-      if (parts.length < 3) return;
-      const numero = parseInt(parts[0]);
-      const nome = parts[1] || '';
-      const cognome = parts[2] || '';
-      const telefono = parts[3] || '';
-      const email = parts[4] || '';
-      if (!numero || !nome) return;
-      rows.push({ numero, nome, cognome, telefono, email });
+      if (parts.length < 4) return;
+      const fila = (parts[0] || '').toUpperCase();
+      const numero = parseInt(parts[1]);
+      const nome = parts[2] || '';
+      const cognome = parts[3] || '';
+      const telefono = parts[4] || '';
+      const email = parts[5] || '';
+      if (!fila || !numero || !nome) return;
+      rows.push({ fila, numero, nome, cognome, telefono, email });
     });
     if (!rows.length) {
       showAlert('csv-clienti-alert', 'Nessuna riga valida trovata nel CSV', 'error');
@@ -38,21 +39,27 @@ function loadCSVClienti(e) {
 function renderCSVAnteprima(rows) {
   const wrap = document.getElementById('csv-clienti-preview');
   const actions = document.getElementById('csv-invito-actions');
+  const known = new Set((ombrelloniList || []).map(o => `${o.fila}|${o.numero}`));
   wrap.innerHTML = `
     <div class="csv-preview-wrap">
       <div class="csv-check-all">
         <input type="checkbox" id="csv-check-all" onchange="toggleAllCSV(this.checked)" checked>
         <label for="csv-check-all">Seleziona tutti (${rows.length})</label>
       </div>
-      <div class="csv-row header"><div></div><div>Nome</div><div>Cognome</div><div>Telefono</div><div>Email</div></div>
-      ${rows.map((r, i) => `
+      <div class="csv-row header"><div></div><div>Ombrellone</div><div>Nome</div><div>Cognome</div><div>Telefono</div><div>Email</div></div>
+      ${rows.map((r, i) => {
+        const missing = !known.has(`${r.fila}|${r.numero}`);
+        const ombCell = `${escapeHtml(r.fila)} ${r.numero}` + (missing ? ' <span class="omb-missing">non esiste</span>' : '');
+        return `
         <div class="csv-row">
           <input type="checkbox" class="csv-check" data-idx="${i}" checked onchange="updateCSVCount()">
+          <div>${ombCell}</div>
           <div>${escapeHtml(r.nome)}</div>
           <div>${escapeHtml(r.cognome)}</div>
           <div>${escapeHtml(r.telefono) || '–'}</div>
           <div>${r.email ? escapeHtml(r.email) : '<span style="color:var(--red)">mancante</span>'}</div>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     </div>`;
   actions.classList.remove('hidden');
   actions.style.display = 'flex';
@@ -82,12 +89,12 @@ async function inviaInvitiSelezionati() {
   if (!withEmail.length) { showAlert('csv-clienti-alert', 'Nessun cliente con email valida selezionato', 'error'); return; }
 
   showLoading();
-  const ombByNumero = {};
-  ombrelloniList.forEach(o => { ombByNumero[o.numero] = o; });
+  const ombByKey = {};
+  ombrelloniList.forEach(o => { ombByKey[`${o.fila}|${o.numero}`] = o; });
 
   let inviati = 0;
   for (const row of withEmail) {
-    const omb = ombByNumero[row.numero];
+    const omb = ombByKey[`${row.fila}|${row.numero}`];
     const { data: existing } = await sb.from('clienti_stagionali')
       .select('id,invito_token,invitato_at')
       .eq('stabilimento_id', currentStabilimento.id)
