@@ -18,3 +18,6 @@ let currentMapDate;
 let currentDispMap = {};
 let csvClientiRows = [];
 let csvOmbrelloniRows = [];
+let selectedClienteIds = new Set();
+let pendingConflict = null;
+let bulkInviteTargets = [];

@@ -153,46 +153,160 @@ function renderOmbrelloniTable(ombs, dispMap, clienti) {
   }).join('');
 }
 
-function renderClientiTable(clienti, ombs) {
-  const tb = document.getElementById('clienti-table');
-  const visibili = clienti.filter(c => !c.rifiutato);
-  if (!visibili.length) {
-    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-light);padding:24px">Nessun cliente ancora invitato. Usa i pulsanti sopra per inviare un invito singolo o massivo.</td></tr>';
-    return;
-  }
-  const ombById = {};
-  ombs.forEach(o => ombById[o.id] = o);
-  tb.innerHTML = visibili.map(c => {
-    const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
-    const statoPill = c.user_id
-      ? '<span class="pill pill-green">Attivo</span>'
-      : '<span class="pill pill-yellow">Invito inviato</span>';
-    const reinvita = c.user_id
-      ? ''
-      : `<button class="btn btn-outline btn-sm" onclick="reinviaInvito('${c.id}')" style="margin-right:6px">✉️ Reinvita</button>`;
-    return `<tr>
-      <td><strong>${c.nome} ${c.cognome}</strong></td>
-      <td>${c.email}</td>
-      <td>${c.telefono || '–'}</td>
-      <td>${o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">–</span>'}</td>
-      <td>${formatCoin(c.credito_saldo)}</td>
-      <td>${statoPill}</td>
-      <td>${reinvita}<button class="btn btn-danger btn-sm" onclick="deleteCliente('${c.id}')">Rimuovi</button></td>
-    </tr>`;
-  }).join('');
+function clienteStato(c) {
+  if (c.user_id) return 'attivo';
+  if (c.invitato_at) return 'invitato';
+  return 'mai';
 }
 
-async function reinviaInvito(id) {
+function renderClientiTable(clienti, ombs) {
+  for (const id of Array.from(selectedClienteIds)) {
+    if (!clienti.find(c => c.id === id)) selectedClienteIds.delete(id);
+  }
+  renderClientiFiltered();
+}
+
+function renderClientiFiltered() {
+  const tb = document.getElementById('clienti-table');
+  if (!tb) return;
+  const q = (document.getElementById('clienti-filter')?.value || '').trim().toLowerCase();
+  const statoF = document.getElementById('clienti-stato-filter')?.value || '';
+  const ombById = {};
+  (ombrelloniList || []).forEach(o => ombById[o.id] = o);
+
+  const visibili = (clientiList || []).filter(c => !c.rifiutato);
+  const filtrati = visibili.filter(c => {
+    if (statoF && clienteStato(c) !== statoF) return false;
+    if (!q) return true;
+    const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
+    const ombStr = o ? `fila ${o.fila} n°${o.numero} ${o.fila}${o.numero}` : '';
+    const hay = `${c.nome || ''} ${c.cognome || ''} ${c.email || ''} ${c.telefono || ''} ${ombStr}`.toLowerCase();
+    return hay.includes(q);
+  });
+
+  const countLbl = document.getElementById('clienti-count-label');
+  if (countLbl) {
+    countLbl.textContent = filtrati.length === visibili.length
+      ? `${visibili.length} clienti`
+      : `${filtrati.length} di ${visibili.length} clienti`;
+  }
+
+  if (!filtrati.length) {
+    const empty = visibili.length
+      ? 'Nessun cliente corrisponde al filtro.'
+      : 'Nessun cliente ancora. Aggiungine uno o importa un CSV.';
+    tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-light);padding:24px">${empty}</td></tr>`;
+    updateClientiBulkToolbar();
+    syncCheckAllClienti(filtrati);
+    return;
+  }
+
+  tb.innerHTML = filtrati.map(c => {
+    const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
+    const stato = clienteStato(c);
+    const pill = stato === 'attivo'
+      ? '<span class="pill pill-green">Attivo</span>'
+      : stato === 'invitato'
+        ? '<span class="pill pill-yellow">Invito inviato</span>'
+        : '<span class="pill pill-gray">Mai invitato</span>';
+    const azioniInvito = c.user_id
+      ? ''
+      : `<button class="btn btn-outline btn-sm" onclick="invitaSingolo('${c.id}')" title="Invia/reinvia invito" style="margin-right:4px">✉️</button>`;
+    const checked = selectedClienteIds.has(c.id) ? 'checked' : '';
+    return `<tr>
+      <td><input type="checkbox" class="clienti-check" data-id="${c.id}" ${checked} onchange="toggleCliente('${c.id}', this.checked)"></td>
+      <td><strong>${escapeHtml(c.nome || '')} ${escapeHtml(c.cognome || '')}</strong></td>
+      <td>${escapeHtml(c.email || '')}</td>
+      <td>${escapeHtml(c.telefono || '') || '–'}</td>
+      <td>${o ? `Fila ${escapeHtml(o.fila)} N°${o.numero}` : '<span style="color:var(--text-light)">–</span>'}</td>
+      <td>${formatCoin(c.credito_saldo)}</td>
+      <td>${pill}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-outline btn-sm" onclick="openEditClienteModal('${c.id}')" title="Modifica" style="margin-right:4px">✏️</button>
+        ${azioniInvito}
+        <button class="btn btn-danger btn-sm" onclick="deleteCliente('${c.id}')" title="Rimuovi">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  updateClientiBulkToolbar();
+  syncCheckAllClienti(filtrati);
+}
+
+function syncCheckAllClienti(filtrati) {
+  const chk = document.getElementById('clienti-check-all');
+  if (!chk) return;
+  const ids = filtrati.map(c => c.id);
+  const all = ids.length > 0 && ids.every(id => selectedClienteIds.has(id));
+  const some = ids.some(id => selectedClienteIds.has(id));
+  chk.checked = all;
+  chk.indeterminate = !all && some;
+}
+
+function toggleAllClienti(checked) {
+  document.querySelectorAll('.clienti-check').forEach(cb => {
+    const id = cb.dataset.id;
+    if (checked) selectedClienteIds.add(id); else selectedClienteIds.delete(id);
+    cb.checked = checked;
+  });
+  updateClientiBulkToolbar();
+}
+
+function toggleCliente(id, checked) {
+  if (checked) selectedClienteIds.add(id); else selectedClienteIds.delete(id);
+  updateClientiBulkToolbar();
+  const filtrati = getFiltratiClienti();
+  syncCheckAllClienti(filtrati);
+}
+
+function getFiltratiClienti() {
+  const q = (document.getElementById('clienti-filter')?.value || '').trim().toLowerCase();
+  const statoF = document.getElementById('clienti-stato-filter')?.value || '';
+  const ombById = {};
+  (ombrelloniList || []).forEach(o => ombById[o.id] = o);
+  return (clientiList || []).filter(c => !c.rifiutato).filter(c => {
+    if (statoF && clienteStato(c) !== statoF) return false;
+    if (!q) return true;
+    const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
+    const ombStr = o ? `fila ${o.fila} n°${o.numero} ${o.fila}${o.numero}` : '';
+    const hay = `${c.nome || ''} ${c.cognome || ''} ${c.email || ''} ${c.telefono || ''} ${ombStr}`.toLowerCase();
+    return hay.includes(q);
+  });
+}
+
+function clearClientiSelection() {
+  selectedClienteIds.clear();
+  renderClientiFiltered();
+}
+
+function updateClientiBulkToolbar() {
+  const toolbar = document.getElementById('clienti-bulk-toolbar');
+  const count = document.getElementById('clienti-selected-count');
+  if (!toolbar || !count) return;
+  const n = selectedClienteIds.size;
+  if (n > 0) {
+    toolbar.classList.remove('hidden');
+    toolbar.style.display = 'flex';
+    count.textContent = `${n} selezionat${n === 1 ? 'o' : 'i'}`;
+  } else {
+    toolbar.classList.add('hidden');
+    toolbar.style.display = 'none';
+  }
+}
+
+async function invitaSingolo(id) {
   const c = clientiList.find(x => x.id === id);
   if (!c) return;
-  if (!c.invito_token) { alert('Token invito mancante, impossibile reinviare.'); return; }
+  if (!c.invito_token) { alert('Token invito mancante, impossibile inviare.'); return; }
+  const omb = c.ombrellone_id ? ombrelloniList.find(o => o.id === c.ombrellone_id) : null;
+  const ombStr = omb ? `Fila ${omb.fila} N°${omb.numero}` : '';
   const inviteLink = `${window.location.origin}/?invito=${c.invito_token}`;
   const ok = await retryUntilTrue(
-    () => inviaEmail('invito', { email: c.email, nome: c.nome, cognome: c.cognome, invite_link: inviteLink }, currentStabilimento),
+    () => inviaEmail('invito', { email: c.email, nome: c.nome, cognome: c.cognome, ombrellone: ombStr, invite_link: inviteLink }, currentStabilimento),
     3, 500
   );
   await sb.from('clienti_stagionali').update({ invitato_at: new Date().toISOString() }).eq('id', id);
-  alert(ok ? '✉️ Invito reinviato.' : '⚠ Invio email fallito. Riprova più tardi.');
+  alert(ok ? '✉️ Invito inviato.' : '⚠ Invio email fallito. Riprova più tardi.');
   await loadManagerData();
 }
 
@@ -318,8 +432,16 @@ function openAddClienteModal() {
   ['cl-nome','cl-cognome','cl-email','cl-telefono'].forEach(id => document.getElementById(id).value = '');
   const sel = document.getElementById('cl-ombrellone');
   sel.innerHTML = '<option value="">– Nessuno (lo assegnerai dopo) –</option>' + ombrelloniList.map(o => `<option value="${o.id}">Fila ${o.fila} N°${o.numero}</option>`).join('');
+  const chk = document.getElementById('cl-invia-invito');
+  if (chk) chk.checked = true;
   showAlert('add-cliente-alert', '', '');
   document.getElementById('modal-add-cliente').classList.remove('hidden');
+}
+
+function findOmbOccupant(ombId, excludeEmail) {
+  if (!ombId) return null;
+  const lo = (excludeEmail || '').toLowerCase();
+  return (clientiList || []).find(c => c.ombrellone_id === ombId && (c.email || '').toLowerCase() !== lo) || null;
 }
 
 async function confirmAddCliente() {
@@ -328,12 +450,32 @@ async function confirmAddCliente() {
   const email = document.getElementById('cl-email').value.trim();
   const telefono = document.getElementById('cl-telefono').value.trim();
   const ombId = document.getElementById('cl-ombrellone').value || null;
+  const inviaInvito = document.getElementById('cl-invia-invito')?.checked;
   if (!nome || !email) { showAlert('add-cliente-alert', 'Nome ed email sono obbligatori', 'error'); return; }
   if (!EMAIL_RE.test(email)) { showAlert('add-cliente-alert', 'Email non valida', 'error'); return; }
 
-  const btn = document.getElementById('btn-invita-singolo');
-  if (btn) { btn.disabled = true; btn.textContent = 'Invio in corso...'; }
+  const occupant = findOmbOccupant(ombId, email);
+  if (occupant) {
+    const omb = ombrelloniList.find(o => o.id === ombId);
+    pendingConflict = {
+      kind: 'add',
+      payload: { nome, cognome, email, telefono, ombId, inviaInvito },
+      occupantId: occupant.id,
+      ombLabel: omb ? `Fila ${omb.fila} N°${omb.numero}` : 'ombrellone',
+      occupantName: `${occupant.nome || ''} ${occupant.cognome || ''}`.trim() || occupant.email,
+    };
+    document.getElementById('conflict-msg').innerHTML =
+      `L'ombrellone <strong>${pendingConflict.ombLabel}</strong> è già assegnato a <strong>${escapeHtml(pendingConflict.occupantName)}</strong>. Chi vuoi tenere su questo ombrellone?`;
+    document.getElementById('modal-conflict-cliente').classList.remove('hidden');
+    return;
+  }
 
+  await saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito });
+}
+
+async function saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito }) {
+  const btn = document.getElementById('btn-invita-singolo');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvataggio…'; }
   const now = new Date().toISOString();
   const { data: existing } = await sb.from('clienti_stagionali')
     .select('id,invito_token,user_id')
@@ -341,51 +483,132 @@ async function confirmAddCliente() {
     .eq('email', email)
     .maybeSingle();
 
-  let token;
+  let token, clienteId;
+  const baseUpdate = { nome, cognome, telefono, ombrellone_id: ombId };
+  if (inviaInvito) baseUpdate.invitato_at = now;
+
   if (existing) {
     if (existing.user_id) {
-      showAlert('add-cliente-alert', 'Questo cliente ha già completato la registrazione.', 'error');
-      if (btn) { btn.disabled = false; btn.textContent = '✉️ Invia invito'; }
+      showAlert('add-cliente-alert', 'Questo cliente ha già completato la registrazione. Usa "Modifica" dalla tabella per cambiargli ombrellone.', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Salva cliente'; }
       return;
     }
-    const { error: upErr } = await sb.from('clienti_stagionali')
-      .update({ nome, cognome, telefono, ombrellone_id: ombId, invitato_at: now })
-      .eq('id', existing.id);
+    const { error: upErr } = await sb.from('clienti_stagionali').update(baseUpdate).eq('id', existing.id);
     if (upErr) {
       showAlert('add-cliente-alert', upErr.message, 'error');
-      if (btn) { btn.disabled = false; btn.textContent = '✉️ Invia invito'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Salva cliente'; }
       return;
     }
     token = existing.invito_token;
+    clienteId = existing.id;
   } else {
     const { data: inserted, error: insErr } = await sb.from('clienti_stagionali')
-      .insert({ stabilimento_id: currentStabilimento.id, ombrellone_id: ombId, nome, cognome, email, telefono, fonte: 'csv', approvato: false, invitato_at: now })
-      .select('invito_token')
+      .insert({ stabilimento_id: currentStabilimento.id, email, fonte: 'csv', approvato: false, ...baseUpdate })
+      .select('id,invito_token')
       .single();
     if (insErr) {
       showAlert('add-cliente-alert', insErr.message, 'error');
-      if (btn) { btn.disabled = false; btn.textContent = '✉️ Invia invito'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Salva cliente'; }
       return;
     }
     token = inserted?.invito_token;
+    clienteId = inserted?.id;
   }
 
-  if (token) {
+  if (inviaInvito && token) {
+    const omb = ombId ? ombrelloniList.find(o => o.id === ombId) : null;
+    const ombStr = omb ? `Fila ${omb.fila} N°${omb.numero}` : '';
     const inviteLink = `${window.location.origin}/?invito=${token}`;
     const ok = await retryUntilTrue(
-      () => inviaEmail('invito', { email, nome, cognome, invite_link: inviteLink }, currentStabilimento),
+      () => inviaEmail('invito', { email, nome, cognome, ombrellone: ombStr, invite_link: inviteLink }, currentStabilimento),
       3, 500
     );
     if (!ok) {
       showAlert('add-cliente-alert', '⚠ Cliente salvato ma invio email fallito. Riprova dalla tabella.', 'error');
-      if (btn) { btn.disabled = false; btn.textContent = '✉️ Invia invito'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Salva cliente'; }
       await loadManagerData();
       return;
     }
   }
 
-  if (btn) { btn.disabled = false; btn.textContent = '✉️ Invia invito'; }
+  if (btn) { btn.disabled = false; btn.textContent = 'Salva cliente'; }
   closeModal('modal-add-cliente');
+  await loadManagerData();
+}
+
+async function resolveConflict(choice) {
+  if (!pendingConflict) { closeModal('modal-conflict-cliente'); return; }
+  if (choice === 'keep') {
+    closeModal('modal-conflict-cliente');
+    pendingConflict = null;
+    return;
+  }
+  const { kind, payload, occupantId } = pendingConflict;
+  await sb.from('clienti_stagionali').update({ ombrellone_id: null }).eq('id', occupantId);
+  closeModal('modal-conflict-cliente');
+  const p = payload;
+  pendingConflict = null;
+  if (kind === 'add') await saveCliente(p);
+  else if (kind === 'edit') await saveEditedCliente(p);
+}
+
+function openEditClienteModal(id) {
+  const c = clientiList.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('edit-cl-id').value = c.id;
+  document.getElementById('edit-cl-nome').value = c.nome || '';
+  document.getElementById('edit-cl-cognome').value = c.cognome || '';
+  document.getElementById('edit-cl-email').value = c.email || '';
+  document.getElementById('edit-cl-telefono').value = c.telefono || '';
+  const emailInput = document.getElementById('edit-cl-email');
+  emailInput.disabled = !!c.user_id;
+  emailInput.title = c.user_id ? 'Email non modificabile: il cliente è già attivo.' : '';
+  const sel = document.getElementById('edit-cl-ombrellone');
+  sel.innerHTML = '<option value="">– Nessuno –</option>' + ombrelloniList.map(o => `<option value="${o.id}" ${c.ombrellone_id === o.id ? 'selected' : ''}>Fila ${o.fila} N°${o.numero}</option>`).join('');
+  showAlert('edit-cliente-alert', '', '');
+  document.getElementById('modal-edit-cliente').classList.remove('hidden');
+}
+
+async function confirmEditCliente() {
+  const id = document.getElementById('edit-cl-id').value;
+  const c = clientiList.find(x => x.id === id);
+  if (!c) return;
+  const nome = document.getElementById('edit-cl-nome').value.trim();
+  const cognome = document.getElementById('edit-cl-cognome').value.trim();
+  const email = (document.getElementById('edit-cl-email').value || c.email).trim();
+  const telefono = document.getElementById('edit-cl-telefono').value.trim();
+  const ombId = document.getElementById('edit-cl-ombrellone').value || null;
+  if (!nome || !email) { showAlert('edit-cliente-alert', 'Nome ed email sono obbligatori', 'error'); return; }
+  if (!EMAIL_RE.test(email)) { showAlert('edit-cliente-alert', 'Email non valida', 'error'); return; }
+
+  const payload = { id, nome, cognome, email, telefono, ombId };
+  if (ombId && ombId !== c.ombrellone_id) {
+    const occupant = findOmbOccupant(ombId, email);
+    if (occupant && occupant.id !== id) {
+      const omb = ombrelloniList.find(o => o.id === ombId);
+      pendingConflict = {
+        kind: 'edit',
+        payload,
+        occupantId: occupant.id,
+        ombLabel: omb ? `Fila ${omb.fila} N°${omb.numero}` : 'ombrellone',
+        occupantName: `${occupant.nome || ''} ${occupant.cognome || ''}`.trim() || occupant.email,
+      };
+      document.getElementById('conflict-msg').innerHTML =
+        `L'ombrellone <strong>${pendingConflict.ombLabel}</strong> è già assegnato a <strong>${escapeHtml(pendingConflict.occupantName)}</strong>. Chi vuoi tenere su questo ombrellone?`;
+      document.getElementById('modal-conflict-cliente').classList.remove('hidden');
+      return;
+    }
+  }
+  await saveEditedCliente(payload);
+}
+
+async function saveEditedCliente({ id, nome, cognome, email, telefono, ombId }) {
+  const c = clientiList.find(x => x.id === id);
+  const update = { nome, cognome, telefono, ombrellone_id: ombId };
+  if (!c?.user_id) update.email = email;
+  const { error } = await sb.from('clienti_stagionali').update(update).eq('id', id);
+  if (error) { showAlert('edit-cliente-alert', error.message, 'error'); return; }
+  closeModal('modal-edit-cliente');
   await loadManagerData();
 }
 

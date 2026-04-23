@@ -193,13 +193,16 @@ Deno.serve(async (req: Request) => {
     });
 
   } else if (tipo === "invito") {
-    subject = `Sei stato invitato su ShareAndFun — ${stabilimento_nome}`;
+    subject = oggetto_custom || `Sei stato invitato su ShareAndFun — ${stabilimento_nome}`;
+    const testoPrincipaleCustom = testo_custom
+      ? testo_custom.replace(/\n/g, "<br>")
+      : `<strong>${stabilimento_nome}</strong> ti ha invitato a registrarti su <strong>ShareAndFun</strong>, la piattaforma per la gestione degli ombrelloni stagionali.`;
     html = buildEmailHtml({
       headerColor: "linear-gradient(135deg,#1B6CA8 0%,#2B8DC8 100%)",
       headerEmoji: "🌊 ☂️",
       headerSub: `${stabilimento_nome} ti invita`,
       nome,
-      testoPrincipale: `<strong>${stabilimento_nome}</strong> ti ha invitato a registrarti su <strong>ShareAndFun</strong>, la piattaforma per la gestione degli ombrelloni stagionali.`,
+      testoPrincipale: testoPrincipaleCustom,
       boxColor: "#E8F4FD",
       boxBorderColor: "#4A9FD4",
       boxTitoloColor: "#1B6CA8",
