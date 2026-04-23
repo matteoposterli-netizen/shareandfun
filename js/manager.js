@@ -72,9 +72,11 @@ async function refreshMap() {
   ombrelloniList.forEach(o => {
     const ombDisp = dispByOmbDate[o.id] || {};
     const allFree = dates.every(d => ombDisp[d] === 'libero');
+    const anyFree = dates.some(d => ombDisp[d] === 'libero');
     const anySub = dates.some(d => ombDisp[d] === 'sub_affittato');
     if (anySub) rangeDispMap[o.id] = 'sub_affittato';
     else if (allFree) rangeDispMap[o.id] = 'libero';
+    else if (anyFree) rangeDispMap[o.id] = 'parziale';
     else rangeDispMap[o.id] = 'occupied';
   });
 
@@ -87,6 +89,7 @@ async function refreshMap() {
   document.getElementById('map-range-label').textContent = label;
 
   const free = ombrelloniList.filter(o => rangeDispMap[o.id] === 'libero').length;
+  const partial = ombrelloniList.filter(o => rangeDispMap[o.id] === 'parziale').length;
   const subleased = ombrelloniList.filter(o => rangeDispMap[o.id] === 'sub_affittato').length;
 
   if (isToday) {
@@ -97,10 +100,14 @@ async function refreshMap() {
   renderManagerMap(ombrelloniList, rangeDispMap);
 
   const freeEl = document.getElementById('map-free-count');
+  const pill = (bg, fg, text) => `<span style="background:${bg};color:${fg};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600">${text}</span>`;
+  const partialTxt = partial > 0 ? ` · ${partial} liber${partial > 1 ? 'i' : 'o'} in parte del periodo` : '';
   if (free > 0) {
-    freeEl.innerHTML = `<span style="background:var(--green-light);color:var(--green);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600">✓ ${free} ombrellone${free > 1 ? 'i' : ''} liber${free > 1 ? 'i' : 'o'} per tutto il periodo</span>`;
+    freeEl.innerHTML = pill('var(--green-light)', 'var(--green)', `✓ ${free} ombrellone${free > 1 ? 'i' : ''} liber${free > 1 ? 'i' : 'o'} per tutto il periodo${partialTxt}`);
+  } else if (partial > 0) {
+    freeEl.innerHTML = pill('var(--green-light)', 'var(--green)', `${partial} ombrellone${partial > 1 ? 'i' : ''} liber${partial > 1 ? 'i' : 'o'} in parte del periodo`);
   } else {
-    freeEl.innerHTML = `<span style="background:var(--red-light);color:var(--red);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600">Nessun ombrellone libero per tutto il periodo</span>`;
+    freeEl.innerHTML = pill('var(--red-light)', 'var(--red)', 'Nessun ombrellone libero nel periodo');
   }
 
   updateMapPresetActive();
@@ -163,7 +170,11 @@ function renderManagerMap(ombs, dispMap) {
     byRow[fila].sort((a,b) => a.numero - b.numero).forEach(o => {
       const stato = dispMap[o.id] || 'occupied';
       const el2 = document.createElement('div');
-      el2.className = 'ombrellone ' + (stato === 'libero' ? 'free' : stato === 'sub_affittato' ? 'subleased' : 'occupied');
+      const cls = stato === 'libero' ? 'free'
+        : stato === 'parziale' ? 'partial'
+        : stato === 'sub_affittato' ? 'subleased'
+        : 'occupied';
+      el2.className = 'ombrellone ' + cls;
       el2.textContent = '☂️';
       el2.title = `${fila}${o.numero} — ${formatCoin(o.credito_giornaliero)}/gg`;
       row.appendChild(el2);
