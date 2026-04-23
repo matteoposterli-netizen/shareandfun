@@ -12,7 +12,6 @@ let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth();
 let stagClienteId = null;
 let stagOmbrelloneId = null;
-let setupOmbrelloni = [];
 let currentInviteToken = null;
 let currentInviteData = null;
 let currentMapDate;

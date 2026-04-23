@@ -147,14 +147,9 @@
 <!-- SETUP STABILIMENTO -->
 <div id="view-setup" class="view">
   <div class="setup-container">
-    <div class="setup-progress">
-      <div class="setup-dot done" id="sp1"></div>
-      <div class="setup-dot" id="sp2"></div>
-    </div>
-    <!-- STEP 1: Dati stabilimento -->
     <div class="setup-step active" id="setup-1">
       <div class="setup-title">🏖️ Configura il tuo stabilimento</div>
-      <div class="setup-sub">Iniziamo con le informazioni base del tuo stabilimento balneare.</div>
+      <div class="setup-sub">Inserisci le informazioni base del tuo stabilimento balneare. Potrai aggiungere gli ombrelloni in qualsiasi momento dalla dashboard.</div>
       <div id="setup1-alert"></div>
       <div class="card"><div class="card-body">
         <div class="form-group"><label class="form-label">Nome stabilimento</label><input type="text" id="stab-nome" class="form-input" placeholder="es. Bagno Azzurro"></div>
@@ -164,41 +159,8 @@
           <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="stab-telefono" class="form-input" placeholder="+39 0541 000000"></div>
           <div class="form-group"><label class="form-label">Email stabilimento</label><input type="email" id="stab-email" class="form-input" placeholder="info@bagnoblu.it"></div>
         </div>
-        <button class="btn btn-primary btn-full" onclick="saveStabilimento()">Continua →</button>
+        <button class="btn btn-primary btn-full" onclick="saveStabilimento()">Vai alla dashboard →</button>
       </div></div>
-    </div>
-    <!-- STEP 2: Ombrelloni -->
-    <div class="setup-step" id="setup-2">
-      <div class="setup-title">☂️ Aggiungi i tuoi ombrelloni</div>
-      <div class="setup-sub">Puoi aggiungere ombrelloni uno alla volta o caricare un CSV. Ogni ombrellone ha una fila (A, B, C...) e un numero, e un credito giornaliero personalizzato.</div>
-      <div id="setup2-alert"></div>
-      <div class="card" style="margin-bottom:16px"><div class="card-body">
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Fila</label><input type="text" id="omb-fila" class="form-input" placeholder="es. A" maxlength="3"></div>
-          <div class="form-group"><label class="form-label">Numero</label><input type="number" id="omb-numero" class="form-input" placeholder="es. 1" min="1"></div>
-        </div>
-        <div class="form-group"><label class="form-label" data-coin-label="Credito giornaliero">Credito giornaliero</label><input type="number" id="omb-credito" class="form-input" placeholder="es. 12.00" step="0.50" min="0"></div>
-        <button class="btn btn-outline btn-sm" onclick="addOmbrellone()">+ Aggiungi ombrellone</button>
-      </div></div>
-      <div id="ombrelloni-list" style="margin-bottom:16px"></div>
-      <div class="card" style="margin-bottom:16px"><div class="card-body">
-        <div class="card-title" style="margin-bottom:10px">📂 Carica CSV</div>
-        <p style="font-size:13px;color:var(--text-mid);margin-bottom:12px">
-          Formato: <code>fila,numero,credito_giornaliero</code> (una riga per ombrellone).
-          <a href="#" onclick="event.preventDefault();scaricaCSVOmbrelloniTemplate()" style="color:var(--ocean);font-weight:600">Scarica esempio</a>
-        </p>
-        <input type="file" id="csv-file" accept=".csv" onchange="loadCSV(event)" class="form-input">
-        <div id="csv-omb-preview"></div>
-        <div id="csv-omb-actions" class="hidden" style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm" onclick="confermaCSVOmbrelloni()">+ Aggiungi selezionati</button>
-          <button class="btn btn-outline btn-sm" onclick="annullaCSVOmbrelloni()">Annulla</button>
-          <span id="csv-omb-count" style="font-size:13px;color:var(--text-mid)"></span>
-        </div>
-      </div></div>
-      <div style="display:flex;gap:10px">
-        <button class="btn btn-outline" onclick="goSetupStep(1)">← Indietro</button>
-        <button class="btn btn-primary" onclick="finishSetup()" style="flex:1">Vai alla dashboard →</button>
-      </div>
     </div>
   </div>
 </div>
