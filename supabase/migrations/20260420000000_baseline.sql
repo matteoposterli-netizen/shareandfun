@@ -32,7 +32,11 @@ CREATE TABLE IF NOT EXISTS public.stabilimenti (
   email_approvazione_oggetto text DEFAULT 'Iscrizione approvata!'::text,
   email_approvazione_testo   text DEFAULT 'Ottima notizia! La tua iscrizione è stata approvata. Puoi ora accedere alla piattaforma.'::text,
   email_invito_oggetto       text,
-  email_invito_testo         text
+  email_invito_testo         text,
+  email_credito_accreditato_oggetto text,
+  email_credito_accreditato_testo   text,
+  email_credito_ritirato_oggetto    text,
+  email_credito_ritirato_testo      text
 );
 
 CREATE TABLE IF NOT EXISTS public.ombrelloni (

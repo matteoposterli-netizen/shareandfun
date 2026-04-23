@@ -363,6 +363,58 @@
           </div>
         </div>
 
+        <!-- Credito accreditato -->
+        <div class="email-section">
+          <div class="email-section-header" onclick="toggleEmailSection('credito-accreditato')">
+            <div class="email-section-title">⭐ Email coin accreditati <span style="font-size:12px;color:var(--text-light);font-weight:400">(quando accrediti coin al cliente, anche dopo un sub-affitto)</span></div>
+            <span>▾</span>
+          </div>
+          <div class="email-section-body" id="email-body-credito-accreditato">
+            <div class="form-group">
+              <label class="form-label">Oggetto email</label>
+              <input type="text" id="email-credito-accreditato-oggetto" class="form-input" maxlength="80" oninput="updateCounter('credito-accreditato-oggetto',80)" placeholder="es. Hai ricevuto {{importo}}!">
+              <div class="char-counter" id="counter-credito-accreditato-oggetto">0/80</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Messaggio personalizzato</label>
+              <textarea id="email-credito-accreditato-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('credito-accreditato-testo',500)" placeholder="es. Ciao {{nome}}, abbiamo accreditato {{importo}} sul tuo saldo. Nuovo saldo: {{saldo}}." style="resize:vertical"></textarea>
+              <div class="char-counter" id="counter-credito-accreditato-testo">0/500</div>
+              <div style="font-size:12px;color:var(--text-light);margin-top:4px">Puoi usare <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{cognome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{importo}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{saldo}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{stabilimento}}</code>.</div>
+            </div>
+            <div class="email-preview-box">
+              <strong>Anteprima:</strong> <span id="preview-credito-accreditato-oggetto" style="color:var(--ocean)"></span><br>
+              <span id="preview-credito-accreditato-testo"></span>
+              <div class="email-preview-fixed">+ nome stabilimento · telefono · email stabilimento (automatici)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Credito ritirato -->
+        <div class="email-section">
+          <div class="email-section-header" onclick="toggleEmailSection('credito-ritirato')">
+            <div class="email-section-title">🧾 Email coin utilizzati <span style="font-size:12px;color:var(--text-light);font-weight:400">(quando registri l'utilizzo dei coin del cliente)</span></div>
+            <span>▾</span>
+          </div>
+          <div class="email-section-body" id="email-body-credito-ritirato">
+            <div class="form-group">
+              <label class="form-label">Oggetto email</label>
+              <input type="text" id="email-credito-ritirato-oggetto" class="form-input" maxlength="80" oninput="updateCounter('credito-ritirato-oggetto',80)" placeholder="es. Hai utilizzato {{importo}}">
+              <div class="char-counter" id="counter-credito-ritirato-oggetto">0/80</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Messaggio personalizzato</label>
+              <textarea id="email-credito-ritirato-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('credito-ritirato-testo',500)" placeholder="es. Ciao {{nome}}, hai utilizzato {{importo}} dal tuo saldo. Saldo residuo: {{saldo}}." style="resize:vertical"></textarea>
+              <div class="char-counter" id="counter-credito-ritirato-testo">0/500</div>
+              <div style="font-size:12px;color:var(--text-light);margin-top:4px">Puoi usare <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{cognome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{importo}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{saldo}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nota}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{stabilimento}}</code>.</div>
+            </div>
+            <div class="email-preview-box">
+              <strong>Anteprima:</strong> <span id="preview-credito-ritirato-oggetto" style="color:var(--ocean)"></span><br>
+              <span id="preview-credito-ritirato-testo"></span>
+              <div class="email-preview-fixed">+ nome stabilimento · telefono · email stabilimento (automatici)</div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <!-- TRANSAZIONI TAB -->
