@@ -366,10 +366,11 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
   .form-row { grid-template-columns: 1fr; gap: 0; }
 
   /* ---------- DASHBOARD LAYOUT: sidebar becomes horizontal tab-bar ---------- */
-  .dash-layout { grid-template-columns: 1fr; min-height: calc(100vh - 54px); }
+  .dash-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; min-height: calc(100vh - 54px); }
   .sidebar {
     display: flex;
     flex-direction: row;
+    align-items: center;
     gap: 6px;
     padding: 10px 12px;
     overflow-x: auto;
@@ -382,12 +383,15 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    background: var(--white);
   }
   .sidebar::-webkit-scrollbar { display: none; }
   .sidebar-title { display: none; }
   .sidebar-item {
     flex: 0 0 auto;
     width: auto;
+    height: auto;
+    align-self: center;
     white-space: nowrap;
     padding: 8px 14px;
     border-radius: 20px;
@@ -497,6 +501,9 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 
   /* ALERT padding */
   .alert { padding: 10px 12px; font-size: 12px; }
+
+  /* Long strings (code, urls, emails) must not push layout horizontally */
+  code, .card-body p, .card-body { overflow-wrap: anywhere; word-break: break-word; }
 }
 
 /* Small phones */
