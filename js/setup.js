@@ -46,33 +46,108 @@ function removeSetupOmb(i) { setupOmbrelloni.splice(i, 1); renderSetupOmbrelloni
 function loadCSV(e) {
   const file = e.target.files[0];
   if (!file) return;
+  showAlert('setup2-alert', '', '');
   const reader = new FileReader();
   reader.onload = (ev) => {
-    let rows = parseCSV(ev.target.result);
-    if (rows.length && isHeaderRow(rows[0], 1)) rows = rows.slice(1);
-    const existing = new Set(setupOmbrelloni.map(o => `${o.fila}|${o.numero}`));
-    let added = 0, skippedDup = 0, skippedInvalid = 0;
-    rows.forEach(parts => {
-      if (parts.length < 2) { skippedInvalid++; return; }
+    let parsed = parseCSV(ev.target.result);
+    if (parsed.length && isHeaderRow(parsed[0], 1)) parsed = parsed.slice(1);
+    const rows = [];
+    let invalid = 0;
+    parsed.forEach(parts => {
+      if (parts.length < 2) { invalid++; return; }
       const fila = (parts[0] || '').toUpperCase();
       const numero = parseInt(parts[1]);
       const credito = parseFloat(parts[2]) || 10;
-      if (!fila || !numero) { skippedInvalid++; return; }
-      const key = `${fila}|${numero}`;
-      if (existing.has(key)) { skippedDup++; return; }
-      existing.add(key);
-      setupOmbrelloni.push({ fila, numero, credito_giornaliero: credito });
-      added++;
+      if (!fila || !numero) { invalid++; return; }
+      rows.push({ fila, numero, credito_giornaliero: credito });
     });
-    renderSetupOmbrelloni();
-    const extra = [];
-    if (skippedDup) extra.push(`${skippedDup} duplicati`);
-    if (skippedInvalid) extra.push(`${skippedInvalid} righe non valide`);
-    const suffix = extra.length ? ` (saltati: ${extra.join(', ')})` : '';
-    showAlert('setup2-alert', `${added} ombrelloni aggiunti dal CSV${suffix}`, added ? 'success' : 'error');
+    if (!rows.length) {
+      showAlert('setup2-alert', 'Nessuna riga valida trovata nel CSV', 'error');
+      e.target.value = '';
+      return;
+    }
+    csvOmbrelloniRows = rows;
+    renderCSVOmbrelloniPreview(rows);
+    const suffix = invalid ? ` (${invalid} righe non valide saltate)` : '';
+    showAlert('setup2-alert', `${rows.length} ombrelloni letti dal CSV${suffix}. Seleziona quelli da aggiungere.`, 'success');
     e.target.value = '';
   };
   reader.readAsText(file);
+}
+
+function renderCSVOmbrelloniPreview(rows) {
+  const wrap = document.getElementById('csv-omb-preview');
+  const actions = document.getElementById('csv-omb-actions');
+  const existing = new Set(setupOmbrelloni.map(o => `${o.fila}|${o.numero}`));
+  const seen = new Set();
+  wrap.innerHTML = `
+    <div class="csv-preview-wrap" style="margin-top:12px">
+      <div class="csv-check-all">
+        <input type="checkbox" id="csv-omb-check-all" onchange="toggleAllCSVOmb(this.checked)" checked>
+        <label for="csv-omb-check-all">Seleziona tutti</label>
+      </div>
+      <div class="csv-row ombrelloni header"><div></div><div>Fila</div><div>Numero</div><div>Credito</div><div>Stato</div></div>
+      ${rows.map((r, i) => {
+        const key = `${r.fila}|${r.numero}`;
+        let flag = '<span style="color:var(--green);font-size:11px;font-weight:600">nuovo</span>';
+        let dup = false;
+        if (existing.has(key)) { flag = '<span class="omb-missing">già aggiunto</span>'; dup = true; }
+        else if (seen.has(key)) { flag = '<span class="omb-missing">duplicato nel CSV</span>'; dup = true; }
+        else seen.add(key);
+        const attrs = dup ? 'disabled' : 'checked';
+        return `
+        <div class="csv-row ombrelloni">
+          <input type="checkbox" class="csv-omb-check" data-idx="${i}" ${attrs} onchange="updateCSVOmbCount()">
+          <div>${escapeHtml(r.fila)}</div>
+          <div>${r.numero}</div>
+          <div>€ ${r.credito_giornaliero.toFixed(2)}</div>
+          <div>${flag}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  actions.classList.remove('hidden');
+  actions.style.display = 'flex';
+  updateCSVOmbCount();
+}
+
+function toggleAllCSVOmb(checked) {
+  document.querySelectorAll('.csv-omb-check:not(:disabled)').forEach(cb => cb.checked = checked);
+  updateCSVOmbCount();
+}
+
+function updateCSVOmbCount() {
+  const total = document.querySelectorAll('.csv-omb-check:checked').length;
+  const el = document.getElementById('csv-omb-count');
+  if (el) el.textContent = `${total} selezionati`;
+}
+
+function confermaCSVOmbrelloni() {
+  const toAdd = [];
+  document.querySelectorAll('.csv-omb-check:checked').forEach(cb => {
+    const idx = parseInt(cb.dataset.idx);
+    if (!isNaN(idx)) toAdd.push(csvOmbrelloniRows[idx]);
+  });
+  if (!toAdd.length) { showAlert('setup2-alert', 'Nessun ombrellone selezionato', 'error'); return; }
+  const existing = new Set(setupOmbrelloni.map(o => `${o.fila}|${o.numero}`));
+  let added = 0;
+  toAdd.forEach(r => {
+    const k = `${r.fila}|${r.numero}`;
+    if (existing.has(k)) return;
+    existing.add(k);
+    setupOmbrelloni.push(r);
+    added++;
+  });
+  annullaCSVOmbrelloni();
+  renderSetupOmbrelloni();
+  showAlert('setup2-alert', `✅ ${added} ombrelloni aggiunti`, 'success');
+}
+
+function annullaCSVOmbrelloni() {
+  csvOmbrelloniRows = [];
+  document.getElementById('csv-omb-preview').innerHTML = '';
+  const actions = document.getElementById('csv-omb-actions');
+  actions.classList.add('hidden');
+  actions.style.display = '';
 }
 
 async function finishSetup() {

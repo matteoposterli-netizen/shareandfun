@@ -205,6 +205,12 @@
         <div class="card-title" style="margin-bottom:10px">📂 Carica CSV</div>
         <p style="font-size:13px;color:var(--text-mid);margin-bottom:12px">Formato: <code>fila,numero,credito_giornaliero</code> (una riga per ombrellone)</p>
         <input type="file" id="csv-file" accept=".csv" onchange="loadCSV(event)" class="form-input">
+        <div id="csv-omb-preview"></div>
+        <div id="csv-omb-actions" class="hidden" style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="confermaCSVOmbrelloni()">+ Aggiungi selezionati</button>
+          <button class="btn btn-outline btn-sm" onclick="annullaCSVOmbrelloni()">Annulla</button>
+          <span id="csv-omb-count" style="font-size:13px;color:var(--text-mid)"></span>
+        </div>
       </div></div>
       <div style="display:flex;gap:10px">
         <button class="btn btn-outline" onclick="goSetupStep(1)">← Indietro</button>
