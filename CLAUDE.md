@@ -30,6 +30,8 @@ Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono ren
 
 RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select auth.uid())` per performance. L'intero schema `public` (tabelle, FK, indexes, RLS, policies, RPC) è catturato come baseline in `supabase/migrations/20260420000000_baseline.sql`; migrazioni future vanno come file addizionali con timestamp successivo.
 
+> ⚠️ **Migrazione pendente al 2026-04-23**: `supabase/migrations/20260423000000_coin_email_templates.sql` (aggiunge 4 colonne `email_credito_*` a `stabilimenti`) è committata in `main` ma **non ancora applicata al DB**. Finché non viene eseguita, salvare un template custom per i tipi `credito_accreditato`/`credito_ritirato` dalla UI fallirà con errore "column does not exist". Applicare via Supabase dashboard (SQL Editor), `supabase db push` o `psql`.
+
 ### RPC functions (SECURITY DEFINER)
 
 - `get_cliente_by_invito_token(p_token uuid)` — dati cliente pre-compilati per link invito
@@ -58,8 +60,7 @@ Non esiste più il ramo "registrazione diretta" (`fonte='diretta'`) né il conce
 ## Workflow Git
 
 - **Production branch**: `main` → deploy Vercel produzione
-- **Feature/review branch corrente**: `claude/coin-transaction-emails-0r7ia`
-  Tutti i lavori vanno qui. Vercel crea un preview URL per questo branch.
+- **Feature/review branch corrente**: nessuno attivo (tutti i branch `claude/*` recenti sono stati mergiati in `main` il 2026-04-23). Aprirne uno nuovo per ogni intervento; Vercel genera un preview URL per ciascuno.
 - **Mai pushare direttamente su `main`** senza conferma esplicita dell'utente. Merge su main = deploy produzione.
 
 ## Convenzioni
