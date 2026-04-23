@@ -61,6 +61,34 @@ async function runWithConcurrency(items, limit, fn, onProgress) {
   await Promise.all(Array.from({ length: n }, worker));
 }
 
+async function retryUntilTrue(fn, attempts = 3, baseDelay = 500) {
+  for (let i = 0; i < attempts; i++) {
+    try { if (await fn()) return true; } catch (e) { console.error(e); }
+    if (i < attempts - 1) await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, i)));
+  }
+  return false;
+}
+
+async function readCSVFile(file, numericColIdx) {
+  const text = await file.text();
+  let rows = parseCSV(text);
+  if (rows.length && isHeaderRow(rows[0], numericColIdx)) rows = rows.slice(1);
+  return rows;
+}
+
+function renderProgressInAlert(alertId, label, done, total) {
+  const el = document.getElementById(alertId);
+  if (!el) return;
+  const pct = total ? Math.round(done * 100 / total) : 100;
+  el.innerHTML = `
+    <div class="alert alert-success">
+      ${label} ${done} / ${total}
+      <div style="margin-top:6px;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:var(--ocean);transition:width .2s"></div>
+      </div>
+    </div>`;
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function downloadCSVTemplate(filename, content) {

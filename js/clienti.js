@@ -1,39 +1,34 @@
-function loadCSVClienti(e) {
+async function loadCSVClienti(e) {
   const file = e.target.files[0];
   if (!file) return;
   showAlert('csv-clienti-alert', '', '');
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    let parsed = parseCSV(ev.target.result);
-    if (parsed.length && isHeaderRow(parsed[0], 1)) parsed = parsed.slice(1);
-    if (parsed.length > 1000) {
-      showAlert('csv-clienti-alert', `❌ Il file contiene ${parsed.length} righe. Il limite massimo è 1000 righe. Riduci il file e riprova.`, 'error');
-      e.target.value = '';
-      return;
-    }
-    const rows = [];
-    parsed.forEach(parts => {
-      if (parts.length < 4) return;
-      const fila = (parts[0] || '').toUpperCase();
-      const numero = parseInt(parts[1]);
-      const nome = parts[2] || '';
-      const cognome = parts[3] || '';
-      const telefono = parts[4] || '';
-      const email = parts[5] || '';
-      if (!fila || !numero || !nome) return;
-      rows.push({ fila, numero, nome, cognome, telefono, email });
-    });
-    if (!rows.length) {
-      showAlert('csv-clienti-alert', 'Nessuna riga valida trovata nel CSV', 'error');
-      e.target.value = '';
-      return;
-    }
-    csvClientiRows = rows;
-    renderCSVAnteprima(rows);
-    showAlert('csv-clienti-alert', `✅ ${rows.length} clienti caricati dal CSV`, 'success');
+  const parsed = await readCSVFile(file, 1);
+  if (parsed.length > 1000) {
+    showAlert('csv-clienti-alert', `❌ Il file contiene ${parsed.length} righe. Il limite massimo è 1000 righe. Riduci il file e riprova.`, 'error');
     e.target.value = '';
-  };
-  reader.readAsText(file);
+    return;
+  }
+  const rows = [];
+  parsed.forEach(parts => {
+    if (parts.length < 4) return;
+    const fila = (parts[0] || '').toUpperCase();
+    const numero = parseInt(parts[1]);
+    const nome = parts[2] || '';
+    const cognome = parts[3] || '';
+    const telefono = parts[4] || '';
+    const email = parts[5] || '';
+    if (!fila || !numero || !nome) return;
+    rows.push({ fila, numero, nome, cognome, telefono, email });
+  });
+  if (!rows.length) {
+    showAlert('csv-clienti-alert', 'Nessuna riga valida trovata nel CSV', 'error');
+    e.target.value = '';
+    return;
+  }
+  csvClientiRows = rows;
+  renderCSVAnteprima(rows);
+  showAlert('csv-clienti-alert', `✅ ${rows.length} clienti caricati dal CSV`, 'success');
+  e.target.value = '';
 }
 
 function renderCSVAnteprima(rows) {
@@ -92,17 +87,6 @@ function updateCSVCount() {
   document.getElementById('csv-invito-count').textContent = `${total} selezionati`;
 }
 
-function renderInvitiProgress(label, done, total) {
-  const pct = total ? Math.round(done * 100 / total) : 100;
-  document.getElementById('csv-clienti-alert').innerHTML = `
-    <div class="alert alert-success">
-      ${label} ${done} / ${total}
-      <div style="margin-top:6px;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:var(--ocean);transition:width .2s"></div>
-      </div>
-    </div>`;
-}
-
 async function inviaInvitiSelezionati() {
   const selected = [];
   document.querySelectorAll('.csv-check:checked').forEach(cb => {
@@ -126,7 +110,7 @@ async function inviaInvitiSelezionati() {
   const ombByKey = {};
   ombrelloniList.forEach(o => { ombByKey[`${o.fila}|${o.numero}`] = o; });
 
-  renderInvitiProgress('Preparazione…', 0, byEmail.size);
+  renderProgressInAlert('csv-clienti-alert', 'Preparazione…', 0, byEmail.size);
 
   const emails = [...byEmail.keys()];
   const { data: existingList, error: selErr } = await sb.from('clienti_stagionali')
@@ -180,9 +164,12 @@ async function inviaInvitiSelezionati() {
   let sent = 0, failed = 0;
   await runWithConcurrency(targets, 5, async (t) => {
     const inviteLink = `${window.location.origin}/?invito=${t.token}`;
-    const ok = await inviaEmail('invito', { email: t.email, nome: t.nome, cognome: t.cognome, invite_link: inviteLink }, currentStabilimento);
+    const ok = await retryUntilTrue(
+      () => inviaEmail('invito', { email: t.email, nome: t.nome, cognome: t.cognome, invite_link: inviteLink }, currentStabilimento),
+      3, 500
+    );
     if (ok) sent++; else failed++;
-  }, (done, total) => renderInvitiProgress('Invio email…', done, total));
+  }, (done, total) => renderProgressInAlert('csv-clienti-alert', 'Invio email…', done, total));
 
   if (btn) btn.disabled = false;
   await loadManagerData();

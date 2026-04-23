@@ -43,36 +43,31 @@ function renderSetupOmbrelloni() {
 
 function removeSetupOmb(i) { setupOmbrelloni.splice(i, 1); renderSetupOmbrelloni(); }
 
-function loadCSV(e) {
+async function loadCSV(e) {
   const file = e.target.files[0];
   if (!file) return;
   showAlert('setup2-alert', '', '');
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    let parsed = parseCSV(ev.target.result);
-    if (parsed.length && isHeaderRow(parsed[0], 1)) parsed = parsed.slice(1);
-    const rows = [];
-    let invalid = 0;
-    parsed.forEach(parts => {
-      if (parts.length < 2) { invalid++; return; }
-      const fila = (parts[0] || '').toUpperCase();
-      const numero = parseInt(parts[1]);
-      const credito = parseFloat(parts[2]) || 10;
-      if (!fila || !numero) { invalid++; return; }
-      rows.push({ fila, numero, credito_giornaliero: credito });
-    });
-    if (!rows.length) {
-      showAlert('setup2-alert', 'Nessuna riga valida trovata nel CSV', 'error');
-      e.target.value = '';
-      return;
-    }
-    csvOmbrelloniRows = rows;
-    renderCSVOmbrelloniPreview(rows);
-    const suffix = invalid ? ` (${invalid} righe non valide saltate)` : '';
-    showAlert('setup2-alert', `${rows.length} ombrelloni letti dal CSV${suffix}. Seleziona quelli da aggiungere.`, 'success');
+  const parsed = await readCSVFile(file, 1);
+  const rows = [];
+  let invalid = 0;
+  parsed.forEach(parts => {
+    if (parts.length < 2) { invalid++; return; }
+    const fila = (parts[0] || '').toUpperCase();
+    const numero = parseInt(parts[1]);
+    const credito = parseFloat(parts[2]) || 10;
+    if (!fila || !numero) { invalid++; return; }
+    rows.push({ fila, numero, credito_giornaliero: credito });
+  });
+  if (!rows.length) {
+    showAlert('setup2-alert', 'Nessuna riga valida trovata nel CSV', 'error');
     e.target.value = '';
-  };
-  reader.readAsText(file);
+    return;
+  }
+  csvOmbrelloniRows = rows;
+  renderCSVOmbrelloniPreview(rows);
+  const suffix = invalid ? ` (${invalid} righe non valide saltate)` : '';
+  showAlert('setup2-alert', `${rows.length} ombrelloni letti dal CSV${suffix}. Seleziona quelli da aggiungere.`, 'success');
+  e.target.value = '';
 }
 
 function renderCSVOmbrelloniPreview(rows) {
