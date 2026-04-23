@@ -19,3 +19,4 @@ let selectedRole = 'proprietario';
 let currentMapDate;
 let currentDispMap = {};
 let csvClientiRows = [];
+let csvOmbrelloniRows = [];
