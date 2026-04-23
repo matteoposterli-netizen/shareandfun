@@ -14,7 +14,7 @@ function showAlert(containerId, msg, type) {
 
 function coinName(stab) {
   const nome = stab?.nome || (typeof currentStabilimento !== 'undefined' ? currentStabilimento?.nome : null);
-  return nome ? `${nome} Coin` : 'Coin';
+  return nome ? `${nome}Coin` : 'Coin';
 }
 
 function formatCoin(amount, stab) {
