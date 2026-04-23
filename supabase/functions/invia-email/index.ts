@@ -6,6 +6,15 @@ const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "ShareAndFun <noreply@condombre
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
+function buildFromHeader(displayName: string | undefined): string {
+  if (!displayName) return FROM_EMAIL;
+  const clean = displayName.replace(/["\r\n]/g, "").trim();
+  if (!clean) return FROM_EMAIL;
+  const match = FROM_EMAIL.match(/<([^>]+)>/);
+  const email = match ? match[1] : FROM_EMAIL;
+  return `"${clean}" <${email}>`;
+}
+
 interface EmailRequest {
   tipo: "benvenuto" | "attesa" | "approvazione" | "invito";
   email: string;
@@ -219,7 +228,7 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const payload: Record<string, unknown> = { from: FROM_EMAIL, to: email, subject, html };
+  const payload: Record<string, unknown> = { from: buildFromHeader(stabilimento_nome), to: email, subject, html };
   if (stabilimento_email) payload.reply_to = stabilimento_email;
 
   const res = await fetch("https://api.resend.com/emails", {
