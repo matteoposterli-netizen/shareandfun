@@ -30,6 +30,9 @@ CREATE INDEX IF NOT EXISTS idx_transazioni_stabilimento_id        ON transazioni
 DROP POLICY IF EXISTS "Utente può leggere il proprio profilo"    ON profiles;
 DROP POLICY IF EXISTS "Utente può creare il proprio profilo"     ON profiles;
 DROP POLICY IF EXISTS "Utente può aggiornare il proprio profilo" ON profiles;
+DROP POLICY IF EXISTS "profiles_select" ON profiles;
+DROP POLICY IF EXISTS "profiles_insert" ON profiles;
+DROP POLICY IF EXISTS "profiles_update" ON profiles;
 
 CREATE POLICY "profiles_select" ON profiles
   FOR SELECT USING (id = (select auth.uid()));
@@ -47,6 +50,10 @@ CREATE POLICY "profiles_update" ON profiles
 DROP POLICY IF EXISTS "Tutti possono leggere stabilimenti"         ON stabilimenti;
 DROP POLICY IF EXISTS "Proprietario gestisce il proprio stabilimento" ON stabilimenti;
 DROP POLICY IF EXISTS "Autenticati vedono stabilimenti"            ON stabilimenti;
+DROP POLICY IF EXISTS "stabilimenti_select" ON stabilimenti;
+DROP POLICY IF EXISTS "stabilimenti_insert" ON stabilimenti;
+DROP POLICY IF EXISTS "stabilimenti_update" ON stabilimenti;
+DROP POLICY IF EXISTS "stabilimenti_delete" ON stabilimenti;
 
 CREATE POLICY "stabilimenti_select" ON stabilimenti
   FOR SELECT USING (true);
@@ -66,6 +73,10 @@ CREATE POLICY "stabilimenti_delete" ON stabilimenti
 -- ------------------------------------------------------------
 DROP POLICY IF EXISTS "Tutti possono leggere ombrelloni"         ON ombrelloni;
 DROP POLICY IF EXISTS "Proprietario gestisce i propri ombrelloni" ON ombrelloni;
+DROP POLICY IF EXISTS "ombrelloni_select" ON ombrelloni;
+DROP POLICY IF EXISTS "ombrelloni_insert" ON ombrelloni;
+DROP POLICY IF EXISTS "ombrelloni_update" ON ombrelloni;
+DROP POLICY IF EXISTS "ombrelloni_delete" ON ombrelloni;
 
 CREATE POLICY "ombrelloni_select" ON ombrelloni
   FOR SELECT USING (true);
@@ -103,6 +114,10 @@ DROP POLICY IF EXISTS "Proprietario gestisce i propri clienti" ON clienti_stagio
 DROP POLICY IF EXISTS "Stagionale può registrarsi"             ON clienti_stagionali;
 DROP POLICY IF EXISTS "Stagionale legge il proprio record"     ON clienti_stagionali;
 DROP POLICY IF EXISTS "Stagionale aggiorna il proprio record"  ON clienti_stagionali;
+DROP POLICY IF EXISTS "clienti_stagionali_select" ON clienti_stagionali;
+DROP POLICY IF EXISTS "clienti_stagionali_insert" ON clienti_stagionali;
+DROP POLICY IF EXISTS "clienti_stagionali_update" ON clienti_stagionali;
+DROP POLICY IF EXISTS "clienti_stagionali_delete" ON clienti_stagionali;
 
 CREATE POLICY "clienti_stagionali_select" ON clienti_stagionali
   FOR SELECT USING (
@@ -145,6 +160,10 @@ CREATE POLICY "clienti_stagionali_delete" ON clienti_stagionali
 -- 6. DISPONIBILITA — proprietario stabilimento + stagionale coinvolto
 -- ------------------------------------------------------------
 DROP POLICY IF EXISTS "Accesso disponibilità" ON disponibilita;
+DROP POLICY IF EXISTS "disponibilita_select" ON disponibilita;
+DROP POLICY IF EXISTS "disponibilita_insert" ON disponibilita;
+DROP POLICY IF EXISTS "disponibilita_update" ON disponibilita;
+DROP POLICY IF EXISTS "disponibilita_delete" ON disponibilita;
 
 CREATE POLICY "disponibilita_select" ON disponibilita
   FOR SELECT USING (
@@ -213,6 +232,10 @@ CREATE POLICY "disponibilita_delete" ON disponibilita
 -- 7. TRANSAZIONI — scrittura solo proprietario, lettura anche stagionale
 -- ------------------------------------------------------------
 DROP POLICY IF EXISTS "Accesso transazioni" ON transazioni;
+DROP POLICY IF EXISTS "transazioni_select" ON transazioni;
+DROP POLICY IF EXISTS "transazioni_insert" ON transazioni;
+DROP POLICY IF EXISTS "transazioni_update" ON transazioni;
+DROP POLICY IF EXISTS "transazioni_delete" ON transazioni;
 
 CREATE POLICY "transazioni_select" ON transazioni
   FOR SELECT USING (
