@@ -5,7 +5,7 @@ Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono ren
 
 ## Stack
 
-- **Frontend**: SPA single-file (`index.html` ~2000 righe), HTML+CSS+JS inline, nessun build step. CDN `@supabase/supabase-js@2`. Font DM Sans / DM Serif Display.
+- **Frontend**: SPA single-file (`index.html` ~2000 righe), HTML+CSS+JS inline, nessun build step. CDN `@supabase/supabase-js@2` + `SheetJS (xlsx)` per import/export Excel. Font DM Sans / DM Serif Display.
 - **Backend**: Supabase (Postgres 17 + Auth + Edge Functions).
 - **Email transazionali**: Resend via Edge Function `invia-email`.
 - **Deploy**: Vercel. Production su `main`; ogni push su branch diverso genera un **Preview Deployment** automatico.
@@ -43,8 +43,8 @@ RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select au
 
 Dalla riorganizzazione `claude/beach-invite-only-registration-wlsjM` gli stagionali **non possono più registrarsi autonomamente**. Percorsi supportati:
 
-1. **Invito singolo**: proprietario apre modal "Invita un cliente" nel tab "Clienti Stagionali" → inserimento `clienti_stagionali` + email `invito` con link `/?invito=<token>`.
-2. **Invito massivo via CSV**: upload CSV nel tab "Clienti Stagionali" → upsert + invio email invito in batch.
+1. **Aggiunta singola**: proprietario apre modal "+ Aggiungi" nel tab "Ombrelloni e Clienti" → crea/aggiorna l'ombrellone e opzionalmente il cliente (+ invito email `invito` con link `/?invito=<token>`).
+2. **Importazione massiva via Excel**: upload `.xlsx` nel tab "Ombrelloni e Clienti" → upsert ombrelloni + clienti + invio email invito in batch. Colonne supportate: `fila, numero, credito_giornaliero, nome, cognome, telefono, email` (cliente opzionale).
 3. Il cliente clicca il link → `showInvitoView` pre-compila dati → `completa_registrazione_invito` approva automaticamente (`approvato=true`) → email `benvenuto`.
 
 Non esiste più il ramo "registrazione diretta" (`fonte='diretta'`) né il concetto di "richieste in attesa di approvazione".
@@ -52,7 +52,7 @@ Non esiste più il ramo "registrazione diretta" (`fonte='diretta'`) né il conce
 ## Workflow Git
 
 - **Production branch**: `main` → deploy Vercel produzione
-- **Feature/review branch corrente**: `claude/beach-client-management-19akz`
+- **Feature/review branch corrente**: `claude/consolidate-management-tabs-qwYCz`
   Tutti i lavori vanno qui. Vercel crea un preview URL per questo branch.
 - **Mai pushare direttamente su `main`** senza conferma esplicita dell'utente. Merge su main = deploy produzione.
 

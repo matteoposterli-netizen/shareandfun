@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ShareAndFun</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -56,7 +58,7 @@
           <li>Mappa visuale degli ombrelloni in tempo reale</li>
           <li>Vedi subito quali ombrelloni sono liberi oggi</li>
           <li>Imposta il credito per ogni ombrellone</li>
-          <li>Caricamento massivo via CSV</li>
+          <li>Caricamento massivo via Excel</li>
           <li>Log completo di tutte le transazioni</li>
         </ul>
         <button class="btn btn-primary btn-full" onclick="showView('auth','register')">Inizia gratis →</button>
@@ -171,8 +173,7 @@
     <div class="sidebar">
       <div class="sidebar-title">Principale</div>
       <button class="sidebar-item active" onclick="managerTab('panoramica',this)"><span class="icon">📊</span> Panoramica</button>
-      <button class="sidebar-item" onclick="managerTab('ombrelloni',this)"><span class="icon">🗺️</span> Ombrelloni</button>
-      <button class="sidebar-item" id="sidebar-clienti" onclick="managerTab('clienti',this)"><span class="icon">👥</span> Clienti Stagionali</button>
+      <button class="sidebar-item" onclick="managerTab('gestione',this)"><span class="icon">🗺️</span> Ombrelloni e Clienti</button>
       <button class="sidebar-item" onclick="managerTab('transazioni',this)"><span class="icon">📋</span> Transazioni</button>
       <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Crediti</button>
       <button class="sidebar-item" onclick="managerTab('email',this)"><span class="icon">✉️</span> Email</button>
@@ -201,7 +202,7 @@
                   <span>al</span>
                   <input type="date" id="map-date-to" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="refreshMap()">
                 </div>
-                <button class="btn btn-outline btn-sm" onclick="managerTab('ombrelloni',null)">Gestisci</button>
+                <button class="btn btn-outline btn-sm" onclick="managerTab('gestione',null)">Gestisci</button>
               </div>
             </div>
             <div class="beach-map-wrap">
@@ -229,90 +230,51 @@
         </div>
       </div>
 
-      <!-- OMBRELLONI TAB -->
-      <div id="mtab-ombrelloni" class="tab-content">
+      <!-- GESTIONE TAB (ombrelloni + clienti) -->
+      <div id="mtab-gestione" class="tab-content">
         <div class="page-header">
-          <div><div class="page-title">Ombrelloni</div><div class="page-subtitle">Carica, modifica e tieni traccia degli ombrelloni del tuo stabilimento</div></div>
+          <div><div class="page-title">Ombrelloni e Clienti</div><div class="page-subtitle">Aggiungi singolarmente o in massa via Excel. Ogni riga contiene sia l'ombrellone sia il cliente stagionale assegnato.</div></div>
         </div>
 
-        <!-- Azioni principali: aggiungi singolo + CSV -->
+        <!-- Azioni: aggiungi singolo + Excel -->
         <div class="action-grid">
           <div class="action-card">
             <div class="action-icon">➕</div>
-            <div class="action-title">Aggiungi un ombrellone</div>
-            <div class="action-desc">Inserisci fila, numero e credito giornaliero.</div>
-            <button class="btn btn-primary btn-sm btn-full" onclick="openAddOmbModal()">+ Aggiungi ombrellone</button>
+            <div class="action-title">Aggiungi una riga</div>
+            <div class="action-desc">Inserisci l'ombrellone (fila, numero, credito) e, se vuoi, il cliente stagionale associato.</div>
+            <button class="btn btn-primary btn-sm btn-full" onclick="openAddRowModal()">+ Aggiungi</button>
           </div>
           <div class="action-card highlight">
-            <div class="action-icon">📂</div>
-            <div class="action-title">Carica in massa via CSV</div>
+            <div class="action-icon">📊</div>
+            <div class="action-title">Importa in massa via Excel</div>
             <div class="action-desc">
-              Colonne: <code>fila,numero,credito_giornaliero</code>.
-              <a href="#" onclick="event.preventDefault();scaricaCSVOmbrelloniTemplate()" style="color:var(--ocean);font-weight:600">Scarica esempio</a>
+              Colonne: <code>fila, numero, credito_giornaliero, nome, cognome, telefono, email</code>. Max 1000 righe. I campi del cliente sono opzionali.
+              <a href="#" onclick="event.preventDefault();scaricaExcelTemplate()" style="color:var(--ocean);font-weight:600">Scarica template Excel</a>
             </div>
-            <div id="mgr-csv-omb-alert"></div>
-            <input type="file" id="mgr-csv-omb-file" accept=".csv" onchange="loadCSVOmbrelloniManager(event)" class="form-input">
-            <div id="mgr-csv-omb-preview"></div>
-            <div id="mgr-csv-omb-actions" class="hidden" style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-              <button class="btn btn-primary btn-sm" onclick="confermaCSVOmbrelloniManager()">+ Aggiungi selezionati</button>
-              <button class="btn btn-outline btn-sm" onclick="annullaCSVOmbrelloniManager()">Annulla</button>
-              <span id="mgr-csv-omb-count" style="font-size:13px;color:var(--text-mid)"></span>
-            </div>
-          </div>
-        </div>
-
-        <div class="section-divider">☂️ Ombrelloni registrati</div>
-        <div class="card">
-          <div class="table-wrap"><table class="data-table">
-            <thead><tr><th>Fila</th><th>N°</th><th>Credito/giorno</th><th>Cliente Stagionale</th><th>Stato oggi</th><th>Azioni</th></tr></thead>
-            <tbody id="ombrelloni-table"></tbody>
-          </table></div>
-        </div>
-      </div>
-
-      <!-- CLIENTI TAB -->
-      <div id="mtab-clienti" class="tab-content">
-        <div class="page-header">
-          <div><div class="page-title">Clienti Stagionali</div><div class="page-subtitle">Carica, modifica e invita i clienti del tuo stabilimento</div></div>
-        </div>
-
-        <!-- Azioni: aggiunta singola + CSV -->
-        <div class="action-grid">
-          <div class="action-card">
-            <div class="action-icon">➕</div>
-            <div class="action-title">Aggiungi un cliente</div>
-            <div class="action-desc">Inserisci nome, email e ombrellone. Potrai invitarlo subito o dopo dalla tabella.</div>
-            <button class="btn btn-primary btn-sm btn-full" onclick="openAddClienteModal()">+ Aggiungi cliente</button>
-          </div>
-          <div class="action-card highlight">
-            <div class="action-icon">📂</div>
-            <div class="action-title">Importa in massa via CSV</div>
-            <div class="action-desc">
-              Colonne: <code>fila, numero_ombrellone, nome, cognome, telefono, email</code>. Max 1000 righe.
-              <a href="#" onclick="event.preventDefault();scaricaCSVClientiTemplate()" style="color:var(--ocean);font-weight:600">Scarica esempio</a>
-            </div>
-            <div id="csv-clienti-alert"></div>
-            <input type="file" id="csv-clienti-file" accept=".csv" onchange="loadCSVClienti(event)" class="form-input">
-            <div id="csv-clienti-preview"></div>
-            <div id="csv-invito-actions" class="hidden" style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-              <button class="btn btn-primary btn-sm" onclick="importaCSVClienti()">+ Importa selezionati</button>
-              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid);cursor:pointer"><input type="checkbox" id="csv-invia-inviti" checked> Invia anche l'invito via email</label>
-              <span id="csv-invito-count" style="font-size:13px;color:var(--text-mid)"></span>
+            <div id="xlsx-alert"></div>
+            <input type="file" id="xlsx-file" accept=".xlsx,.xls" onchange="loadExcelFile(event)" class="form-input">
+            <div id="xlsx-preview"></div>
+            <div id="xlsx-actions" class="hidden" style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <button class="btn btn-primary btn-sm" onclick="importaExcel()">+ Importa selezionati</button>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid);cursor:pointer"><input type="checkbox" id="xlsx-invia-inviti" checked> Invia anche l'invito via email</label>
+              <button class="btn btn-outline btn-sm" onclick="annullaExcel()">Annulla</button>
+              <span id="xlsx-count" style="font-size:13px;color:var(--text-mid)"></span>
             </div>
           </div>
         </div>
 
-        <!-- Lista clienti con toolbar -->
-        <div class="section-divider">👥 I tuoi clienti stagionali</div>
+        <!-- Tabella unificata -->
+        <div class="section-divider">☂️ Ombrelloni e clienti registrati</div>
         <div class="card">
           <div class="card-header" style="flex-wrap:wrap;gap:10px">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <input type="search" id="clienti-filter" class="form-input" placeholder="Cerca nome, email, ombrellone…" style="width:260px;padding:6px 10px;font-size:13px" oninput="renderClientiFiltered()">
-              <select id="clienti-stato-filter" class="form-select" style="width:auto;padding:6px 10px;font-size:13px" onchange="renderClientiFiltered()">
-                <option value="">Tutti gli stati</option>
-                <option value="attivo">Attivi</option>
+              <input type="search" id="clienti-filter" class="form-input" placeholder="Cerca fila, numero, nome, email…" style="width:260px;padding:6px 10px;font-size:13px" oninput="renderGestioneFiltered()">
+              <select id="clienti-stato-filter" class="form-select" style="width:auto;padding:6px 10px;font-size:13px" onchange="renderGestioneFiltered()">
+                <option value="">Tutti</option>
+                <option value="senza">Senza cliente</option>
+                <option value="mai">Mai invitato</option>
                 <option value="invitato">Invito inviato</option>
-                <option value="mai">Mai invitati</option>
+                <option value="attivo">Cliente attivo</option>
               </select>
               <span id="clienti-count-label" style="font-size:13px;color:var(--text-light)"></span>
             </div>
@@ -325,9 +287,9 @@
           <div class="table-wrap"><table class="data-table">
             <thead><tr>
               <th style="width:36px"><input type="checkbox" id="clienti-check-all" onchange="toggleAllClienti(this.checked)"></th>
-              <th>Nome</th><th>Email</th><th>Telefono</th><th>Ombrellone</th><th>Credito</th><th>Stato</th><th>Azioni</th>
+              <th>Fila</th><th>N°</th><th>Credito/gg</th><th>Nome cliente</th><th>Email</th><th>Telefono</th><th>Stato</th><th>Azioni</th>
             </tr></thead>
-            <tbody id="clienti-table"></tbody>
+            <tbody id="gestione-table"></tbody>
           </table></div>
         </div>
       </div>
@@ -542,66 +504,59 @@
   </div>
 </div>
 
-<div id="modal-add-omb" class="modal-overlay hidden">
+<!-- Modal unificato: aggiungi ombrellone + cliente (opzionale) -->
+<div id="modal-add-row" class="modal-overlay hidden">
   <div class="modal">
-    <div class="modal-title">Aggiungi ombrellone</div>
-    <div class="modal-sub">Inserisci i dati del nuovo ombrellone</div>
-    <div id="add-omb-alert"></div>
+    <div class="modal-title">➕ Aggiungi ombrellone e cliente</div>
+    <div class="modal-sub">L'ombrellone è obbligatorio. I campi del cliente sono opzionali: se compilati, il cliente verrà salvato e potrai invitarlo subito.</div>
+    <div id="add-row-alert"></div>
+    <div class="section-divider" style="margin-top:0">☂️ Ombrellone</div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Fila</label><input type="text" id="modal-omb-fila" class="form-input" placeholder="A" maxlength="3"></div>
-      <div class="form-group"><label class="form-label">Numero</label><input type="number" id="modal-omb-numero" class="form-input" placeholder="1" min="1"></div>
+      <div class="form-group"><label class="form-label">Fila <span style="color:var(--red)">*</span></label><input type="text" id="row-fila" class="form-input" placeholder="A" maxlength="3"></div>
+      <div class="form-group"><label class="form-label">Numero <span style="color:var(--red)">*</span></label><input type="number" id="row-numero" class="form-input" placeholder="1" min="1"></div>
     </div>
-    <div class="form-group"><label class="form-label" data-coin-label="Credito giornaliero">Credito giornaliero</label><input type="number" id="modal-omb-credito" class="form-input" placeholder="12.00" step="0.50" min="0"></div>
-    <div class="modal-footer">
-      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-omb')">Annulla</button>
-      <button class="btn btn-primary btn-sm" onclick="confirmAddOmb()">Aggiungi</button>
-    </div>
-  </div>
-</div>
-
-<div id="modal-add-cliente" class="modal-overlay hidden">
-  <div class="modal">
-    <div class="modal-title">➕ Aggiungi cliente stagionale</div>
-    <div class="modal-sub">Salva i dati e scegli se inviare subito l'invito via email.</div>
-    <div id="add-cliente-alert"></div>
+    <div class="form-group"><label class="form-label" data-coin-label="Credito giornaliero">Credito giornaliero</label><input type="number" id="row-credito" class="form-input" placeholder="12.00" step="0.50" min="0"></div>
+    <div class="section-divider">👤 Cliente stagionale <span style="font-size:11px;color:var(--text-light);font-weight:400;text-transform:none;letter-spacing:0">(opzionale)</span></div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Nome</label><input type="text" id="cl-nome" class="form-input"></div>
-      <div class="form-group"><label class="form-label">Cognome</label><input type="text" id="cl-cognome" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Nome</label><input type="text" id="row-nome" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Cognome</label><input type="text" id="row-cognome" class="form-input"></div>
     </div>
-    <div class="form-group"><label class="form-label">Email <span style="color:var(--red)">*</span></label><input type="email" id="cl-email" class="form-input" placeholder="cliente@example.com"></div>
-    <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="cl-telefono" class="form-input"></div>
-    <div class="form-group"><label class="form-label">Ombrellone associato</label>
-      <select id="cl-ombrellone" class="form-select"><option value="">– Nessuno (lo assegnerai dopo) –</option></select>
-    </div>
+    <div class="form-group"><label class="form-label">Email</label><input type="email" id="row-email" class="form-input" placeholder="cliente@example.com"></div>
+    <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="row-telefono" class="form-input"></div>
     <label style="display:flex;align-items:center;gap:8px;margin:6px 0 0;font-size:13px;color:var(--text-mid);cursor:pointer">
-      <input type="checkbox" id="cl-invia-invito" checked> Invia subito l'invito via email
+      <input type="checkbox" id="row-invia-invito" checked> Invia subito l'invito via email (se il cliente è compilato)
     </label>
     <div class="modal-footer">
-      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-cliente')">Annulla</button>
-      <button class="btn btn-primary btn-sm" onclick="confirmAddCliente()" id="btn-invita-singolo">Salva cliente</button>
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-row')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmAddRow()" id="btn-add-row">Salva</button>
     </div>
   </div>
 </div>
 
-<!-- Modifica cliente -->
-<div id="modal-edit-cliente" class="modal-overlay hidden">
+<!-- Modifica riga (ombrellone + cliente associato) -->
+<div id="modal-edit-row" class="modal-overlay hidden">
   <div class="modal">
-    <div class="modal-title">✏️ Modifica cliente</div>
-    <div class="modal-sub">Aggiorna i dati del cliente. L'email non si può modificare se il cliente è già attivo.</div>
-    <div id="edit-cliente-alert"></div>
-    <input type="hidden" id="edit-cl-id">
+    <div class="modal-title">✏️ Modifica riga</div>
+    <div class="modal-sub">Aggiorna ombrellone e cliente associato. L'email non si può modificare se il cliente è già attivo.</div>
+    <div id="edit-row-alert"></div>
+    <input type="hidden" id="edit-row-omb-id">
+    <input type="hidden" id="edit-row-cl-id">
+    <div class="section-divider" style="margin-top:0">☂️ Ombrellone</div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Nome</label><input type="text" id="edit-cl-nome" class="form-input"></div>
-      <div class="form-group"><label class="form-label">Cognome</label><input type="text" id="edit-cl-cognome" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Fila</label><input type="text" id="edit-row-fila" class="form-input" maxlength="3"></div>
+      <div class="form-group"><label class="form-label">Numero</label><input type="number" id="edit-row-numero" class="form-input" min="1"></div>
     </div>
-    <div class="form-group"><label class="form-label">Email</label><input type="email" id="edit-cl-email" class="form-input"></div>
-    <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="edit-cl-telefono" class="form-input"></div>
-    <div class="form-group"><label class="form-label">Ombrellone associato</label>
-      <select id="edit-cl-ombrellone" class="form-select"></select>
+    <div class="form-group"><label class="form-label" data-coin-label="Credito giornaliero">Credito giornaliero</label><input type="number" id="edit-row-credito" class="form-input" step="0.50" min="0"></div>
+    <div class="section-divider">👤 Cliente stagionale <span style="font-size:11px;color:var(--text-light);font-weight:400;text-transform:none;letter-spacing:0">(lascia vuoto per rimuovere)</span></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nome</label><input type="text" id="edit-row-nome" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Cognome</label><input type="text" id="edit-row-cognome" class="form-input"></div>
     </div>
+    <div class="form-group"><label class="form-label">Email</label><input type="email" id="edit-row-email" class="form-input"></div>
+    <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="edit-row-telefono" class="form-input"></div>
     <div class="modal-footer">
-      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-edit-cliente')">Annulla</button>
-      <button class="btn btn-primary btn-sm" onclick="confirmEditCliente()">Salva modifiche</button>
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-edit-row')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmEditRow()">Salva modifiche</button>
     </div>
   </div>
 </div>

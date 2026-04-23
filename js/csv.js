@@ -1,48 +1,8 @@
-function parseCSV(text) {
-  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-  const rows = [];
-  let row = [];
-  let field = '';
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (text[i + 1] === '"') { field += '"'; i++; }
-        else inQuotes = false;
-      } else {
-        field += c;
-      }
-    } else if (c === '"') {
-      inQuotes = true;
-    } else if (c === ',') {
-      row.push(field); field = '';
-    } else if (c === '\n') {
-      row.push(field); rows.push(row); row = []; field = '';
-    } else if (c !== '\r') {
-      field += c;
-    }
-  }
-  if (field.length > 0 || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows
-    .map(r => r.map(f => f.trim()))
-    .filter(r => r.some(f => f !== ''));
-}
-
 function escapeHtml(s) {
   if (s == null) return '';
   return String(s).replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
-}
-
-function isHeaderRow(row, numericColIdx) {
-  const v = row[numericColIdx];
-  if (v == null || v === '') return true;
-  return !/^\d+$/.test(v);
 }
 
 async function runWithConcurrency(items, limit, fn, onProgress) {
@@ -69,13 +29,6 @@ async function retryUntilTrue(fn, attempts = 3, baseDelay = 500) {
   return false;
 }
 
-async function readCSVFile(file, numericColIdx) {
-  const text = await file.text();
-  let rows = parseCSV(text);
-  if (rows.length && isHeaderRow(rows[0], numericColIdx)) rows = rows.slice(1);
-  return rows;
-}
-
 function renderProgressInAlert(alertId, label, done, total) {
   const el = document.getElementById(alertId);
   if (!el) return;
@@ -91,24 +44,55 @@ function renderProgressInAlert(alertId, label, done, total) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function downloadCSVTemplate(filename, content) {
-  const blob = new Blob(['﻿' + content], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+const XLSX_HEADERS = ['fila', 'numero', 'credito_giornaliero', 'nome', 'cognome', 'telefono', 'email'];
+
+function scaricaExcelTemplate() {
+  const sampleRows = [
+    ['A', 1, 12.00, 'Mario',  'Rossi',   '3331234567', 'mario@example.com'],
+    ['A', 2, 12.00, 'Anna',   'Bianchi', '',           'anna@example.com'],
+    ['B', 1, 10.00, '',       '',        '',           ''],
+  ];
+  const aoa = [XLSX_HEADERS, ...sampleRows];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 8 }, { wch: 8 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 24 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Ombrelloni');
+  XLSX.writeFile(wb, 'shareandfun-template.xlsx');
 }
 
-function scaricaCSVOmbrelloniTemplate() {
-  downloadCSVTemplate('esempio-ombrelloni.csv',
-    'fila,numero,credito_giornaliero\nA,1,12.00\nA,2,12.00\nB,1,10.00\n');
+function normalizeHeader(h) {
+  return String(h || '').trim().toLowerCase().replace(/\s+/g, '_');
 }
 
-function scaricaCSVClientiTemplate() {
-  downloadCSVTemplate('esempio-clienti.csv',
-    'fila,numero_ombrellone,nome,cognome,telefono,email\nA,1,Mario,Rossi,3331234567,mario@example.com\nB,5,Anna,Bianchi,,anna@example.com\n');
+async function readExcelFile(file) {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array' });
+  const wsName = wb.SheetNames[0];
+  if (!wsName) return [];
+  const ws = wb.Sheets[wsName];
+  const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false });
+  if (!raw.length) return [];
+  const headerRow = raw[0].map(normalizeHeader);
+  const colIdx = {};
+  XLSX_HEADERS.forEach(k => { colIdx[k] = headerRow.indexOf(k); });
+  if (colIdx.fila === -1 || colIdx.numero === -1) return [];
+  const rows = [];
+  for (let i = 1; i < raw.length; i++) {
+    const r = raw[i];
+    const fila = String(r[colIdx.fila] ?? '').trim().toUpperCase();
+    const numero = parseInt(r[colIdx.numero], 10);
+    if (!fila || !numero) continue;
+    const creditoRaw = colIdx.credito_giornaliero >= 0 ? r[colIdx.credito_giornaliero] : '';
+    const credito = parseFloat(String(creditoRaw).replace(',', '.'));
+    rows.push({
+      fila,
+      numero,
+      credito: isNaN(credito) ? 10 : credito,
+      nome:     String(colIdx.nome     >= 0 ? r[colIdx.nome]     : '').trim(),
+      cognome:  String(colIdx.cognome  >= 0 ? r[colIdx.cognome]  : '').trim(),
+      telefono: String(colIdx.telefono >= 0 ? r[colIdx.telefono] : '').trim(),
+      email:    String(colIdx.email    >= 0 ? r[colIdx.email]    : '').trim(),
+    });
+  }
+  return rows;
 }

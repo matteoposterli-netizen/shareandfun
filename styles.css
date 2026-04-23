@@ -642,7 +642,7 @@ body {
     min-height: calc(100vh - 58px);
   }
   .sidebar {
-    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 4px; padding: 10px 10px;
     border-right: none; border-bottom: 1px solid var(--border);
     position: sticky; top: 58px; z-index: 90;
