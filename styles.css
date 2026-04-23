@@ -241,9 +241,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .setup-container { max-width: 600px; margin: 40px auto; padding: 0 20px; }
 .setup-step { display: none; }
 .setup-step.active { display: block; }
-.setup-progress { display: flex; gap: 8px; margin-bottom: 28px; }
-.setup-dot { flex: 1; height: 4px; border-radius: 2px; background: var(--border); transition: background 0.3s; }
-.setup-dot.done { background: var(--ocean); }
 .setup-title { font-family: 'DM Serif Display', serif; font-size: 22px; margin-bottom: 8px; }
 .setup-sub { font-size: 14px; color: var(--text-mid); margin-bottom: 24px; line-height: 1.6; }
 
