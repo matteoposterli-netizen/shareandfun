@@ -278,8 +278,8 @@ function openBulkInviteModal() {
     : '<div style="color:var(--red)">Nessun destinatario valido selezionato.</div>';
   document.getElementById('bulk-dest-count').textContent = bulkInviteTargets.length;
 
-  document.getElementById('bulk-invite-oggetto').value = currentStabilimento?.email_invito_oggetto || '';
-  document.getElementById('bulk-invite-testo').value = currentStabilimento?.email_invito_testo || '';
+  document.getElementById('bulk-invite-oggetto').value = currentStabilimento?.email_invito_oggetto || DEFAULT_EMAIL_TEMPLATES?.invito_oggetto || '';
+  document.getElementById('bulk-invite-testo').value = currentStabilimento?.email_invito_testo || DEFAULT_EMAIL_TEMPLATES?.invito_testo || '';
   document.getElementById('bulk-invite-save-template').checked = false;
   showAlert('bulk-invite-alert', skipped ? `⚠ ${skipped} clienti saltati (già attivi o senza token)` : '', skipped ? 'error' : '');
 
