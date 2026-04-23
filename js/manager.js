@@ -3,7 +3,7 @@ function getDatesInRange(from, to) {
   const d = new Date(from + 'T00:00:00');
   const end = new Date(to + 'T00:00:00');
   while (d <= end) {
-    dates.push(d.toISOString().split('T')[0]);
+    dates.push(toLocalDateStr(d));
     d.setDate(d.getDate() + 1);
   }
   return dates;
@@ -12,7 +12,7 @@ function getDatesInRange(from, to) {
 function changeMapDate(dir) {
   const d = new Date(currentMapDate + 'T00:00:00');
   d.setDate(d.getDate() + dir);
-  currentMapDate = d.toISOString().split('T')[0];
+  currentMapDate = toLocalDateStr(d);
   document.getElementById('map-date').value = currentMapDate;
   refreshMap();
 }
@@ -22,7 +22,7 @@ function setMapRangePreset(days) {
   const end = new Date(today + 'T00:00:00');
   end.setDate(end.getDate() + days - 1);
   document.getElementById('map-date-from').value = today;
-  document.getElementById('map-date-to').value = end.toISOString().split('T')[0];
+  document.getElementById('map-date-to').value = toLocalDateStr(end);
   refreshMap();
 }
 
@@ -385,8 +385,8 @@ function setAnalyticsRange(days) {
   const to = new Date();
   const from = new Date();
   from.setDate(from.getDate() - (days - 1));
-  document.getElementById('analytics-date-from').value = from.toISOString().split('T')[0];
-  document.getElementById('analytics-date-to').value = to.toISOString().split('T')[0];
+  document.getElementById('analytics-date-from').value = toLocalDateStr(from);
+  document.getElementById('analytics-date-to').value = toLocalDateStr(to);
   loadCreditiAnalytics();
 }
 
