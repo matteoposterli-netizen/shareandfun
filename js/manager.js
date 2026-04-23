@@ -17,6 +17,38 @@ function changeMapDate(dir) {
   refreshMap();
 }
 
+function setMapRangePreset(days) {
+  const today = todayStr();
+  const end = new Date(today + 'T00:00:00');
+  end.setDate(end.getDate() + days - 1);
+  document.getElementById('map-date-from').value = today;
+  document.getElementById('map-date-to').value = end.toISOString().split('T')[0];
+  refreshMap();
+}
+
+function updateMapPresetActive() {
+  const from = document.getElementById('map-date-from').value;
+  const to = document.getElementById('map-date-to').value || from;
+  const today = todayStr();
+  let activeDays = null;
+  if (from === today) {
+    const start = new Date(from + 'T00:00:00');
+    const endD = new Date(to + 'T00:00:00');
+    const diff = Math.round((endD - start) / 86400000) + 1;
+    if ([1, 2, 3, 7].includes(diff)) activeDays = diff;
+  }
+  document.querySelectorAll('.map-preset-btn').forEach(btn => {
+    const days = parseInt(btn.dataset.days, 10);
+    if (days === activeDays) {
+      btn.classList.remove('btn-outline');
+      btn.classList.add('btn-primary');
+    } else {
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-outline');
+    }
+  });
+}
+
 async function refreshMap() {
   const from = document.getElementById('map-date-from').value;
   const to = document.getElementById('map-date-to').value || from;
@@ -70,6 +102,8 @@ async function refreshMap() {
   } else {
     freeEl.innerHTML = `<span style="background:var(--red-light);color:var(--red);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600">Nessun ombrellone libero per tutto il periodo</span>`;
   }
+
+  updateMapPresetActive();
 }
 
 async function loadManagerData() {
