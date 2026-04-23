@@ -4,16 +4,15 @@ function loadCSVClienti(e) {
   showAlert('csv-clienti-alert', '', '');
   const reader = new FileReader();
   reader.onload = (ev) => {
-    const lines = ev.target.result.split('\n').map(l => l.trim()).filter(l => l);
-    const dataLines = lines[0].toLowerCase().includes('nome') || lines[0].toLowerCase().includes('ombrellone') ? lines.slice(1) : lines;
-    if (dataLines.length > 1000) {
-      showAlert('csv-clienti-alert', `❌ Il file contiene ${dataLines.length} righe. Il limite massimo è 1000 righe. Riduci il file e riprova.`, 'error');
+    let parsed = parseCSV(ev.target.result);
+    if (parsed.length && isHeaderRow(parsed[0], 0)) parsed = parsed.slice(1);
+    if (parsed.length > 1000) {
+      showAlert('csv-clienti-alert', `❌ Il file contiene ${parsed.length} righe. Il limite massimo è 1000 righe. Riduci il file e riprova.`, 'error');
       e.target.value = '';
       return;
     }
     const rows = [];
-    dataLines.forEach((line, i) => {
-      const parts = line.split(',').map(p => p.trim());
+    parsed.forEach(parts => {
       if (parts.length < 3) return;
       const numero = parseInt(parts[0]);
       const nome = parts[1] || '';
@@ -21,12 +20,17 @@ function loadCSVClienti(e) {
       const telefono = parts[3] || '';
       const email = parts[4] || '';
       if (!numero || !nome) return;
-      rows.push({ numero, nome, cognome, telefono, email, _idx: i });
+      rows.push({ numero, nome, cognome, telefono, email });
     });
-    if (!rows.length) { showAlert('csv-clienti-alert', 'Nessuna riga valida trovata nel CSV', 'error'); return; }
+    if (!rows.length) {
+      showAlert('csv-clienti-alert', 'Nessuna riga valida trovata nel CSV', 'error');
+      e.target.value = '';
+      return;
+    }
     csvClientiRows = rows;
     renderCSVAnteprima(rows);
     showAlert('csv-clienti-alert', `✅ ${rows.length} clienti caricati dal CSV`, 'success');
+    e.target.value = '';
   };
   reader.readAsText(file);
 }
@@ -44,10 +48,10 @@ function renderCSVAnteprima(rows) {
       ${rows.map((r, i) => `
         <div class="csv-row">
           <input type="checkbox" class="csv-check" data-idx="${i}" checked onchange="updateCSVCount()">
-          <div>${r.nome}</div>
-          <div>${r.cognome}</div>
-          <div>${r.telefono || '–'}</div>
-          <div>${r.email || '<span style="color:var(--red)">mancante</span>'}</div>
+          <div>${escapeHtml(r.nome)}</div>
+          <div>${escapeHtml(r.cognome)}</div>
+          <div>${escapeHtml(r.telefono) || '–'}</div>
+          <div>${r.email ? escapeHtml(r.email) : '<span style="color:var(--red)">mancante</span>'}</div>
         </div>`).join('')}
     </div>`;
   actions.classList.remove('hidden');

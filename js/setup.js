@@ -48,18 +48,29 @@ function loadCSV(e) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (ev) => {
-    const lines = ev.target.result.split('\n').filter(l => l.trim());
-    lines.forEach(line => {
-      const parts = line.split(',');
-      if (parts.length >= 2) {
-        const fila = parts[0].trim().toUpperCase();
-        const numero = parseInt(parts[1].trim());
-        const credito = parseFloat(parts[2]?.trim()) || 10;
-        if (fila && numero) setupOmbrelloni.push({ fila, numero, credito_giornaliero: credito });
-      }
+    let rows = parseCSV(ev.target.result);
+    if (rows.length && isHeaderRow(rows[0], 1)) rows = rows.slice(1);
+    const existing = new Set(setupOmbrelloni.map(o => `${o.fila}|${o.numero}`));
+    let added = 0, skippedDup = 0, skippedInvalid = 0;
+    rows.forEach(parts => {
+      if (parts.length < 2) { skippedInvalid++; return; }
+      const fila = (parts[0] || '').toUpperCase();
+      const numero = parseInt(parts[1]);
+      const credito = parseFloat(parts[2]) || 10;
+      if (!fila || !numero) { skippedInvalid++; return; }
+      const key = `${fila}|${numero}`;
+      if (existing.has(key)) { skippedDup++; return; }
+      existing.add(key);
+      setupOmbrelloni.push({ fila, numero, credito_giornaliero: credito });
+      added++;
     });
     renderSetupOmbrelloni();
-    showAlert('setup2-alert', `${setupOmbrelloni.length} ombrelloni caricati dal CSV`, 'success');
+    const extra = [];
+    if (skippedDup) extra.push(`${skippedDup} duplicati`);
+    if (skippedInvalid) extra.push(`${skippedInvalid} righe non valide`);
+    const suffix = extra.length ? ` (saltati: ${extra.join(', ')})` : '';
+    showAlert('setup2-alert', `${added} ombrelloni aggiunti dal CSV${suffix}`, added ? 'success' : 'error');
+    e.target.value = '';
   };
   reader.readAsText(file);
 }
