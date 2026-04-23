@@ -16,6 +16,7 @@ let currentInviteToken = null;
 let currentInviteData = null;
 let currentMapDate;
 let currentDispMap = {};
+let currentMapRange = null;
 let xlsxRows = [];
 let selectedClienteIds = new Set();
 let pendingConflict = null;
