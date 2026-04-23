@@ -50,13 +50,16 @@ async function showInvitoView(token) {
   currentInviteData = data[0];
   document.getElementById('invito-title').textContent = `Benvenuto, ${currentInviteData.nome}!`;
   document.getElementById('invito-sub').textContent = `Sei stato invitato da ${currentInviteData.stabilimento_nome}. Imposta la tua password per accedere.`;
-  const ombInfo = currentInviteData.ombrellone_fila
-    ? `Ombrellone: Fila ${currentInviteData.ombrellone_fila} N°${currentInviteData.ombrellone_numero}`
-    : '';
-  document.getElementById('invito-info').innerHTML = `
-    <strong>${currentInviteData.nome} ${currentInviteData.cognome}</strong><br>
-    📧 ${currentInviteData.email}${currentInviteData.telefono ? ' · 📞 ' + currentInviteData.telefono : ''}<br>
-    🏖️ ${currentInviteData.stabilimento_nome}${ombInfo ? ' · ☂️ ' + ombInfo : ''}`;
+  const rows = [
+    `<div style="font-weight:600;color:var(--text-dark);margin-bottom:8px">${currentInviteData.nome} ${currentInviteData.cognome}</div>`,
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">📧 <span>${currentInviteData.email}</span></div>`,
+  ];
+  if (currentInviteData.telefono) rows.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">📞 <span>${currentInviteData.telefono}</span></div>`);
+  rows.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">🏖️ <span>${currentInviteData.stabilimento_nome}</span></div>`);
+  if (currentInviteData.ombrellone_fila) rows.push(`<div style="display:flex;align-items:center;gap:8px">☂️ <span>Ombrellone: Fila ${currentInviteData.ombrellone_fila} N°${currentInviteData.ombrellone_numero}</span></div>`);
+  document.getElementById('invito-info').innerHTML = rows.join('');
+  document.getElementById('invito-password').value = '';
+  document.getElementById('invito-password2').value = '';
   showView('invito');
 }
 
