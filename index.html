@@ -205,6 +205,12 @@
                 <button class="btn btn-outline btn-sm" onclick="managerTab('gestione',null)">Gestisci</button>
               </div>
             </div>
+            <div id="map-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px 12px">
+              <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="1" onclick="setMapRangePreset(1)">Oggi</button>
+              <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="2" onclick="setMapRangePreset(2)">Prossimi 2 giorni</button>
+              <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="3" onclick="setMapRangePreset(3)">Prossimi 3 giorni</button>
+              <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="7" onclick="setMapRangePreset(7)">Prossimi 7 giorni</button>
+            </div>
             <div class="beach-map-wrap">
               <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px">
                 <div>
