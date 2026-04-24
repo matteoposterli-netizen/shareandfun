@@ -215,7 +215,6 @@
       <div id="mtab-panoramica" class="tab-content active">
         <div class="page-header">
           <div><div class="page-title" id="manager-stab-nome">Dashboard</div><div class="page-subtitle" id="manager-today-label"></div></div>
-          <button class="btn btn-primary btn-sm" onclick="openSubaffittoModal()">+ Segna sub-affitto</button>
         </div>
         <div class="stats-row">
           <div class="stat-card"><div class="stat-label">Ombrelloni totali</div><div class="stat-value" id="stat-totali">–</div><div class="stat-sub">registrati</div></div>
@@ -261,6 +260,7 @@
                 </div>
               </div>
             </div><!-- /beach-map-wrap -->
+            <div id="booking-selection-panel" class="booking-selection-panel hidden"></div>
         </div><!-- /card col1 -->
           <div class="card">
             <div class="card-header"><div class="card-title">📋 Ultime transazioni</div></div>
@@ -452,8 +452,7 @@
       <!-- PRENOTAZIONI TAB -->
       <div id="mtab-prenotazioni" class="tab-content">
         <div class="page-header">
-          <div><div class="page-title">Prenotazioni</div><div class="page-subtitle">Sub-affitti registrati, raggruppati per nome quando presente, così da ritrovare facilmente gli ombrelloni assegnati alla stessa persona.</div></div>
-          <button class="btn btn-primary btn-sm" onclick="openSubaffittoModal()">+ Nuova prenotazione</button>
+          <div><div class="page-title">Prenotazioni</div><div class="page-subtitle">Sub-affitti registrati, raggruppati per nome quando presente. Per creare una nuova prenotazione, usa la mappa ombrelloni in Panoramica.</div></div>
         </div>
         <div class="card">
           <div class="card-header" style="flex-wrap:wrap;gap:10px">
@@ -626,36 +625,18 @@
 </div>
 
 <!-- MODALS -->
-<div id="modal-subaffitto" class="modal-overlay hidden">
+<div id="modal-finalize-booking" class="modal-overlay hidden">
   <div class="modal">
-    <div class="modal-title">Sub-affitto ombrellone</div>
-    <div class="modal-sub">Seleziona l'ombrellone libero che vuoi sub-affittare oggi</div>
-    <div id="subaffitto-alert"></div>
-    <div class="form-group"><label class="form-label">Ombrellone</label>
-      <select id="sa-ombrellone" class="form-select"></select>
-    </div>
-    <div class="form-group"><label class="form-label">Data</label>
-      <input type="date" id="sa-data" class="form-input">
-    </div>
-    <div class="form-group"><label class="form-label">Nome prenotazione <span style="font-size:11px;color:var(--text-light);font-weight:400">(opzionale)</span></label>
-      <input type="text" id="sa-nome-prenotazione" class="form-input" placeholder="es. Famiglia Rossi — settimana 12" maxlength="120">
-      <div style="font-size:12px;color:var(--text-light);margin-top:4px">Utile per raggruppare sub-affitti di più giorni o più ombrelloni sotto la stessa prenotazione.</div>
+    <div class="modal-title">Finalizza prenotazione</div>
+    <div class="modal-sub" id="finalize-booking-summary"></div>
+    <div id="finalize-booking-alert"></div>
+    <div class="form-group" style="margin-top:14px"><label class="form-label">Nome prenotazione <span style="font-size:11px;color:var(--text-light);font-weight:400">(opzionale)</span></label>
+      <input type="text" id="finalize-booking-nome" class="form-input" placeholder="es. Famiglia Rossi — settimana 12" maxlength="120">
+      <div style="font-size:12px;color:var(--text-light);margin-top:4px">Utile per ritrovare facilmente gli ombrelloni assegnati alla stessa persona nella tab Prenotazioni.</div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-subaffitto')">Annulla</button>
-      <button class="btn btn-primary btn-sm" onclick="confirmSubaffitto()">Procedi</button>
-    </div>
-  </div>
-</div>
-
-<div id="modal-subaffitto-confirm" class="modal-overlay hidden">
-  <div class="modal">
-    <div class="modal-title">Confermare il sub-affitto?</div>
-    <div class="modal-sub" id="sa-confirm-summary"></div>
-    <div id="subaffitto-confirm-alert"></div>
-    <div class="modal-footer">
-      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-subaffitto-confirm')">Indietro</button>
-      <button class="btn btn-primary btn-sm" onclick="finalizeSubaffitto()">Conferma sub-affitto</button>
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-finalize-booking')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="finalizeBookingSelection()">Conferma prenotazione</button>
     </div>
   </div>
 </div>
