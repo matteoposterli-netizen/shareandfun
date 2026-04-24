@@ -8,6 +8,18 @@ async function doLogin() {
   if (error) { showAlert('login-alert', 'Email o password errati', 'error'); btn.disabled = false; btn.textContent = 'Accedi'; return; }
   currentUser = data.user;
   await loadUserAndRoute();
+  // Log del login SOLO per proprietari (gli stagionali non sono tracciati).
+  if (currentProfile?.ruolo === 'proprietario' && currentStabilimento?.id) {
+    try {
+      await sb.rpc('audit_log_write', {
+        p_stabilimento_id: currentStabilimento.id,
+        p_entity_type: 'auth',
+        p_action: 'login',
+        p_description: `Login proprietario: ${email}`,
+        p_metadata: { email, at: new Date().toISOString() },
+      });
+    } catch (e) { console.error('audit login failed', e); }
+  }
   btn.disabled = false; btn.textContent = 'Accedi';
 }
 
@@ -105,7 +117,7 @@ async function completeInviteRegistration() {
   currentUser = data.user;
   await sb.from('profiles').insert({ id: currentUser.id, nome: currentInviteData.nome, cognome: currentInviteData.cognome, ruolo: 'stagionale' });
   await sb.rpc('completa_registrazione_invito', { p_token: currentInviteToken, p_user_id: currentUser.id });
-  const { data: stab } = await sb.from('stabilimenti').select('nome,telefono,email,email_benvenuto_oggetto,email_benvenuto_testo').eq('id', currentInviteData.stabilimento_id).single();
+  const { data: stab } = await sb.from('stabilimenti').select('id,nome,telefono,email,email_benvenuto_oggetto,email_benvenuto_testo').eq('id', currentInviteData.stabilimento_id).single();
   const ombLabel = currentInviteData.ombrellone_fila ? `Fila ${currentInviteData.ombrellone_fila} N°${currentInviteData.ombrellone_numero}` : null;
   const loginLink = `${window.location.origin}/?login=${encodeURIComponent(currentInviteData.email)}`;
   await inviaEmail('benvenuto', { email: currentInviteData.email, nome: currentInviteData.nome, cognome: currentInviteData.cognome, ombrellone: ombLabel, login_link: loginLink }, stab);

@@ -1044,6 +1044,15 @@ function managerTab(tab, btn) {
   if (btn) btn.classList.add('active');
   if (tab === 'email') loadEmailTemplates();
   if (tab === 'prenotazioni') loadPrenotazioni();
+  if (tab === 'log') {
+    // Default: ultimi 7 giorni, size 30.
+    if (!document.getElementById('audit-date-from').value) {
+      document.getElementById('audit-date-from').value = auditDaysAgoIso(7);
+      document.getElementById('audit-date-to').value   = auditTodayIso();
+    }
+    auditState.page = 1;
+    loadAuditLog();
+  }
   enhanceDateInputs(panel);
 }
 
