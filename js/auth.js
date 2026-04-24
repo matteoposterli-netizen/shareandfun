@@ -33,6 +33,35 @@ async function doRegister() {
   btn.disabled = false; btn.textContent = 'Crea account';
 }
 
+async function doForgotPassword() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const btn = document.getElementById('btn-forgot');
+  if (!email) { showAlert('forgot-alert', 'Inserisci la tua email', 'error'); return; }
+  btn.disabled = true; btn.textContent = 'Invio in corso...';
+  const redirectTo = `${window.location.origin}${window.location.pathname}?reset=1`;
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+  btn.disabled = false; btn.textContent = 'Invia link di recupero';
+  if (error) { showAlert('forgot-alert', error.message || 'Errore durante l’invio dell’email', 'error'); return; }
+  showAlert('forgot-alert', 'Se l’email è registrata, riceverai a breve un link per reimpostare la password. Controlla anche lo spam.', 'success');
+  document.getElementById('forgot-email').value = '';
+}
+
+async function doResetPassword() {
+  const pwd = document.getElementById('reset-password').value;
+  const pwd2 = document.getElementById('reset-password2').value;
+  const btn = document.getElementById('btn-reset');
+  if (pwd.length < 6) { showAlert('reset-alert', 'La password deve avere almeno 6 caratteri', 'error'); return; }
+  if (pwd !== pwd2) { showAlert('reset-alert', 'Le password non coincidono', 'error'); return; }
+  btn.disabled = true; btn.textContent = 'Aggiornamento...';
+  const { data, error } = await sb.auth.updateUser({ password: pwd });
+  btn.disabled = false; btn.textContent = 'Aggiorna password';
+  if (error) { showAlert('reset-alert', error.message || 'Errore durante l’aggiornamento della password', 'error'); return; }
+  showAlert('reset-alert', 'Password aggiornata. Accesso in corso...', 'success');
+  window.history.replaceState({}, '', window.location.pathname);
+  currentUser = data.user;
+  await loadUserAndRoute();
+}
+
 async function doLogout() {
   await sb.auth.signOut();
   currentUser = null; currentProfile = null; currentStabilimento = null;

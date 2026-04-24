@@ -1,10 +1,7 @@
 function showView(viewId, sub) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + viewId).classList.add('active');
-  if (viewId === 'auth' && sub) {
-    if (sub === 'login') { document.getElementById('auth-login').classList.remove('hidden'); document.getElementById('auth-register').classList.add('hidden'); }
-    else { document.getElementById('auth-register').classList.remove('hidden'); document.getElementById('auth-login').classList.add('hidden'); }
-  }
+  if (viewId === 'auth' && sub) toggleAuth(sub);
 }
 
 function goHome() {
@@ -15,8 +12,13 @@ function goHome() {
 }
 
 function toggleAuth(mode) {
-  if (mode === 'login') { document.getElementById('auth-login').classList.remove('hidden'); document.getElementById('auth-register').classList.add('hidden'); }
-  else { document.getElementById('auth-register').classList.remove('hidden'); document.getElementById('auth-login').classList.add('hidden'); }
+  const sections = ['login', 'register', 'forgot', 'reset'];
+  const target = sections.includes(mode) ? mode : 'login';
+  sections.forEach(s => {
+    const el = document.getElementById('auth-' + s);
+    if (!el) return;
+    el.classList.toggle('hidden', s !== target);
+  });
 }
 
 async function loadUserAndRoute() {

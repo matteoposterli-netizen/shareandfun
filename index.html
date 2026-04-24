@@ -122,7 +122,35 @@
           <input type="password" id="login-password" class="form-input" placeholder="••••••••">
         </div>
         <button class="btn btn-primary btn-full" onclick="doLogin()" id="btn-login">Accedi</button>
+        <div class="auth-switch"><a onclick="toggleAuth('forgot')">Password dimenticata?</a></div>
         <div class="auth-switch">Non hai un account? <a onclick="toggleAuth('register')">Registrati</a></div>
+      </div>
+      <!-- FORGOT PASSWORD -->
+      <div id="auth-forgot" class="hidden">
+        <div class="auth-title">Recupera password</div>
+        <div class="auth-sub">Inserisci la tua email: ti invieremo un link per impostare una nuova password. Funziona sia per i proprietari di stabilimento sia per i clienti stagionali.</div>
+        <div id="forgot-alert"></div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" id="forgot-email" class="form-input" placeholder="mario@example.com" autocomplete="email">
+        </div>
+        <button class="btn btn-primary btn-full" onclick="doForgotPassword()" id="btn-forgot">Invia link di recupero</button>
+        <div class="auth-switch">Ti sei ricordato? <a onclick="toggleAuth('login')">Torna al login</a></div>
+      </div>
+      <!-- RESET PASSWORD (post link email) -->
+      <div id="auth-reset" class="hidden">
+        <div class="auth-title">Imposta nuova password</div>
+        <div class="auth-sub">Scegli una nuova password per il tuo account.</div>
+        <div id="reset-alert"></div>
+        <div class="form-group">
+          <label class="form-label">Nuova password</label>
+          <input type="password" id="reset-password" class="form-input" placeholder="Minimo 6 caratteri" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Conferma nuova password</label>
+          <input type="password" id="reset-password2" class="form-input" placeholder="Ripeti la password" autocomplete="new-password">
+        </div>
+        <button class="btn btn-primary btn-full" onclick="doResetPassword()" id="btn-reset">Aggiorna password</button>
       </div>
       <!-- REGISTER (solo proprietari) -->
       <div id="auth-register" class="hidden">
