@@ -255,11 +255,15 @@ async function loadManagerData() {
   document.getElementById('stat-crediti').textContent = parseFloat(totCrediti || 0).toFixed(2);
   document.getElementById('stat-crediti-unit').textContent = coinName(currentStabilimento);
 
+  await loadDashboardUpcomingKpis(today);
+  await loadDashboardCreditsKpis();
+
   await refreshMap();
   renderGestioneTable(ombrelloniList, dispMap, clientiList);
   renderCreditiTable(clientiList, ombrelloniList);
-  await loadManagerTx();
+  applyDefaultTxFilter(today);
   await loadAllTx();
+  applyDefaultPrenFilter(today);
   await loadPrenotazioni();
   populateClienteSelect();
   if (!document.getElementById('analytics-date-from').value) {
@@ -267,6 +271,83 @@ async function loadManagerData() {
   } else {
     await loadCreditiAnalytics();
   }
+}
+
+async function loadDashboardUpcomingKpis(today) {
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  if (!ombrelloniList.length) {
+    ['stat-liberi-3gg', 'stat-sub-3gg', 'stat-liberi-7gg', 'stat-sub-7gg'].forEach(id => setText(id, '0'));
+    return;
+  }
+  const start = new Date(today + 'T00:00:00');
+  const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 6);
+  const startStr = toLocalDateStr(start);
+  const endStr = toLocalDateStr(end);
+  const { data: disp } = await sb.from('disponibilita')
+    .select('ombrellone_id,data,stato')
+    .in('ombrellone_id', ombrelloniList.map(o => o.id))
+    .gte('data', startStr)
+    .lte('data', endStr);
+
+  const day3End = new Date(today + 'T00:00:00'); day3End.setDate(day3End.getDate() + 2);
+  const day3EndStr = toLocalDateStr(day3End);
+
+  const free3 = new Set(), sub3 = new Set(), free7 = new Set(), sub7 = new Set();
+  (disp || []).forEach(d => {
+    if (d.stato === 'libero') {
+      if (d.data <= day3EndStr) free3.add(d.ombrellone_id);
+      free7.add(d.ombrellone_id);
+    } else if (d.stato === 'sub_affittato') {
+      if (d.data <= day3EndStr) sub3.add(d.ombrellone_id);
+      sub7.add(d.ombrellone_id);
+    }
+  });
+
+  setText('stat-liberi-3gg', free3.size);
+  setText('stat-sub-3gg', sub3.size);
+  setText('stat-liberi-7gg', free7.size);
+  setText('stat-sub-7gg', sub7.size);
+}
+
+async function loadDashboardCreditsKpis() {
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const from = new Date(); from.setDate(from.getDate() - 30);
+  const { data: txs } = await sb.from('transazioni')
+    .select('tipo,importo')
+    .eq('stabilimento_id', currentStabilimento.id)
+    .in('tipo', ['credito_ricevuto', 'credito_usato', 'sub_affitto'])
+    .gte('created_at', from.toISOString());
+
+  let ricevuti = 0, spesi = 0, subaffitti = 0;
+  (txs || []).forEach(t => {
+    const imp = parseFloat(t.importo || 0);
+    if (t.tipo === 'credito_ricevuto') ricevuti += imp;
+    else if (t.tipo === 'credito_usato') spesi += imp;
+    else if (t.tipo === 'sub_affitto') subaffitti += 1;
+  });
+
+  setText('dash-crediti-ricevuti', formatCoin(ricevuti));
+  setText('dash-crediti-spesi', formatCoin(spesi));
+  setText('dash-subaffitti', subaffitti);
+  setText('dash-subaffitti-sub', subaffitti === 1 ? 'giornata sub-affittata' : 'giornate sub-affittate');
+}
+
+function applyDefaultTxFilter(today) {
+  const fromEl = document.getElementById('tx-filter-from');
+  const toEl = document.getElementById('tx-filter-to');
+  if (!fromEl || !toEl) return;
+  if (fromEl.value || toEl.value) return;
+  const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 6);
+  fromEl.value = toLocalDateStr(start);
+  toEl.value = today;
+}
+
+function applyDefaultPrenFilter(today) {
+  const fromEl = document.getElementById('pren-filter-from');
+  if (!fromEl) return;
+  if (fromEl.value) return;
+  const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 3);
+  fromEl.value = toLocalDateStr(start);
 }
 
 function renderManagerMap(ombs, dispMap) {
@@ -731,11 +812,6 @@ async function loadCreditiAnalytics() {
       <td style="text-align:right;color:${saldoColor};font-weight:600">${saldoSign}${formatCoin(saldo).replace(/^-/, '−')}</td>
     </tr>`;
   }).join('');
-}
-
-async function loadManagerTx() {
-  const { data } = await sb.from('transazioni').select('*').eq('stabilimento_id', currentStabilimento.id).order('created_at', { ascending: false }).limit(8);
-  document.getElementById('manager-tx-list').innerHTML = renderTxList(data || [], currentStabilimento, ombById());
 }
 
 function ombById() {
