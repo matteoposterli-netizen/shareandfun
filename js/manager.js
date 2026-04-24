@@ -826,7 +826,7 @@ async function loadCreditiAnalytics() {
   const toIso = new Date(to + 'T23:59:59.999').toISOString();
 
   const { data: txs, error } = await sb.from('transazioni')
-    .select('ombrellone_id, cliente_id, tipo, importo')
+    .select('ombrellone_id, cliente_id, tipo, importo, created_at')
     .eq('stabilimento_id', currentStabilimento.id)
     .in('tipo', ['sub_affitto', 'credito_ricevuto', 'credito_usato'])
     .gte('created_at', fromIso)
@@ -841,7 +841,8 @@ async function loadCreditiAnalytics() {
   clientiList.forEach(c => { if (c.ombrellone_id) cliByOmb[c.ombrellone_id] = c; });
 
   const stats = {};
-  const ensure = (key) => stats[key] || (stats[key] = { ombrellone_id: null, cliente_id: null, ricevuti: 0, spesi: 0, subaffitti: 0 });
+  const ensure = (key) => stats[key] || (stats[key] = { ombrellone_id: null, cliente_id: null, ricevuti: 0, spesi: 0, subaffitti: 0, latest_at: null });
+  const touch = (s, ts) => { if (ts && (!s.latest_at || ts > s.latest_at)) s.latest_at = ts; };
 
   let totRic = 0, totSpe = 0, totSub = 0;
 
@@ -853,6 +854,7 @@ async function loadCreditiAnalytics() {
       s.ombrellone_id = t.ombrellone_id;
       if (!s.cliente_id) s.cliente_id = t.cliente_id || (t.ombrellone_id ? (cliByOmb[t.ombrellone_id]?.id || null) : null);
       s.subaffitti += 1;
+      touch(s, t.created_at);
       totSub += 1;
     } else if (t.tipo === 'credito_ricevuto') {
       const key = t.ombrellone_id || `cli:${t.cliente_id || 'unknown'}`;
@@ -860,6 +862,7 @@ async function loadCreditiAnalytics() {
       s.ombrellone_id = t.ombrellone_id;
       if (!s.cliente_id) s.cliente_id = t.cliente_id;
       s.ricevuti += importo;
+      touch(s, t.created_at);
       totRic += importo;
     } else if (t.tipo === 'credito_usato') {
       const cliId = t.cliente_id;
@@ -869,6 +872,7 @@ async function loadCreditiAnalytics() {
       s.ombrellone_id = ombId;
       if (!s.cliente_id) s.cliente_id = cliId;
       s.spesi += importo;
+      touch(s, t.created_at);
       totSpe += importo;
     }
   });
@@ -880,6 +884,11 @@ async function loadCreditiAnalytics() {
 
   const rows = Object.values(stats);
   rows.sort((a, b) => {
+    if (a.latest_at && b.latest_at) {
+      if (a.latest_at < b.latest_at) return 1;
+      if (a.latest_at > b.latest_at) return -1;
+    } else if (a.latest_at) return -1;
+    else if (b.latest_at) return 1;
     const oa = a.ombrellone_id ? ombById[a.ombrellone_id] : null;
     const ob = b.ombrellone_id ? ombById[b.ombrellone_id] : null;
     if (oa && ob) {
