@@ -208,6 +208,7 @@
       <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Gestione Credito</button>
       <button class="sidebar-item" onclick="managerTab('gestione',this)"><span class="icon">🗺️</span> Ombrelloni e Clienti</button>
       <button class="sidebar-item" onclick="managerTab('email',this)"><span class="icon">✉️</span> Email</button>
+      <button class="sidebar-item" onclick="managerTab('log',this)"><span class="icon">🕵️</span> Log attività</button>
     </div>
     <div class="main-content">
       <!-- DASHBOARD (KPI overview) -->
@@ -583,6 +584,105 @@
           </div>
         </div>
       </div>
+
+      <!-- LOG ATTIVITÀ TAB -->
+      <div id="mtab-log" class="tab-content">
+        <div class="page-header">
+          <div><div class="page-title">🕵️ Log attività</div><div class="page-subtitle">Storico completo delle modifiche fatte da te, dai tuoi clienti stagionali e dal sistema. Retention: ultimi 30 giorni.</div></div>
+          <button id="audit-export-btn" class="btn btn-primary btn-sm" onclick="exportAuditXlsx()">📥 Esporta Excel</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header" style="flex-wrap:wrap;gap:10px">
+            <div class="card-title">Filtri</div>
+            <button class="btn btn-outline btn-sm" onclick="auditResetFilters()">Reset filtri</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:4px 0 8px">
+            <div>
+              <label class="form-label" style="font-size:12px">Dal</label>
+              <input type="date" id="audit-date-from" class="form-input" style="padding:6px 10px;font-size:13px">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Al</label>
+              <input type="date" id="audit-date-to" class="form-input" style="padding:6px 10px;font-size:13px">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Tipo attore</label>
+              <select id="audit-actor-type" class="form-select" style="padding:6px 10px;font-size:13px">
+                <option value="">Tutti</option>
+                <option value="proprietario">Proprietario</option>
+                <option value="stagionale">Cliente stagionale</option>
+                <option value="admin">Admin</option>
+                <option value="sistema">Sistema / automazione</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Entità</label>
+              <select id="audit-entity-type" class="form-select" style="padding:6px 10px;font-size:13px">
+                <option value="">Tutte</option>
+                <option value="transazione">Transazione credito</option>
+                <option value="disponibilita">Prenotazione / Disponibilità</option>
+                <option value="cliente_stagionale">Cliente stagionale</option>
+                <option value="ombrellone">Ombrellone</option>
+                <option value="stabilimento">Stabilimento</option>
+                <option value="profile">Profilo utente</option>
+                <option value="email">Email inviata</option>
+                <option value="auth">Accesso</option>
+                <option value="import">Import batch</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Azione</label>
+              <select id="audit-action" class="form-select" style="padding:6px 10px;font-size:13px">
+                <option value="">Tutte</option>
+                <option value="insert">Creazione</option>
+                <option value="update">Modifica</option>
+                <option value="delete">Eliminazione</option>
+                <option value="login">Login</option>
+                <option value="email_sent">Email inviata</option>
+                <option value="import_batch">Import batch</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Cerca</label>
+              <input type="search" id="audit-search" class="form-input" placeholder="Testo libero, nome cliente…" style="padding:6px 10px;font-size:13px">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Eventi per pagina</label>
+              <select id="audit-page-size" class="form-select" style="padding:6px 10px;font-size:13px">
+                <option value="30" selected>30</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <button class="btn btn-primary btn-sm btn-full" onclick="auditApplyFilters()">Applica</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div class="card-header" style="flex-wrap:wrap;gap:10px">
+            <div style="font-size:13px;color:var(--text-mid)"><span id="audit-count-label">–</span></div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <button id="audit-prev" class="btn btn-outline btn-sm" onclick="auditPrevPage()">← Prec.</button>
+              <span id="audit-page-label" style="font-size:12px;color:var(--text-mid)">Pagina 1 / 1</span>
+              <button id="audit-next" class="btn btn-outline btn-sm" onclick="auditNextPage()">Succ. →</button>
+            </div>
+          </div>
+          <div class="table-wrap"><table class="data-table data-table-compact">
+            <thead><tr>
+              <th style="width:170px">Quando</th>
+              <th style="width:220px">Attore</th>
+              <th style="width:200px">Entità · Azione</th>
+              <th>Descrizione</th>
+              <th style="width:120px;text-align:right">Dettagli</th>
+            </tr></thead>
+            <tbody id="audit-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -905,6 +1005,7 @@
 <script src="js/clienti.js"></script>
 <script src="js/stagionale.js"></script>
 <script src="js/email.js"></script>
+<script src="js/audit.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/main.js"></script>
 </body>

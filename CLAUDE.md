@@ -28,18 +28,23 @@ Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono ren
 | `disponibilita` | Giornate in cui un ombrellone è messo a disposizione o sub-affittato. Colonna opzionale `nome_prenotazione` (text, nullable) per raggruppare sub-affitti multi-giorno / multi-ombrellone sotto una stessa etichetta visibile al gestore nella tab "Prenotazioni". |
 | `transazioni` | Storico contabile (credito aggiunto/usato, sub-affitti) |
 | `admins` | Account amministratori di sistema. PK `user_id` → `auth.users(id)`. **Non hanno riga in `profiles`**: le credenziali sono distinte dai proprietari/stagionali. Provisioning manuale via dashboard Supabase (vedi sezione "Area Admin"). |
+| `audit_log` | Log delle modifiche fatte sullo stabilimento (INSERT/UPDATE/DELETE su tutte le tabelle business + login proprietario + email inviate + import batch). Populato via trigger `_audit_row_trigger` (SECURITY DEFINER) e RPC `audit_log_write` / `audit_coalesce_import`. RLS: proprietario vede solo i propri eventi, admin vede tutto. Retention 30 giorni via job `pg_cron` "audit-log-retention" (03:00 daily). Vedi sezione "Audit log". |
 
 RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select auth.uid())` per performance. In aggiunta, ogni tabella business ha un set di policy `*_admin_*` che concedono accesso totale agli utenti presenti in `public.admins` (controllato via `public.is_admin(uid)` — SECURITY DEFINER). L'intero schema `public` (tabelle, FK, indexes, RLS, policies, RPC) è catturato come baseline in `supabase/migrations/20260420000000_baseline.sql`; migrazioni future vanno come file addizionali con timestamp successivo.
 
-> Tutte le migrazioni in `supabase/migrations/` sono state applicate sul DB di produzione al 2026-04-24.
+> Tutte le migrazioni in `supabase/migrations/` sono state applicate sul DB di produzione al 2026-04-24, **eccetto** `20260424500000_audit_log.sql` (audit log) che richiede anche l'attivazione di `pg_cron` — applicare manualmente via SQL Editor quando si vuole abilitare il log.
 >
 > Applicare nuove migrazioni via Supabase dashboard (SQL Editor), `supabase db push` o `psql`.
+>
+> **Estensioni Postgres attive**: `pg_cron` (schedula il job di retention dell'audit log — richiede grant specifico, tipicamente pre-attivato nel dashboard Supabase → Database → Extensions).
 
 ### RPC functions (SECURITY DEFINER)
 
 - `get_cliente_by_invito_token(p_token uuid)` — dati cliente pre-compilati per link invito
 - `completa_registrazione_invito(p_token uuid, p_user_id uuid)` — finalizza signup da invito
 - `cancel_booking(p_disp_ids uuid[])` — annullamento atomico di una prenotazione: verifica che il caller sia proprietario dello stabilimento implicato dalle disponibilità passate, riporta le righe a `libero`, inserisce le transazioni `sub_affitto_annullato` (+ `credito_revocato` e scrittura `credito_saldo` se c'è un cliente stagionale assegnato). Bypassa RLS tramite SECURITY DEFINER perché il flusso client-side equivalente falliva con `new row violates row-level security policy for table "transazioni"` in produzione.
+- `audit_log_write(p_stabilimento_id, p_entity_type, p_action, p_description, p_entity_id?, p_metadata?)` — inserisce riga in `audit_log` per eventi non-DML (login, email, import batch). Autorizza proprietario, admin o service_role.
+- `audit_coalesce_import(p_stabilimento_id, p_since, p_summary, p_metadata?)` — sostituisce gli eventi per-riga generati dai trigger durante un import Excel (entity_type IN ombrellone/cliente_stagionale/transazione/disponibilita, `actor_id = current_user`, `created_at >= p_since`) con un unico evento `import_batch`.
 
 ### Edge Functions
 
@@ -49,7 +54,7 @@ RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select au
   - `credito_accreditato` (ad ogni inserimento di transazione `credito_ricevuto` — incluso il sub-affitto automatico)
   - `credito_ritirato` (ad ogni inserimento di transazione `credito_usato`)
 
-  Tutti accettano `oggetto_custom`/`testo_custom` (NL→`<br>` per `invito`/`credito_*`); se omessi si usano i default. I tipi `credito_*` accettano anche `importo_formatted`, `saldo_formatted`, `nota`. Placeholders supportati nei template: `{{nome}}`, `{{cognome}}`, `{{ombrellone}}`, `{{importo}}`, `{{saldo}}`, `{{nota}}`, `{{stabilimento}}` (sostituiti lato client in `js/utils.js → substitutePlaceholders`). I tipi `attesa`/`approvazione` sono ancora supportati dalla function ma non più invocati dal frontend (registrazione è solo su invito). JWT verify ON. Env richieste: `RESEND_API_KEY`, `FROM_EMAIL` (default fallback `SpiaggiaMia <noreply@spiaggiamia.com>`), `SUPABASE_SERVICE_ROLE_KEY`. **Attenzione**: la `RESEND_API_KEY` deve avere accesso al dominio `spiaggiamia.com` (permission "Full access" oppure "Sending access" con `spiaggiamia.com` selezionato). Una key ristretta a un altro dominio produce 500 con `statusCode:400 "The associated domain...key with full access or with a verified domain"`.
+  Tutti accettano `oggetto_custom`/`testo_custom` (NL→`<br>` per `invito`/`credito_*`); se omessi si usano i default. I tipi `credito_*` accettano anche `importo_formatted`, `saldo_formatted`, `nota`. Placeholders supportati nei template: `{{nome}}`, `{{cognome}}`, `{{ombrellone}}`, `{{importo}}`, `{{saldo}}`, `{{nota}}`, `{{stabilimento}}` (sostituiti lato client in `js/utils.js → substitutePlaceholders`). I tipi `attesa`/`approvazione` sono ancora supportati dalla function ma non più invocati dal frontend (registrazione è solo su invito). Dopo ogni invio riuscito, la function chiama `audit_log_write` (inoltrando il JWT del chiamante via header `Authorization`) per registrare un evento `email_sent` in `audit_log`; richiede `stabilimento_id` nel body della richiesta. JWT verify ON. Env richieste: `RESEND_API_KEY`, `FROM_EMAIL` (default fallback `SpiaggiaMia <noreply@spiaggiamia.com>`), `SUPABASE_SERVICE_ROLE_KEY`. **Attenzione**: la `RESEND_API_KEY` deve avere accesso al dominio `spiaggiamia.com` (permission "Full access" oppure "Sending access" con `spiaggiamia.com` selezionato). Una key ristretta a un altro dominio produce 500 con `statusCode:400 "The associated domain...key with full access or with a verified domain"`.
 
 ## Flow registrazione clienti stagionali (invite-only)
 
@@ -70,6 +75,22 @@ Accesso: `https://spiaggiamia.com/?admin=1`. UI dedicata (vedi `js/admin.js`, vi
 2. SQL Editor: `INSERT INTO public.admins (user_id) VALUES ('<uuid-dell-utente>');`
 
 **Schema admins**: `(user_id uuid PK → auth.users.id ON DELETE CASCADE, created_at timestamptz default now())`. Unica policy: `admins_self_select` (un admin può leggere solo la propria riga). Nessuna INSERT/UPDATE/DELETE policy → modifiche ad `admins` solo via service role.
+
+## Audit log
+
+Tab "Log attività" lato proprietario (`#mtab-log` in `index.html`, logica in `js/audit.js`). Mostra tutti gli eventi registrati in `public.audit_log` per lo stabilimento del proprietario, con filtri (range date, tipo attore, entità, azione, testo libero) e export Excel dei risultati filtrati.
+
+**Copertura eventi**:
+- DML su `transazioni`, `disponibilita`, `clienti_stagionali`, `ombrelloni`, `stabilimenti`, `profiles` → trigger `AFTER INSERT/UPDATE/DELETE` parametrizzato (`_audit_row_trigger`, SECURITY DEFINER). Calcola `before`/`after`/`diff` (solo campi cambiati). Risoluzione `stabilimento_id`: diretta per le tabelle con FK diretta, via `ombrelloni` per `disponibilita`, via `clienti_stagionali` per `profiles`. Stabilimento `DELETE` viene skippato (CASCADE eliminerebbe subito la riga di log).
+- Login del proprietario (non degli stagionali) → `js/auth.js → doLogin` chiama RPC `audit_log_write` con `entity_type='auth'`, `action='login'`.
+- Email inviate da `invia-email` → la Edge Function chiama `audit_log_write` dopo ogni send Resend riuscito; richiede `stabilimento_id` nel body.
+- Import Excel → `js/clienti.js → importaExcel` registra `auditSince` a inizio import e chiama `audit_coalesce_import` a fine, che sostituisce le N righe per-riga con un unico evento `import_batch`.
+
+**Attore**: uno di `proprietario`/`stagionale`/`admin`/`sistema` (nessun `auth.uid()` → `sistema`). Calcolato da `_audit_current_actor()` (SECURITY DEFINER): verifica `is_admin()`, poi legge `profiles.ruolo`, poi arricchisce la label con dati da `clienti_stagionali` per gli stagionali.
+
+**Retention**: 30 giorni. Job `pg_cron` "audit-log-retention" (03:00 daily) esegue `DELETE FROM public.audit_log WHERE created_at < now() - interval '30 days'`. Estensione `pg_cron` attivata nella migrazione `20260424500000_audit_log.sql`.
+
+**Suppressione batch futura**: il trigger controlla la GUC di sessione `audit.batch_tag`; se impostata non-vuota (via `set_config('audit.batch_tag', 'xxx', true)` all'interno di una RPC transazionale), salta l'inserimento per-riga. Attualmente usata solo come future-proofing: la soppressione client-side non funzionerebbe via PostgREST (connessioni pooled).
 
 ## Workflow Git
 

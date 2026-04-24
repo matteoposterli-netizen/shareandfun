@@ -126,6 +126,7 @@ async function inviaEmail(tipo, clienteData, stab, override) {
         importo_formatted: clienteData.importo_formatted || null,
         saldo_formatted: clienteData.saldo_formatted || null,
         nota: clienteData.nota || null,
+        stabilimento_id: stab?.id || null,
         stabilimento_nome: stab?.nome || '',
         stabilimento_telefono: stab?.telefono || '',
         stabilimento_email: stab?.email || '',

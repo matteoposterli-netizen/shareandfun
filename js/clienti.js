@@ -140,6 +140,9 @@ async function importaExcel() {
   const btn = document.querySelector('#xlsx-actions button');
   if (btn) btn.disabled = true;
 
+  // Timestamp per aggregare i log per-riga di questo import in un unico evento.
+  const auditSince = new Date().toISOString();
+
   renderProgressInAlert('xlsx-alert', 'Preparazione ombrelloni…', 0, selected.length);
 
   const ombByKey = {};
@@ -176,6 +179,7 @@ async function importaExcel() {
   const ombAggiornati = ombToUpdate.length;
 
   if (!byEmail.size) {
+    await coalesceImportAudit(auditSince, { ombAggiunti, ombAggiornati, clientiImportati: 0, invitiInviati: 0, invitiFalliti: 0, invitiAttesi: false });
     if (btn) btn.disabled = false;
     await loadManagerData();
     annullaExcel();
@@ -252,6 +256,12 @@ async function importaExcel() {
     }, (done, total) => renderProgressInAlert('xlsx-alert', 'Invio email…', done, total));
   }
 
+  await coalesceImportAudit(auditSince, {
+    ombAggiunti, ombAggiornati, clientiImportati: byEmail.size,
+    invitiInviati: sent, invitiFalliti: failed, invitiAttesi: !!inviaInviti,
+    displaced: displacedIds.size, skipped,
+  });
+
   if (btn) btn.disabled = false;
   await loadManagerData();
   annullaExcel();
@@ -265,6 +275,26 @@ async function importaExcel() {
   if (inviaInviti) parts.push(`inviti inviati: ${sent}${failed ? ` · falliti: ${failed}` : ''}`);
   const type = failed ? 'error' : 'success';
   showAlert('xlsx-alert', `${failed ? '⚠️' : '✅'} ${parts.join(' · ')}`, type);
+}
+
+async function coalesceImportAudit(sinceIso, info) {
+  if (!currentStabilimento?.id) return;
+  const parts = [];
+  if (info.ombAggiunti)       parts.push(`${info.ombAggiunti} ombrelloni aggiunti`);
+  if (info.ombAggiornati)     parts.push(`${info.ombAggiornati} ombrelloni aggiornati`);
+  if (info.clientiImportati)  parts.push(`${info.clientiImportati} clienti importati`);
+  if (info.displaced)         parts.push(`${info.displaced} clienti rimossi dall'ombrellone precedente`);
+  if (info.skipped)           parts.push(`${info.skipped} righe saltate`);
+  if (info.invitiAttesi)      parts.push(`${info.invitiInviati} inviti inviati${info.invitiFalliti ? ` (${info.invitiFalliti} falliti)` : ''}`);
+  const summary = 'Import Excel: ' + (parts.length ? parts.join(' · ') : 'nessuna modifica');
+  try {
+    await sb.rpc('audit_coalesce_import', {
+      p_stabilimento_id: currentStabilimento.id,
+      p_since: sinceIso,
+      p_summary: summary,
+      p_metadata: info,
+    });
+  } catch (e) { console.error('audit coalesce import failed', e); }
 }
 
 function openBulkInviteModal() {

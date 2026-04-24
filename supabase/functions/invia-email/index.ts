@@ -20,6 +20,7 @@ interface EmailRequest {
   email: string;
   nome: string;
   cognome?: string;
+  stabilimento_id?: string;
   stabilimento_nome: string;
   stabilimento_telefono?: string;
   stabilimento_email?: string;
@@ -124,7 +125,7 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const { tipo, email, nome, cognome = "", stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, login_link, importo_formatted, saldo_formatted, nota, oggetto_custom, testo_custom } = body;
+  const { tipo, email, nome, cognome = "", stabilimento_id, stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, login_link, importo_formatted, saldo_formatted, nota, oggetto_custom, testo_custom } = body;
 
   if (!tipo || !email || !nome) {
     return new Response(JSON.stringify({ error: "Parametri mancanti: tipo, email, nome" }), {
@@ -304,6 +305,37 @@ Deno.serve(async (req: Request) => {
   }
 
   const data = await res.json();
+
+  // Audit log: registra l'email inviata. Non blocchiamo la response se fallisce.
+  if (stabilimento_id && SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+    try {
+      const authHeader = req.headers.get("Authorization") || "";
+      const logRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/audit_log_write`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_SERVICE_KEY,
+          // Inoltro il JWT dell'utente quando presente, così auth.uid() risolve
+          // all'attore reale. Senza JWT il log viene attribuito a 'sistema'.
+          "Authorization": authHeader || `Bearer ${SUPABASE_SERVICE_KEY}`,
+        },
+        body: JSON.stringify({
+          p_stabilimento_id: stabilimento_id,
+          p_entity_type: "email",
+          p_action: "email_sent",
+          p_description: `Email "${tipo}" inviata a ${email}`,
+          p_metadata: { tipo, to: email, subject, resend_id: data?.id ?? null },
+        }),
+      });
+      if (!logRes.ok) {
+        const errTxt = await logRes.text();
+        console.error("audit_log_write email failed:", errTxt);
+      }
+    } catch (e) {
+      console.error("audit_log_write email exception:", e);
+    }
+  }
+
   return new Response(JSON.stringify({ success: true, id: data.id }), {
     headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
   });
