@@ -108,8 +108,11 @@ body {
 .form-input, .form-select {
   width: 100%; padding: 12px 14px;
   border: 1.5px solid var(--border); border-radius: 12px;
-  font-family: inherit; font-size: 14px; color: var(--ink); background: #fff;
+  font-family: inherit; font-size: 16px; color: var(--ink); background: #fff;
   transition: border-color .15s, box-shadow .15s;
+}
+@media (min-width: 769px) {
+  .form-input, .form-select { font-size: 14px; }
 }
 .form-input:focus, .form-select:focus {
   outline: none; border-color: var(--ink);
@@ -496,8 +499,9 @@ body {
 .user-name {
   font-family: 'DM Serif Display', serif; font-weight: normal;
   font-size: 44px; line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 10px;
+  overflow-wrap: anywhere; word-break: break-word;
 }
-.user-ombrellone { font-size: 14px; color: var(--text-mid); }
+.user-ombrellone { font-size: 14px; color: var(--text-mid); overflow-wrap: anywhere; }
 .credit-box {
   background: var(--ink); color: #fff;
   border-radius: 20px; padding: 28px 32px;
@@ -518,8 +522,10 @@ body {
 .cal-month { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--ink); }
 .cal-nav {
   background: transparent; border: 1px solid var(--border); border-radius: 10px;
-  width: 34px; height: 34px; cursor: pointer;
-  font-size: 16px; color: var(--text-mid);
+  width: 40px; height: 40px; cursor: pointer;
+  font-size: 18px; color: var(--text-mid);
+  display: inline-flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
 }
 .cal-nav:hover { background: var(--sand-warm); color: var(--ink); }
 .cal-days-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 8px; }
@@ -534,6 +540,9 @@ body {
   font-size: 14px; font-weight: 500; cursor: pointer;
   border: 1.5px solid var(--border); color: var(--ink);
   background: #fff; transition: background .12s, border-color .12s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 /* aspect-ratio fallback (Safari < 15): use padding-top trick so cells stay square. */
 @supports not (aspect-ratio: 1 / 1) {
@@ -683,8 +692,14 @@ body {
   .topnav { padding: 0 16px; height: 58px; }
   .logo { font-size: 18px; gap: 8px; }
   .nav-right { gap: 8px; }
-  .btn-nav { padding: 8px 14px; font-size: 12px; }
+  .btn-nav { padding: 10px 14px; font-size: 13px; min-height: 40px; }
   .nav-user { display: none; }
+
+  /* BUTTONS: tap target >= 44px su mobile */
+  .btn { padding: 13px 22px; font-size: 14px; min-height: 44px; }
+  .btn-sm { padding: 10px 16px; font-size: 13px; min-height: 40px; }
+  .btn-outline { padding: 12px 21px; }
+  .btn-full { width: 100%; }
 
   /* LANDING HERO */
   .hero { padding: 48px 20px 40px; }
@@ -779,7 +794,16 @@ body {
   /* CARD HEADER */
   .card-header { flex-wrap: wrap; gap: 10px; padding: 16px 18px; }
   .card-header > div:nth-child(2):last-child { width: 100%; justify-content: space-between; }
-  #map-date-from, #map-date-to { width: 100% !important; min-width: 0; flex: 1; }
+  .card-header > .btn { align-self: stretch; }
+  #map-date-from, #map-date-to,
+  #clienti-filter, #pren-filter-text, #pren-range-picker,
+  #tx-filter-ombrellone, #tx-filter-tipo, #tx-range-picker,
+  #map-range-picker, #crediti-filter,
+  #analytics-date-from, #analytics-date-to,
+  #admin-search {
+    width: 100% !important; min-width: 0; flex: 1 1 auto;
+    font-size: 16px !important; padding: 10px 12px !important;
+  }
   .card-body { padding: 18px; }
   .card-title { font-size: 17px; }
 
@@ -869,6 +893,18 @@ body {
     overflow-wrap: anywhere;
     word-break: break-word;
   }
+}
+
+/* Medium phones: smoothing fra 768px e 480px */
+@media (max-width: 600px) {
+  .user-hero { padding: 22px 20px; }
+  .user-name { font-size: 28px; }
+  .card-body { padding: 16px; }
+  .cal-days-grid, .cal-days-header { gap: 3px; }
+  .cal-day { font-size: 12px; }
+  .cal-month { font-size: 16px; }
+  .cal-legend { gap: 12px; font-size: 12px; }
+  .legend-item { font-size: 11px; gap: 6px; }
 }
 
 /* Small phones */
