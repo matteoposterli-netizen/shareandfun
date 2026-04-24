@@ -41,11 +41,13 @@ RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select au
 > Applicate il 2026-04-24:
 > - `20260424200000_disponibilita_nome_prenotazione.sql` (colonna `nome_prenotazione text` nullable + indice parziale) — abilita il nome opzionale nel flusso di selezione prenotazione dalla mappa.
 > - `20260424300000_cancellation_tx_types.sql` — aggiunge `sub_affitto_annullato` e `credito_revocato` al `CHECK` su `transazioni.tipo`, usati dal flusso "Annulla prenotazione".
+> - `20260424400000_cancel_booking_rpc.sql` — crea la RPC `cancel_booking(uuid[])` (SECURITY DEFINER) che esegue l'annullamento prenotazione in un'unica transazione atomica dopo aver verificato che il caller sia proprietario dello stabilimento.
 
 ### RPC functions (SECURITY DEFINER)
 
 - `get_cliente_by_invito_token(p_token uuid)` — dati cliente pre-compilati per link invito
 - `completa_registrazione_invito(p_token uuid, p_user_id uuid)` — finalizza signup da invito
+- `cancel_booking(p_disp_ids uuid[])` — annullamento atomico di una prenotazione: verifica che il caller sia proprietario dello stabilimento implicato dalle disponibilità passate, riporta le righe a `libero`, inserisce le transazioni `sub_affitto_annullato` (+ `credito_revocato` e scrittura `credito_saldo` se c'è un cliente stagionale assegnato). Bypassa RLS tramite SECURITY DEFINER perché il flusso client-side equivalente falliva con `new row violates row-level security policy for table "transazioni"` in produzione.
 
 ### Edge Functions
 

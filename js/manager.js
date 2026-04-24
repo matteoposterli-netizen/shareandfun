@@ -1205,55 +1205,8 @@ let modifyBookingKeepIds = new Set();
 
 async function freeBookingItems(items, group, alertId) {
   const dispIds = items.map(i => i.id);
-  const { error: updErr } = await sb.from('disponibilita')
-    .update({ stato: 'libero', nome_prenotazione: null })
-    .in('id', dispIds);
-  if (updErr) { showAlert(alertId, 'Errore ripristino disponibilità: ' + updErr.message, 'error'); return false; }
-
-  const annullatoRows = items.map(i => {
-    const o = ombrelloniList.find(x => x.id === i.ombrellone_id);
-    const label = o ? `Ombrellone ${o.fila}${o.numero}` : 'Ombrellone rimosso';
-    return {
-      stabilimento_id: currentStabilimento.id,
-      ombrellone_id: i.ombrellone_id,
-      cliente_id: i.cliente_id || null,
-      tipo: 'sub_affitto_annullato',
-      importo: o ? o.credito_giornaliero : null,
-      nota: `${label} — sub-affitto annullato per ${formatDate(i.data)}${group.nome ? ` (prenotazione "${group.nome}")` : ''}`,
-    };
-  });
-  const { error: annErr } = await sb.from('transazioni').insert(annullatoRows);
-  if (annErr) { showAlert(alertId, 'Errore registrazione annullamento: ' + annErr.message, 'error'); return false; }
-
-  const revocatoRows = [];
-  const deltaByCliente = new Map();
-  items.forEach(i => {
-    if (!i.cliente_id) return;
-    const o = ombrelloniList.find(x => x.id === i.ombrellone_id);
-    const imp = o ? parseFloat(o.credito_giornaliero || 0) : 0;
-    if (imp <= 0) return;
-    revocatoRows.push({
-      stabilimento_id: currentStabilimento.id,
-      ombrellone_id: i.ombrellone_id,
-      cliente_id: i.cliente_id,
-      tipo: 'credito_revocato',
-      importo: imp,
-      nota: `Credito revocato per annullamento sub-affitto${o ? ` ${o.fila}${o.numero}` : ''} del ${formatDate(i.data)}${group.nome ? ` (prenotazione "${group.nome}")` : ''}`,
-    });
-    deltaByCliente.set(i.cliente_id, (deltaByCliente.get(i.cliente_id) || 0) + imp);
-  });
-  if (revocatoRows.length) {
-    const { error: revErr } = await sb.from('transazioni').insert(revocatoRows);
-    if (revErr) { showAlert(alertId, 'Errore registrazione revoca credito: ' + revErr.message, 'error'); return false; }
-  }
-
-  for (const [cid, delta] of deltaByCliente.entries()) {
-    const cliente = clientiList.find(c => c.id === cid);
-    if (!cliente) continue;
-    const nuovoSaldo = (parseFloat(cliente.credito_saldo || 0) - delta).toFixed(2);
-    await sb.from('clienti_stagionali').update({ credito_saldo: nuovoSaldo }).eq('id', cid);
-  }
-
+  const { error } = await sb.rpc('cancel_booking', { p_disp_ids: dispIds });
+  if (error) { showAlert(alertId, 'Errore annullamento prenotazione: ' + error.message, 'error'); return false; }
   return true;
 }
 
