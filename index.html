@@ -421,7 +421,29 @@
       <div id="mtab-transazioni" class="tab-content">
         <div class="page-header"><div><div class="page-title">Transazioni</div><div class="page-subtitle">Storico completo di tutte le operazioni</div></div></div>
         <div class="card">
-          <div id="all-tx-list"><div class="tx-empty">Caricamento...</div></div>
+          <div class="card-header" style="flex-wrap:wrap;gap:10px">
+            <div class="card-title">Filtra transazioni</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <select id="tx-filter-ombrellone" class="form-select" style="width:220px;padding:6px 10px;font-size:13px" onchange="loadAllTx()">
+                <option value="">Tutti gli ombrelloni</option>
+              </select>
+              <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
+                <span>Dal</span>
+                <input type="date" id="tx-filter-from" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="loadAllTx()">
+                <span>al</span>
+                <input type="date" id="tx-filter-to" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="loadAllTx()">
+              </div>
+              <button type="button" class="btn btn-outline btn-sm tx-preset-btn" data-preset="today" onclick="setTxRange('today')">Oggi</button>
+              <button type="button" class="btn btn-outline btn-sm tx-preset-btn" data-preset="yesterday" onclick="setTxRange('yesterday')">Ieri</button>
+              <button type="button" class="btn btn-outline btn-sm tx-preset-btn" data-preset="3" onclick="setTxRange(3)">Ultimi 3 gg</button>
+              <button type="button" class="btn btn-outline btn-sm tx-preset-btn" data-preset="7" onclick="setTxRange(7)">Ultimi 7 gg</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="clearTxRange()">Tutte</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="tx-count-label" style="font-size:13px;color:var(--text-light);margin-bottom:10px"></div>
+            <div id="all-tx-list"><div class="tx-empty">Caricamento...</div></div>
+          </div>
         </div>
       </div>
 
