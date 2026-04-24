@@ -67,21 +67,79 @@ async function refreshMap() {
     if (!dispByOmbDate[d.ombrellone_id]) dispByOmbDate[d.ombrellone_id] = {};
     dispByOmbDate[d.ombrellone_id][d.data] = d.stato;
   });
-  currentMapRange = { from, to, dispByOmbDate };
+
+  const isSingleDay = from === to;
+
+  const freeDaysByOmb = {};
+  ombrelloniList.forEach(o => {
+    const ombDisp = dispByOmbDate[o.id] || {};
+    freeDaysByOmb[o.id] = dates.filter(d => ombDisp[d] === 'libero');
+  });
+
+  const alwaysFreeIds = new Set(
+    ombrelloniList.filter(o => freeDaysByOmb[o.id].length === dates.length).map(o => o.id)
+  );
+
+  const combinationIds = new Set();
+  const combinationCovers = {};
+  let combinationValid = false;
+  if (!isSingleDay) {
+    const byOmbId = {};
+    ombrelloniList.forEach(o => { byOmbId[o.id] = o; });
+    const candidateIds = ombrelloniList
+      .filter(o => !alwaysFreeIds.has(o.id) && freeDaysByOmb[o.id].length > 0)
+      .map(o => o.id);
+    const sortKey = id => {
+      const o = byOmbId[id];
+      return `${o.fila}${String(o.numero).padStart(4, '0')}`;
+    };
+    const uncovered = new Set(dates);
+    const remaining = new Set(candidateIds);
+    while (uncovered.size > 0 && remaining.size > 0) {
+      let bestId = null;
+      let bestCount = 0;
+      for (const id of remaining) {
+        let cov = 0;
+        for (const d of freeDaysByOmb[id]) if (uncovered.has(d)) cov++;
+        if (cov > bestCount || (cov === bestCount && cov > 0 && bestId && sortKey(id) < sortKey(bestId))) {
+          bestId = id;
+          bestCount = cov;
+        }
+      }
+      if (!bestId || bestCount === 0) break;
+      const covered = freeDaysByOmb[bestId].filter(d => uncovered.has(d));
+      combinationIds.add(bestId);
+      combinationCovers[bestId] = covered;
+      covered.forEach(d => uncovered.delete(d));
+      remaining.delete(bestId);
+    }
+    combinationValid = uncovered.size === 0 && combinationIds.size > 0;
+    if (!combinationValid) {
+      combinationIds.clear();
+      Object.keys(combinationCovers).forEach(k => delete combinationCovers[k]);
+    }
+  }
+
+  const partialIds = new Set();
+  if (!isSingleDay && !combinationValid) {
+    ombrelloniList.forEach(o => {
+      if (!alwaysFreeIds.has(o.id) && freeDaysByOmb[o.id].length > 0) partialIds.add(o.id);
+    });
+  }
 
   const rangeDispMap = {};
   ombrelloniList.forEach(o => {
     const ombDisp = dispByOmbDate[o.id] || {};
-    const allFree = dates.every(d => ombDisp[d] === 'libero');
-    const anyFree = dates.some(d => ombDisp[d] === 'libero');
     const anySub = dates.some(d => ombDisp[d] === 'sub_affittato');
-    if (anySub) rangeDispMap[o.id] = 'sub_affittato';
-    else if (allFree) rangeDispMap[o.id] = 'libero';
-    else if (anyFree) rangeDispMap[o.id] = 'parziale';
+    if (alwaysFreeIds.has(o.id)) rangeDispMap[o.id] = 'libero';
+    else if (combinationIds.has(o.id)) rangeDispMap[o.id] = 'combinazione';
+    else if (partialIds.has(o.id)) rangeDispMap[o.id] = 'parziale';
+    else if (anySub) rangeDispMap[o.id] = 'sub_affittato';
     else rangeDispMap[o.id] = 'occupied';
   });
 
-  const isSingleDay = from === to;
+  currentMapRange = { from, to, dispByOmbDate, dates, combinationCovers, combinationValid };
+
   const isToday = isSingleDay && from === todayStr();
   const label = isSingleDay
     ? (isToday ? 'oggi' : formatDate(from))
@@ -89,8 +147,9 @@ async function refreshMap() {
 
   document.getElementById('map-range-label').textContent = label;
 
-  const free = ombrelloniList.filter(o => rangeDispMap[o.id] === 'libero').length;
-  const partial = ombrelloniList.filter(o => rangeDispMap[o.id] === 'parziale').length;
+  const free = alwaysFreeIds.size;
+  const combo = combinationIds.size;
+  const partial = partialIds.size;
   const subleased = ombrelloniList.filter(o => rangeDispMap[o.id] === 'sub_affittato').length;
 
   if (isToday) {
@@ -101,15 +160,30 @@ async function refreshMap() {
   renderManagerMap(ombrelloniList, rangeDispMap);
 
   const freeEl = document.getElementById('map-free-count');
-  const pill = (bg, fg, text) => `<span style="background:${bg};color:${fg};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600">${text}</span>`;
-  const partialTxt = partial > 0 ? ` · ${partial} liber${partial > 1 ? 'i' : 'o'} in parte del periodo` : '';
-  if (free > 0) {
-    freeEl.innerHTML = pill('var(--green-light)', 'var(--green)', `✓ ${free} ombrellone${free > 1 ? 'i' : ''} liber${free > 1 ? 'i' : 'o'} per tutto il periodo${partialTxt}`);
-  } else if (partial > 0) {
-    freeEl.innerHTML = pill('var(--green-light)', 'var(--green)', `${partial} ombrellone${partial > 1 ? 'i' : ''} liber${partial > 1 ? 'i' : 'o'} in parte del periodo`);
+  const pill = (bg, fg, text) => `<span style="background:${bg};color:${fg};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;display:inline-block;margin:2px 0">${text}</span>`;
+  const pills = [];
+  if (isSingleDay) {
+    if (free > 0) {
+      pills.push(pill('var(--green-light)', 'var(--green)', `✓ ${free} ombrellone${free > 1 ? 'i' : ''} liber${free > 1 ? 'i' : 'o'}`));
+    } else {
+      pills.push(pill('var(--red-light)', 'var(--red)', 'Nessun ombrellone libero'));
+    }
   } else {
-    freeEl.innerHTML = pill('var(--red-light)', 'var(--red)', 'Nessun ombrellone libero nel periodo');
+    if (free > 0) {
+      pills.push(pill('var(--green-light)', 'var(--green)', `✓ ${free} ombrellone${free > 1 ? 'i' : ''} liber${free > 1 ? 'i' : 'o'} per tutto il periodo`));
+    }
+    if (combinationValid) {
+      pills.push(pill('var(--coral-light)', 'var(--coral)', `⚡ Combinazione: ${combo} ombrelloni coprono l'intero periodo`));
+    }
+    if (!free && !combinationValid) {
+      if (partial > 0) {
+        pills.push(pill('var(--yellow-light)', '#9C7A1F', `${partial} ombrellone${partial > 1 ? 'i' : ''} liber${partial > 1 ? 'i' : 'o'} solo in parte — nessuna combinazione copre l'intero periodo`));
+      } else {
+        pills.push(pill('var(--red-light)', 'var(--red)', 'Nessun ombrellone libero nel periodo'));
+      }
+    }
   }
+  freeEl.innerHTML = pills.map(p => `<div>${p}</div>`).join('');
 
   updateMapPresetActive();
 }
@@ -168,14 +242,27 @@ function renderManagerMap(ombs, dispMap) {
       const stato = dispMap[o.id] || 'occupied';
       const el2 = document.createElement('div');
       const cls = stato === 'libero' ? 'free'
+        : stato === 'combinazione' ? 'combo'
         : stato === 'parziale' ? 'partial'
         : stato === 'sub_affittato' ? 'subleased'
         : 'occupied';
       el2.className = 'ombrellone ' + cls;
       el2.textContent = '☂️';
-      const hint = stato === 'libero' || stato === 'parziale'
-        ? ' — clicca per bloccarlo'
-        : stato === 'sub_affittato' ? ' — sub-affittato' : '';
+      let hint = '';
+      if (stato === 'libero') {
+        hint = ' — libero per tutto il periodo — clicca per bloccarlo';
+      } else if (stato === 'combinazione') {
+        const covers = (currentMapRange?.combinationCovers || {})[o.id] || [];
+        const days = covers.map(d => {
+          const dt = new Date(d + 'T00:00:00');
+          return dt.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+        }).join(', ');
+        hint = ` — copre ${covers.length} giorn${covers.length === 1 ? 'o' : 'i'}: ${days} — clicca per bloccarlo`;
+      } else if (stato === 'parziale') {
+        hint = ' — libero solo in parte — clicca per bloccarlo';
+      } else if (stato === 'sub_affittato') {
+        hint = ' — sub-affittato';
+      }
       el2.title = `${fila}${o.numero} — ${formatCoin(o.credito_giornaliero)}/gg${hint}`;
       el2.onclick = () => handleMapOmbClick(o, stato);
       row.appendChild(el2);

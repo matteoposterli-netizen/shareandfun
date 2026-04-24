@@ -366,6 +366,10 @@ body {
   background: repeating-linear-gradient(45deg, var(--green-light) 0 6px, var(--ocean-light) 6px 12px);
   color: var(--green); border-color: #96DDB8;
 }
+.ombrellone.combo {
+  background: repeating-linear-gradient(45deg, var(--coral-light) 0 6px, #fff 6px 12px);
+  color: var(--coral); border-color: var(--coral);
+}
 .ombrellone.subleased { background: var(--yellow-light); color: #9C7A1F; border-color: var(--yellow); }
 .sea-label {
   text-align: center; font-size: 10px; font-weight: 700; letter-spacing: 5px;
