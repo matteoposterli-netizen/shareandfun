@@ -262,8 +262,10 @@ async function loadManagerData() {
   renderGestioneTable(ombrelloniList, dispMap, clientiList);
   renderCreditiTable(clientiList, ombrelloniList);
   applyDefaultTxFilter(today);
+  initTxRangePicker();
   await loadAllTx();
   applyDefaultPrenFilter(today);
+  initPrenRangePicker();
   await loadPrenotazioni();
   populateClienteSelect();
   if (!document.getElementById('analytics-date-from').value) {
@@ -344,10 +346,14 @@ function applyDefaultTxFilter(today) {
 
 function applyDefaultPrenFilter(today) {
   const fromEl = document.getElementById('pren-filter-from');
-  if (!fromEl) return;
-  if (fromEl.value) return;
-  const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 3);
+  const toEl = document.getElementById('pren-filter-to');
+  if (!fromEl || !toEl) return;
+  if (fromEl.value || toEl.value) return;
+  // Default: recent + upcoming window (last 7 days → next 30 days).
+  const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 7);
+  const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 30);
   fromEl.value = toLocalDateStr(start);
+  toEl.value = toLocalDateStr(end);
 }
 
 function renderManagerMap(ombs, dispMap) {
@@ -861,6 +867,48 @@ function updateTxPresetActive() {
   });
 }
 
+let txRangePickerInstance = null;
+function initTxRangePicker() {
+  if (typeof flatpickr === 'undefined') return;
+  const input = document.getElementById('tx-range-picker');
+  if (!input) return;
+  const fromVal = document.getElementById('tx-filter-from')?.value || '';
+  const toVal = document.getElementById('tx-filter-to')?.value || fromVal;
+  const defaults = [];
+  if (fromVal) defaults.push(new Date(fromVal + 'T00:00:00'));
+  if (toVal && toVal !== fromVal) defaults.push(new Date(toVal + 'T00:00:00'));
+  if (txRangePickerInstance) {
+    if (defaults.length) txRangePickerInstance.setDate(defaults, false);
+    else txRangePickerInstance.clear();
+    return;
+  }
+  txRangePickerInstance = flatpickr(input, {
+    mode: 'range',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
+    dateFormat: 'd/m/Y',
+    defaultDate: defaults.length ? defaults : null,
+    showMonths: 1,
+    disableMobile: true,
+    onChange: (selectedDates) => {
+      if (selectedDates.length === 2) {
+        const from = toLocalDateStr(selectedDates[0]);
+        const to = toLocalDateStr(selectedDates[1]);
+        document.getElementById('tx-filter-from').value = from;
+        document.getElementById('tx-filter-to').value = to;
+        loadAllTx();
+      } else if (selectedDates.length === 1) {
+        const from = toLocalDateStr(selectedDates[0]);
+        document.getElementById('tx-filter-from').value = from;
+        document.getElementById('tx-filter-to').value = from;
+      } else {
+        document.getElementById('tx-filter-from').value = '';
+        document.getElementById('tx-filter-to').value = '';
+        loadAllTx();
+      }
+    },
+  });
+}
+
 function setTxRange(preset) {
   const today = todayStr();
   let from, to;
@@ -877,12 +925,16 @@ function setTxRange(preset) {
   }
   document.getElementById('tx-filter-from').value = from;
   document.getElementById('tx-filter-to').value = to;
+  if (txRangePickerInstance) {
+    txRangePickerInstance.setDate([new Date(from + 'T00:00:00'), new Date(to + 'T00:00:00')], false);
+  }
   loadAllTx();
 }
 
 function clearTxRange() {
   document.getElementById('tx-filter-from').value = '';
   document.getElementById('tx-filter-to').value = '';
+  if (txRangePickerInstance) txRangePickerInstance.clear();
   loadAllTx();
 }
 
@@ -1129,7 +1181,105 @@ function clearPrenFilters() {
   if (t) t.value = '';
   if (f) f.value = '';
   if (to) to.value = '';
+  if (prenRangePickerInstance) prenRangePickerInstance.clear();
   renderPrenotazioni();
+}
+
+let prenRangePickerInstance = null;
+function initPrenRangePicker() {
+  if (typeof flatpickr === 'undefined') return;
+  const input = document.getElementById('pren-range-picker');
+  if (!input) return;
+  const fromVal = document.getElementById('pren-filter-from')?.value || '';
+  const toVal = document.getElementById('pren-filter-to')?.value || fromVal;
+  const defaults = [];
+  if (fromVal) defaults.push(new Date(fromVal + 'T00:00:00'));
+  if (toVal && toVal !== fromVal) defaults.push(new Date(toVal + 'T00:00:00'));
+  if (prenRangePickerInstance) {
+    if (defaults.length) prenRangePickerInstance.setDate(defaults, false);
+    else prenRangePickerInstance.clear();
+    return;
+  }
+  prenRangePickerInstance = flatpickr(input, {
+    mode: 'range',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
+    dateFormat: 'd/m/Y',
+    defaultDate: defaults.length ? defaults : null,
+    showMonths: 1,
+    disableMobile: true,
+    onChange: (selectedDates) => {
+      if (selectedDates.length === 2) {
+        const from = toLocalDateStr(selectedDates[0]);
+        const to = toLocalDateStr(selectedDates[1]);
+        document.getElementById('pren-filter-from').value = from;
+        document.getElementById('pren-filter-to').value = to;
+        renderPrenotazioni();
+      } else if (selectedDates.length === 1) {
+        const from = toLocalDateStr(selectedDates[0]);
+        document.getElementById('pren-filter-from').value = from;
+        document.getElementById('pren-filter-to').value = from;
+      } else {
+        document.getElementById('pren-filter-from').value = '';
+        document.getElementById('pren-filter-to').value = '';
+        renderPrenotazioni();
+      }
+    },
+  });
+}
+
+function setPrenRange(preset) {
+  const today = todayStr();
+  let from, to;
+  if (preset === 'today') {
+    from = to = today;
+  } else if (preset === 'next7') {
+    const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 6);
+    from = today; to = toLocalDateStr(end);
+  } else if (preset === 'last7') {
+    const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 6);
+    from = toLocalDateStr(start); to = today;
+  } else if (preset === 'last30') {
+    const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 29);
+    from = toLocalDateStr(start); to = today;
+  } else return;
+  document.getElementById('pren-filter-from').value = from;
+  document.getElementById('pren-filter-to').value = to;
+  if (prenRangePickerInstance) {
+    prenRangePickerInstance.setDate([new Date(from + 'T00:00:00'), new Date(to + 'T00:00:00')], false);
+  }
+  renderPrenotazioni();
+}
+
+function updatePrenPresetActive() {
+  const from = document.getElementById('pren-filter-from')?.value || '';
+  const to = document.getElementById('pren-filter-to')?.value || '';
+  const today = todayStr();
+  let active = null;
+  if (from && to) {
+    if (from === today && to === today) {
+      active = 'today';
+    } else if (from === today) {
+      const start = new Date(from + 'T00:00:00');
+      const endD = new Date(to + 'T00:00:00');
+      const diff = Math.round((endD - start) / 86400000) + 1;
+      if (diff === 7) active = 'next7';
+    } else if (to === today) {
+      const start = new Date(from + 'T00:00:00');
+      const endD = new Date(to + 'T00:00:00');
+      const diff = Math.round((endD - start) / 86400000) + 1;
+      if (diff === 7) active = 'last7';
+      else if (diff === 30) active = 'last30';
+    }
+  }
+  document.querySelectorAll('.pren-preset-btn').forEach(btn => {
+    if (btn.dataset.preset === active) {
+      btn.classList.remove('btn-outline');
+      btn.classList.add('btn-primary');
+    } else {
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-outline');
+    }
+  });
 }
 
 let prenotazioniList = [];
@@ -1158,6 +1308,8 @@ function renderPrenotazioni() {
   const listEl = document.getElementById('prenotazioni-list');
   const countEl = document.getElementById('pren-count-label');
   if (!listEl) return;
+
+  updatePrenPresetActive();
 
   const q = (document.getElementById('pren-filter-text')?.value || '').trim().toLowerCase();
   const from = document.getElementById('pren-filter-from')?.value || '';
