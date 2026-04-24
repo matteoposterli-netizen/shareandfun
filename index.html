@@ -203,69 +203,40 @@
   <div class="dash-layout">
     <div class="sidebar">
       <div class="sidebar-title">Principale</div>
-      <button class="sidebar-item active" onclick="managerTab('prenotazioni',this)"><span class="icon">📖</span> Prenotazioni</button>
+      <button class="sidebar-item active" onclick="managerTab('panoramica',this)"><span class="icon">📊</span> Dashboard</button>
+      <button class="sidebar-item" onclick="managerTab('prenotazioni',this)"><span class="icon">📖</span> Prenotazioni</button>
       <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Gestione Credito</button>
-      <button class="sidebar-item" onclick="managerTab('panoramica',this)"><span class="icon">📊</span> Panoramica</button>
       <button class="sidebar-item" onclick="managerTab('gestione',this)"><span class="icon">🗺️</span> Ombrelloni e Clienti</button>
-      <button class="sidebar-item" onclick="managerTab('transazioni',this)"><span class="icon">📋</span> Transazioni</button>
       <button class="sidebar-item" onclick="managerTab('email',this)"><span class="icon">✉️</span> Email</button>
     </div>
     <div class="main-content">
-      <!-- PANORAMICA -->
-      <div id="mtab-panoramica" class="tab-content">
+      <!-- DASHBOARD (KPI overview) -->
+      <div id="mtab-panoramica" class="tab-content active">
         <div class="page-header">
           <div><div class="page-title" id="manager-stab-nome">Dashboard</div><div class="page-subtitle" id="manager-today-label"></div></div>
         </div>
+
+        <div class="section-divider">📊 Oggi</div>
         <div class="stats-row">
           <div class="stat-card"><div class="stat-label">Ombrelloni totali</div><div class="stat-value" id="stat-totali">–</div><div class="stat-sub">registrati</div></div>
           <div class="stat-card"><div class="stat-label">Liberi oggi</div><div class="stat-value green" id="stat-liberi">–</div><div class="stat-sub">disponibili</div></div>
           <div class="stat-card"><div class="stat-label">Sub-affittati oggi</div><div class="stat-value coral" id="stat-subaffittati">–</div><div class="stat-sub" id="stat-incassati"></div></div>
           <div class="stat-card"><div class="stat-label">Crediti distribuiti</div><div class="stat-value ocean"><span id="stat-crediti">–</span> <span class="stat-value-unit" id="stat-crediti-unit"></span></div><div class="stat-sub">ultimi 7 giorni</div></div>
         </div>
-        <div class="two-col">
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">🗺️ Mappa ombrelloni</div>
-              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
-                  <span>Periodo</span>
-                  <input type="text" id="map-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
-                  <input type="hidden" id="map-date-from">
-                  <input type="hidden" id="map-date-to">
-                </div>
-                <button class="btn btn-outline btn-sm" onclick="managerTab('gestione',null)">Gestisci</button>
-              </div>
-            </div>
-            <div id="map-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px 12px">
-              <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="1" onclick="setMapRangePreset(1)">Oggi</button>
-              <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="2" onclick="setMapRangePreset(2)">Prossimi 2 giorni</button>
-              <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="3" onclick="setMapRangePreset(3)">Prossimi 3 giorni</button>
-              <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="7" onclick="setMapRangePreset(7)">Prossimi 7 giorni</button>
-            </div>
-            <div class="beach-map-wrap">
-              <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px">
-                <div>
-                  <div class="map-legend">
-                    <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Stagionale presente</div>
-                    <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Libero tutto il periodo</div>
-                    <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,var(--coral) 0 3px,var(--coral-light) 3px 7px);border:2px solid var(--coral)"></div>Parte di una combinazione</div>
-                    <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
-                  </div>
-                  <div id="map-free-count" style="margin-top:10px"></div>
-                  <div style="font-size:12px;color:var(--text-light);margin-top:8px">Periodo: <strong id="map-range-label">oggi</strong></div>
-                </div>
-                <div>
-                  <div class="map-rows" id="manager-map"></div>
-                  <div class="sea-label">~ ~ ~ MARE ~ ~ ~</div>
-                </div>
-              </div>
-            </div><!-- /beach-map-wrap -->
-            <div id="booking-selection-panel" class="booking-selection-panel hidden"></div>
-        </div><!-- /card col1 -->
-          <div class="card">
-            <div class="card-header"><div class="card-title">📋 Ultime transazioni</div></div>
-            <div id="manager-tx-list"><div class="tx-empty">Caricamento...</div></div>
-          </div>
+
+        <div class="section-divider">☂️ Prossimi giorni</div>
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-label">Liberi nei prossimi 3 gg</div><div class="stat-value green" id="stat-liberi-3gg">–</div><div class="stat-sub">almeno un giorno libero</div></div>
+          <div class="stat-card"><div class="stat-label">Sub-affittati nei prossimi 3 gg</div><div class="stat-value coral" id="stat-sub-3gg">–</div><div class="stat-sub">almeno un giorno</div></div>
+          <div class="stat-card"><div class="stat-label">Liberi nei prossimi 7 gg</div><div class="stat-value green" id="stat-liberi-7gg">–</div><div class="stat-sub">almeno un giorno libero</div></div>
+          <div class="stat-card"><div class="stat-label">Sub-affittati nei prossimi 7 gg</div><div class="stat-value coral" id="stat-sub-7gg">–</div><div class="stat-sub">almeno un giorno</div></div>
+        </div>
+
+        <div class="section-divider">💳 Crediti (ultimi 30 giorni)</div>
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-label">Crediti distribuiti</div><div class="stat-value ocean" id="dash-crediti-ricevuti">–</div><div class="stat-sub">ai clienti stagionali</div></div>
+          <div class="stat-card"><div class="stat-label">Crediti spesi</div><div class="stat-value coral" id="dash-crediti-spesi">–</div><div class="stat-sub">utilizzati dai clienti</div></div>
+          <div class="stat-card"><div class="stat-label">Sub-affitti</div><div class="stat-value green" id="dash-subaffitti">–</div><div class="stat-sub" id="dash-subaffitti-sub">giornate sub-affittate</div></div>
         </div>
       </div>
 
@@ -449,12 +420,55 @@
 
       </div>
 
-      <!-- PRENOTAZIONI TAB -->
-      <div id="mtab-prenotazioni" class="tab-content active">
+      <!-- PRENOTAZIONI TAB (mappa + lista + transazioni) -->
+      <div id="mtab-prenotazioni" class="tab-content">
         <div class="page-header">
-          <div><div class="page-title">Prenotazioni</div><div class="page-subtitle">Sub-affitti registrati, raggruppati per nome quando presente. Per creare una nuova prenotazione, usa la mappa ombrelloni in Panoramica.</div></div>
+          <div><div class="page-title">Prenotazioni</div><div class="page-subtitle">Crea una nuova prenotazione dalla mappa, consulta le prenotazioni attive e lo storico recente delle transazioni.</div></div>
         </div>
+
+        <!-- MAPPA PER CREARE PRENOTAZIONI -->
         <div class="card">
+          <div class="card-header">
+            <div class="card-title">🗺️ Mappa ombrelloni</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
+                <span>Periodo</span>
+                <input type="text" id="map-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+                <input type="hidden" id="map-date-from">
+                <input type="hidden" id="map-date-to">
+              </div>
+              <button class="btn btn-outline btn-sm" onclick="managerTab('gestione',null)">Gestisci</button>
+            </div>
+          </div>
+          <div id="map-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px 12px">
+            <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="1" onclick="setMapRangePreset(1)">Oggi</button>
+            <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="2" onclick="setMapRangePreset(2)">Prossimi 2 giorni</button>
+            <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="3" onclick="setMapRangePreset(3)">Prossimi 3 giorni</button>
+            <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="7" onclick="setMapRangePreset(7)">Prossimi 7 giorni</button>
+          </div>
+          <div class="beach-map-wrap">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px">
+              <div>
+                <div class="map-legend">
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Stagionale presente</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Libero tutto il periodo</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,var(--coral) 0 3px,var(--coral-light) 3px 7px);border:2px solid var(--coral)"></div>Parte di una combinazione</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+                </div>
+                <div id="map-free-count" style="margin-top:10px"></div>
+                <div style="font-size:12px;color:var(--text-light);margin-top:8px">Periodo: <strong id="map-range-label">oggi</strong></div>
+              </div>
+              <div>
+                <div class="map-rows" id="manager-map"></div>
+                <div class="sea-label">~ ~ ~ MARE ~ ~ ~</div>
+              </div>
+            </div>
+          </div><!-- /beach-map-wrap -->
+          <div id="booking-selection-panel" class="booking-selection-panel hidden"></div>
+        </div>
+
+        <!-- ELENCO PRENOTAZIONI -->
+        <div class="card" style="margin-top:20px">
           <div class="card-header" style="flex-wrap:wrap;gap:10px">
             <div class="card-title">Elenco prenotazioni</div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -473,14 +487,11 @@
             <div id="prenotazioni-list"><div class="tx-empty">Caricamento...</div></div>
           </div>
         </div>
-      </div>
 
-      <!-- TRANSAZIONI TAB -->
-      <div id="mtab-transazioni" class="tab-content">
-        <div class="page-header"><div><div class="page-title">Transazioni</div><div class="page-subtitle">Storico completo di tutte le operazioni</div></div></div>
-        <div class="card">
+        <!-- ELENCO TRANSAZIONI -->
+        <div class="card" style="margin-top:20px">
           <div class="card-header" style="flex-wrap:wrap;gap:10px">
-            <div class="card-title">Filtra transazioni</div>
+            <div class="card-title">📋 Transazioni</div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               <select id="tx-filter-ombrellone" class="form-select" style="width:220px;padding:6px 10px;font-size:13px" onchange="loadAllTx()">
                 <option value="">Tutti gli ombrelloni</option>
