@@ -931,7 +931,11 @@ function setTxRange(preset) {
   loadAllTx();
 }
 
-function clearTxRange() {
+function clearTxFilters() {
+  const ombEl = document.getElementById('tx-filter-ombrellone');
+  const tipoEl = document.getElementById('tx-filter-tipo');
+  if (ombEl) ombEl.value = '';
+  if (tipoEl) tipoEl.value = '';
   document.getElementById('tx-filter-from').value = '';
   document.getElementById('tx-filter-to').value = '';
   if (txRangePickerInstance) txRangePickerInstance.clear();
@@ -942,6 +946,7 @@ async function loadAllTx() {
   populateTxOmbrelloneSelect();
   updateTxPresetActive();
   const ombId = document.getElementById('tx-filter-ombrellone')?.value || '';
+  const tipo = document.getElementById('tx-filter-tipo')?.value || '';
   const from = document.getElementById('tx-filter-from')?.value || '';
   const to = document.getElementById('tx-filter-to')?.value || '';
   const countEl = document.getElementById('tx-count-label');
@@ -953,6 +958,7 @@ async function loadAllTx() {
   }
   let q = sb.from('transazioni').select('*').eq('stabilimento_id', currentStabilimento.id);
   if (ombId) q = q.eq('ombrellone_id', ombId);
+  if (tipo) q = q.eq('tipo', tipo);
   if (from) q = q.gte('created_at', new Date(from + 'T00:00:00').toISOString());
   if (to) q = q.lte('created_at', new Date(to + 'T23:59:59.999').toISOString());
   q = q.order('created_at', { ascending: false });
@@ -961,7 +967,7 @@ async function loadAllTx() {
   if (error) { console.error(error); listEl.innerHTML = '<div class="tx-empty">Errore nel caricamento</div>'; return; }
   const rows = data || [];
   if (countEl) {
-    if (!from && !to && !ombId) {
+    if (!from && !to && !ombId && !tipo) {
       countEl.textContent = rows.length ? `Ultime ${rows.length} transazioni` : '';
     } else {
       countEl.textContent = `${rows.length} transazion${rows.length === 1 ? 'e' : 'i'} trovat${rows.length === 1 ? 'a' : 'e'}`;
