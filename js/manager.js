@@ -1183,6 +1183,7 @@ function renderPrenotazioni() {
         <div class="card-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">📖 ${title}</div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <div style="font-size:13px;color:var(--text-mid)">${dateLabel}</div>
+          <button class="btn btn-outline btn-sm" onclick="openModifyBookingModal('g-${gi}')">Modifica prenotazione</button>
           <button class="btn btn-danger btn-sm" onclick="openCancelBookingModal('g-${gi}')">Annulla prenotazione</button>
         </div>
       </div>
@@ -1198,6 +1199,62 @@ function renderPrenotazioni() {
 }
 
 let cancelBookingCurrentId = null;
+let modifyBookingCurrentId = null;
+let modifyBookingKeepIds = new Set();
+
+async function freeBookingItems(items, group, alertId) {
+  const dispIds = items.map(i => i.id);
+  const { error: updErr } = await sb.from('disponibilita')
+    .update({ stato: 'libero', nome_prenotazione: null })
+    .in('id', dispIds);
+  if (updErr) { showAlert(alertId, 'Errore ripristino disponibilità: ' + updErr.message, 'error'); return false; }
+
+  const annullatoRows = items.map(i => {
+    const o = ombrelloniList.find(x => x.id === i.ombrellone_id);
+    const label = o ? `Ombrellone ${o.fila}${o.numero}` : 'Ombrellone rimosso';
+    return {
+      stabilimento_id: currentStabilimento.id,
+      ombrellone_id: i.ombrellone_id,
+      cliente_id: i.cliente_id || null,
+      tipo: 'sub_affitto_annullato',
+      importo: o ? o.credito_giornaliero : null,
+      nota: `${label} — sub-affitto annullato per ${formatDate(i.data)}${group.nome ? ` (prenotazione "${group.nome}")` : ''}`,
+    };
+  });
+  const { error: annErr } = await sb.from('transazioni').insert(annullatoRows);
+  if (annErr) { showAlert(alertId, 'Errore registrazione annullamento: ' + annErr.message, 'error'); return false; }
+
+  const revocatoRows = [];
+  const deltaByCliente = new Map();
+  items.forEach(i => {
+    if (!i.cliente_id) return;
+    const o = ombrelloniList.find(x => x.id === i.ombrellone_id);
+    const imp = o ? parseFloat(o.credito_giornaliero || 0) : 0;
+    if (imp <= 0) return;
+    revocatoRows.push({
+      stabilimento_id: currentStabilimento.id,
+      ombrellone_id: i.ombrellone_id,
+      cliente_id: i.cliente_id,
+      tipo: 'credito_revocato',
+      importo: imp,
+      nota: `Credito revocato per annullamento sub-affitto${o ? ` ${o.fila}${o.numero}` : ''} del ${formatDate(i.data)}${group.nome ? ` (prenotazione "${group.nome}")` : ''}`,
+    });
+    deltaByCliente.set(i.cliente_id, (deltaByCliente.get(i.cliente_id) || 0) + imp);
+  });
+  if (revocatoRows.length) {
+    const { error: revErr } = await sb.from('transazioni').insert(revocatoRows);
+    if (revErr) { showAlert(alertId, 'Errore registrazione revoca credito: ' + revErr.message, 'error'); return false; }
+  }
+
+  for (const [cid, delta] of deltaByCliente.entries()) {
+    const cliente = clientiList.find(c => c.id === cid);
+    if (!cliente) continue;
+    const nuovoSaldo = (parseFloat(cliente.credito_saldo || 0) - delta).toFixed(2);
+    await sb.from('clienti_stagionali').update({ credito_saldo: nuovoSaldo }).eq('id', cid);
+  }
+
+  return true;
+}
 
 function openCancelBookingModal(gid) {
   const group = cancelBookingGroups.get(gid);
@@ -1257,58 +1314,130 @@ async function confirmCancelBooking() {
 
   showLoading();
   try {
-    const dispIds = items.map(i => i.id);
-    const { error: updErr } = await sb.from('disponibilita')
-      .update({ stato: 'libero', nome_prenotazione: null })
-      .in('id', dispIds);
-    if (updErr) { showAlert('cancel-booking-alert', 'Errore ripristino disponibilità: ' + updErr.message, 'error'); return; }
-
-    const annullatoRows = items.map(i => {
-      const o = ombrelloniList.find(x => x.id === i.ombrellone_id);
-      const label = o ? `Ombrellone ${o.fila}${o.numero}` : 'Ombrellone rimosso';
-      return {
-        stabilimento_id: currentStabilimento.id,
-        ombrellone_id: i.ombrellone_id,
-        cliente_id: i.cliente_id || null,
-        tipo: 'sub_affitto_annullato',
-        importo: o ? o.credito_giornaliero : null,
-        nota: `${label} — sub-affitto annullato per ${formatDate(i.data)}${group.nome ? ` (prenotazione "${group.nome}")` : ''}`,
-      };
-    });
-    const { error: annErr } = await sb.from('transazioni').insert(annullatoRows);
-    if (annErr) { showAlert('cancel-booking-alert', 'Errore registrazione annullamento: ' + annErr.message, 'error'); return; }
-
-    const revocatoRows = [];
-    const deltaByCliente = new Map();
-    items.forEach(i => {
-      if (!i.cliente_id) return;
-      const o = ombrelloniList.find(x => x.id === i.ombrellone_id);
-      const imp = o ? parseFloat(o.credito_giornaliero || 0) : 0;
-      if (imp <= 0) return;
-      revocatoRows.push({
-        stabilimento_id: currentStabilimento.id,
-        ombrellone_id: i.ombrellone_id,
-        cliente_id: i.cliente_id,
-        tipo: 'credito_revocato',
-        importo: imp,
-        nota: `Credito revocato per annullamento sub-affitto${o ? ` ${o.fila}${o.numero}` : ''} del ${formatDate(i.data)}${group.nome ? ` (prenotazione "${group.nome}")` : ''}`,
-      });
-      deltaByCliente.set(i.cliente_id, (deltaByCliente.get(i.cliente_id) || 0) + imp);
-    });
-    if (revocatoRows.length) {
-      const { error: revErr } = await sb.from('transazioni').insert(revocatoRows);
-      if (revErr) { showAlert('cancel-booking-alert', 'Errore registrazione revoca credito: ' + revErr.message, 'error'); return; }
-    }
-
-    for (const [cid, delta] of deltaByCliente.entries()) {
-      const cliente = clientiList.find(c => c.id === cid);
-      if (!cliente) continue;
-      const nuovoSaldo = (parseFloat(cliente.credito_saldo || 0) - delta).toFixed(2);
-      await sb.from('clienti_stagionali').update({ credito_saldo: nuovoSaldo }).eq('id', cid);
-    }
+    const ok = await freeBookingItems(items, group, 'cancel-booking-alert');
+    if (!ok) return;
 
     closeModal('modal-cancel-booking');
     cancelBookingCurrentId = null;
+    await loadManagerData();
+    await loadPrenotazioni();
+    showAlert('', '', '');
+  } finally {
+    hideLoading();
+  }
+}
+
+function openModifyBookingModal(gid) {
+  const group = cancelBookingGroups.get(gid);
+  if (!group) return;
+  modifyBookingCurrentId = gid;
+
+  const items = group.items.slice().sort((a, b) => a.data < b.data ? -1 : a.data > b.data ? 1 : 0);
+  const ombsMap = ombById();
+  const cliById = {};
+  (clientiList || []).forEach(c => { cliById[c.id] = c; });
+
+  modifyBookingKeepIds = new Set(items.map(i => i.id));
+
+  const nomeLabel = group.nome
+    ? `<div><strong>Prenotazione:</strong> ${group.nome}</div>`
+    : `<div><strong>Prenotazione:</strong> <span style="color:var(--text-light);font-style:italic">senza nome</span></div>`;
+  document.getElementById('modify-booking-header').innerHTML = nomeLabel;
+
+  const rowsHtml = items.map(i => {
+    const o = ombsMap[i.ombrellone_id];
+    const ombStr = o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">ombrellone rimosso</span>';
+    const cli = i.cliente_id ? cliById[i.cliente_id] : null;
+    const cliStr = cli ? `${cli.nome} ${cli.cognome}` : '<span style="color:var(--text-light)">—</span>';
+    const imp = o ? formatCoin(o.credito_giornaliero, currentStabilimento) : '—';
+    return `<tr>
+      <td><input type="checkbox" class="modify-booking-chk" data-id="${i.id}" checked onchange="onModifyBookingToggle(this)"></td>
+      <td>${formatDate(i.data)}</td>
+      <td><strong>${ombStr}</strong></td>
+      <td>${cliStr}</td>
+      <td style="text-align:right">${imp}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('modify-booking-rows').innerHTML = rowsHtml;
+
+  updateModifyBookingImpact();
+  showAlert('modify-booking-alert', '', '');
+  document.getElementById('modal-modify-booking').classList.remove('hidden');
+}
+
+function onModifyBookingToggle(el) {
+  const id = el.getAttribute('data-id');
+  if (!id) return;
+  if (el.checked) modifyBookingKeepIds.add(id);
+  else modifyBookingKeepIds.delete(id);
+  updateModifyBookingImpact();
+}
+
+function updateModifyBookingImpact() {
+  const gid = modifyBookingCurrentId;
+  const group = gid ? cancelBookingGroups.get(gid) : null;
+  const target = document.getElementById('modify-booking-impact');
+  if (!group || !target) return;
+
+  const ombsMap = ombById();
+  const cliById = {};
+  (clientiList || []).forEach(c => { cliById[c.id] = c; });
+
+  const removed = group.items.filter(i => !modifyBookingKeepIds.has(i.id));
+  if (!removed.length) {
+    target.innerHTML = `<span style="color:var(--text-light)">Nessuna modifica selezionata.</span>`;
+    return;
+  }
+
+  const deltaByCliente = new Map();
+  let totImporto = 0;
+  removed.forEach(i => {
+    const o = ombsMap[i.ombrellone_id];
+    const imp = o ? parseFloat(o.credito_giornaliero || 0) : 0;
+    totImporto += imp;
+    if (i.cliente_id) deltaByCliente.set(i.cliente_id, (deltaByCliente.get(i.cliente_id) || 0) + imp);
+  });
+
+  const righe = Array.from(deltaByCliente.entries()).map(([cid, delta]) => {
+    const c = cliById[cid];
+    if (!c) return `<li>Cliente non trovato — ${formatCoin(delta.toFixed(2), currentStabilimento)} da revocare</li>`;
+    const saldoAttuale = parseFloat(c.credito_saldo || 0);
+    const saldoNuovo = saldoAttuale - delta;
+    const warn = saldoNuovo < 0 ? ` <span style="color:var(--red);font-weight:600">(saldo andrà negativo: ${formatCoin(saldoNuovo.toFixed(2), currentStabilimento)})</span>` : '';
+    return `<li><strong>${c.nome} ${c.cognome}</strong>: revoca di ${formatCoin(delta.toFixed(2), currentStabilimento)} (saldo attuale: ${formatCoin(saldoAttuale.toFixed(2), currentStabilimento)})${warn}</li>`;
+  }).join('');
+
+  target.innerHTML = `
+    <div><strong>Sub-affitti da rimuovere:</strong> ${removed.length}</div>
+    <div style="margin-top:4px"><strong>Credito totale revocato:</strong> ${formatCoin(totImporto.toFixed(2), currentStabilimento)}</div>
+    ${righe ? `<div style="margin-top:8px"><strong>Impatto sui clienti:</strong><ul style="margin:6px 0 0 18px;line-height:1.6">${righe}</ul></div>` : ''}
+  `;
+}
+
+async function confirmModifyBooking() {
+  const gid = modifyBookingCurrentId;
+  if (!gid) return;
+  const group = cancelBookingGroups.get(gid);
+  if (!group) return;
+
+  const removed = group.items.filter(i => !modifyBookingKeepIds.has(i.id));
+  if (!removed.length) {
+    showAlert('modify-booking-alert', 'Non hai selezionato nessun giorno / ombrellone da rimuovere.', 'error');
+    return;
+  }
+  if (removed.length === group.items.length) {
+    showAlert('modify-booking-alert', 'Stai rimuovendo tutti i sub-affitti: usa invece "Annulla prenotazione".', 'error');
+    return;
+  }
+
+  showLoading();
+  try {
+    const ok = await freeBookingItems(removed, group, 'modify-booking-alert');
+    if (!ok) return;
+
+    closeModal('modal-modify-booking');
+    modifyBookingCurrentId = null;
+    modifyBookingKeepIds = new Set();
     await loadManagerData();
     await loadPrenotazioni();
     showAlert('', '', '');

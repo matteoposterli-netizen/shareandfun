@@ -640,6 +640,27 @@
   </div>
 </div>
 
+<div id="modal-modify-booking" class="modal-overlay hidden">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-title">Modifica prenotazione</div>
+    <div class="modal-sub" id="modify-booking-header"></div>
+    <div id="modify-booking-alert"></div>
+    <div style="margin-top:12px;font-size:13px;color:var(--text-mid)">Togli la spunta dai giorni / ombrelloni da liberare. Le righe lasciate selezionate restano nella prenotazione.</div>
+    <div class="table-wrap" style="margin-top:8px;max-height:320px;overflow:auto"><table class="data-table">
+      <thead><tr><th style="width:34px"></th><th>Data</th><th>Ombrellone</th><th>Cliente Stagionale</th><th style="text-align:right">Importo</th></tr></thead>
+      <tbody id="modify-booking-rows"></tbody>
+    </table></div>
+    <div id="modify-booking-impact" style="margin-top:12px;font-size:13px;color:var(--text-mid)"></div>
+    <div class="alert alert-info" style="margin-top:14px;font-size:12px;line-height:1.55">
+      ⚠️ Gli ombrelloni rimossi torneranno disponibili per un'altra prenotazione. Il credito accreditato al cliente stagionale per le giornate rimosse verrà revocato e il saldo può diventare negativo se il cliente ha già utilizzato parte di quel credito.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-modify-booking')">Indietro</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmModifyBooking()">Conferma modifica</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-finalize-booking" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-title">Finalizza prenotazione</div>
