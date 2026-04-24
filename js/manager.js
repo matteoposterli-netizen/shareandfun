@@ -1740,6 +1740,9 @@ async function openViewOmbrelloneModal(ombId) {
     ? `${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')}${cliente.email ? ' · ' + escapeHtml(cliente.email) : ''}`
     : '<span style="color:var(--text-light)">Nessun cliente associato</span>';
   document.getElementById('view-omb-cliente').innerHTML = clienteInfo;
+  document.getElementById('view-omb-saldo').textContent = cliente
+    ? formatCoin(cliente.credito_saldo)
+    : '–';
 
   showLoading();
   const { data: disp } = await sb.from('disponibilita').select('data, stato').eq('ombrellone_id', ombId);

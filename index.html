@@ -740,13 +740,17 @@
     <div class="modal-title" id="view-omb-title">☂️ Ombrellone</div>
     <div class="modal-sub">Disponibilità in sola lettura. Solo il cliente stagionale può modificare la propria disponibilità.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0 18px;padding:12px;background:var(--sand);border-radius:var(--radius-sm)">
-      <div>
+      <div style="grid-column:1/-1">
         <div style="font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Cliente</div>
         <div id="view-omb-cliente" style="font-size:13px;color:var(--ink)">–</div>
       </div>
       <div>
         <div style="font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Credito giornaliero</div>
         <div id="view-omb-credito" style="font-size:13px;color:var(--ink);font-weight:600">–</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Saldo cliente</div>
+        <div id="view-omb-saldo" style="font-size:13px;color:var(--ink);font-weight:600">–</div>
       </div>
     </div>
     <div class="cal-header">
