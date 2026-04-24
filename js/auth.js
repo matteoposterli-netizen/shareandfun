@@ -78,7 +78,7 @@ async function completeInviteRegistration() {
   await sb.rpc('completa_registrazione_invito', { p_token: currentInviteToken, p_user_id: currentUser.id });
   const { data: stab } = await sb.from('stabilimenti').select('nome,telefono,email,email_benvenuto_oggetto,email_benvenuto_testo').eq('id', currentInviteData.stabilimento_id).single();
   const ombLabel = currentInviteData.ombrellone_fila ? `Fila ${currentInviteData.ombrellone_fila} N°${currentInviteData.ombrellone_numero}` : null;
-  await inviaEmail('benvenuto', { email: currentInviteData.email, nome: currentInviteData.nome, cognome: currentInviteData.cognome, ombrellone: ombLabel }, stab);
+  await inviaEmail('benvenuto', { email: currentInviteData.email, nome: currentInviteData.nome, cognome: currentInviteData.cognome, ombrellone: ombLabel, login_link: window.location.origin }, stab);
   const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
   currentProfile = profile;
   updateNav();

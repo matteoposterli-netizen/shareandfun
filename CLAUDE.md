@@ -40,8 +40,8 @@ RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select au
 ### Edge Functions
 
 - `invia-email` — invia email transazionali via Resend. Dominio mittente: `spiaggiamia.com` (verificato su Resend, DNS gestiti da Vercel). Tipi attivamente usati dalla UI:
-  - `invito` (link personale)
-  - `benvenuto` (post-completamento invito)
+  - `invito` (link personale via `invite_link`)
+  - `benvenuto` (post-completamento invito; include CTA "Accedi a SpiaggiaMia" se viene passato `login_link`)
   - `credito_accreditato` (ad ogni inserimento di transazione `credito_ricevuto` — incluso il sub-affitto automatico)
   - `credito_ritirato` (ad ogni inserimento di transazione `credito_usato`)
 
