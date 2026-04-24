@@ -6,6 +6,9 @@
 <title>SpiaggiaMia</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/it.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -225,10 +228,10 @@
               <div class="card-title">🗺️ Mappa ombrelloni</div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
-                  <span>Dal</span>
-                  <input type="date" id="map-date-from" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="refreshMap()">
-                  <span>al</span>
-                  <input type="date" id="map-date-to" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="refreshMap()">
+                  <span>Periodo</span>
+                  <input type="text" id="map-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+                  <input type="hidden" id="map-date-from">
+                  <input type="hidden" id="map-date-to">
                 </div>
                 <button class="btn btn-outline btn-sm" onclick="managerTab('gestione',null)">Gestisci</button>
               </div>
@@ -245,7 +248,7 @@
                   <div class="map-legend">
                     <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Stagionale presente</div>
                     <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Libero tutto il periodo</div>
-                    <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,var(--coral-light) 0 4px,#fff 4px 8px);border:1.5px solid var(--coral)"></div>Parte di una combinazione</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,var(--coral) 0 3px,var(--coral-light) 3px 7px);border:2px solid var(--coral)"></div>Parte di una combinazione</div>
                     <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
                   </div>
                   <div id="map-free-count" style="margin-top:10px"></div>
