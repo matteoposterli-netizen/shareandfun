@@ -1,6 +1,27 @@
 function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
 function showLoading() { document.getElementById('loading-overlay').style.display = 'flex'; }
 
+// Normalize <input type="date"> UX across browsers via flatpickr (Safari <14.1
+// shipped without a native date picker; even modern Safari diverges from
+// Chrome/Edge/Firefox). Keeps the underlying value as ISO "YYYY-MM-DD" so
+// existing onchange handlers that read .value keep working.
+function enhanceDateInputs(root) {
+  if (typeof flatpickr === 'undefined') return;
+  const scope = root || document;
+  const inputs = scope.querySelectorAll('input[type="date"]:not([data-fp-enhanced])');
+  inputs.forEach(input => {
+    input.setAttribute('data-fp-enhanced', '1');
+    flatpickr(input, {
+      locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
+      dateFormat: 'Y-m-d',
+      altInput: true,
+      altFormat: 'd/m/Y',
+      allowInput: true,
+      disableMobile: true,
+    });
+  });
+}
+
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
 function showAlert(containerId, msg, type) {

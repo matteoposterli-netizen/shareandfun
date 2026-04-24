@@ -49,5 +49,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     currentUser = session.user;
     await loadUserAndRoute();
   }
+  enhanceDateInputs();
   hideLoading();
 });

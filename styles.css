@@ -26,10 +26,14 @@
 body {
   font-family: 'DM Sans', sans-serif;
   background: var(--sand); color: var(--text);
-  min-height: 100vh; overflow-x: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* UTILS */
@@ -42,7 +46,7 @@ body {
   background: var(--sand);
   border-bottom: 1px solid var(--border);
   padding: 0 40px; display: flex; align-items: center; justify-content: space-between;
-  height: 68px; position: sticky; top: 0; z-index: 100;
+  height: 68px; position: -webkit-sticky; position: sticky; top: 0; z-index: 100;
 }
 .logo {
   font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--ink);
@@ -132,9 +136,11 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .loading-overlay {
-  position: fixed; inset: 0; background: rgba(251,250,247,0.85);
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
+  background: rgba(251,250,247,0.85);
   display: flex; align-items: center; justify-content: center;
   z-index: 999; flex-direction: column; gap: 14px;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 .loading-overlay p { font-size: 14px; color: var(--text-mid); }
@@ -261,7 +267,11 @@ body {
 .auth-switch a { color: var(--ink); cursor: pointer; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 
 /* ======================== DASHBOARD LAYOUT ======================== */
-.dash-layout { display: grid; grid-template-columns: 250px 1fr; min-height: calc(100vh - 68px); }
+.dash-layout {
+  display: grid; grid-template-columns: 250px 1fr;
+  min-height: calc(100vh - 68px);
+  min-height: calc(100dvh - 68px);
+}
 .sidebar {
   background: var(--sand); border-right: 1px solid var(--border);
   padding: 24px 16px; display: flex; flex-direction: column; gap: 4px;
@@ -288,7 +298,7 @@ body {
   margin-left: auto; background: var(--coral); color: #fff;
   font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px;
 }
-.main-content { padding: 36px 44px; overflow-y: auto; }
+.main-content { padding: 36px 44px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .page-header {
   display: flex; align-items: flex-end; justify-content: space-between;
   margin-bottom: 32px; gap: 16px;
@@ -449,12 +459,14 @@ body {
 }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tr:hover td { background: var(--sand); }
-.table-wrap { overflow-x: auto; background: #fff; border-radius: var(--radius); border: 1px solid var(--border); }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; background: #fff; border-radius: var(--radius); border: 1px solid var(--border); }
 
 /* Compact variant: fits many columns in the container without horizontal scroll */
 .data-table-compact th, .data-table-compact td {
   padding: 10px 10px; font-size: 12px;
-  overflow-wrap: anywhere; word-break: break-word;
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .data-table-compact th { font-size: 10px; padding: 10px 10px; }
 
@@ -515,11 +527,16 @@ body {
 }
 .cal-days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
 .cal-day {
-  aspect-ratio: 1; border-radius: 10px;
+  aspect-ratio: 1 / 1; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; font-weight: 500; cursor: pointer;
   border: 1.5px solid var(--border); color: var(--ink);
   background: #fff; transition: background .12s, border-color .12s;
+}
+/* aspect-ratio fallback (Safari < 15): use padding-top trick so cells stay square. */
+@supports not (aspect-ratio: 1 / 1) {
+  .cal-day { position: relative; height: 0; padding-top: 100%; }
+  .cal-day > * { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; }
 }
 .cal-day:hover:not(.empty):not(.past) { border-color: var(--ink); }
 .cal-day.empty, .cal-day.past { color: var(--text-light); cursor: default; background: transparent; border-color: transparent; }
@@ -535,16 +552,23 @@ body {
 
 /* MODAL */
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(14,27,38,0.4);
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
+  background: rgba(14,27,38,0.4);
   display: flex; align-items: center; justify-content: center;
-  z-index: 200; padding: 20px; backdrop-filter: blur(3px);
+  z-index: 200; padding: 20px;
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .modal {
   background: #fff; border-radius: var(--radius);
   padding: 32px; max-width: 520px; width: 100%;
   box-shadow: var(--shadow-md);
-  max-height: calc(100vh - 40px); overflow-y: auto;
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .modal-title { font-family: 'DM Serif Display', serif; font-size: 24px; margin-bottom: 8px; letter-spacing: -0.01em; }
 .modal-sub { font-size: 14px; color: var(--text-mid); margin-bottom: 24px; line-height: 1.55; }
@@ -558,7 +582,7 @@ body {
 .setup-sub { font-size: 15px; color: var(--text-mid); margin-bottom: 28px; line-height: 1.6; }
 
 /* CSV PREVIEW */
-.csv-preview-wrap { max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; margin-top: 14px; }
+.csv-preview-wrap { max-height: 300px; overflow-y: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 12px; margin-top: 14px; }
 .csv-check-all {
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; font-weight: 600; padding: 12px 18px;
@@ -568,9 +592,12 @@ body {
   display: grid; grid-template-columns: 32px 80px 1fr 1fr 1fr 1fr 110px;
   align-items: center; gap: 8px; padding: 10px 18px;
   border-bottom: 1px solid var(--border); font-size: 13px;
-  content-visibility: auto; contain-intrinsic-size: auto 40px;
 }
-.csv-row.header { content-visibility: visible; background: var(--sand); font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-light); letter-spacing: 1px; }
+@supports (content-visibility: auto) {
+  .csv-row { content-visibility: auto; contain-intrinsic-size: auto 40px; }
+  .csv-row.header { content-visibility: visible; }
+}
+.csv-row.header { background: var(--sand); font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-light); letter-spacing: 1px; }
 .csv-row.ombrelloni { grid-template-columns: 32px 60px 60px 100px 1fr; }
 .csv-row .omb-missing { color: var(--red); font-size: 11px; font-weight: 600; }
 .csv-row input[type=checkbox]:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -708,12 +735,13 @@ body {
   .dash-layout {
     grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr;
     min-height: calc(100vh - 58px);
+    min-height: calc(100dvh - 58px);
   }
   .sidebar {
     display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 4px; padding: 10px 10px;
     border-right: none; border-bottom: 1px solid var(--border);
-    position: sticky; top: 58px; z-index: 90;
+    position: -webkit-sticky; position: sticky; top: 58px; z-index: 90;
     background: var(--sand); overflow: visible;
   }
   .sidebar-title { display: none; }
@@ -804,7 +832,11 @@ body {
   .modal {
     border-radius: var(--radius) var(--radius) 0 0;
     max-width: 100%; width: 100%; padding: 26px 20px;
-    margin-top: auto; max-height: 94vh; overflow-y: auto;
+    margin-top: auto;
+    max-height: 94vh;
+    max-height: 94dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .modal-title { font-size: 20px; }
   .modal-footer { flex-direction: column-reverse; gap: 8px; }
@@ -829,7 +861,11 @@ body {
   .alert { padding: 11px 14px; font-size: 12px; }
 
   /* Long strings wrap */
-  code, .card-body p, .card-body { overflow-wrap: anywhere; word-break: break-word; }
+  code, .card-body p, .card-body {
+    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
 }
 
 /* Small phones */

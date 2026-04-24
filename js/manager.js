@@ -885,11 +885,13 @@ function renderTxList(txs, stab, ombsMap) {
 
 function managerTab(tab, btn) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.getElementById('mtab-' + tab).classList.add('active');
+  const panel = document.getElementById('mtab-' + tab);
+  panel.classList.add('active');
   document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   if (tab === 'email') loadEmailTemplates();
   if (tab === 'prenotazioni') loadPrenotazioni();
+  enhanceDateInputs(panel);
 }
 
 function generateDefaultBookingName() {
