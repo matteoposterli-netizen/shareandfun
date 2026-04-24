@@ -473,13 +473,19 @@
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               <input type="search" id="pren-filter-text" class="form-input" placeholder="Cerca per nome, cliente o ombrellone…" style="width:260px;padding:6px 10px;font-size:13px" oninput="renderPrenotazioni()">
               <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
-                <span>Dal</span>
-                <input type="date" id="pren-filter-from" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="renderPrenotazioni()">
-                <span>al</span>
-                <input type="date" id="pren-filter-to" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="renderPrenotazioni()">
+                <span>Periodo</span>
+                <input type="text" id="pren-range-picker" class="form-input" readonly placeholder="Tutte le date" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+                <input type="hidden" id="pren-filter-from">
+                <input type="hidden" id="pren-filter-to">
               </div>
               <button type="button" class="btn btn-outline btn-sm" onclick="clearPrenFilters()">Pulisci</button>
             </div>
+          </div>
+          <div id="pren-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px 12px">
+            <button type="button" class="btn btn-outline btn-sm pren-preset-btn" data-preset="today" onclick="setPrenRange('today')">Oggi</button>
+            <button type="button" class="btn btn-outline btn-sm pren-preset-btn" data-preset="next7" onclick="setPrenRange('next7')">Prossimi 7 giorni</button>
+            <button type="button" class="btn btn-outline btn-sm pren-preset-btn" data-preset="last7" onclick="setPrenRange('last7')">Ultimi 7 giorni</button>
+            <button type="button" class="btn btn-outline btn-sm pren-preset-btn" data-preset="last30" onclick="setPrenRange('last30')">Ultimi 30 giorni</button>
           </div>
           <div class="card-body">
             <div id="pren-count-label" style="font-size:13px;color:var(--text-light);margin-bottom:10px"></div>
@@ -496,17 +502,19 @@
                 <option value="">Tutti gli ombrelloni</option>
               </select>
               <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
-                <span>Dal</span>
-                <input type="date" id="tx-filter-from" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="loadAllTx()">
-                <span>al</span>
-                <input type="date" id="tx-filter-to" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="loadAllTx()">
+                <span>Periodo</span>
+                <input type="text" id="tx-range-picker" class="form-input" readonly placeholder="Tutte le date" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+                <input type="hidden" id="tx-filter-from">
+                <input type="hidden" id="tx-filter-to">
               </div>
-              <button type="button" class="btn btn-outline btn-sm tx-preset-btn" data-preset="today" onclick="setTxRange('today')">Oggi</button>
-              <button type="button" class="btn btn-outline btn-sm tx-preset-btn" data-preset="yesterday" onclick="setTxRange('yesterday')">Ieri</button>
-              <button type="button" class="btn btn-outline btn-sm tx-preset-btn" data-preset="3" onclick="setTxRange(3)">Ultimi 3 gg</button>
-              <button type="button" class="btn btn-outline btn-sm tx-preset-btn" data-preset="7" onclick="setTxRange(7)">Ultimi 7 gg</button>
               <button type="button" class="btn btn-outline btn-sm" onclick="clearTxRange()">Tutte</button>
             </div>
+          </div>
+          <div id="tx-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px 12px">
+            <button type="button" class="btn btn-outline btn-sm tx-preset-btn" data-preset="today" onclick="setTxRange('today')">Oggi</button>
+            <button type="button" class="btn btn-outline btn-sm tx-preset-btn" data-preset="yesterday" onclick="setTxRange('yesterday')">Ieri</button>
+            <button type="button" class="btn btn-outline btn-sm tx-preset-btn" data-preset="3" onclick="setTxRange(3)">Ultimi 3 gg</button>
+            <button type="button" class="btn btn-outline btn-sm tx-preset-btn" data-preset="7" onclick="setTxRange(7)">Ultimi 7 gg</button>
           </div>
           <div class="card-body">
             <div id="tx-count-label" style="font-size:13px;color:var(--text-light);margin-bottom:10px"></div>
