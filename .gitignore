@@ -3,6 +3,5 @@ supabase/.branches/
 .DS_Store
 node_modules/
 scripts/credentials.json
-scripts/.chrome-profiles/
 scripts/package.json
 scripts/package-lock.json

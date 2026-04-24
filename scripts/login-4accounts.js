@@ -1,4 +1,5 @@
-// Apre 4 finestre Chromium isolate (profili separati) e fa auto-login su spiaggiamia.com.
+// Apre N finestre Chromium in vera incognito (nessuna persistenza su disco,
+// ogni contesto è isolato dagli altri) e fa auto-login su spiaggiamia.com.
 //
 // Setup (una tantum):
 //   cd scripts && npm init -y && npm install playwright && npx playwright install chromium
@@ -7,31 +8,32 @@
 //   1. cp scripts/credentials.example.json scripts/credentials.json
 //   2. Modifica credentials.json con le 4 coppie email/password
 //   3. node scripts/login-4accounts.js
-//   Ctrl+C per chiudere tutte le finestre.
+//   Ctrl+C per chiudere tutte le finestre (e scartare cookie/sessione).
 
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 
 const BASE_URL = process.env.SPIAGGIAMIA_URL || 'https://spiaggiamia.com';
 const CREDS_PATH = path.join(__dirname, 'credentials.json');
-const PROFILES_DIR = path.join(__dirname, '.chrome-profiles');
 
-async function loginOne(index, { email, password }) {
-  const userDataDir = path.join(PROFILES_DIR, `account-${index + 1}`);
-  fs.mkdirSync(userDataDir, { recursive: true });
+const WIN_W = 1100;
+const WIN_H = 800;
 
-  const context = await chromium.launchPersistentContext(userDataDir, {
-    headless: false,
-    viewport: null,
-    args: [
-      `--window-size=1100,800`,
-      `--window-position=${(index % 2) * 1120},${Math.floor(index / 2) * 820}`,
-    ],
-  });
+async function loginOne(browser, index, { email, password }) {
+  const context = await browser.newContext({ viewport: null });
+  const page = await context.newPage();
 
-  const page = context.pages()[0] || (await context.newPage());
+  const x = (index % 2) * (WIN_W + 20);
+  const y = Math.floor(index / 2) * (WIN_H + 40);
+  await page.evaluate(
+    ([w, h, px, py]) => {
+      window.resizeTo(w, h);
+      window.moveTo(px, py);
+    },
+    [WIN_W, WIN_H, x, y],
+  );
+
   const url = `${BASE_URL}/?login=${encodeURIComponent(email)}`;
   await page.goto(url, { waitUntil: 'domcontentloaded' });
 
@@ -47,7 +49,7 @@ async function loginOne(index, { email, password }) {
 async function main() {
   if (!fs.existsSync(CREDS_PATH)) {
     console.error(`File mancante: ${CREDS_PATH}`);
-    console.error(`Copialo da credentials.example.json e compila le 4 coppie.`);
+    console.error(`Copialo da credentials.example.json e compila le coppie.`);
     process.exit(1);
   }
   const creds = JSON.parse(fs.readFileSync(CREDS_PATH, 'utf8'));
@@ -56,21 +58,28 @@ async function main() {
     process.exit(1);
   }
 
+  const browser = await chromium.launch({
+    headless: false,
+    args: [`--window-size=${WIN_W},${WIN_H}`],
+  });
+
   const contexts = [];
   for (let i = 0; i < creds.length; i++) {
     try {
-      contexts.push(await loginOne(i, creds[i]));
+      contexts.push(await loginOne(browser, i, creds[i]));
     } catch (err) {
       console.error(`[${i + 1}] errore:`, err.message);
     }
   }
 
-  console.log(`\n${contexts.length} finestre aperte. Ctrl+C per chiudere tutto.`);
-  process.on('SIGINT', async () => {
+  console.log(`\n${contexts.length} finestre aperte (incognito effimera). Ctrl+C per chiudere.`);
+  const shutdown = async () => {
     console.log('\nChiusura finestre...');
-    await Promise.all(contexts.map((c) => c.close().catch(() => {})));
+    await browser.close().catch(() => {});
     process.exit(0);
-  });
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
   await new Promise(() => {});
 }
 
