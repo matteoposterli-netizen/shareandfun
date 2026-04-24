@@ -505,6 +505,7 @@ function renderGestioneFiltered() {
       <td>${cliente ? (escapeHtml(cliente.telefono || '') || '–') : '<span style="color:var(--text-light)">–</span>'}</td>
       <td>${pill}</td>
       <td style="white-space:nowrap">
+        <button class="btn btn-outline btn-sm" onclick="openViewOmbrelloneModal('${omb.id}')" title="Vedi disponibilità" style="margin-right:4px">👁️</button>
         <button class="btn btn-outline btn-sm" onclick="openEditRowModal('${omb.id}')" title="Modifica" style="margin-right:4px">✏️</button>
         ${azioniInvito}
         <button class="btn btn-danger btn-sm" onclick="deleteRow('${omb.id}')" title="Rimuovi riga">🗑️</button>
@@ -1716,4 +1717,77 @@ async function deleteRow(ombId) {
   if (cliente) await sb.from('clienti_stagionali').delete().eq('id', cliente.id);
   await sb.from('ombrelloni').delete().eq('id', ombId);
   await loadManagerData();
+}
+
+let viewOmbIdCurrent = null;
+let viewOmbDispMap = {};
+let viewOmbCalYear = new Date().getFullYear();
+let viewOmbCalMonth = new Date().getMonth();
+
+async function openViewOmbrelloneModal(ombId) {
+  const omb = ombrelloniList.find(o => o.id === ombId);
+  if (!omb) return;
+  const cliente = (clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === ombId) || null;
+
+  viewOmbIdCurrent = ombId;
+  const now = new Date();
+  viewOmbCalYear = now.getFullYear();
+  viewOmbCalMonth = now.getMonth();
+
+  document.getElementById('view-omb-title').textContent = `☂️ Ombrellone Fila ${omb.fila} · N°${omb.numero}`;
+  document.getElementById('view-omb-credito').textContent = formatCoin(omb.credito_giornaliero);
+  const clienteInfo = cliente
+    ? `${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')}${cliente.email ? ' · ' + escapeHtml(cliente.email) : ''}`
+    : '<span style="color:var(--text-light)">Nessun cliente associato</span>';
+  document.getElementById('view-omb-cliente').innerHTML = clienteInfo;
+
+  showLoading();
+  const { data: disp } = await sb.from('disponibilita').select('data, stato').eq('ombrellone_id', ombId);
+  viewOmbDispMap = {};
+  (disp || []).forEach(d => { viewOmbDispMap[d.data] = d.stato; });
+  hideLoading();
+
+  renderViewOmbrelloneCalendar();
+  document.getElementById('modal-view-ombrellone').classList.remove('hidden');
+}
+
+function viewOmbrelloneCalNav(dir) {
+  viewOmbCalMonth += dir;
+  if (viewOmbCalMonth > 11) { viewOmbCalMonth = 0; viewOmbCalYear++; }
+  if (viewOmbCalMonth < 0) { viewOmbCalMonth = 11; viewOmbCalYear--; }
+  renderViewOmbrelloneCalendar();
+}
+
+function renderViewOmbrelloneCalendar() {
+  const el = document.getElementById('view-omb-calendar');
+  const label = document.getElementById('view-omb-cal-label');
+  if (!el || !label) return;
+  const months = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  label.textContent = months[viewOmbCalMonth] + ' ' + viewOmbCalYear;
+  const firstDay = new Date(viewOmbCalYear, viewOmbCalMonth, 1).getDay();
+  const offset = (firstDay + 6) % 7;
+  const daysInMonth = new Date(viewOmbCalYear, viewOmbCalMonth + 1, 0).getDate();
+  const today = new Date();
+  el.innerHTML = '';
+  for (let i = 0; i < offset; i++) {
+    const d = document.createElement('div'); d.className = 'cal-day empty'; el.appendChild(d);
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${viewOmbCalYear}-${String(viewOmbCalMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const cellDate = new Date(viewOmbCalYear, viewOmbCalMonth, d);
+    const isToday = cellDate.toDateString() === today.toDateString();
+    const isPast = cellDate < today && !isToday;
+    const stato = viewOmbDispMap[dateStr];
+    let cls = 'cal-day cal-day-readonly';
+    if (isPast) cls += ' past';
+    else if (isToday) cls += ' today';
+    if (stato === 'libero') cls += ' free';
+    if (stato === 'sub_affittato') cls += ' subleased';
+    const div = document.createElement('div');
+    div.className = cls;
+    div.textContent = d;
+    if (stato === 'libero') div.title = `${formatDate(dateStr)} · Dichiarato libero`;
+    else if (stato === 'sub_affittato') div.title = `${formatDate(dateStr)} · Sub-affittato`;
+    el.appendChild(div);
+  }
 }

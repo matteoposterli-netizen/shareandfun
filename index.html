@@ -734,6 +734,41 @@
   </div>
 </div>
 
+<!-- Visualizzazione ombrellone + calendario disponibilità (read-only) -->
+<div id="modal-view-ombrellone" class="modal-overlay hidden">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title" id="view-omb-title">☂️ Ombrellone</div>
+    <div class="modal-sub">Disponibilità in sola lettura. Solo il cliente stagionale può modificare la propria disponibilità.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0 18px;padding:12px;background:var(--sand);border-radius:var(--radius-sm)">
+      <div>
+        <div style="font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Cliente</div>
+        <div id="view-omb-cliente" style="font-size:13px;color:var(--ink)">–</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Credito giornaliero</div>
+        <div id="view-omb-credito" style="font-size:13px;color:var(--ink);font-weight:600">–</div>
+      </div>
+    </div>
+    <div class="cal-header">
+      <button class="cal-nav" onclick="viewOmbrelloneCalNav(-1)">‹</button>
+      <div class="cal-month" id="view-omb-cal-label"></div>
+      <button class="cal-nav" onclick="viewOmbrelloneCalNav(1)">›</button>
+    </div>
+    <div class="cal-days-header">
+      <div class="cal-day-name">Lun</div><div class="cal-day-name">Mar</div><div class="cal-day-name">Mer</div>
+      <div class="cal-day-name">Gio</div><div class="cal-day-name">Ven</div><div class="cal-day-name">Sab</div><div class="cal-day-name">Dom</div>
+    </div>
+    <div class="cal-days-grid" id="view-omb-calendar"></div>
+    <div class="cal-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Dichiarato libero</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-view-ombrellone')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
 <!-- Conflitto ombrellone -->
 <div id="modal-conflict-cliente" class="modal-overlay hidden">
   <div class="modal">

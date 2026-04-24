@@ -526,6 +526,11 @@ body {
 .cal-day.today { background: var(--ink); color: #fff; font-weight: 700; border-color: var(--ink); }
 .cal-day.free { background: var(--green-light); color: var(--green); border-color: #96DDB8; }
 .cal-day.subleased { background: var(--yellow-light); color: #9C7A1F; border-color: var(--yellow); }
+.cal-day.cal-day-readonly { cursor: default; }
+.cal-day.cal-day-readonly:hover:not(.empty):not(.past) { border-color: var(--border); }
+.cal-day.cal-day-readonly.today:hover { border-color: var(--ink); }
+.cal-day.cal-day-readonly.free:hover { border-color: #96DDB8; }
+.cal-day.cal-day-readonly.subleased:hover { border-color: var(--yellow); }
 .cal-legend { display: flex; gap: 20px; padding: 20px 0 4px; flex-wrap: wrap; border-top: 1px solid var(--border); margin-top: 20px; }
 
 /* MODAL */
