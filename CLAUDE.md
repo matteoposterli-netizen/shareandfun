@@ -31,17 +31,9 @@ Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono ren
 
 RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select auth.uid())` per performance. In aggiunta, ogni tabella business ha un set di policy `*_admin_*` che concedono accesso totale agli utenti presenti in `public.admins` (controllato via `public.is_admin(uid)` — SECURITY DEFINER). L'intero schema `public` (tabelle, FK, indexes, RLS, policies, RPC) è catturato come baseline in `supabase/migrations/20260420000000_baseline.sql`; migrazioni future vanno come file addizionali con timestamp successivo.
 
-> ⚠️ **Migrazioni pendenti al 2026-04-24**:
-> - `supabase/migrations/20260423000000_coin_email_templates.sql` — aggiunge 4 colonne `email_credito_*` a `stabilimenti`.
-> - `supabase/migrations/20260424000000_admin_section.sql` — crea tabella `admins`, funzione `is_admin()` e policy admin-full-access su tutte le 6 tabelle business. Finché non viene applicata: la view `?admin=1` si carica ma la query su `admins` fallirà in login.
-> - `supabase/migrations/20260424100000_stagionale_disponibilita_tx.sql` — estende `transazioni_insert` per permettere allo stagionale di inserire `disponibilita_aggiunta`/`disponibilita_rimossa` sul proprio `cliente_id` (con `importo IS NULL`). Senza questa migrazione le transazioni informative di calendario dello stagionale vengono scartate silenziosamente da RLS e il gestore non le vede nella tab Transazioni.
+> Tutte le migrazioni in `supabase/migrations/` sono state applicate sul DB di produzione al 2026-04-24.
 >
-> Applicare via Supabase dashboard (SQL Editor), `supabase db push` o `psql`.
->
-> Applicate il 2026-04-24:
-> - `20260424200000_disponibilita_nome_prenotazione.sql` (colonna `nome_prenotazione text` nullable + indice parziale) — abilita il nome opzionale nel flusso di selezione prenotazione dalla mappa.
-> - `20260424300000_cancellation_tx_types.sql` — aggiunge `sub_affitto_annullato` e `credito_revocato` al `CHECK` su `transazioni.tipo`, usati dal flusso "Annulla prenotazione".
-> - `20260424400000_cancel_booking_rpc.sql` — crea la RPC `cancel_booking(uuid[])` (SECURITY DEFINER) che esegue l'annullamento prenotazione in un'unica transazione atomica dopo aver verificato che il caller sia proprietario dello stabilimento.
+> Applicare nuove migrazioni via Supabase dashboard (SQL Editor), `supabase db push` o `psql`.
 
 ### RPC functions (SECURITY DEFINER)
 
