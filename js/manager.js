@@ -794,10 +794,12 @@ function renderTxList(txs, stab, ombsMap) {
         ? `<span class="tx-omb">Fila ${o.fila} N°${o.numero}</span>`
         : `<span class="tx-omb tx-omb-missing">ombrellone rimosso</span>`;
     }
+    const bloccatoDalProprietario = t.tipo === 'disponibilita_rimossa' && typeof t.nota === 'string' && t.nota.includes('bloccato dal proprietario');
+    const label = bloccatoDalProprietario ? 'Ombrellone sub-affittato con successo' : (labels[t.tipo] || t.tipo);
     return `<div class="tx-item">
       <div class="tx-dot ${ic.c}">${ic.e}</div>
       <div class="tx-info">
-        <div class="tx-title">${labels[t.tipo] || t.tipo}${t.importo ? ` — ${formatCoin(t.importo, stab)}` : ''}${ombStr ? ' ' + ombStr : ''}</div>
+        <div class="tx-title">${label}${t.importo ? ` — ${formatCoin(t.importo, stab)}` : ''}${ombStr ? ' ' + ombStr : ''}</div>
         <div class="tx-sub">${t.nota || ''}</div>
       </div>
       <div class="tx-time">${formatDateShort(t.created_at)}</div>
