@@ -126,23 +126,50 @@ async function showAdminLogin() {
 }
 
 async function doAdminLogin() {
-  const email = document.getElementById('admin-login-email').value.trim();
+  // Normalize email: Supabase stores emails lowercase server-side; sending
+  // mixed-case is fine but normalizing avoids any client-side typos.
+  const email = document.getElementById('admin-login-email').value.trim().toLowerCase();
   const password = document.getElementById('admin-login-password').value;
   const btn = document.getElementById('btn-admin-login');
   if (!email || !password) { showAlert('admin-login-alert', 'Compila tutti i campi', 'error'); return; }
   btn.disabled = true; btn.textContent = 'Accesso in corso…';
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (error) {
-    showAlert('admin-login-alert', 'Credenziali non valide', 'error');
+    // Surface the real cause (wrong password vs unconfirmed email vs unknown
+    // user) instead of a generic message — otherwise diagnosing provisioning
+    // problems requires Supabase dashboard access.
+    const msg = (error.message || '').toLowerCase();
+    let human = `Accesso fallito: ${error.message}`;
+    if (msg.includes('invalid login')) {
+      human = 'Credenziali non valide. Verifica che l\'utente esista in Supabase Authentication e che la password sia corretta.';
+    } else if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+      human = 'Email non confermata. Apri il dashboard Supabase → Authentication → Users e conferma l\'utente (Auto Confirm).';
+    } else if (msg.includes('rate limit') || msg.includes('too many')) {
+      human = 'Troppi tentativi. Riprova fra qualche minuto.';
+    }
+    showAlert('admin-login-alert', human, 'error');
     btn.disabled = false; btn.textContent = 'Accedi come admin';
     return;
   }
   // Verify the user is in public.admins. Admins_self_select policy returns
   // the row only if user_id = auth.uid().
   const { data: adminRow, error: adminErr } = await sb.from('admins').select('user_id').eq('user_id', data.user.id).maybeSingle();
-  if (adminErr || !adminRow) {
+  if (adminErr) {
+    // Distinguish "table missing" (migration not applied yet) from other
+    // RLS/network errors so we can guide the operator to the right fix.
     await sb.auth.signOut();
-    showAlert('admin-login-alert', 'Questo account non ha i permessi di amministratore.', 'error');
+    const m = (adminErr.message || '').toLowerCase();
+    const tableMissing = m.includes('relation') && m.includes('admins') || adminErr.code === '42P01';
+    const human = tableMissing
+      ? 'La tabella public.admins non esiste ancora. Applica la migration supabase/migrations/20260424000000_admin_section.sql sul progetto Supabase.'
+      : `Errore verifica admin: ${adminErr.message}`;
+    showAlert('admin-login-alert', human, 'error');
+    btn.disabled = false; btn.textContent = 'Accedi come admin';
+    return;
+  }
+  if (!adminRow) {
+    await sb.auth.signOut();
+    showAlert('admin-login-alert', 'Login riuscito ma questo account non è registrato come admin. Esegui in SQL Editor: INSERT INTO public.admins (user_id) VALUES (\'' + data.user.id + '\');', 'error');
     btn.disabled = false; btn.textContent = 'Accedi come admin';
     return;
   }
