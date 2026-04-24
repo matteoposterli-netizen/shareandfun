@@ -402,6 +402,13 @@ body {
 .data-table tr:hover td { background: var(--sand); }
 .table-wrap { overflow-x: auto; background: #fff; border-radius: var(--radius); border: 1px solid var(--border); }
 
+/* Compact variant: fits many columns in the container without horizontal scroll */
+.data-table-compact th, .data-table-compact td {
+  padding: 10px 10px; font-size: 12px;
+  overflow-wrap: anywhere; word-break: break-word;
+}
+.data-table-compact th { font-size: 10px; padding: 10px 10px; }
+
 /* PILLS */
 .pill {
   display: inline-flex; align-items: center; padding: 4px 12px;
