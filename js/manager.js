@@ -875,6 +875,15 @@ function managerTab(tab, btn) {
   if (tab === 'prenotazioni') loadPrenotazioni();
 }
 
+function generateDefaultBookingName() {
+  const stabNome = currentStabilimento?.nome || 'Stabilimento';
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const dt = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${String(now.getFullYear()).slice(-2)} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `${stabNome} — ${dt} · #${code}`;
+}
+
 function openFinalizeBookingModal() {
   if (!currentMapRange || bookingSelection.size === 0) return;
   const { pairs, missingDays, totalCredit } = computeBookingCoverage();
@@ -912,20 +921,19 @@ async function finalizeBookingSelection() {
     return;
   }
   const rawName = document.getElementById('finalize-booking-nome').value.trim();
-  const nomePrenotazione = rawName || null;
+  const nomePrenotazione = rawName || generateDefaultBookingName();
 
   showLoading();
   try {
     const dispRows = pairs.map(p => {
       const cliente = clientiList.find(c => c.ombrellone_id === p.omb.id) || null;
-      const row = {
+      return {
         ombrellone_id: p.omb.id,
         cliente_id: cliente?.id || null,
         data: p.date,
         stato: 'sub_affittato',
+        nome_prenotazione: nomePrenotazione,
       };
-      if (nomePrenotazione) row.nome_prenotazione = nomePrenotazione;
-      return row;
     });
 
     const { error: dispErr } = await sb.from('disponibilita').upsert(dispRows, { onConflict: 'ombrellone_id,data' });
