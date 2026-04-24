@@ -207,38 +207,155 @@
       <button class="sidebar-item" onclick="managerTab('prenotazioni',this)"><span class="icon">📖</span> Prenotazioni</button>
       <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Gestione Credito</button>
       <button class="sidebar-item" onclick="managerTab('gestione',this)"><span class="icon">🗺️</span> Ombrelloni e Clienti</button>
-      <button class="sidebar-item" onclick="managerTab('email',this)"><span class="icon">✉️</span> Email</button>
+      <button class="sidebar-item" onclick="managerTab('config',this)"><span class="icon">⚙️</span> Configurazioni</button>
       <button class="sidebar-item" onclick="managerTab('log',this)"><span class="icon">🕵️</span> Log attività</button>
     </div>
     <div class="main-content">
       <!-- DASHBOARD (KPI overview) -->
+      <!-- DASHBOARD (KPI overview — 4 KPI + flow + top-3) -->
       <div id="mtab-panoramica" class="tab-content active">
         <div class="page-header">
-          <div><div class="page-title" id="manager-stab-nome">Dashboard</div><div class="page-subtitle" id="manager-today-label"></div></div>
+          <div>
+            <div class="page-title" id="manager-stab-nome">Panoramica</div>
+            <div class="page-subtitle" id="manager-today-label"></div>
+          </div>
+          <div id="dash-range-pill" class="dash-range-pill" title="Periodo analizzato">
+            <span>📅</span><strong id="dash-range-label">Ultimi 30 giorni</strong>
+          </div>
         </div>
 
-        <div class="section-divider">📊 Oggi</div>
+        <!-- 4 KPI principali -->
+        <div class="kpi-grid">
+          <div class="kpi-card" data-accent="green">
+            <div class="kpi-head">
+              <div class="kpi-label">Disponibilità dichiarate</div>
+              <div class="kpi-icon" aria-hidden="true">✓</div>
+            </div>
+            <div class="kpi-value-row">
+              <div class="kpi-value" id="kpi-dich-value">–</div>
+              <div class="kpi-delta" id="kpi-dich-delta"></div>
+            </div>
+            <div class="kpi-hint">Giorni di assenza comunicati dagli stagionali</div>
+            <svg class="kpi-spark" id="kpi-dich-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+          </div>
+
+          <div class="kpi-card" data-accent="yellow">
+            <div class="kpi-head">
+              <div class="kpi-label">Disponibilità prenotate</div>
+              <div class="kpi-icon" aria-hidden="true">🎟️</div>
+            </div>
+            <div class="kpi-value-row">
+              <div class="kpi-value" id="kpi-pren-value">–</div>
+              <div class="kpi-delta" id="kpi-pren-delta"></div>
+            </div>
+            <div class="kpi-hint">Sub-affitti andati a buon fine</div>
+            <svg class="kpi-spark" id="kpi-pren-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+          </div>
+
+          <div class="kpi-card" data-accent="ocean">
+            <div class="kpi-head">
+              <div class="kpi-label"><span id="kpi-distr-coin-label">Coin</span> distribuiti</div>
+              <div class="kpi-icon" aria-hidden="true">🪙</div>
+            </div>
+            <div class="kpi-value-row">
+              <div class="kpi-value" id="kpi-distr-value">–</div>
+              <div class="kpi-delta" id="kpi-distr-delta"></div>
+            </div>
+            <div class="kpi-hint">Credito accumulato dagli stagionali</div>
+            <svg class="kpi-spark" id="kpi-distr-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+          </div>
+
+          <div class="kpi-card" data-accent="coral">
+            <div class="kpi-head">
+              <div class="kpi-label"><span id="kpi-spent-coin-label">Coin</span> spesi</div>
+              <div class="kpi-icon" aria-hidden="true">☕</div>
+            </div>
+            <div class="kpi-value-row">
+              <div class="kpi-value" id="kpi-spent-value">–</div>
+              <div class="kpi-delta" id="kpi-spent-delta"></div>
+            </div>
+            <div class="kpi-hint">Consumati al bar o ristorante</div>
+            <svg class="kpi-spark" id="kpi-spent-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+          </div>
+        </div>
+
+        <!-- Flow diagram -->
+        <div class="card flow-card">
+          <div class="card-header" style="border:none;padding-bottom:0">
+            <div>
+              <div class="card-title">Il flusso in un colpo d'occhio</div>
+              <div class="card-subtitle">Come le assenze si trasformano in prenotazioni, <span class="flow-coin-label">coin</span> distribuiti e spesi.</div>
+            </div>
+          </div>
+          <div class="flow-row">
+            <div class="flow-step" data-accent="green">
+              <div class="flow-num" id="flow-dich">–</div>
+              <div class="flow-label">Dichiarate</div>
+              <div class="flow-sub">Giorni di disponibilità</div>
+            </div>
+            <div class="flow-arrow" aria-hidden="true">→</div>
+            <div class="flow-step" data-accent="yellow">
+              <div class="flow-num" id="flow-pren">–</div>
+              <div class="flow-label">Prenotazioni</div>
+              <div class="flow-sub" id="flow-pren-sub">conversione</div>
+            </div>
+            <div class="flow-arrow" aria-hidden="true">→</div>
+            <div class="flow-step" data-accent="ocean">
+              <div class="flow-num" id="flow-distr">–</div>
+              <div class="flow-label"><span class="flow-coin-label">Coin</span> distribuiti</div>
+              <div class="flow-sub">&nbsp;</div>
+            </div>
+            <div class="flow-arrow" aria-hidden="true">→</div>
+            <div class="flow-step" data-accent="coral">
+              <div class="flow-num" id="flow-spent">–</div>
+              <div class="flow-label"><span class="flow-coin-label">Coin</span> spesi</div>
+              <div class="flow-sub" id="flow-spent-sub">utilizzo</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top 3 -->
+        <div class="top-grid">
+          <div class="card">
+            <div class="card-header" style="border:none;padding-bottom:0">
+              <div>
+                <div class="card-title">Top 3 stagionali per credito maturato</div>
+                <div class="card-subtitle">Nel periodo selezionato</div>
+              </div>
+            </div>
+            <div id="top-clienti-list" class="top-list"><div class="top-empty">Nessun dato per il periodo.</div></div>
+          </div>
+          <div class="card">
+            <div class="card-header" style="border:none;padding-bottom:0">
+              <div>
+                <div class="card-title">Ombrelloni più prenotati</div>
+                <div class="card-subtitle">Nel periodo selezionato</div>
+              </div>
+            </div>
+            <div id="top-ombrelloni-list" class="top-list"><div class="top-empty">Nessun dato per il periodo.</div></div>
+          </div>
+        </div>
+
+        <!-- Situazione operativa di oggi (preservata dai vecchi KPI) -->
+        <div class="section-divider">☂️ Situazione di oggi e prossimi giorni</div>
         <div class="stats-row">
           <div class="stat-card"><div class="stat-label">Ombrelloni totali</div><div class="stat-value" id="stat-totali">–</div><div class="stat-sub">registrati</div></div>
-          <div class="stat-card"><div class="stat-label">Liberi oggi</div><div class="stat-value green" id="stat-liberi">–</div><div class="stat-sub">disponibili</div></div>
-          <div class="stat-card"><div class="stat-label">Sub-affittati oggi</div><div class="stat-value coral" id="stat-subaffittati">–</div><div class="stat-sub" id="stat-incassati"></div></div>
-          <div class="stat-card"><div class="stat-label">Crediti distribuiti</div><div class="stat-value ocean"><span id="stat-crediti">–</span> <span class="stat-value-unit" id="stat-crediti-unit"></span></div><div class="stat-sub">ultimi 7 giorni</div></div>
-        </div>
-
-        <div class="section-divider">☂️ Prossimi giorni</div>
-        <div class="stats-row">
           <div class="stat-card"><div class="stat-label">Liberi nei prossimi 3 gg</div><div class="stat-value green" id="stat-liberi-3gg">–</div><div class="stat-sub">almeno un giorno libero</div></div>
           <div class="stat-card"><div class="stat-label">Sub-affittati nei prossimi 3 gg</div><div class="stat-value coral" id="stat-sub-3gg">–</div><div class="stat-sub">almeno un giorno</div></div>
           <div class="stat-card"><div class="stat-label">Liberi nei prossimi 7 gg</div><div class="stat-value green" id="stat-liberi-7gg">–</div><div class="stat-sub">almeno un giorno libero</div></div>
           <div class="stat-card"><div class="stat-label">Sub-affittati nei prossimi 7 gg</div><div class="stat-value coral" id="stat-sub-7gg">–</div><div class="stat-sub">almeno un giorno</div></div>
         </div>
 
-        <div class="section-divider">💳 Crediti (ultimi 30 giorni)</div>
-        <div class="stats-row">
-          <div class="stat-card"><div class="stat-label">Crediti distribuiti</div><div class="stat-value ocean" id="dash-crediti-ricevuti">–</div><div class="stat-sub">ai clienti stagionali</div></div>
-          <div class="stat-card"><div class="stat-label">Crediti spesi</div><div class="stat-value coral" id="dash-crediti-spesi">–</div><div class="stat-sub">dai clienti stagionali</div></div>
-          <div class="stat-card"><div class="stat-label">Sub-affitti</div><div class="stat-value green" id="dash-subaffitti">–</div><div class="stat-sub" id="dash-subaffitti-sub">giornate sub-affittate</div></div>
-        </div>
+        <!-- Placeholder ID legacy (preservati per compatibilità con loadManagerData originale) -->
+        <span id="stat-liberi" class="hidden"></span>
+        <span id="stat-subaffittati" class="hidden"></span>
+        <span id="stat-incassati" class="hidden"></span>
+        <span id="stat-crediti" class="hidden"></span>
+        <span id="stat-crediti-unit" class="hidden"></span>
+        <span id="dash-crediti-ricevuti" class="hidden"></span>
+        <span id="dash-crediti-spesi" class="hidden"></span>
+        <span id="dash-subaffitti" class="hidden"></span>
+        <span id="dash-subaffitti-sub" class="hidden"></span>
       </div>
 
       <!-- GESTIONE TAB (ombrelloni + clienti) -->
@@ -306,17 +423,63 @@
       </div>
 
       <!-- EMAIL TAB -->
-      <div id="mtab-email" class="tab-content">
+      <!-- CONFIGURAZIONI TAB (Stagione + Email) -->
+      <div id="mtab-config" class="tab-content">
         <div class="page-header">
-          <div><div class="page-title">Gestione Email</div><div class="page-subtitle">Personalizza i testi delle email ai tuoi clienti</div></div>
-          <button class="btn btn-primary btn-sm" onclick="saveEmailTemplates()">Salva tutto</button>
-        </div>
-        <div id="email-save-alert" style="margin-bottom:16px"></div>
-        <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
-          Le email includeranno sempre in automatico il nome, telefono ed email del tuo stabilimento. Il tono è caldo e accogliente.
+          <div>
+            <div class="page-title">Configurazioni</div>
+            <div class="page-subtitle">Gestisci i parametri del tuo stabilimento</div>
+          </div>
         </div>
 
-        <!-- Invito -->
+        <div class="config-subtabs">
+          <button class="config-subtab active" data-subtab="stagione" onclick="switchConfigSubtab('stagione',this)">🗓️ Stagione</button>
+          <button class="config-subtab" data-subtab="email-sub" onclick="switchConfigSubtab('email-sub',this)">✉️ Email</button>
+        </div>
+
+        <!-- STAGIONE SUBTAB -->
+        <div id="config-sub-stagione" class="config-subpanel active">
+          <div id="stagione-save-alert" style="margin-bottom:16px"></div>
+          <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
+            Definisci quando inizia e finisce la tua stagione. I clienti stagionali potranno dichiarare le proprie disponibilità solo all'interno di queste date.
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">📅 Date della stagione corrente</div>
+                <div class="card-subtitle">Prima e ultima giornata di operatività</div>
+              </div>
+            </div>
+            <div class="stagione-form">
+              <div class="form-group">
+                <label class="form-label" for="stagione-inizio">Inizio stagione</label>
+                <input type="date" id="stagione-inizio" class="form-input">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="stagione-fine">Fine stagione</label>
+                <input type="date" id="stagione-fine" class="form-input">
+              </div>
+              <div class="stagione-summary" id="stagione-summary"></div>
+              <div class="stagione-actions">
+                <button class="btn btn-primary btn-sm" onclick="saveStagione()">Salva date</button>
+                <button class="btn btn-outline btn-sm" onclick="loadStagione()">Ripristina</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- EMAIL SUBTAB (contenuto del precedente mtab-email) -->
+        <div id="config-sub-email-sub" class="config-subpanel">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+            <div style="font-size:13px;color:var(--text-mid)">Personalizza i testi delle email ai tuoi clienti</div>
+            <button class="btn btn-primary btn-sm" onclick="saveEmailTemplates()">Salva tutto</button>
+          </div>
+          <div id="email-save-alert" style="margin-bottom:16px"></div>
+          <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
+            Le email includeranno sempre in automatico il nome, telefono ed email del tuo stabilimento. Il tono è caldo e accogliente.
+          </div>
+
+          <!-- Invito -->
         <div class="email-section">
           <div class="email-section-header" onclick="toggleEmailSection('invito')">
             <div class="email-section-title">✉️ Email di invito <span style="font-size:12px;color:var(--text-light);font-weight:400">(quando invii il link personale al cliente)</span></div>
@@ -419,6 +582,7 @@
           </div>
         </div>
 
+        </div><!-- /config-sub-email-sub -->
       </div>
 
       <!-- PRENOTAZIONI TAB (mappa + lista + transazioni) -->

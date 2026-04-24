@@ -282,6 +282,9 @@ async function loadManagerData() {
     updateAnalyticsPresetActive();
     await loadCreditiAnalytics();
   }
+  if (typeof loadPanoramicaKpis === 'function') {
+    loadPanoramicaKpis().catch(console.error);
+  }
 }
 
 async function loadDashboardUpcomingKpis(today) {
@@ -1200,7 +1203,10 @@ function managerTab(tab, btn) {
   panel.classList.add('active');
   document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  if (tab === 'email') loadEmailTemplates();
+  if (tab === 'config') {
+    loadEmailTemplates();
+    if (typeof loadStagione === 'function') loadStagione();
+  }
   if (tab === 'prenotazioni') loadPrenotazioni();
   if (tab === 'log') {
     // Default: ultimi 7 giorni, size 30.
