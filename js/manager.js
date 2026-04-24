@@ -21,9 +21,43 @@ function setMapRangePreset(days) {
   const today = todayStr();
   const end = new Date(today + 'T00:00:00');
   end.setDate(end.getDate() + days - 1);
+  const endStr = toLocalDateStr(end);
   document.getElementById('map-date-from').value = today;
-  document.getElementById('map-date-to').value = toLocalDateStr(end);
+  document.getElementById('map-date-to').value = endStr;
+  if (mapRangePickerInstance) mapRangePickerInstance.setDate([today, endStr], false);
   refreshMap();
+}
+
+let mapRangePickerInstance = null;
+function initMapRangePicker(today) {
+  if (typeof flatpickr === 'undefined') return;
+  const input = document.getElementById('map-range-picker');
+  if (!input) return;
+  if (mapRangePickerInstance) {
+    mapRangePickerInstance.setDate([today, today], false);
+    return;
+  }
+  mapRangePickerInstance = flatpickr(input, {
+    mode: 'range',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
+    dateFormat: 'd/m/Y',
+    defaultDate: [today, today],
+    showMonths: 1,
+    disableMobile: true,
+    onChange: (selectedDates) => {
+      if (selectedDates.length === 2) {
+        const from = toLocalDateStr(selectedDates[0]);
+        const to = toLocalDateStr(selectedDates[1]);
+        document.getElementById('map-date-from').value = from;
+        document.getElementById('map-date-to').value = to;
+        refreshMap();
+      } else if (selectedDates.length === 1) {
+        const from = toLocalDateStr(selectedDates[0]);
+        document.getElementById('map-date-from').value = from;
+        document.getElementById('map-date-to').value = from;
+      }
+    },
+  });
 }
 
 function updateMapPresetActive() {
@@ -193,6 +227,7 @@ async function loadManagerData() {
   currentMapDate = today;
   document.getElementById('map-date-from').value = today;
   document.getElementById('map-date-to').value = today;
+  initMapRangePicker(today);
   document.getElementById('manager-stab-nome').textContent = currentStabilimento.nome;
   document.getElementById('manager-today-label').textContent = currentStabilimento.citta + ' — ' + formatDate(today);
   refreshCoinLabels(currentStabilimento);
@@ -249,17 +284,22 @@ function renderManagerMap(ombs, dispMap) {
       el2.className = 'ombrellone ' + cls;
       el2.textContent = '☂️';
       let hint = '';
+      const fmtDay = d => {
+        const dt = new Date(d + 'T00:00:00');
+        return dt.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+      };
+      const freeDays = (currentMapRange?.dates || []).filter(d => (currentMapRange?.dispByOmbDate?.[o.id] || {})[d] === 'libero');
       if (stato === 'libero') {
         hint = ' — libero per tutto il periodo — clicca per bloccarlo';
       } else if (stato === 'combinazione') {
         const covers = (currentMapRange?.combinationCovers || {})[o.id] || [];
-        const days = covers.map(d => {
-          const dt = new Date(d + 'T00:00:00');
-          return dt.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
-        }).join(', ');
-        hint = ` — copre ${covers.length} giorn${covers.length === 1 ? 'o' : 'i'}: ${days} — clicca per bloccarlo`;
+        const days = covers.map(fmtDay).join(', ');
+        const extra = freeDays.filter(d => !covers.includes(d));
+        const extraTxt = extra.length ? ` (libero anche ${extra.map(fmtDay).join(', ')})` : '';
+        hint = ` — copre ${covers.length} giorn${covers.length === 1 ? 'o' : 'i'}: ${days}${extraTxt} — clicca per bloccarlo`;
       } else if (stato === 'parziale') {
-        hint = ' — libero solo in parte — clicca per bloccarlo';
+        const days = freeDays.map(fmtDay).join(', ');
+        hint = ` — libero ${freeDays.length} giorn${freeDays.length === 1 ? 'o' : 'i'}: ${days} — clicca per bloccarlo`;
       } else if (stato === 'sub_affittato') {
         hint = ' — sub-affittato';
       }
