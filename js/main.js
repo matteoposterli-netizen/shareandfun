@@ -1,5 +1,10 @@
 window.addEventListener('DOMContentLoaded', async () => {
   const params = new URLSearchParams(window.location.search);
+  if (params.get('admin') === '1') {
+    await initAdminMode();
+    hideLoading();
+    return;
+  }
   const token = params.get('invito');
   if (token) {
     currentInviteToken = token;

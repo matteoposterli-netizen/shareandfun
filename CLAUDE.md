@@ -27,10 +27,15 @@ Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono ren
 | `clienti_stagionali` | Clienti stagionali con `approvato`/`rifiutato`/`fonte` e `invito_token` per registrazione via link. **Nessuna registrazione autonoma**: esistono solo record creati dal proprietario (invito singolo o CSV); `user_id` viene popolato quando il cliente completa l'invito. |
 | `disponibilita` | Giornate in cui un ombrellone è messo a disposizione o sub-affittato |
 | `transazioni` | Storico contabile (credito aggiunto/usato, sub-affitti) |
+| `admins` | Account amministratori di sistema. PK `user_id` → `auth.users(id)`. **Non hanno riga in `profiles`**: le credenziali sono distinte dai proprietari/stagionali. Provisioning manuale via dashboard Supabase (vedi sezione "Area Admin"). |
 
-RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select auth.uid())` per performance. L'intero schema `public` (tabelle, FK, indexes, RLS, policies, RPC) è catturato come baseline in `supabase/migrations/20260420000000_baseline.sql`; migrazioni future vanno come file addizionali con timestamp successivo.
+RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select auth.uid())` per performance. In aggiunta, ogni tabella business ha un set di policy `*_admin_*` che concedono accesso totale agli utenti presenti in `public.admins` (controllato via `public.is_admin(uid)` — SECURITY DEFINER). L'intero schema `public` (tabelle, FK, indexes, RLS, policies, RPC) è catturato come baseline in `supabase/migrations/20260420000000_baseline.sql`; migrazioni future vanno come file addizionali con timestamp successivo.
 
-> ⚠️ **Migrazione pendente al 2026-04-23**: `supabase/migrations/20260423000000_coin_email_templates.sql` (aggiunge 4 colonne `email_credito_*` a `stabilimenti`) è committata in `main` ma **non ancora applicata al DB**. Finché non viene eseguita, salvare un template custom per i tipi `credito_accreditato`/`credito_ritirato` dalla UI fallirà con errore "column does not exist". Applicare via Supabase dashboard (SQL Editor), `supabase db push` o `psql`.
+> ⚠️ **Migrazioni pendenti al 2026-04-24**:
+> - `supabase/migrations/20260423000000_coin_email_templates.sql` — aggiunge 4 colonne `email_credito_*` a `stabilimenti`.
+> - `supabase/migrations/20260424000000_admin_section.sql` — crea tabella `admins`, funzione `is_admin()` e policy admin-full-access su tutte le 6 tabelle business. Finché non viene applicata: la view `?admin=1` si carica ma la query su `admins` fallirà in login.
+>
+> Applicare via Supabase dashboard (SQL Editor), `supabase db push` o `psql`.
 
 ### RPC functions (SECURITY DEFINER)
 
@@ -56,6 +61,16 @@ Dalla riorganizzazione `claude/beach-invite-only-registration-wlsjM` gli stagion
 3. Il cliente clicca il link → `showInvitoView` pre-compila dati → `completa_registrazione_invito` approva automaticamente (`approvato=true`) → email `benvenuto`.
 
 Non esiste più il ramo "registrazione diretta" (`fonte='diretta'`) né il concetto di "richieste in attesa di approvazione".
+
+## Area Admin
+
+Accesso: `https://spiaggiamia.com/?admin=1`. UI dedicata (vedi `js/admin.js`, view `#view-admin-login` e `#view-admin` in `index.html`) con login separato dalle credenziali proprietario/stagionale. Dopo login verifica presenza di `auth.uid()` in `public.admins` e mostra una dashboard con sidebar + CRUD generico sulle 6 tabelle (`profiles`, `stabilimenti`, `ombrelloni`, `clienti_stagionali`, `disponibilita`, `transazioni`). Le modifiche passano attraverso RLS (policy `*_admin_*`) — niente service-role in frontend.
+
+**Provisioning di un nuovo admin** (manuale, no UI di self-signup):
+1. Dashboard Supabase → Authentication → Users → **Add user** (email + password).
+2. SQL Editor: `INSERT INTO public.admins (user_id) VALUES ('<uuid-dell-utente>');`
+
+**Schema admins**: `(user_id uuid PK → auth.users.id ON DELETE CASCADE, created_at timestamptz default now())`. Unica policy: `admins_self_select` (un admin può leggere solo la propria riga). Nessuna INSERT/UPDATE/DELETE policy → modifiche ad `admins` solo via service role.
 
 ## Workflow Git
 

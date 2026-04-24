@@ -661,6 +661,77 @@
   </div>
 </div>
 
+<!-- ADMIN LOGIN -->
+<div id="view-admin-login" class="view">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-logo"><div class="logo-text">🔐 SpiaggiaMia · Admin</div></div>
+      <div class="auth-title">Accesso amministratore</div>
+      <div class="auth-sub">Area riservata. Solo credenziali admin autorizzate.</div>
+      <div id="admin-login-alert"></div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" id="admin-login-email" class="form-input" placeholder="admin@spiaggiamia.com" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="admin-login-password" class="form-input" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary btn-full" onclick="doAdminLogin()" id="btn-admin-login">Accedi come admin</button>
+      <div class="auth-switch" style="margin-top:18px"><a href="/">← Torna al sito</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN DASHBOARD -->
+<div id="view-admin" class="view">
+  <div class="dash-layout">
+    <div class="sidebar">
+      <div class="sidebar-title">🔐 Admin DB</div>
+      <button class="sidebar-item active" onclick="adminTab('profiles',this)"><span class="icon">👤</span> profiles</button>
+      <button class="sidebar-item" onclick="adminTab('stabilimenti',this)"><span class="icon">🏖️</span> stabilimenti</button>
+      <button class="sidebar-item" onclick="adminTab('ombrelloni',this)"><span class="icon">☂️</span> ombrelloni</button>
+      <button class="sidebar-item" onclick="adminTab('clienti_stagionali',this)"><span class="icon">👥</span> clienti_stagionali</button>
+      <button class="sidebar-item" onclick="adminTab('disponibilita',this)"><span class="icon">📅</span> disponibilita</button>
+      <button class="sidebar-item" onclick="adminTab('transazioni',this)"><span class="icon">💰</span> transazioni</button>
+      <div style="margin-top:24px;padding:12px;border-top:1px solid var(--border)">
+        <button class="btn btn-outline btn-sm btn-full" onclick="doAdminLogout()">Esci</button>
+      </div>
+    </div>
+    <div class="main-content">
+      <div class="page-header">
+        <div><div class="page-title" id="admin-table-title">profiles</div><div class="page-subtitle" id="admin-table-sub">Caricamento…</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input type="search" id="admin-search" class="form-input" placeholder="Cerca in tutte le colonne…" style="width:260px;padding:6px 10px;font-size:13px" oninput="renderAdminTable()">
+          <button class="btn btn-outline btn-sm" onclick="loadAdminTable()">↻ Ricarica</button>
+          <button class="btn btn-primary btn-sm" onclick="openAdminAddModal()">+ Nuova riga</button>
+        </div>
+      </div>
+      <div id="admin-alert" style="margin-bottom:12px"></div>
+      <div class="card">
+        <div class="table-wrap"><table class="data-table">
+          <thead id="admin-table-head"></thead>
+          <tbody id="admin-table-body"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN ROW EDITOR (add/edit) -->
+<div id="modal-admin-row" class="modal-overlay hidden">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title" id="admin-row-title">Modifica riga</div>
+    <div class="modal-sub" id="admin-row-sub"></div>
+    <div id="admin-row-alert"></div>
+    <div id="admin-row-fields"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-admin-row')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="saveAdminRow()" id="btn-admin-row-save">Salva</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/state.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/csv.js"></script>
@@ -671,6 +742,7 @@
 <script src="js/clienti.js"></script>
 <script src="js/stagionale.js"></script>
 <script src="js/email.js"></script>
+<script src="js/admin.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
