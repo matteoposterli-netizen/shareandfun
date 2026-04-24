@@ -279,6 +279,7 @@ async function loadManagerData() {
   if (!document.getElementById('analytics-date-from').value) {
     setAnalyticsRange(30);
   } else {
+    updateAnalyticsPresetActive();
     await loadCreditiAnalytics();
   }
 }
@@ -807,13 +808,102 @@ function populateClienteSelect() {
   sel.innerHTML = clientiList.map(c => `<option value="${c.id}">${c.nome} ${c.cognome} (${formatCoin(c.credito_saldo)})</option>`).join('');
 }
 
+const ANALYTICS_PAGE_SIZE = 10;
+let analyticsRows = [];
+let analyticsPage = 1;
+let analyticsCtx = { ombById: {}, cliById: {} };
+
 function setAnalyticsRange(days) {
   const to = new Date();
   const from = new Date();
   from.setDate(from.getDate() - (days - 1));
   document.getElementById('analytics-date-from').value = toLocalDateStr(from);
   document.getElementById('analytics-date-to').value = toLocalDateStr(to);
+  updateAnalyticsPresetActive();
   loadCreditiAnalytics();
+}
+
+function updateAnalyticsPresetActive() {
+  const from = document.getElementById('analytics-date-from')?.value || '';
+  const to = document.getElementById('analytics-date-to')?.value || '';
+  const today = todayStr();
+  let active = null;
+  if (from && to === today) {
+    const start = new Date(from + 'T00:00:00');
+    const endD = new Date(to + 'T00:00:00');
+    const diff = Math.round((endD - start) / 86400000) + 1;
+    if (diff === 7) active = '7';
+    else if (diff === 30) active = '30';
+    else if (diff === 90) active = '90';
+  }
+  document.querySelectorAll('.analytics-preset-btn').forEach(btn => {
+    if (btn.dataset.preset === active) {
+      btn.classList.remove('btn-outline');
+      btn.classList.add('btn-primary');
+    } else {
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-outline');
+    }
+  });
+}
+
+function changeAnalyticsPage(dir) {
+  const totalPages = Math.max(1, Math.ceil(analyticsRows.length / ANALYTICS_PAGE_SIZE));
+  const next = Math.min(totalPages, Math.max(1, analyticsPage + dir));
+  if (next === analyticsPage) return;
+  analyticsPage = next;
+  renderAnalyticsPage();
+}
+
+function renderAnalyticsPage() {
+  const tb = document.getElementById('analytics-table');
+  const empty = document.getElementById('analytics-empty');
+  const pag = document.getElementById('analytics-pagination');
+  if (!tb) return;
+  if (!analyticsRows.length) {
+    tb.innerHTML = '';
+    empty.classList.remove('hidden');
+    pag.classList.add('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  const total = analyticsRows.length;
+  const totalPages = Math.max(1, Math.ceil(total / ANALYTICS_PAGE_SIZE));
+  if (analyticsPage > totalPages) analyticsPage = totalPages;
+  const startIdx = (analyticsPage - 1) * ANALYTICS_PAGE_SIZE;
+  const pageRows = analyticsRows.slice(startIdx, startIdx + ANALYTICS_PAGE_SIZE);
+  const { ombById, cliById } = analyticsCtx;
+
+  tb.innerHTML = pageRows.map(s => {
+    const o = s.ombrellone_id ? ombById[s.ombrellone_id] : null;
+    const c = s.cliente_id ? cliById[s.cliente_id] : null;
+    const ombStr = o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">— ombrellone rimosso</span>';
+    const cliStr = c ? `${c.nome} ${c.cognome}` : '<span style="color:var(--text-light)">—</span>';
+    const saldo = s.ricevuti - s.spesi;
+    const saldoColor = saldo > 0 ? 'var(--ocean)' : saldo < 0 ? 'var(--coral)' : 'var(--text-light)';
+    const saldoSign = saldo > 0 ? '+' : '';
+    return `<tr>
+      <td><strong>${ombStr}</strong></td>
+      <td>${cliStr}</td>
+      <td style="text-align:right">${s.subaffitti}</td>
+      <td style="text-align:right;color:var(--ocean)">${formatCoin(s.ricevuti)}</td>
+      <td style="text-align:right;color:var(--coral)">${formatCoin(s.spesi)}</td>
+      <td style="text-align:right;color:${saldoColor};font-weight:600">${saldoSign}${formatCoin(saldo).replace(/^-/, '−')}</td>
+    </tr>`;
+  }).join('');
+
+  if (total > ANALYTICS_PAGE_SIZE) {
+    pag.classList.remove('hidden');
+    const info = document.getElementById('analytics-page-info');
+    const fromN = startIdx + 1;
+    const toN = Math.min(total, startIdx + ANALYTICS_PAGE_SIZE);
+    info.textContent = `${fromN}–${toN} di ${total} · pagina ${analyticsPage} di ${totalPages}`;
+    document.getElementById('analytics-page-prev').disabled = analyticsPage <= 1;
+    document.getElementById('analytics-page-next').disabled = analyticsPage >= totalPages;
+  } else {
+    pag.classList.add('hidden');
+  }
 }
 
 async function loadCreditiAnalytics() {
@@ -900,31 +990,10 @@ async function loadCreditiAnalytics() {
     return 0;
   });
 
-  const tb = document.getElementById('analytics-table');
-  const empty = document.getElementById('analytics-empty');
-  if (!rows.length) {
-    tb.innerHTML = '';
-    empty.classList.remove('hidden');
-    return;
-  }
-  empty.classList.add('hidden');
-  tb.innerHTML = rows.map(s => {
-    const o = s.ombrellone_id ? ombById[s.ombrellone_id] : null;
-    const c = s.cliente_id ? cliById[s.cliente_id] : null;
-    const ombStr = o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">— ombrellone rimosso</span>';
-    const cliStr = c ? `${c.nome} ${c.cognome}` : '<span style="color:var(--text-light)">—</span>';
-    const saldo = s.ricevuti - s.spesi;
-    const saldoColor = saldo > 0 ? 'var(--ocean)' : saldo < 0 ? 'var(--coral)' : 'var(--text-light)';
-    const saldoSign = saldo > 0 ? '+' : '';
-    return `<tr>
-      <td><strong>${ombStr}</strong></td>
-      <td>${cliStr}</td>
-      <td style="text-align:right">${s.subaffitti}</td>
-      <td style="text-align:right;color:var(--ocean)">${formatCoin(s.ricevuti)}</td>
-      <td style="text-align:right;color:var(--coral)">${formatCoin(s.spesi)}</td>
-      <td style="text-align:right;color:${saldoColor};font-weight:600">${saldoSign}${formatCoin(saldo).replace(/^-/, '−')}</td>
-    </tr>`;
-  }).join('');
+  analyticsRows = rows;
+  analyticsCtx = { ombById, cliById };
+  analyticsPage = 1;
+  renderAnalyticsPage();
 }
 
 function ombById() {
