@@ -19,12 +19,13 @@ function changeMapDate(dir) {
 
 function setMapRangePreset(days) {
   const today = todayStr();
-  const end = new Date(today + 'T00:00:00');
-  end.setDate(end.getDate() + days - 1);
-  const endStr = toLocalDateStr(end);
+  const startDate = new Date(today + 'T00:00:00');
+  const endDate = new Date(today + 'T00:00:00');
+  endDate.setDate(endDate.getDate() + days - 1);
+  const endStr = toLocalDateStr(endDate);
   document.getElementById('map-date-from').value = today;
   document.getElementById('map-date-to').value = endStr;
-  if (mapRangePickerInstance) mapRangePickerInstance.setDate([today, endStr], false);
+  if (mapRangePickerInstance) mapRangePickerInstance.setDate([startDate, endDate], false);
   refreshMap();
 }
 
@@ -33,15 +34,16 @@ function initMapRangePicker(today) {
   if (typeof flatpickr === 'undefined') return;
   const input = document.getElementById('map-range-picker');
   if (!input) return;
+  const todayDate = new Date(today + 'T00:00:00');
   if (mapRangePickerInstance) {
-    mapRangePickerInstance.setDate([today, today], false);
+    mapRangePickerInstance.setDate([todayDate, todayDate], false);
     return;
   }
   mapRangePickerInstance = flatpickr(input, {
     mode: 'range',
     locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
     dateFormat: 'd/m/Y',
-    defaultDate: [today, today],
+    defaultDate: [todayDate, todayDate],
     showMonths: 1,
     disableMobile: true,
     onChange: (selectedDates) => {
