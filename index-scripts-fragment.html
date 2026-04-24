@@ -1,0 +1,181 @@
+<!--
+  Consegna 1 — Sostituisci il contenuto di <div id="mtab-panoramica" class="tab-content active">…</div>
+  con quello qui sotto. (Tutto il resto di index.html — sidebar, altre tab — resta invariato.)
+
+  Cerca in index.html:
+    <div id="mtab-panoramica" class="tab-content active">
+  e rimpiazza fino al </div> che chiude quel blocco con tutto questo file.
+-->
+
+<div id="mtab-panoramica" class="tab-content active">
+
+  <!-- ============ OVERVIEW (default) ============ -->
+  <div id="pano-overview">
+
+    <div class="page-header">
+      <div>
+        <div class="page-title">Panoramica</div>
+        <div class="page-subtitle">Contabilità del progetto SpiaggiaMia</div>
+      </div>
+    </div>
+
+    <!-- Toolbar periodo -->
+    <div class="pano-toolbar" role="toolbar" aria-label="Selezione periodo">
+      <span class="pano-toolbar-label">📅 <span id="pano-range-label">–</span></span>
+      <div class="pano-toolbar-presets">
+        <button class="pano-preset-btn" data-preset="7d" onclick="setPanoramicaRange('7d')">Ultimi 7 gg</button>
+        <button class="pano-preset-btn" data-preset="30d" onclick="setPanoramicaRange('30d')">Ultimi 30 gg</button>
+        <button class="pano-preset-btn" data-preset="90d" onclick="setPanoramicaRange('90d')">Ultimi 90 gg</button>
+        <button class="pano-preset-btn" data-preset="season" onclick="setPanoramicaRange('season')">Stagione</button>
+      </div>
+      <span class="pano-toolbar-custom">
+        <span>Dal</span>
+        <input type="date" id="pano-range-from" onchange="onPanoramicaCustomRange()">
+        <span>al</span>
+        <input type="date" id="pano-range-to" onchange="onPanoramicaCustomRange()">
+      </span>
+      <label class="pano-toolbar-compare">
+        <input type="checkbox" id="pano-compare" checked onchange="onPanoramicaCompareToggle()">
+        Confronta con periodo precedente
+      </label>
+    </div>
+
+    <!-- 4 KPI card cliccabili -->
+    <div class="pano-kpi-grid">
+      <button type="button" class="pano-kpi-card" data-accent="ocean" onclick="openDeepDive('disponibilita')" aria-label="Disponibilità dichiarate — apri dettaglio">
+        <div class="pano-kpi-head">
+          <span class="pano-kpi-label">Disponibilità dichiarate</span>
+          <span class="pano-kpi-delta" id="pano-kpi-disp-delta"></span>
+        </div>
+        <div class="pano-kpi-value-row">
+          <span class="pano-kpi-value" id="pano-kpi-disp-val">–</span>
+          <span class="pano-kpi-unit">notti</span>
+        </div>
+        <svg class="pano-kpi-spark" id="pano-kpi-disp-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+      </button>
+
+      <button type="button" class="pano-kpi-card" data-accent="ink" onclick="openDeepDive('prenotazioni')" aria-label="Prenotazioni effettuate — apri dettaglio">
+        <div class="pano-kpi-head">
+          <span class="pano-kpi-label">Prenotazioni effettuate</span>
+          <span class="pano-kpi-delta" id="pano-kpi-pren-delta"></span>
+        </div>
+        <div class="pano-kpi-value-row">
+          <span class="pano-kpi-value" id="pano-kpi-pren-val">–</span>
+          <span class="pano-kpi-unit">notti</span>
+        </div>
+        <svg class="pano-kpi-spark" id="pano-kpi-pren-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+      </button>
+
+      <button type="button" class="pano-kpi-card" data-accent="green" onclick="openDeepDive('coin-distr')" aria-label="Coin distribuiti — apri dettaglio">
+        <div class="pano-kpi-head">
+          <span class="pano-kpi-label" data-coin-unit-prefix>Coin distribuiti</span>
+          <span class="pano-kpi-delta" id="pano-kpi-distr-delta"></span>
+        </div>
+        <div class="pano-kpi-value-row">
+          <span class="pano-kpi-value" id="pano-kpi-distr-val">–</span>
+          <span class="pano-kpi-unit" data-coin-unit>Coin</span>
+        </div>
+        <svg class="pano-kpi-spark" id="pano-kpi-distr-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+      </button>
+
+      <button type="button" class="pano-kpi-card" data-accent="coral" onclick="openDeepDive('coin-spent')" aria-label="Coin spesi — apri dettaglio">
+        <div class="pano-kpi-head">
+          <span class="pano-kpi-label">Coin spesi</span>
+          <span class="pano-kpi-delta" id="pano-kpi-spent-delta"></span>
+        </div>
+        <div class="pano-kpi-value-row">
+          <span class="pano-kpi-value" id="pano-kpi-spent-val">–</span>
+          <span class="pano-kpi-unit" data-coin-unit>Coin</span>
+        </div>
+        <svg class="pano-kpi-spark" id="pano-kpi-spent-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+      </button>
+    </div>
+
+    <!-- Flow diagram: disp → pren → distr → spent -->
+    <div class="pano-flow">
+      <div class="pano-flow-step">
+        <div class="pano-flow-step-label">Dichiarate</div>
+        <div class="pano-flow-step-value" id="flow-disp">–</div>
+      </div>
+      <div class="pano-flow-arrow"><span class="pano-flow-arrow-label" id="flow-conv-1">–</span></div>
+      <div class="pano-flow-step">
+        <div class="pano-flow-step-label">Prenotate</div>
+        <div class="pano-flow-step-value" id="flow-pren">–</div>
+      </div>
+      <div class="pano-flow-arrow"></div>
+      <div class="pano-flow-step">
+        <div class="pano-flow-step-label">Coin distribuiti</div>
+        <div class="pano-flow-step-value" id="flow-distr">–</div>
+      </div>
+      <div class="pano-flow-arrow"><span class="pano-flow-arrow-label" id="flow-conv-2">–</span></div>
+      <div class="pano-flow-step">
+        <div class="pano-flow-step-label">Coin spesi</div>
+        <div class="pano-flow-step-value" id="flow-spent">–</div>
+      </div>
+    </div>
+
+    <!-- Top 3 ombrelloni del periodo -->
+    <div class="pano-top-card">
+      <div class="pano-top-title-h">Top ombrelloni del periodo</div>
+      <ul class="pano-top-list" id="pano-top-ombrelloni">
+        <li class="pano-top-empty">Caricamento…</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- ============ DEEP DIVE (hidden by default) ============ -->
+  <div id="pano-deepdive" class="hidden">
+
+    <!-- Breadcrumb -->
+    <div class="dd-crumb">
+      <button type="button" class="dd-crumb-back" onclick="ddBack()">← Panoramica</button>
+      <span class="dd-crumb-sep">/</span>
+      <span class="dd-crumb-title" id="dd-crumb-title">Deep dive</span>
+      <button type="button" class="btn btn-outline btn-sm" style="margin-left:auto" onclick="ddExport()">📥 Esporta Excel</button>
+    </div>
+
+    <!-- Toolbar periodo deep dive -->
+    <div class="pano-toolbar">
+      <span class="pano-toolbar-label">📅 <span id="dd-range-label">–</span></span>
+      <div class="pano-toolbar-presets">
+        <button class="dd-preset-btn" data-preset="7d" onclick="setDdRange('7d')">7 gg</button>
+        <button class="dd-preset-btn" data-preset="30d" onclick="setDdRange('30d')">30 gg</button>
+        <button class="dd-preset-btn" data-preset="90d" onclick="setDdRange('90d')">90 gg</button>
+        <button class="dd-preset-btn" data-preset="season" onclick="setDdRange('season')">Stagione</button>
+      </div>
+      <span class="pano-toolbar-custom">
+        <span>Dal</span>
+        <input type="date" id="dd-range-from" onchange="onDdCustomRange()">
+        <span>al</span>
+        <input type="date" id="dd-range-to" onchange="onDdCustomRange()">
+      </span>
+      <label class="pano-toolbar-compare">
+        <input type="checkbox" id="dd-compare" checked onchange="onDdCompareToggle()">
+        Confronta con periodo precedente
+      </label>
+    </div>
+
+    <!-- Panel Disponibilità -->
+    <div id="dd-panel-disponibilita" class="dd-panel hidden">
+      <div id="dd-body-disponibilita"></div>
+    </div>
+
+    <!-- Panel Prenotazioni -->
+    <div id="dd-panel-prenotazioni" class="dd-panel hidden">
+      <div id="dd-body-prenotazioni"></div>
+    </div>
+
+    <!-- Panel Coin distribuiti -->
+    <div id="dd-panel-coin-distr" class="dd-panel hidden">
+      <div id="dd-body-coin-distr"></div>
+    </div>
+
+    <!-- Panel Coin spesi -->
+    <div id="dd-panel-coin-spent" class="dd-panel hidden">
+      <div id="dd-body-coin-spent"></div>
+    </div>
+
+  </div>
+
+</div>
