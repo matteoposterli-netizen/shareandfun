@@ -98,6 +98,7 @@ async function toggleDay(dateStr, currentStato) {
     ombrellone_id: stagOmbrelloneId,
     cliente_id: stagClienteId,
     tipo: isFreeing ? 'disponibilita_aggiunta' : 'disponibilita_rimossa',
+    importo: null,
     nota: isFreeing ? `Disponibilità dichiarata per ${formatDate(dateStr)}` : `Disponibilità rimossa per ${formatDate(dateStr)}`,
   });
   if (txErr) {
