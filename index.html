@@ -501,13 +501,23 @@
               <select id="tx-filter-ombrellone" class="form-select" style="width:220px;padding:6px 10px;font-size:13px" onchange="loadAllTx()">
                 <option value="">Tutti gli ombrelloni</option>
               </select>
+              <select id="tx-filter-tipo" class="form-select" style="width:210px;padding:6px 10px;font-size:13px" onchange="loadAllTx()">
+                <option value="">Tutti i tipi</option>
+                <option value="disponibilita_aggiunta">Disponibilità dichiarata</option>
+                <option value="disponibilita_rimossa">Disponibilità rimossa</option>
+                <option value="sub_affitto">Sub-affitto confermato</option>
+                <option value="sub_affitto_annullato">Sub-affitto annullato</option>
+                <option value="credito_ricevuto">Credito ricevuto</option>
+                <option value="credito_usato">Credito utilizzato</option>
+                <option value="credito_revocato">Credito revocato</option>
+              </select>
               <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
                 <span>Periodo</span>
                 <input type="text" id="tx-range-picker" class="form-input" readonly placeholder="Tutte le date" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
                 <input type="hidden" id="tx-filter-from">
                 <input type="hidden" id="tx-filter-to">
               </div>
-              <button type="button" class="btn btn-outline btn-sm" onclick="clearTxRange()">Tutte</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="clearTxFilters()">Pulisci</button>
             </div>
           </div>
           <div id="tx-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px 12px">
