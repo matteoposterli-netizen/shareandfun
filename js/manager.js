@@ -174,7 +174,7 @@ async function refreshMap() {
     else rangeDispMap[o.id] = 'occupied';
   });
 
-  currentMapRange = { from, to, dispByOmbDate, dates, combinationCovers, combinationValid };
+  currentMapRange = { from, to, dispByOmbDate, dates, combinationCovers, combinationValid, rangeDispMap };
 
   const isToday = isSingleDay && from === todayStr();
   const label = isSingleDay
@@ -193,7 +193,9 @@ async function refreshMap() {
     document.getElementById('stat-subaffittati').textContent = subleased;
   }
 
+  pruneBookingSelection();
   renderManagerMap(ombrelloniList, rangeDispMap);
+  renderBookingSelectionPanel();
 
   const freeEl = document.getElementById('map-free-count');
   const pill = (bg, fg, text) => `<span style="background:${bg};color:${fg};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;display:inline-block;margin:2px 0">${text}</span>`;
@@ -283,7 +285,8 @@ function renderManagerMap(ombs, dispMap) {
         : stato === 'parziale' ? 'partial'
         : stato === 'sub_affittato' ? 'subleased'
         : 'occupied';
-      el2.className = 'ombrellone ' + cls;
+      const isSelected = bookingSelection.has(o.id);
+      el2.className = 'ombrellone ' + cls + (isSelected ? ' selected' : '');
       el2.textContent = '☂️';
       let hint = '';
       const fmtDay = d => {
@@ -291,76 +294,132 @@ function renderManagerMap(ombs, dispMap) {
         return dt.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
       };
       const freeDays = (currentMapRange?.dates || []).filter(d => (currentMapRange?.dispByOmbDate?.[o.id] || {})[d] === 'libero');
+      const selectSuffix = isSelected
+        ? ' — selezionato, clicca per rimuoverlo dalla prenotazione'
+        : ' — clicca per aggiungerlo alla prenotazione';
       if (stato === 'libero') {
-        hint = ' — libero per tutto il periodo — clicca per bloccarlo';
+        hint = ' — libero per tutto il periodo' + selectSuffix;
       } else if (stato === 'combinazione') {
         const covers = (currentMapRange?.combinationCovers || {})[o.id] || [];
         const days = covers.map(fmtDay).join(', ');
         const extra = freeDays.filter(d => !covers.includes(d));
         const extraTxt = extra.length ? ` (libero anche ${extra.map(fmtDay).join(', ')})` : '';
-        hint = ` — copre ${covers.length} giorn${covers.length === 1 ? 'o' : 'i'}: ${days}${extraTxt} — clicca per bloccarlo`;
+        hint = ` — copre ${covers.length} giorn${covers.length === 1 ? 'o' : 'i'}: ${days}${extraTxt}` + selectSuffix;
       } else if (stato === 'parziale') {
         const days = freeDays.map(fmtDay).join(', ');
-        hint = ` — libero ${freeDays.length} giorn${freeDays.length === 1 ? 'o' : 'i'}: ${days} — clicca per bloccarlo`;
+        hint = ` — libero ${freeDays.length} giorn${freeDays.length === 1 ? 'o' : 'i'}: ${days}` + selectSuffix;
       } else if (stato === 'sub_affittato') {
         hint = ' — sub-affittato';
       }
       el2.title = `${fila}${o.numero} — ${formatCoin(o.credito_giornaliero)}/gg${hint}`;
-      el2.onclick = () => handleMapOmbClick(o, stato);
+      el2.onclick = () => toggleMapOmbSelection(o, stato);
       row.appendChild(el2);
     });
     el.appendChild(row);
   });
 }
 
-async function handleMapOmbClick(omb, stato) {
+function toggleMapOmbSelection(omb, stato) {
   if (!currentMapRange) return;
   const label = `Fila ${omb.fila} N°${omb.numero}`;
   if (stato === 'sub_affittato') {
-    alert(`${label} è già sub-affittato in parte del periodo. Annullalo dalla tabella "Ombrelloni e clienti" se necessario.`);
+    alert(`${label} è già sub-affittato in parte del periodo. Annullalo dalla tab Prenotazioni se necessario.`);
     return;
   }
   if (stato === 'occupied') {
-    alert(`${label} non risulta libero nel periodo selezionato: nulla da bloccare.`);
+    alert(`${label} non è libero nel periodo selezionato: non puoi includerlo nella prenotazione.`);
     return;
   }
-  const { from, to, dispByOmbDate } = currentMapRange;
-  const ombDisp = dispByOmbDate[omb.id] || {};
-  const liberoDates = Object.keys(ombDisp).filter(d => ombDisp[d] === 'libero').sort();
-  if (!liberoDates.length) return;
-  const periodo = from === to ? formatDate(from) : `${formatDate(from)} → ${formatDate(to)}`;
-  const nGiorni = liberoDates.length;
-  const msg = `Bloccare ${label}?\n\nVerranno rimosse ${nGiorni} giornata${nGiorni > 1 ? 'e' : ''} di disponibilità nel periodo ${periodo}.`;
-  if (!confirm(msg)) return;
-  showLoading();
-  try {
-    const { error } = await sb.from('disponibilita')
-      .delete()
-      .eq('ombrellone_id', omb.id)
-      .eq('stato', 'libero')
-      .gte('data', from)
-      .lte('data', to);
-    if (error) { alert('Errore durante il blocco: ' + error.message); return; }
-    const cliente = (clientiList || []).find(c => c.ombrellone_id === omb.id) || null;
-    const txs = liberoDates.map(d => ({
-      stabilimento_id: currentStabilimento.id,
-      ombrellone_id: omb.id,
-      cliente_id: cliente?.id || null,
-      tipo: 'disponibilita_rimossa',
-      nota: `${label} bloccato dal proprietario per ${formatDate(d)}`,
-    }));
-    if (txs.length) await sb.from('transazioni').insert(txs);
-    const today = todayStr();
-    if (liberoDates.includes(today) && currentDispMap[omb.id] === 'libero') {
-      delete currentDispMap[omb.id];
-      renderGestioneFiltered();
+  if (bookingSelection.has(omb.id)) bookingSelection.delete(omb.id);
+  else bookingSelection.add(omb.id);
+  renderManagerMap(ombrelloniList, currentMapRange.rangeDispMap);
+  renderBookingSelectionPanel();
+}
+
+function computeBookingCoverage() {
+  if (!currentMapRange) return { pairs: [], coveredDays: new Set(), missingDays: [], totalCredit: 0 };
+  const { dispByOmbDate, dates } = currentMapRange;
+  const pairs = [];
+  const coveredDays = new Set();
+  let totalCredit = 0;
+  for (const ombId of bookingSelection) {
+    const omb = ombrelloniList.find(o => o.id === ombId);
+    if (!omb) continue;
+    const ombDisp = dispByOmbDate[ombId] || {};
+    for (const d of dates) {
+      if (ombDisp[d] === 'libero') {
+        pairs.push({ omb, date: d });
+        coveredDays.add(d);
+        totalCredit += parseFloat(omb.credito_giornaliero || 0);
+      }
     }
-  } finally {
-    hideLoading();
   }
-  await refreshMap();
-  await loadManagerTx();
-  await loadAllTx();
+  const missingDays = dates.filter(d => !coveredDays.has(d));
+  return { pairs, coveredDays, missingDays, totalCredit };
+}
+
+function renderBookingSelectionPanel() {
+  const el = document.getElementById('booking-selection-panel');
+  if (!el) return;
+  if (!currentMapRange || bookingSelection.size === 0) {
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+  const { dates } = currentMapRange;
+  const { pairs, missingDays, totalCredit } = computeBookingCoverage();
+  const nOmb = bookingSelection.size;
+  const covered = dates.length - missingDays.length;
+  const complete = missingDays.length === 0 && pairs.length > 0;
+
+  const fmtDay = d => {
+    const dt = new Date(d + 'T00:00:00');
+    return dt.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+  };
+
+  const missingBlock = missingDays.length
+    ? `<div class="booking-missing"><strong>Giorni ancora scoperti (${missingDays.length}):</strong> ${missingDays.map(fmtDay).join(', ')}</div>`
+    : `<div class="booking-complete">✓ Periodo coperto interamente</div>`;
+
+  const btnClass = complete ? 'btn btn-primary btn-sm' : 'btn btn-primary btn-sm';
+  const btnAttr = complete ? '' : 'disabled';
+
+  el.classList.remove('hidden');
+  el.innerHTML = `
+    <div class="booking-panel-head">
+      <div class="booking-panel-title">🧾 Nuova prenotazione</div>
+      <div class="booking-panel-stats">
+        <span><strong>${nOmb}</strong> ombrellone${nOmb > 1 ? 'i' : ''} selezionat${nOmb > 1 ? 'i' : 'o'}</span>
+        <span>·</span>
+        <span><strong>${covered}/${dates.length}</strong> giorn${dates.length > 1 ? 'i' : 'o'} coperti</span>
+        <span>·</span>
+        <span><strong>${pairs.length}</strong> sub-affitt${pairs.length === 1 ? 'o' : 'i'}</span>
+        <span>·</span>
+        <span><strong>${formatCoin(totalCredit.toFixed(2), currentStabilimento)}</strong> totali</span>
+      </div>
+    </div>
+    ${missingBlock}
+    <div class="booking-panel-actions">
+      <button type="button" class="btn btn-outline btn-sm" onclick="clearBookingSelection()">Annulla selezione</button>
+      <button type="button" class="${btnClass}" ${btnAttr} onclick="openFinalizeBookingModal()">Finalizza prenotazione</button>
+    </div>
+  `;
+}
+
+function clearBookingSelection() {
+  bookingSelection.clear();
+  if (currentMapRange) renderManagerMap(ombrelloniList, currentMapRange.rangeDispMap);
+  renderBookingSelectionPanel();
+}
+
+function pruneBookingSelection() {
+  if (!currentMapRange || bookingSelection.size === 0) return;
+  const { dispByOmbDate, dates } = currentMapRange;
+  for (const id of Array.from(bookingSelection)) {
+    const ombDisp = dispByOmbDate[id] || {};
+    const hasFree = dates.some(d => ombDisp[d] === 'libero');
+    if (!hasFree) bookingSelection.delete(id);
+  }
 }
 
 function clienteStato(c) {
@@ -816,81 +875,147 @@ function managerTab(tab, btn) {
   if (tab === 'prenotazioni') loadPrenotazioni();
 }
 
-function openSubaffittoModal() {
-  const today = todayStr();
-  document.getElementById('sa-data').value = today;
-  document.getElementById('sa-nome-prenotazione').value = '';
-  document.getElementById('sa-ombrellone').innerHTML = ombrelloniList.map(o =>
-    `<option value="${o.id}">Fila ${o.fila} N°${o.numero} — ${formatCoin(o.credito_giornaliero)}/gg</option>`
-  ).join('');
-  showAlert('subaffitto-alert', '', '');
-  document.getElementById('modal-subaffitto').classList.remove('hidden');
-}
+function openFinalizeBookingModal() {
+  if (!currentMapRange || bookingSelection.size === 0) return;
+  const { pairs, missingDays, totalCredit } = computeBookingCoverage();
+  if (missingDays.length > 0 || pairs.length === 0) return;
 
-function confirmSubaffitto() {
-  const ombId = document.getElementById('sa-ombrellone').value;
-  const data = document.getElementById('sa-data').value;
-  if (!ombId || !data) { showAlert('subaffitto-alert', 'Compila tutti i campi', 'error'); return; }
-  const omb = ombrelloniList.find(o => o.id === ombId);
-  if (!omb) { showAlert('subaffitto-alert', 'Ombrellone non trovato', 'error'); return; }
-  const cliente = clientiList.find(c => c.ombrellone_id === ombId);
-  const nomePrenotazione = document.getElementById('sa-nome-prenotazione').value.trim();
+  const { dates } = currentMapRange;
+  const fmtDay = d => {
+    const dt = new Date(d + 'T00:00:00');
+    return dt.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+  };
+  const periodo = dates.length === 1 ? fmtDay(dates[0]) : `${fmtDay(dates[0])} → ${fmtDay(dates[dates.length - 1])}`;
+  const nOmb = bookingSelection.size;
+  const ombList = Array.from(bookingSelection).map(id => {
+    const o = ombrelloniList.find(x => x.id === id);
+    return o ? `Fila ${o.fila} N°${o.numero}` : '';
+  }).filter(Boolean).join(', ');
 
-  const clienteLabel = cliente ? `${cliente.nome} ${cliente.cognome}` : 'nessun cliente stagionale assegnato';
-  const nomeLine = nomePrenotazione
-    ? `<div style="margin-top:6px"><strong>Nome prenotazione:</strong> ${nomePrenotazione}</div>`
-    : `<div style="margin-top:6px;color:var(--text-light)">Nessun nome prenotazione — potrai aggiungerlo più tardi modificando la prenotazione.</div>`;
-  document.getElementById('sa-confirm-summary').innerHTML = `
-    <div><strong>Ombrellone:</strong> Fila ${omb.fila} N°${omb.numero}</div>
-    <div style="margin-top:4px"><strong>Data:</strong> ${formatDate(data)}</div>
-    <div style="margin-top:4px"><strong>Importo:</strong> ${formatCoin(omb.credito_giornaliero, currentStabilimento)}</div>
-    <div style="margin-top:4px"><strong>Cliente:</strong> ${clienteLabel}</div>
-    ${nomeLine}
+  const summary = `
+    <div><strong>Periodo:</strong> ${periodo}</div>
+    <div style="margin-top:4px"><strong>Ombrelloni (${nOmb}):</strong> ${ombList}</div>
+    <div style="margin-top:4px"><strong>Sub-affitti totali:</strong> ${pairs.length}</div>
+    <div style="margin-top:4px"><strong>Credito totale:</strong> ${formatCoin(totalCredit.toFixed(2), currentStabilimento)}</div>
   `;
-  showAlert('subaffitto-confirm-alert', '', '');
-  document.getElementById('modal-subaffitto-confirm').classList.remove('hidden');
+  document.getElementById('finalize-booking-summary').innerHTML = summary;
+  document.getElementById('finalize-booking-nome').value = '';
+  showAlert('finalize-booking-alert', '', '');
+  document.getElementById('modal-finalize-booking').classList.remove('hidden');
 }
 
-async function finalizeSubaffitto() {
-  const ombId = document.getElementById('sa-ombrellone').value;
-  const data = document.getElementById('sa-data').value;
-  if (!ombId || !data) { showAlert('subaffitto-confirm-alert', 'Dati mancanti — riprova', 'error'); return; }
-  const omb = ombrelloniList.find(o => o.id === ombId);
-  const cliente = clientiList.find(c => c.ombrellone_id === ombId);
-  const nomePrenotazione = document.getElementById('sa-nome-prenotazione').value.trim() || null;
+async function finalizeBookingSelection() {
+  if (!currentMapRange || bookingSelection.size === 0) return;
+  const { pairs, missingDays } = computeBookingCoverage();
+  if (missingDays.length > 0 || pairs.length === 0) {
+    showAlert('finalize-booking-alert', 'Il periodo non è coperto interamente. Aggiungi altri ombrelloni.', 'error');
+    return;
+  }
+  const rawName = document.getElementById('finalize-booking-nome').value.trim();
+  const nomePrenotazione = rawName || null;
 
-  const { error } = await sb.from('disponibilita').upsert({ ombrellone_id: ombId, cliente_id: cliente?.id || null, data, stato: 'sub_affittato', nome_prenotazione: nomePrenotazione }, { onConflict: 'ombrellone_id,data' });
-  if (error) { showAlert('subaffitto-confirm-alert', error.message, 'error'); return; }
+  showLoading();
+  try {
+    const dispRows = pairs.map(p => {
+      const cliente = clientiList.find(c => c.ombrellone_id === p.omb.id) || null;
+      const row = {
+        ombrellone_id: p.omb.id,
+        cliente_id: cliente?.id || null,
+        data: p.date,
+        stato: 'sub_affittato',
+      };
+      if (nomePrenotazione) row.nome_prenotazione = nomePrenotazione;
+      return row;
+    });
 
-  const notaBase = `Ombrellone ${omb.fila}${omb.numero} sub-affittato il ${formatDate(data)}`;
-  const notaTx = nomePrenotazione ? `${notaBase} — prenotazione "${nomePrenotazione}"` : notaBase;
-  await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, ombrellone_id: ombId, cliente_id: cliente?.id || null, tipo: 'sub_affitto', importo: omb.credito_giornaliero, nota: notaTx });
-
-  if (cliente) {
-    const nuovoSaldo = (parseFloat(cliente.credito_saldo) + parseFloat(omb.credito_giornaliero)).toFixed(2);
-    await sb.from('clienti_stagionali').update({ credito_saldo: nuovoSaldo }).eq('id', cliente.id);
-    const nota = `Credito per sub-affitto ${omb.fila}${omb.numero}`;
-    await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, ombrellone_id: ombId, cliente_id: cliente.id, tipo: 'credito_ricevuto', importo: omb.credito_giornaliero, nota });
-    if (cliente.email) {
-      inviaEmail('credito_accreditato', {
-        email: cliente.email,
-        nome: cliente.nome,
-        cognome: cliente.cognome,
-        ombrellone: `Fila ${omb.fila} N°${omb.numero}`,
-        importo_formatted: formatCoin(omb.credito_giornaliero, currentStabilimento),
-        saldo_formatted: formatCoin(nuovoSaldo, currentStabilimento),
-        nota,
-      }, currentStabilimento);
+    const { error: dispErr } = await sb.from('disponibilita').upsert(dispRows, { onConflict: 'ombrellone_id,data' });
+    if (dispErr) {
+      showAlert('finalize-booking-alert', 'Errore upsert disponibilità: ' + dispErr.message, 'error');
+      return;
     }
-  }
 
-  closeModal('modal-subaffitto-confirm');
-  closeModal('modal-subaffitto');
-  await loadManagerData();
-  if (document.getElementById('mtab-prenotazioni')?.classList.contains('active')) {
-    await loadPrenotazioni();
+    const txRows = pairs.map(p => {
+      const cliente = clientiList.find(c => c.ombrellone_id === p.omb.id) || null;
+      const notaBase = `Ombrellone ${p.omb.fila}${p.omb.numero} sub-affittato il ${formatDate(p.date)}`;
+      const nota = nomePrenotazione ? `${notaBase} — prenotazione "${nomePrenotazione}"` : notaBase;
+      return {
+        stabilimento_id: currentStabilimento.id,
+        ombrellone_id: p.omb.id,
+        cliente_id: cliente?.id || null,
+        tipo: 'sub_affitto',
+        importo: p.omb.credito_giornaliero,
+        nota,
+      };
+    });
+    const { error: txErr } = await sb.from('transazioni').insert(txRows);
+    if (txErr) {
+      showAlert('finalize-booking-alert', 'Sub-affitti salvati, ma errore nella registrazione delle transazioni: ' + txErr.message, 'error');
+      return;
+    }
+
+    const creditsByCliente = new Map();
+    for (const p of pairs) {
+      const cliente = clientiList.find(c => c.ombrellone_id === p.omb.id);
+      if (!cliente) continue;
+      if (!creditsByCliente.has(cliente.id)) creditsByCliente.set(cliente.id, { cliente, rows: [], delta: 0 });
+      const entry = creditsByCliente.get(cliente.id);
+      entry.rows.push({
+        stabilimento_id: currentStabilimento.id,
+        ombrellone_id: p.omb.id,
+        cliente_id: cliente.id,
+        tipo: 'credito_ricevuto',
+        importo: p.omb.credito_giornaliero,
+        nota: `Credito per sub-affitto ${p.omb.fila}${p.omb.numero} (${formatDate(p.date)})`,
+      });
+      entry.delta += parseFloat(p.omb.credito_giornaliero || 0);
+    }
+
+    const creditTxRows = [];
+    for (const entry of creditsByCliente.values()) creditTxRows.push(...entry.rows);
+    if (creditTxRows.length) {
+      const { error: credTxErr } = await sb.from('transazioni').insert(creditTxRows);
+      if (credTxErr) {
+        showAlert('finalize-booking-alert', 'Sub-affitti e transazioni salvati, ma errore sui crediti cliente: ' + credTxErr.message, 'error');
+        return;
+      }
+    }
+
+    for (const entry of creditsByCliente.values()) {
+      const cliente = entry.cliente;
+      const nuovoSaldo = (parseFloat(cliente.credito_saldo || 0) + entry.delta).toFixed(2);
+      await sb.from('clienti_stagionali').update({ credito_saldo: nuovoSaldo }).eq('id', cliente.id);
+      if (cliente.email) {
+        const firstOmb = entry.rows[0];
+        const ombLabel = (() => {
+          const o = ombrelloniList.find(x => x.id === firstOmb.ombrellone_id);
+          return o ? `Fila ${o.fila} N°${o.numero}` : '';
+        })();
+        const giornate = entry.rows.length;
+        const nota = giornate > 1
+          ? `Credito per ${giornate} giornate di sub-affitto${nomePrenotazione ? ` — prenotazione "${nomePrenotazione}"` : ''}`
+          : firstOmb.nota;
+        inviaEmail('credito_accreditato', {
+          email: cliente.email,
+          nome: cliente.nome,
+          cognome: cliente.cognome,
+          ombrellone: ombLabel,
+          importo_formatted: formatCoin(entry.delta.toFixed(2), currentStabilimento),
+          saldo_formatted: formatCoin(nuovoSaldo, currentStabilimento),
+          nota,
+        }, currentStabilimento);
+      }
+    }
+
+    closeModal('modal-finalize-booking');
+    bookingSelection.clear();
+    await loadManagerData();
+    if (document.getElementById('mtab-prenotazioni')?.classList.contains('active')) {
+      await loadPrenotazioni();
+    }
+    showAlert('', '', '');
+  } finally {
+    hideLoading();
   }
-  showAlert('', '', '');
 }
 
 function clearPrenFilters() {

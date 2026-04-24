@@ -379,6 +379,43 @@ body {
 }
 .ombrellone.combo:hover { background: var(--coral); color: #fff; }
 .ombrellone.subleased { background: var(--yellow-light); color: #9C7A1F; border-color: var(--yellow); }
+.ombrellone.selected {
+  box-shadow: 0 0 0 3px var(--coral), 0 0 0 5px rgba(224, 123, 84, 0.25);
+  border-color: var(--coral);
+  transform: scale(1.04);
+}
+.ombrellone.selected::after {
+  content: '✓';
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--coral);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.booking-selection-panel {
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: var(--coral-light);
+  border: 1.5px solid var(--coral);
+  border-radius: 10px;
+}
+.booking-panel-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.booking-panel-title { font-weight: 700; color: var(--coral); font-size: 14px; }
+.booking-panel-stats { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; color: var(--text-mid); align-items: center; }
+.booking-panel-stats strong { color: var(--ink); }
+.booking-missing { font-size: 13px; color: #9C3B1F; background: #fff; border: 1px dashed var(--coral); border-radius: 6px; padding: 8px 10px; margin: 8px 0; }
+.booking-complete { font-size: 13px; color: var(--green); font-weight: 600; margin: 8px 0; }
+.booking-panel-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .sea-label {
   text-align: center; font-size: 10px; font-weight: 700; letter-spacing: 5px;
   text-transform: uppercase; color: var(--ocean-mid);
