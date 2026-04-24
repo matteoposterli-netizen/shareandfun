@@ -259,7 +259,7 @@
             <div class="action-title">Importa in massa via Excel</div>
             <div class="action-desc">
               Colonne: <code>fila, numero, credito_giornaliero, nome, cognome, telefono, email</code>. Max 1000 righe. I campi del cliente sono opzionali.
-              <a href="#" onclick="event.preventDefault();scaricaExcelTemplate()" style="color:var(--ocean);font-weight:600">Scarica template Excel</a>
+              <a href="#" onclick="event.preventDefault();scaricaExcel()" style="color:var(--ocean);font-weight:600" id="link-scarica-excel">📥 Scarica Excel</a>
             </div>
             <div id="xlsx-alert"></div>
             <input type="file" id="xlsx-file" accept=".xlsx,.xls" onchange="loadExcelFile(event)" class="form-input">
@@ -653,6 +653,21 @@
 </div>
 
 <!-- MODALS -->
+<div id="modal-import-confirm" class="modal-overlay hidden">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title">Conferma importazione Excel</div>
+    <div class="modal-sub">Stai per applicare le seguenti modifiche al database. Verifica e conferma.</div>
+    <div id="import-confirm-summary" style="margin-top:14px;font-size:13px;line-height:1.6"></div>
+    <div id="import-confirm-warning" class="alert alert-info" style="margin-top:14px;font-size:12px;line-height:1.55;display:none">
+      ⚠️ Le cancellazioni rimuovono in modo permanente ombrelloni, clienti, transazioni e disponibilità collegate. L'operazione non è reversibile.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-import-confirm')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmImportaExcelExecute()">Conferma e importa</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-cancel-booking" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-title">Annullare la prenotazione?</div>

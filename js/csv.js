@@ -46,18 +46,77 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const XLSX_HEADERS = ['fila', 'numero', 'credito_giornaliero', 'nome', 'cognome', 'telefono', 'email'];
 
-function scaricaExcelTemplate() {
+function slugifyForFilename(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || 'stabilimento';
+}
+
+function buildXlsxAndDownload(rows, filename) {
+  const aoa = [XLSX_HEADERS, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 8 }, { wch: 8 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 24 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Ombrelloni');
+  XLSX.writeFile(wb, filename);
+}
+
+function scaricaExcelSampleTemplate() {
   const sampleRows = [
     ['A', 1, 12.00, 'Mario',  'Rossi',   '3331234567', 'mario@example.com'],
     ['A', 2, 12.00, 'Anna',   'Bianchi', '',           'anna@example.com'],
     ['B', 1, 10.00, '',       '',        '',           ''],
   ];
-  const aoa = [XLSX_HEADERS, ...sampleRows];
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [{ wch: 8 }, { wch: 8 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 24 }];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Ombrelloni');
-  XLSX.writeFile(wb, 'spiaggiamia-template.xlsx');
+  buildXlsxAndDownload(sampleRows, 'spiaggiamia-template.xlsx');
+}
+
+async function scaricaExcel() {
+  const ombs = (typeof ombrelloniList !== 'undefined' && ombrelloniList) ? ombrelloniList : [];
+  if (!ombs.length) { scaricaExcelSampleTemplate(); return; }
+
+  const clienti = (typeof clientiList !== 'undefined' && clientiList) ? clientiList : [];
+  const orphans = clienti.filter(c => !c.ombrellone_id);
+  if (orphans.length) {
+    const elenco = orphans.slice(0, 5).map(c => `• ${c.nome || ''} ${c.cognome || ''} — ${c.email || '(senza email)'}`.trim()).join('\n');
+    const more = orphans.length > 5 ? `\n…e altri ${orphans.length - 5}` : '';
+    const ok = confirm(
+      `Trovati ${orphans.length} clienti senza ombrellone assegnato.\n\n${elenco}${more}\n\n` +
+      `La policy attuale richiede che ogni cliente sia assegnato a un ombrellone. ` +
+      `Vuoi eliminarli prima di scaricare l'Excel?\n\nOK = elimina e scarica · Annulla = interrompi`
+    );
+    if (!ok) return;
+    const ids = orphans.map(c => c.id);
+    const { error } = await sb.from('clienti_stagionali').delete().in('id', ids);
+    if (error) { alert(`Errore eliminazione clienti orfani: ${error.message}`); return; }
+    if (typeof loadManagerData === 'function') await loadManagerData();
+  }
+
+  const ombsSorted = [...((typeof ombrelloniList !== 'undefined' && ombrelloniList) || [])]
+    .sort((a, b) => (a.fila || '').localeCompare(b.fila || '') || (a.numero - b.numero));
+  const clienteByOmb = {};
+  ((typeof clientiList !== 'undefined' && clientiList) || []).forEach(c => { if (c.ombrellone_id) clienteByOmb[c.ombrellone_id] = c; });
+
+  const rows = ombsSorted.map(o => {
+    const c = clienteByOmb[o.id];
+    return [
+      o.fila || '',
+      o.numero,
+      parseFloat(o.credito_giornaliero || 0),
+      c?.nome || '',
+      c?.cognome || '',
+      c?.telefono || '',
+      c?.email || '',
+    ];
+  });
+
+  const stab = (typeof currentStabilimento !== 'undefined' && currentStabilimento) || {};
+  const date = new Date();
+  const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  const filename = `spiaggiamia-${slugifyForFilename(stab.nome)}-${dateStr}.xlsx`;
+  buildXlsxAndDownload(rows, filename);
 }
 
 function normalizeHeader(h) {

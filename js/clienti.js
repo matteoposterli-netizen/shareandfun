@@ -27,6 +27,15 @@ async function loadExcelFile(e) {
   e.target.value = '';
 }
 
+function fieldDiffHtml(label, before, after) {
+  const b = (before == null ? '' : String(before)).trim();
+  const a = (after == null ? '' : String(after)).trim();
+  if (b === a) return '';
+  const beforeStr = b || '∅';
+  const afterStr = a || '∅';
+  return `<div style="font-size:11px;line-height:1.4"><span style="color:var(--text-light)">${escapeHtml(label)}:</span> <span style="text-decoration:line-through;color:var(--text-light)">${escapeHtml(beforeStr)}</span> → <span style="color:#B07000;font-weight:600">${escapeHtml(afterStr)}</span></div>`;
+}
+
 function renderExcelAnteprima(rows) {
   const wrap = document.getElementById('xlsx-preview');
   const actions = document.getElementById('xlsx-actions');
@@ -46,62 +55,134 @@ function renderExcelAnteprima(rows) {
   const statuses = rows.map((r, idx) => {
     const dupOmb = seenOmbInFile.get(`${r.fila}|${r.numero}`);
     if (dupOmb.length > 1 && dupOmb[0] !== idx) {
-      return { kind: 'block', label: `ombrellone duplicato (riga ${dupOmb[0] + 2})` };
+      return { kind: 'block', label: `ombrellone duplicato (riga ${dupOmb[0] + 2})`, diffs: [], requiresExplicit: false };
     }
-    const ombExists = !!ombByKey[`${r.fila}|${r.numero}`];
+    const omb = ombByKey[`${r.fila}|${r.numero}`];
+    const ombExists = !!omb;
     const email = (r.email || '').trim().toLowerCase();
     const hasClienteFields = !!(r.nome || r.cognome || r.email || r.telefono);
+
     if (hasClienteFields) {
-      if (!email) return { kind: 'block', label: 'email cliente mancante' };
-      if (!EMAIL_RE.test(email)) return { kind: 'block', label: 'email non valida' };
-      if (seenEmails.has(email)) return { kind: 'block', label: 'email duplicata nel file' };
+      if (!email) return { kind: 'block', label: 'email cliente mancante', diffs: [], requiresExplicit: false };
+      if (!EMAIL_RE.test(email)) return { kind: 'block', label: 'email non valida', diffs: [], requiresExplicit: false };
+      if (seenEmails.has(email)) return { kind: 'block', label: 'email duplicata nel file', diffs: [], requiresExplicit: false };
       seenEmails.add(email);
-      const omb = ombByKey[`${r.fila}|${r.numero}`];
-      if (omb) {
+    }
+
+    const diffs = [];
+    let requiresExplicit = false;
+    let kind = ombExists ? 'ok' : 'new';
+    let label = ombExists ? (hasClienteFields ? 'aggiorna' : 'solo ombrellone') : 'nuovo';
+
+    if (ombExists) {
+      const existingCredito = parseFloat(omb.credito_giornaliero);
+      if (!isNaN(existingCredito) && existingCredito !== r.credito) {
+        diffs.push(fieldDiffHtml('Credito', existingCredito.toFixed(2), r.credito.toFixed(2)));
+      }
+      if (hasClienteFields) {
         const existingCl = clienteByOmb[omb.id];
         if (existingCl && (existingCl.email || '').toLowerCase() !== email) {
           const name = `${existingCl.nome || ''} ${existingCl.cognome || ''}`.trim() || existingCl.email;
-          return { kind: 'conflict', label: `sostituirà ${name}` };
+          kind = 'conflict';
+          label = `sostituirà ${name}`;
+          if (existingCl.user_id) {
+            requiresExplicit = true;
+            label = `sostituirà ${name} (CLIENTE ATTIVO)`;
+          }
+          diffs.push(fieldDiffHtml('Email cliente', existingCl.email, email));
+          if ((existingCl.nome || '') !== (r.nome || '')) diffs.push(fieldDiffHtml('Nome', existingCl.nome, r.nome));
+          if ((existingCl.cognome || '') !== (r.cognome || '')) diffs.push(fieldDiffHtml('Cognome', existingCl.cognome, r.cognome));
+          if ((existingCl.telefono || '') !== (r.telefono || '')) diffs.push(fieldDiffHtml('Telefono', existingCl.telefono, r.telefono));
+        } else if (existingCl && (existingCl.email || '').toLowerCase() === email) {
+          if ((existingCl.nome || '') !== (r.nome || '')) diffs.push(fieldDiffHtml('Nome', existingCl.nome, r.nome));
+          if ((existingCl.cognome || '') !== (r.cognome || '')) diffs.push(fieldDiffHtml('Cognome', existingCl.cognome, r.cognome));
+          if ((existingCl.telefono || '') !== (r.telefono || '')) diffs.push(fieldDiffHtml('Telefono', existingCl.telefono, r.telefono));
+          if (existingCl.user_id && diffs.length) {
+            requiresExplicit = true;
+            label = 'aggiorna (CLIENTE ATTIVO)';
+          } else if (diffs.length) {
+            label = 'aggiorna cliente';
+          } else {
+            label = 'nessuna modifica';
+          }
+        } else if (!existingCl) {
+          label = 'aggiunge cliente';
         }
+      } else if (diffs.length) {
+        label = 'aggiorna credito';
+      } else {
+        label = 'nessuna modifica';
       }
     }
-    return { kind: ombExists ? 'ok' : 'new', label: ombExists ? (hasClienteFields ? 'ok' : 'solo ombrellone') : 'nuovo' };
+    return { kind, label, diffs: diffs.filter(Boolean), requiresExplicit };
   });
 
   const blocked = statuses.filter(s => s.kind === 'block').length;
   const conflicts = statuses.filter(s => s.kind === 'conflict').length;
+  const explicits = statuses.filter(s => s.requiresExplicit).length;
+
+  // DB rows missing from file: candidate deletions
+  const fileKeys = new Set(rows.map(r => `${r.fila}|${r.numero}`));
+  const missing = (ombrelloniList || []).filter(o => !fileKeys.has(`${o.fila}|${o.numero}`));
 
   wrap.innerHTML = `
     <div class="csv-preview-wrap">
       <div class="csv-check-all">
-        <input type="checkbox" id="xlsx-check-all" onchange="toggleAllExcel(this.checked)" checked>
-        <label for="xlsx-check-all">Seleziona tutti (${rows.length - blocked})</label>
+        <input type="checkbox" id="xlsx-check-all" onchange="toggleAllExcel(this.checked)">
+        <label for="xlsx-check-all">Seleziona tutte le righe importabili</label>
         <span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
           ${blocked ? `<span style="color:var(--red);font-size:12px;font-weight:600">${blocked} non importabili</span>` : ''}
-          ${conflicts ? `<span style="color:#B07000;font-size:12px;font-weight:600">${conflicts} conflitti ombrellone</span>` : ''}
+          ${conflicts ? `<span style="color:#B07000;font-size:12px;font-weight:600">${conflicts} conflitti cliente</span>` : ''}
+          ${explicits ? `<span style="color:var(--red);font-size:12px;font-weight:600">${explicits} clienti attivi (conferma esplicita)</span>` : ''}
         </span>
       </div>
-      <div class="csv-row header" style="grid-template-columns:32px 60px 60px 80px 1fr 1fr 100px 120px"><div></div><div>Fila</div><div>N°</div><div>Credito</div><div>Nome cliente</div><div>Email</div><div>Telefono</div><div>Stato</div></div>
+      <div class="csv-row header" style="grid-template-columns:32px 60px 60px 1fr 1fr 1fr 160px"><div></div><div>Fila</div><div>N°</div><div>Cliente</div><div>Email</div><div>Modifiche</div><div>Stato</div></div>
       ${rows.map((r, i) => {
         const s = statuses[i];
         const badgeColor = s.kind === 'ok' || s.kind === 'new' ? 'var(--green)'
           : s.kind === 'conflict' ? '#B07000'
           : 'var(--red)';
-        const attrs = s.kind === 'block' ? 'disabled' : 'checked';
+        const disabled = s.kind === 'block';
+        const checked = !disabled && !s.requiresExplicit;
+        const attrs = `${disabled ? 'disabled' : ''} ${checked ? 'checked' : ''}`;
         const nomeStr = `${r.nome || ''} ${r.cognome || ''}`.trim() || '<span style="color:var(--text-light)">–</span>';
+        const diffStr = s.diffs.length ? s.diffs.join('') : '<span style="color:var(--text-light);font-size:11px">–</span>';
         return `
-        <div class="csv-row" style="grid-template-columns:32px 60px 60px 80px 1fr 1fr 100px 120px">
+        <div class="csv-row" style="grid-template-columns:32px 60px 60px 1fr 1fr 1fr 160px;align-items:start">
           <input type="checkbox" class="xlsx-check" data-idx="${i}" ${attrs} onchange="updateExcelCount()">
           <div>${escapeHtml(r.fila)}</div>
           <div>${r.numero}</div>
-          <div>${formatCoin(r.credito)}</div>
           <div>${nomeStr}</div>
           <div>${escapeHtml(r.email) || '<span style="color:var(--text-light)">–</span>'}</div>
-          <div>${escapeHtml(r.telefono) || '–'}</div>
+          <div>${diffStr}</div>
           <div style="color:${badgeColor};font-size:11px;font-weight:600">${escapeHtml(s.label)}</div>
         </div>`;
       }).join('')}
+      ${missing.length ? `
+        <div class="section-divider" style="margin-top:18px">🗑 Righe in DB non presenti nel file (${missing.length})</div>
+        <div style="font-size:12px;color:var(--text-mid);margin:0 0 8px">
+          Spunta gli ombrelloni che vuoi <strong>cancellare</strong>. La cancellazione rimuove anche cliente assegnato, disponibilità e transazioni storiche collegate. Default: nessuna cancellazione.
+        </div>
+        <div class="csv-row header" style="grid-template-columns:32px 60px 60px 1fr 1fr 160px"><div></div><div>Fila</div><div>N°</div><div>Cliente attuale</div><div>Storico</div><div>Azione</div></div>
+        ${missing.map(o => {
+          const cl = clienteByOmb[o.id];
+          const cliStr = cl ? `${cl.nome || ''} ${cl.cognome || ''}`.trim() + (cl.email ? ` <span style="color:var(--text-light);font-size:11px">${escapeHtml(cl.email)}</span>` : '') + (cl.user_id ? ' <span style="color:var(--red);font-size:10px;font-weight:700">[ATTIVO]</span>' : '') : '<span style="color:var(--text-light)">–</span>';
+          return `
+          <div class="csv-row" style="grid-template-columns:32px 60px 60px 1fr 1fr 160px;align-items:start">
+            <input type="checkbox" class="xlsx-delete" data-omb-id="${o.id}" data-cli-id="${cl?.id || ''}" data-cli-active="${cl?.user_id ? '1' : '0'}" onchange="updateExcelCount()">
+            <div>${escapeHtml(o.fila)}</div>
+            <div>${o.numero}</div>
+            <div>${cliStr}</div>
+            <div style="font-size:11px;color:var(--text-light)">credito ${formatCoin(o.credito_giornaliero)}</div>
+            <div style="color:var(--red);font-size:11px;font-weight:600">candidato cancellazione</div>
+          </div>`;
+        }).join('')}
+      ` : ''}
     </div>`;
+
+  const allBox = document.getElementById('xlsx-check-all');
+  if (allBox) allBox.checked = statuses.some(s => s.kind !== 'block' && !s.requiresExplicit);
+
   actions.classList.remove('hidden');
   actions.style.display = 'flex';
   updateExcelCount();
@@ -114,7 +195,10 @@ function toggleAllExcel(checked) {
 
 function updateExcelCount() {
   const total = document.querySelectorAll('.xlsx-check:checked').length;
-  document.getElementById('xlsx-count').textContent = `${total} selezionati`;
+  const dels = document.querySelectorAll('.xlsx-delete:checked').length;
+  const parts = [`${total} import${total === 1 ? 'azione' : 'azioni'}`];
+  if (dels) parts.push(`${dels} cancellazion${dels === 1 ? 'e' : 'i'}`);
+  document.getElementById('xlsx-count').textContent = parts.join(' · ');
 }
 
 function annullaExcel() {
@@ -128,17 +212,159 @@ function annullaExcel() {
   showAlert('xlsx-alert', '', '');
 }
 
+let pendingImportPlan = null;
+
 async function importaExcel() {
   const selected = [];
   document.querySelectorAll('.xlsx-check:checked').forEach(cb => {
     const idx = parseInt(cb.dataset.idx);
     selected.push(xlsxRows[idx]);
   });
-  if (!selected.length) { showAlert('xlsx-alert', 'Seleziona almeno una riga', 'error'); return; }
+
+  const ombDeleteIds = [];
+  const cliDeleteIds = [];
+  let activeDeletions = 0;
+  document.querySelectorAll('.xlsx-delete:checked').forEach(cb => {
+    ombDeleteIds.push(cb.dataset.ombId);
+    if (cb.dataset.cliId) cliDeleteIds.push(cb.dataset.cliId);
+    if (cb.dataset.cliActive === '1') activeDeletions++;
+  });
+
+  if (!selected.length && !ombDeleteIds.length) {
+    showAlert('xlsx-alert', 'Seleziona almeno una riga da importare o cancellare', 'error'); return;
+  }
+
+  // Compute counts for the summary
+  const ombByKey = {};
+  (ombrelloniList || []).forEach(o => { ombByKey[`${o.fila}|${o.numero}`] = o; });
+  const clienteByOmb = {};
+  (clientiList || []).forEach(c => { if (c.ombrellone_id) clienteByOmb[c.ombrellone_id] = c; });
+  const clienteByEmail = {};
+  (clientiList || []).forEach(c => { if (c.email) clienteByEmail[c.email.toLowerCase()] = c; });
+
+  let ombNew = 0, ombCreditUpdate = 0;
+  let cliNew = 0, cliUpdate = 0, cliReplace = 0, cliActiveTouched = 0;
+  for (const r of selected) {
+    const existing = ombByKey[`${r.fila}|${r.numero}`];
+    if (!existing) ombNew++;
+    else if (parseFloat(existing.credito_giornaliero) !== r.credito) ombCreditUpdate++;
+
+    const email = (r.email || '').trim().toLowerCase();
+    if (!email) continue;
+    const existingCl = existing ? clienteByOmb[existing.id] : null;
+    if (existingCl && existingCl.email && existingCl.email.toLowerCase() !== email) {
+      cliReplace++;
+      if (existingCl.user_id) cliActiveTouched++;
+    } else {
+      const sameEmail = clienteByEmail[email];
+      if (sameEmail) {
+        cliUpdate++;
+        if (sameEmail.user_id) cliActiveTouched++;
+      } else {
+        cliNew++;
+      }
+    }
+  }
+
+  // Fetch storico impact for deletions
+  let txImpact = 0, dispImpact = 0;
+  if (ombDeleteIds.length) {
+    const [{ count: tc }, { count: dc }] = await Promise.all([
+      sb.from('transazioni').select('id', { count: 'exact', head: true }).in('ombrellone_id', ombDeleteIds),
+      sb.from('disponibilita').select('id', { count: 'exact', head: true }).in('ombrellone_id', ombDeleteIds),
+    ]);
+    txImpact = tc || 0;
+    dispImpact = dc || 0;
+  }
+  if (cliDeleteIds.length) {
+    const { count: tcc } = await sb.from('transazioni').select('id', { count: 'exact', head: true }).in('cliente_id', cliDeleteIds);
+    txImpact += tcc || 0;
+  }
 
   const inviaInviti = document.getElementById('xlsx-invia-inviti')?.checked;
+  pendingImportPlan = { selected, ombDeleteIds, cliDeleteIds, inviaInviti };
+
+  // Build summary HTML
+  const lines = [];
+  if (ombNew) lines.push(`☂️ <strong>${ombNew}</strong> nuovi ombrelloni`);
+  if (ombCreditUpdate) lines.push(`💰 <strong>${ombCreditUpdate}</strong> ombrelloni con credito aggiornato`);
+  if (cliNew) lines.push(`👤 <strong>${cliNew}</strong> nuovi clienti`);
+  if (cliUpdate) lines.push(`✏️ <strong>${cliUpdate}</strong> clienti aggiornati`);
+  if (cliReplace) lines.push(`🔄 <strong>${cliReplace}</strong> clienti sostituiti su ombrellone`);
+  if (cliActiveTouched) lines.push(`<span style="color:var(--red)">⚠️ <strong>${cliActiveTouched}</strong> clienti già attivi (con login) verranno modificati</span>`);
+  if (ombDeleteIds.length) lines.push(`<span style="color:var(--red)">🗑 <strong>${ombDeleteIds.length}</strong> ombrelloni cancellati</span>`);
+  if (cliDeleteIds.length) lines.push(`<span style="color:var(--red)">🗑 <strong>${cliDeleteIds.length}</strong> clienti cancellati (insieme agli ombrelloni)</span>`);
+  if (activeDeletions) lines.push(`<span style="color:var(--red)">⚠️ <strong>${activeDeletions}</strong> clienti attivi (con login) verranno cancellati</span>`);
+  if (txImpact) lines.push(`<span style="color:var(--red)">📊 <strong>${txImpact}</strong> transazioni dello storico verranno rimosse</span>`);
+  if (dispImpact) lines.push(`<span style="color:var(--red)">📅 <strong>${dispImpact}</strong> disponibilità future/passate verranno rimosse</span>`);
+  if (!lines.length) lines.push('Nessuna modifica rilevata.');
+
+  document.getElementById('import-confirm-summary').innerHTML = lines.map(l => `<div style="margin:6px 0">${l}</div>`).join('');
+  document.getElementById('import-confirm-warning').style.display =
+    (ombDeleteIds.length || cliDeleteIds.length || cliActiveTouched || activeDeletions) ? 'block' : 'none';
+
+  document.getElementById('modal-import-confirm').classList.remove('hidden');
+}
+
+async function confirmImportaExcelExecute() {
+  if (!pendingImportPlan) return;
+  const { selected, ombDeleteIds, cliDeleteIds, inviaInviti } = pendingImportPlan;
+  closeModal('modal-import-confirm');
+
   const btn = document.querySelector('#xlsx-actions button');
   if (btn) btn.disabled = true;
+
+  // ============ CASCADE DELETIONS (best-effort sequenziale) ============
+  let deletedOmb = 0, deletedCli = 0, deletedTx = 0, deletedDisp = 0;
+  let deleteErrors = [];
+  if (ombDeleteIds.length) {
+    renderProgressInAlert('xlsx-alert', 'Cancellazione storico…', 0, ombDeleteIds.length);
+    // 1. Delete transazioni linked to ombrelloni
+    const txOmb = await sb.from('transazioni').delete({ count: 'exact' }).in('ombrellone_id', ombDeleteIds);
+    if (txOmb.error) deleteErrors.push(`transazioni(ombrellone): ${txOmb.error.message}`);
+    else deletedTx += txOmb.count || 0;
+    // 2. Delete transazioni linked to clienti about to be removed
+    if (cliDeleteIds.length) {
+      const txCli = await sb.from('transazioni').delete({ count: 'exact' }).in('cliente_id', cliDeleteIds);
+      if (txCli.error) deleteErrors.push(`transazioni(cliente): ${txCli.error.message}`);
+      else deletedTx += txCli.count || 0;
+    }
+    // 3. Delete disponibilita
+    const dd = await sb.from('disponibilita').delete({ count: 'exact' }).in('ombrellone_id', ombDeleteIds);
+    if (dd.error) deleteErrors.push(`disponibilita: ${dd.error.message}`);
+    else deletedDisp += dd.count || 0;
+    // 4. Delete clienti
+    if (cliDeleteIds.length) {
+      const cd = await sb.from('clienti_stagionali').delete({ count: 'exact' }).in('id', cliDeleteIds);
+      if (cd.error) deleteErrors.push(`clienti: ${cd.error.message}`);
+      else deletedCli += cd.count || 0;
+    }
+    // 5. Delete ombrelloni
+    const od = await sb.from('ombrelloni').delete({ count: 'exact' }).in('id', ombDeleteIds);
+    if (od.error) deleteErrors.push(`ombrelloni: ${od.error.message}`);
+    else deletedOmb += od.count || 0;
+  }
+
+  if (deleteErrors.length) {
+    if (btn) btn.disabled = false;
+    await loadManagerData();
+    showAlert('xlsx-alert', `❌ Errori cancellazione: ${deleteErrors.join(' · ')}`, 'error');
+    return;
+  }
+
+  // ============ UPSERTS (logica esistente) ============
+  if (!selected.length) {
+    if (btn) btn.disabled = false;
+    await loadManagerData();
+    annullaExcel();
+    const parts = [];
+    if (deletedOmb) parts.push(`${deletedOmb} ombrelloni cancellati`);
+    if (deletedCli) parts.push(`${deletedCli} clienti cancellati`);
+    if (deletedTx) parts.push(`${deletedTx} transazioni rimosse`);
+    if (deletedDisp) parts.push(`${deletedDisp} disponibilità rimosse`);
+    showAlert('xlsx-alert', `✅ ${parts.join(' · ') || 'Nessuna modifica'}`, 'success');
+    return;
+  }
 
   renderProgressInAlert('xlsx-alert', 'Preparazione ombrelloni…', 0, selected.length);
 
@@ -179,7 +405,14 @@ async function importaExcel() {
     if (btn) btn.disabled = false;
     await loadManagerData();
     annullaExcel();
-    showAlert('xlsx-alert', `✅ Ombrelloni aggiunti: ${ombAggiunti}, aggiornati: ${ombAggiornati}`, 'success');
+    const partsNoCli = [];
+    if (deletedOmb) partsNoCli.push(`${deletedOmb} ombrelloni cancellati`);
+    if (deletedCli) partsNoCli.push(`${deletedCli} clienti cancellati`);
+    if (deletedTx) partsNoCli.push(`${deletedTx} transazioni rimosse`);
+    if (deletedDisp) partsNoCli.push(`${deletedDisp} disponibilità rimosse`);
+    if (ombAggiunti) partsNoCli.push(`${ombAggiunti} ombrelloni aggiunti`);
+    if (ombAggiornati) partsNoCli.push(`${ombAggiornati} ombrelloni aggiornati`);
+    showAlert('xlsx-alert', `✅ ${partsNoCli.join(' · ') || 'Nessuna modifica'}`, 'success');
     return;
   }
 
@@ -257,6 +490,10 @@ async function importaExcel() {
   annullaExcel();
 
   const parts = [];
+  if (deletedOmb) parts.push(`${deletedOmb} ombrelloni cancellati`);
+  if (deletedCli) parts.push(`${deletedCli} clienti cancellati`);
+  if (deletedTx) parts.push(`${deletedTx} transazioni rimosse`);
+  if (deletedDisp) parts.push(`${deletedDisp} disponibilità rimosse`);
   if (ombAggiunti) parts.push(`${ombAggiunti} ombrelloni aggiunti`);
   if (ombAggiornati) parts.push(`${ombAggiornati} ombrelloni aggiornati`);
   parts.push(`${byEmail.size} clienti importati`);

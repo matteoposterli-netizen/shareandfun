@@ -248,6 +248,8 @@ async function loadManagerData() {
   currentDispMap = dispMap;
 
   document.getElementById('stat-totali').textContent = ombrelloniList.length;
+  const linkScarica = document.getElementById('link-scarica-excel');
+  if (linkScarica) linkScarica.textContent = ombrelloniList.length ? '📥 Scarica Excel con i dati attuali' : '📥 Scarica template Excel di esempio';
 
   const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
   const { data: txWeek } = await sb.from('transazioni').select('importo').eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_ricevuto').gte('created_at', weekAgo.toISOString());
