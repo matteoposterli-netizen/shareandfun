@@ -203,16 +203,16 @@
   <div class="dash-layout">
     <div class="sidebar">
       <div class="sidebar-title">Principale</div>
-      <button class="sidebar-item active" onclick="managerTab('panoramica',this)"><span class="icon">📊</span> Panoramica</button>
+      <button class="sidebar-item active" onclick="managerTab('prenotazioni',this)"><span class="icon">📖</span> Prenotazioni</button>
+      <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Gestione Credito</button>
+      <button class="sidebar-item" onclick="managerTab('panoramica',this)"><span class="icon">📊</span> Panoramica</button>
       <button class="sidebar-item" onclick="managerTab('gestione',this)"><span class="icon">🗺️</span> Ombrelloni e Clienti</button>
-      <button class="sidebar-item" onclick="managerTab('prenotazioni',this)"><span class="icon">📖</span> Prenotazioni</button>
       <button class="sidebar-item" onclick="managerTab('transazioni',this)"><span class="icon">📋</span> Transazioni</button>
-      <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Crediti</button>
       <button class="sidebar-item" onclick="managerTab('email',this)"><span class="icon">✉️</span> Email</button>
     </div>
     <div class="main-content">
       <!-- PANORAMICA -->
-      <div id="mtab-panoramica" class="tab-content active">
+      <div id="mtab-panoramica" class="tab-content">
         <div class="page-header">
           <div><div class="page-title" id="manager-stab-nome">Dashboard</div><div class="page-subtitle" id="manager-today-label"></div></div>
         </div>
@@ -450,7 +450,7 @@
       </div>
 
       <!-- PRENOTAZIONI TAB -->
-      <div id="mtab-prenotazioni" class="tab-content">
+      <div id="mtab-prenotazioni" class="tab-content active">
         <div class="page-header">
           <div><div class="page-title">Prenotazioni</div><div class="page-subtitle">Sub-affitti registrati, raggruppati per nome quando presente. Per creare una nuova prenotazione, usa la mappa ombrelloni in Panoramica.</div></div>
         </div>

@@ -202,20 +202,20 @@ async function refreshMap() {
   const pills = [];
   if (isSingleDay) {
     if (free > 0) {
-      pills.push(pill('var(--green-light)', 'var(--green)', `✓ ${free} ombrellone${free > 1 ? 'i' : ''} liber${free > 1 ? 'i' : 'o'}`));
+      pills.push(pill('var(--green-light)', 'var(--green)', `✓ ${free} ombrellon${free > 1 ? 'i' : 'e'} liber${free > 1 ? 'i' : 'o'}`));
     } else {
       pills.push(pill('var(--red-light)', 'var(--red)', 'Nessun ombrellone libero'));
     }
   } else {
     if (free > 0) {
-      pills.push(pill('var(--green-light)', 'var(--green)', `✓ ${free} ombrellone${free > 1 ? 'i' : ''} liber${free > 1 ? 'i' : 'o'} per tutto il periodo`));
+      pills.push(pill('var(--green-light)', 'var(--green)', `✓ ${free} ombrellon${free > 1 ? 'i' : 'e'} liber${free > 1 ? 'i' : 'o'} per tutto il periodo`));
     }
     if (combinationValid) {
       pills.push(pill('var(--coral-light)', 'var(--coral)', `⚡ Combinazione: ${combo} ombrelloni coprono l'intero periodo`));
     }
     if (!free && !combinationValid) {
       if (partial > 0) {
-        pills.push(pill('var(--yellow-light)', '#9C7A1F', `${partial} ombrellone${partial > 1 ? 'i' : ''} liber${partial > 1 ? 'i' : 'o'} solo in parte — nessuna combinazione copre l'intero periodo`));
+        pills.push(pill('var(--yellow-light)', '#9C7A1F', `${partial} ombrellon${partial > 1 ? 'i' : 'e'} liber${partial > 1 ? 'i' : 'o'} solo in parte — nessuna combinazione copre l'intero periodo`));
       } else {
         pills.push(pill('var(--red-light)', 'var(--red)', 'Nessun ombrellone libero nel periodo'));
       }
@@ -260,6 +260,7 @@ async function loadManagerData() {
   renderCreditiTable(clientiList, ombrelloniList);
   await loadManagerTx();
   await loadAllTx();
+  await loadPrenotazioni();
   populateClienteSelect();
   if (!document.getElementById('analytics-date-from').value) {
     setAnalyticsRange(30);
