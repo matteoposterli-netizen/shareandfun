@@ -625,6 +625,21 @@
 </div>
 
 <!-- MODALS -->
+<div id="modal-cancel-booking" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Annullare la prenotazione?</div>
+    <div class="modal-sub" id="cancel-booking-summary"></div>
+    <div id="cancel-booking-alert"></div>
+    <div class="alert alert-info" style="margin-top:14px;font-size:12px;line-height:1.55">
+      ⚠️ Gli ombrelloni torneranno disponibili per un'altra prenotazione. Il credito accreditato al cliente stagionale verrà revocato e il saldo può diventare negativo se il cliente ha già utilizzato parte di quel credito.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-cancel-booking')">Indietro</button>
+      <button class="btn btn-danger btn-sm" onclick="confirmCancelBooking()">Conferma annullamento</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-finalize-booking" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-title">Finalizza prenotazione</div>
