@@ -1187,9 +1187,9 @@ function renderPrenotazioni() {
         </div>
       </div>
       <div class="card-body">
-        <div style="font-size:13px;color:var(--text-mid);margin-bottom:8px"><strong>Cliente:</strong> ${clientiLabel} · <strong>Totale:</strong> ${formatCoin(totImporto, currentStabilimento)}</div>
+        <div style="font-size:13px;color:var(--text-mid);margin-bottom:8px"><strong>Cliente Stagionale:</strong> ${clientiLabel} · <strong>Totale:</strong> ${formatCoin(totImporto, currentStabilimento)}</div>
         <div class="table-wrap"><table class="data-table">
-          <thead><tr><th>Data</th><th>Ombrellone</th><th>Cliente</th><th style="text-align:right">Importo</th></tr></thead>
+          <thead><tr><th>Data</th><th>Ombrellone</th><th>Cliente Stagionale</th><th style="text-align:right">Importo</th></tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table></div>
       </div>
