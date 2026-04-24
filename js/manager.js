@@ -842,8 +842,24 @@ async function loadAllTx() {
 
 function renderTxList(txs, stab, ombsMap) {
   if (!txs.length) return '<div class="tx-empty">Nessuna transazione ancora</div>';
-  const icons = { disponibilita_aggiunta: {e:'📅',c:'green'}, disponibilita_rimossa: {e:'🗑️',c:'red'}, sub_affitto: {e:'💰',c:'yellow'}, credito_ricevuto: {e:'⭐',c:'yellow'}, credito_usato: {e:'🎉',c:'coral'} };
-  const labels = { disponibilita_aggiunta: 'Disponibilità dichiarata', disponibilita_rimossa: 'Disponibilità rimossa', sub_affitto: 'Sub-affitto confermato', credito_ricevuto: 'Credito ricevuto', credito_usato: 'Credito utilizzato' };
+  const icons = {
+    disponibilita_aggiunta: {e:'📅',c:'green'},
+    disponibilita_rimossa: {e:'🗑️',c:'red'},
+    sub_affitto: {e:'💰',c:'yellow'},
+    sub_affitto_annullato: {e:'↩️',c:'red'},
+    credito_ricevuto: {e:'⭐',c:'yellow'},
+    credito_usato: {e:'🎉',c:'coral'},
+    credito_revocato: {e:'⛔',c:'red'},
+  };
+  const labels = {
+    disponibilita_aggiunta: 'Disponibilità dichiarata',
+    disponibilita_rimossa: 'Disponibilità rimossa',
+    sub_affitto: 'Sub-affitto confermato',
+    sub_affitto_annullato: 'Sub-affitto annullato',
+    credito_ricevuto: 'Credito ricevuto',
+    credito_usato: 'Credito utilizzato',
+    credito_revocato: 'Credito revocato',
+  };
   return txs.map(t => {
     const ic = icons[t.tipo] || {e:'📌',c:'blue'};
     let ombStr = '';
@@ -1112,13 +1128,16 @@ function renderPrenotazioni() {
     return 0;
   });
 
+  cancelBookingGroups.clear();
+  ordered.forEach((g, i) => cancelBookingGroups.set(`g-${i}`, g));
+
   const totalBookings = rows.length;
   const totalGroups = ordered.length;
   if (countEl) {
     countEl.textContent = `${totalGroups} prenotazion${totalGroups === 1 ? 'e' : 'i'} · ${totalBookings} sub-affitt${totalBookings === 1 ? 'o' : 'i'}`;
   }
 
-  listEl.innerHTML = ordered.map(g => {
+  listEl.innerHTML = ordered.map((g, gi) => {
     const items = g.items.slice().sort((a, b) => a.data < b.data ? -1 : a.data > b.data ? 1 : 0);
     const dates = items.map(i => i.data);
     const dateLabel = dates.length === 1
@@ -1162,7 +1181,10 @@ function renderPrenotazioni() {
     return `<div class="card" style="margin-bottom:14px">
       <div class="card-header" style="flex-wrap:wrap;gap:8px">
         <div class="card-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">📖 ${title}</div>
-        <div style="font-size:13px;color:var(--text-mid)">${dateLabel}</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="font-size:13px;color:var(--text-mid)">${dateLabel}</div>
+          <button class="btn btn-danger btn-sm" onclick="openCancelBookingModal('g-${gi}')">Annulla prenotazione</button>
+        </div>
       </div>
       <div class="card-body">
         <div style="font-size:13px;color:var(--text-mid);margin-bottom:8px"><strong>Cliente:</strong> ${clientiLabel} · <strong>Totale:</strong> ${formatCoin(totImporto, currentStabilimento)}</div>
@@ -1173,6 +1195,126 @@ function renderPrenotazioni() {
       </div>
     </div>`;
   }).join('');
+}
+
+let cancelBookingCurrentId = null;
+
+function openCancelBookingModal(gid) {
+  const group = cancelBookingGroups.get(gid);
+  if (!group) return;
+  cancelBookingCurrentId = gid;
+
+  const items = group.items;
+  const ombsMap = ombById();
+  const cliById = {};
+  (clientiList || []).forEach(c => { cliById[c.id] = c; });
+
+  const dates = items.map(i => i.data).sort();
+  const dateLabel = dates.length === 1
+    ? formatDate(dates[0])
+    : `${formatDate(dates[0])} → ${formatDate(dates[dates.length - 1])} (${dates.length} giorn${dates.length === 1 ? 'o' : 'i'})`;
+
+  const deltaByCliente = new Map();
+  let totImporto = 0;
+  items.forEach(i => {
+    const o = ombsMap[i.ombrellone_id];
+    const imp = o ? parseFloat(o.credito_giornaliero || 0) : 0;
+    totImporto += imp;
+    if (i.cliente_id) deltaByCliente.set(i.cliente_id, (deltaByCliente.get(i.cliente_id) || 0) + imp);
+  });
+
+  const clientiRighe = Array.from(deltaByCliente.entries()).map(([cid, delta]) => {
+    const c = cliById[cid];
+    if (!c) return `<li>Cliente non trovato — ${formatCoin(delta.toFixed(2), currentStabilimento)} da revocare</li>`;
+    const saldoAttuale = parseFloat(c.credito_saldo || 0);
+    const saldoNuovo = saldoAttuale - delta;
+    const warn = saldoNuovo < 0 ? ` <span style="color:var(--red);font-weight:600">(saldo andrà negativo: ${formatCoin(saldoNuovo.toFixed(2), currentStabilimento)})</span>` : '';
+    return `<li><strong>${c.nome} ${c.cognome}</strong>: revoca di ${formatCoin(delta.toFixed(2), currentStabilimento)} (saldo attuale: ${formatCoin(saldoAttuale.toFixed(2), currentStabilimento)})${warn}</li>`;
+  }).join('');
+
+  const nomeLabel = group.nome
+    ? `<div><strong>Prenotazione:</strong> ${group.nome}</div>`
+    : `<div><strong>Prenotazione:</strong> <span style="color:var(--text-light);font-style:italic">senza nome</span></div>`;
+
+  document.getElementById('cancel-booking-summary').innerHTML = `
+    ${nomeLabel}
+    <div style="margin-top:4px"><strong>Periodo:</strong> ${dateLabel}</div>
+    <div style="margin-top:4px"><strong>Sub-affitti da annullare:</strong> ${items.length}</div>
+    <div style="margin-top:4px"><strong>Credito totale revocato:</strong> ${formatCoin(totImporto.toFixed(2), currentStabilimento)}</div>
+    ${clientiRighe ? `<div style="margin-top:10px;font-size:13px"><strong>Impatto sui clienti:</strong><ul style="margin:6px 0 0 18px;line-height:1.6">${clientiRighe}</ul></div>` : ''}
+  `;
+  showAlert('cancel-booking-alert', '', '');
+  document.getElementById('modal-cancel-booking').classList.remove('hidden');
+}
+
+async function confirmCancelBooking() {
+  const gid = cancelBookingCurrentId;
+  if (!gid) return;
+  const group = cancelBookingGroups.get(gid);
+  if (!group) return;
+  const items = group.items;
+  if (!items.length) return;
+
+  showLoading();
+  try {
+    const dispIds = items.map(i => i.id);
+    const { error: updErr } = await sb.from('disponibilita')
+      .update({ stato: 'libero', nome_prenotazione: null })
+      .in('id', dispIds);
+    if (updErr) { showAlert('cancel-booking-alert', 'Errore ripristino disponibilità: ' + updErr.message, 'error'); return; }
+
+    const annullatoRows = items.map(i => {
+      const o = ombrelloniList.find(x => x.id === i.ombrellone_id);
+      const label = o ? `Ombrellone ${o.fila}${o.numero}` : 'Ombrellone rimosso';
+      return {
+        stabilimento_id: currentStabilimento.id,
+        ombrellone_id: i.ombrellone_id,
+        cliente_id: i.cliente_id || null,
+        tipo: 'sub_affitto_annullato',
+        importo: o ? o.credito_giornaliero : null,
+        nota: `${label} — sub-affitto annullato per ${formatDate(i.data)}${group.nome ? ` (prenotazione "${group.nome}")` : ''}`,
+      };
+    });
+    const { error: annErr } = await sb.from('transazioni').insert(annullatoRows);
+    if (annErr) { showAlert('cancel-booking-alert', 'Errore registrazione annullamento: ' + annErr.message, 'error'); return; }
+
+    const revocatoRows = [];
+    const deltaByCliente = new Map();
+    items.forEach(i => {
+      if (!i.cliente_id) return;
+      const o = ombrelloniList.find(x => x.id === i.ombrellone_id);
+      const imp = o ? parseFloat(o.credito_giornaliero || 0) : 0;
+      if (imp <= 0) return;
+      revocatoRows.push({
+        stabilimento_id: currentStabilimento.id,
+        ombrellone_id: i.ombrellone_id,
+        cliente_id: i.cliente_id,
+        tipo: 'credito_revocato',
+        importo: imp,
+        nota: `Credito revocato per annullamento sub-affitto${o ? ` ${o.fila}${o.numero}` : ''} del ${formatDate(i.data)}${group.nome ? ` (prenotazione "${group.nome}")` : ''}`,
+      });
+      deltaByCliente.set(i.cliente_id, (deltaByCliente.get(i.cliente_id) || 0) + imp);
+    });
+    if (revocatoRows.length) {
+      const { error: revErr } = await sb.from('transazioni').insert(revocatoRows);
+      if (revErr) { showAlert('cancel-booking-alert', 'Errore registrazione revoca credito: ' + revErr.message, 'error'); return; }
+    }
+
+    for (const [cid, delta] of deltaByCliente.entries()) {
+      const cliente = clientiList.find(c => c.id === cid);
+      if (!cliente) continue;
+      const nuovoSaldo = (parseFloat(cliente.credito_saldo || 0) - delta).toFixed(2);
+      await sb.from('clienti_stagionali').update({ credito_saldo: nuovoSaldo }).eq('id', cid);
+    }
+
+    closeModal('modal-cancel-booking');
+    cancelBookingCurrentId = null;
+    await loadManagerData();
+    await loadPrenotazioni();
+    showAlert('', '', '');
+  } finally {
+    hideLoading();
+  }
 }
 
 async function usaCredito() {
