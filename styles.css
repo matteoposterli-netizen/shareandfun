@@ -341,6 +341,13 @@ body {
 .tx-info { flex: 1; }
 .tx-title { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 2px; }
 .tx-sub { font-size: 12px; color: var(--text-light); }
+.tx-omb {
+  display: inline-block; margin-left: 6px; padding: 1px 8px;
+  font-size: 11px; font-weight: 500;
+  background: var(--ocean-light); color: var(--ocean);
+  border-radius: 10px; vertical-align: middle;
+}
+.tx-omb-missing { background: transparent; color: var(--text-light); font-style: italic; font-weight: 400; }
 .tx-time { font-size: 11px; color: var(--text-light); white-space: nowrap; }
 .tx-empty { padding: 36px; text-align: center; color: var(--text-light); font-size: 13px; }
 
