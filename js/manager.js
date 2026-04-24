@@ -263,6 +263,12 @@ async function loadManagerData() {
   await refreshMap();
   renderGestioneTable(ombrelloniList, dispMap, clientiList);
   renderCreditiTable(clientiList, ombrelloniList);
+  if (!document.getElementById('crediti-date-from').value) {
+    setCreditiRange(30);
+  } else {
+    updateCreditiPresetActive();
+    await loadCreditiPeriodo();
+  }
   applyDefaultTxFilter(today);
   initTxRangePicker();
   await loadAllTx();
@@ -688,6 +694,77 @@ async function invitaSingolo(id) {
   await loadManagerData();
 }
 
+let creditiPeriodoStats = {};
+
+function setCreditiRange(days) {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - (days - 1));
+  document.getElementById('crediti-date-from').value = toLocalDateStr(from);
+  document.getElementById('crediti-date-to').value = toLocalDateStr(to);
+  updateCreditiPresetActive();
+  loadCreditiPeriodo();
+}
+
+function updateCreditiPresetActive() {
+  const from = document.getElementById('crediti-date-from')?.value || '';
+  const to = document.getElementById('crediti-date-to')?.value || '';
+  const today = todayStr();
+  let active = null;
+  if (from && to === today) {
+    const start = new Date(from + 'T00:00:00');
+    const endD = new Date(to + 'T00:00:00');
+    const diff = Math.round((endD - start) / 86400000) + 1;
+    if (diff === 7) active = '7';
+    else if (diff === 30) active = '30';
+    else if (diff === 90) active = '90';
+  }
+  document.querySelectorAll('.crediti-preset-btn').forEach(btn => {
+    if (btn.dataset.preset === active) {
+      btn.classList.remove('btn-outline');
+      btn.classList.add('btn-primary');
+    } else {
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-outline');
+    }
+  });
+}
+
+function onCreditiRangeChanged() {
+  updateCreditiPresetActive();
+  loadCreditiPeriodo();
+}
+
+async function loadCreditiPeriodo() {
+  const from = document.getElementById('crediti-date-from')?.value;
+  const to = document.getElementById('crediti-date-to')?.value;
+  if (!from || !to || from > to) {
+    creditiPeriodoStats = {};
+    renderCreditiTable();
+    return;
+  }
+  const fromIso = new Date(from + 'T00:00:00').toISOString();
+  const toIso = new Date(to + 'T23:59:59.999').toISOString();
+  const { data: txs, error } = await sb.from('transazioni')
+    .select('cliente_id, tipo, importo')
+    .eq('stabilimento_id', currentStabilimento.id)
+    .in('tipo', ['credito_ricevuto', 'credito_usato'])
+    .gte('created_at', fromIso)
+    .lte('created_at', toIso);
+  if (error) { console.error(error); creditiPeriodoStats = {}; renderCreditiTable(); return; }
+
+  const stats = {};
+  (txs || []).forEach(t => {
+    if (!t.cliente_id) return;
+    const s = stats[t.cliente_id] || (stats[t.cliente_id] = { ricevuti: 0, spesi: 0 });
+    const importo = parseFloat(t.importo || 0);
+    if (t.tipo === 'credito_ricevuto') s.ricevuti += importo;
+    else if (t.tipo === 'credito_usato') s.spesi += importo;
+  });
+  creditiPeriodoStats = stats;
+  renderCreditiTable();
+}
+
 function renderCreditiTable(clienti, ombs) {
   const tb = document.getElementById('crediti-table');
   if (!tb) return;
@@ -714,12 +791,15 @@ function renderCreditiTable(clienti, ombs) {
 
   tb.innerHTML = filtrati.map(c => {
     const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
+    const s = creditiPeriodoStats[c.id] || { ricevuti: 0, spesi: 0 };
     return `<tr>
       <td>${c.nome} ${c.cognome}</td>
       <td>${o ? `${o.fila}${o.numero}` : '–'}</td>
-      <td><strong>${formatCoin(c.credito_saldo)}</strong></td>
+      <td style="text-align:right;color:var(--ocean)">${formatCoin(s.ricevuti)}</td>
+      <td style="text-align:right;color:var(--coral)">${formatCoin(s.spesi)}</td>
+      <td style="text-align:right"><strong>${formatCoin(c.credito_saldo)}</strong></td>
     </tr>`;
-  }).join('') || `<tr><td colspan="3" style="text-align:center;color:var(--text-light);padding:24px">${q ? 'Nessun risultato per la ricerca' : 'Nessun cliente'}</td></tr>`;
+  }).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--text-light);padding:24px">${q ? 'Nessun risultato per la ricerca' : 'Nessun cliente'}</td></tr>`;
 }
 
 function populateClienteSelect() {
