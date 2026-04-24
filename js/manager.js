@@ -363,6 +363,8 @@ function renderManagerMap(ombs, dispMap) {
   el.innerHTML = '';
   const byRow = {};
   ombs.forEach(o => { if (!byRow[o.fila]) byRow[o.fila] = []; byRow[o.fila].push(o); });
+  const colNumbers = Array.from(new Set(ombs.map(o => o.numero)))
+    .sort((a, b) => a - b);
   Object.keys(byRow).sort().reverse().forEach(fila => {
     const row = document.createElement('div'); row.className = 'map-row';
     const lbl = document.createElement('div'); lbl.className = 'row-label'; lbl.textContent = fila;
@@ -407,6 +409,20 @@ function renderManagerMap(ombs, dispMap) {
     });
     el.appendChild(row);
   });
+  if (colNumbers.length) {
+    const numRow = document.createElement('div');
+    numRow.className = 'map-row map-col-numbers';
+    const spacer = document.createElement('div');
+    spacer.className = 'row-label';
+    numRow.appendChild(spacer);
+    colNumbers.forEach(n => {
+      const cell = document.createElement('div');
+      cell.className = 'col-label';
+      cell.textContent = n;
+      numRow.appendChild(cell);
+    });
+    el.appendChild(numRow);
+  }
 }
 
 function toggleMapOmbSelection(omb, stato) {

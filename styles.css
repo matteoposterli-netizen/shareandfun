@@ -369,6 +369,8 @@ body {
 .map-rows { display: flex; flex-direction: column; gap: 6px; }
 .map-row { display: flex; align-items: center; gap: 5px; }
 .row-label { font-size: 10px; font-weight: 700; color: var(--text-light); width: 20px; text-align: center; }
+.map-col-numbers { margin-top: 2px; }
+.col-label { width: 40px; text-align: center; font-size: 10px; font-weight: 700; color: var(--text-light); }
 .ombrellone {
   width: 40px; height: 40px; border-radius: 9px;
   display: flex; align-items: center; justify-content: center;
@@ -790,6 +792,7 @@ body {
   }
   .map-row { gap: 4px; }
   .ombrellone { width: 32px; height: 32px; font-size: 9px; border-radius: 7px; border-width: 1.5px; }
+  .col-label { width: 32px; font-size: 9px; }
   .sea-label { font-size: 9px; letter-spacing: 3px; padding: 10px 0 2px; }
   .map-legend { gap: 12px; }
   .legend-item { font-size: 11px; }
