@@ -76,18 +76,44 @@ function calNav(dir) {
 async function toggleDay(dateStr, currentStato) {
   if (!stagOmbrelloneId) return;
   if (currentStato === 'sub_affittato') { showAlert('stag-alert', 'Questo giorno è già sub-affittato, non puoi modificarlo', 'error'); return; }
+  showAlert('stag-alert', '', '');
   showLoading();
-  if (currentStato === 'libero') {
-    await sb.from('disponibilita').delete().eq('ombrellone_id', stagOmbrelloneId).eq('data', dateStr);
-    const { data: cliente } = await sb.from('clienti_stagionali').select('stabilimento_id').eq('id', stagClienteId).single();
-    await sb.from('transazioni').insert({ stabilimento_id: cliente.stabilimento_id, ombrellone_id: stagOmbrelloneId, cliente_id: stagClienteId, tipo: 'disponibilita_rimossa', nota: `Disponibilità rimossa per ${formatDate(dateStr)}` });
-    delete currentDispMap[dateStr];
-  } else {
-    await sb.from('disponibilita').upsert({ ombrellone_id: stagOmbrelloneId, cliente_id: stagClienteId, data: dateStr, stato: 'libero' }, { onConflict: 'ombrellone_id,data' });
-    const { data: cliente } = await sb.from('clienti_stagionali').select('stabilimento_id').eq('id', stagClienteId).single();
-    await sb.from('transazioni').insert({ stabilimento_id: cliente.stabilimento_id, ombrellone_id: stagOmbrelloneId, cliente_id: stagClienteId, tipo: 'disponibilita_aggiunta', nota: `Disponibilità dichiarata per ${formatDate(dateStr)}` });
-    currentDispMap[dateStr] = 'libero';
+  const { data: cliente, error: clienteErr } = await sb.from('clienti_stagionali').select('stabilimento_id').eq('id', stagClienteId).single();
+  if (clienteErr || !cliente) {
+    hideLoading();
+    showAlert('stag-alert', 'Impossibile leggere i dati cliente: ' + (clienteErr?.message || 'dati mancanti'), 'error');
+    return;
   }
+  const isFreeing = currentStato !== 'libero';
+  const dispRes = isFreeing
+    ? await sb.from('disponibilita').upsert({ ombrellone_id: stagOmbrelloneId, cliente_id: stagClienteId, data: dateStr, stato: 'libero' }, { onConflict: 'ombrellone_id,data' })
+    : await sb.from('disponibilita').delete().eq('ombrellone_id', stagOmbrelloneId).eq('data', dateStr);
+  if (dispRes.error) {
+    hideLoading();
+    showAlert('stag-alert', 'Errore salvataggio disponibilità: ' + dispRes.error.message, 'error');
+    return;
+  }
+  const { error: txErr } = await sb.from('transazioni').insert({
+    stabilimento_id: cliente.stabilimento_id,
+    ombrellone_id: stagOmbrelloneId,
+    cliente_id: stagClienteId,
+    tipo: isFreeing ? 'disponibilita_aggiunta' : 'disponibilita_rimossa',
+    nota: isFreeing ? `Disponibilità dichiarata per ${formatDate(dateStr)}` : `Disponibilità rimossa per ${formatDate(dateStr)}`,
+  });
+  if (txErr) {
+    // Rollback so the calendar doesn't drift from the ledger.
+    if (isFreeing) {
+      await sb.from('disponibilita').delete().eq('ombrellone_id', stagOmbrelloneId).eq('data', dateStr);
+    } else {
+      await sb.from('disponibilita').upsert({ ombrellone_id: stagOmbrelloneId, cliente_id: stagClienteId, data: dateStr, stato: 'libero' }, { onConflict: 'ombrellone_id,data' });
+    }
+    hideLoading();
+    showAlert('stag-alert', 'Impossibile registrare la transazione: ' + txErr.message, 'error');
+    await loadStagionaleData();
+    return;
+  }
+  if (isFreeing) currentDispMap[dateStr] = 'libero';
+  else delete currentDispMap[dateStr];
   hideLoading();
   renderCalendar();
   await loadStagionaleData();
