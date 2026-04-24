@@ -35,11 +35,12 @@ RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select au
 > - `supabase/migrations/20260423000000_coin_email_templates.sql` — aggiunge 4 colonne `email_credito_*` a `stabilimenti`.
 > - `supabase/migrations/20260424000000_admin_section.sql` — crea tabella `admins`, funzione `is_admin()` e policy admin-full-access su tutte le 6 tabelle business. Finché non viene applicata: la view `?admin=1` si carica ma la query su `admins` fallirà in login.
 > - `supabase/migrations/20260424100000_stagionale_disponibilita_tx.sql` — estende `transazioni_insert` per permettere allo stagionale di inserire `disponibilita_aggiunta`/`disponibilita_rimossa` sul proprio `cliente_id` (con `importo IS NULL`). Senza questa migrazione le transazioni informative di calendario dello stagionale vengono scartate silenziosamente da RLS e il gestore non le vede nella tab Transazioni.
-> - `supabase/migrations/20260424300000_cancellation_tx_types.sql` — aggiunge `sub_affitto_annullato` e `credito_revocato` al `CHECK` su `transazioni.tipo`. Necessaria per il flusso "Annulla prenotazione" in Prenotazioni: senza questa migrazione l'insert delle transazioni di reversal fallisce con check-constraint violation e l'annullamento resta incompleto (disponibilità ripristinata ma credito non revocato).
 >
 > Applicare via Supabase dashboard (SQL Editor), `supabase db push` o `psql`.
 >
-> Applicata il 2026-04-24: `20260424200000_disponibilita_nome_prenotazione.sql` (colonna `nome_prenotazione text` nullable + indice parziale) — abilita il nome opzionale nel nuovo flusso di selezione prenotazione dalla mappa.
+> Applicate il 2026-04-24:
+> - `20260424200000_disponibilita_nome_prenotazione.sql` (colonna `nome_prenotazione text` nullable + indice parziale) — abilita il nome opzionale nel flusso di selezione prenotazione dalla mappa.
+> - `20260424300000_cancellation_tx_types.sql` — aggiunge `sub_affitto_annullato` e `credito_revocato` al `CHECK` su `transazioni.tipo`, usati dal flusso "Annulla prenotazione".
 
 ### RPC functions (SECURITY DEFINER)
 
