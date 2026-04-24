@@ -25,6 +25,7 @@ interface EmailRequest {
   stabilimento_email?: string;
   ombrellone?: string;
   invite_link?: string;
+  login_link?: string;
   // Dati transazione coin (per tipi credito_accreditato/ritirato)
   importo_formatted?: string;
   saldo_formatted?: string;
@@ -123,7 +124,7 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const { tipo, email, nome, cognome = "", stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, importo_formatted, saldo_formatted, nota, oggetto_custom, testo_custom } = body;
+  const { tipo, email, nome, cognome = "", stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, login_link, importo_formatted, saldo_formatted, nota, oggetto_custom, testo_custom } = body;
 
   if (!tipo || !email || !nome) {
     return new Response(JSON.stringify({ error: "Parametri mancanti: tipo, email, nome" }), {
@@ -190,6 +191,8 @@ Deno.serve(async (req: Request) => {
       boxTitoloColor: "#a05030",
       boxTitolo: "🏖️ Inizia subito",
       boxTesto: testoCustom,
+      ctaLabel: login_link ? "Accedi a SpiaggiaMia →" : undefined,
+      ctaLink: login_link,
       stabilimento_nome,
       stabilimento_telefono,
       stabilimento_email,

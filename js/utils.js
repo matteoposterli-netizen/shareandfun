@@ -101,6 +101,7 @@ async function inviaEmail(tipo, clienteData, stab, override) {
         cognome: clienteData.cognome || '',
         ombrellone: clienteData.ombrellone || null,
         invite_link: clienteData.invite_link || null,
+        login_link: clienteData.login_link || null,
         importo_formatted: clienteData.importo_formatted || null,
         saldo_formatted: clienteData.saldo_formatted || null,
         nota: clienteData.nota || null,
