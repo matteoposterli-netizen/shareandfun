@@ -30,6 +30,20 @@ window.addEventListener('DOMContentLoaded', async () => {
     hideLoading();
     return;
   }
+  const loginEmail = params.get('login');
+  if (loginEmail !== null) {
+    await sb.auth.signOut();
+    currentUser = null; currentProfile = null; currentStabilimento = null;
+    updateNav();
+    const emailInput = document.getElementById('login-email');
+    if (emailInput && loginEmail) emailInput.value = loginEmail;
+    window.history.replaceState({}, '', window.location.pathname);
+    showView('auth', 'login');
+    const pwd = document.getElementById('login-password');
+    if (pwd) pwd.focus();
+    hideLoading();
+    return;
+  }
   const { data: { session } } = await sb.auth.getSession();
   if (session && !isPasswordRecovery) {
     currentUser = session.user;
