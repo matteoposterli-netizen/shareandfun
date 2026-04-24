@@ -34,6 +34,7 @@ RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select au
 > ⚠️ **Migrazioni pendenti al 2026-04-24**:
 > - `supabase/migrations/20260423000000_coin_email_templates.sql` — aggiunge 4 colonne `email_credito_*` a `stabilimenti`.
 > - `supabase/migrations/20260424000000_admin_section.sql` — crea tabella `admins`, funzione `is_admin()` e policy admin-full-access su tutte le 6 tabelle business. Finché non viene applicata: la view `?admin=1` si carica ma la query su `admins` fallirà in login.
+> - `supabase/migrations/20260424100000_stagionale_disponibilita_tx.sql` — estende `transazioni_insert` per permettere allo stagionale di inserire `disponibilita_aggiunta`/`disponibilita_rimossa` sul proprio `cliente_id` (con `importo IS NULL`). Senza questa migrazione le transazioni informative di calendario dello stagionale vengono scartate silenziosamente da RLS e il gestore non le vede nella tab Transazioni.
 >
 > Applicare via Supabase dashboard (SQL Editor), `supabase db push` o `psql`.
 
