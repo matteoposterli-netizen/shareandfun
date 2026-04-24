@@ -205,6 +205,7 @@
       <div class="sidebar-title">Principale</div>
       <button class="sidebar-item active" onclick="managerTab('panoramica',this)"><span class="icon">📊</span> Panoramica</button>
       <button class="sidebar-item" onclick="managerTab('gestione',this)"><span class="icon">🗺️</span> Ombrelloni e Clienti</button>
+      <button class="sidebar-item" onclick="managerTab('prenotazioni',this)"><span class="icon">📖</span> Prenotazioni</button>
       <button class="sidebar-item" onclick="managerTab('transazioni',this)"><span class="icon">📋</span> Transazioni</button>
       <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Crediti</button>
       <button class="sidebar-item" onclick="managerTab('email',this)"><span class="icon">✉️</span> Email</button>
@@ -448,6 +449,33 @@
 
       </div>
 
+      <!-- PRENOTAZIONI TAB -->
+      <div id="mtab-prenotazioni" class="tab-content">
+        <div class="page-header">
+          <div><div class="page-title">Prenotazioni</div><div class="page-subtitle">Sub-affitti registrati, raggruppati per nome quando presente, così da ritrovare facilmente gli ombrelloni assegnati alla stessa persona.</div></div>
+          <button class="btn btn-primary btn-sm" onclick="openSubaffittoModal()">+ Nuova prenotazione</button>
+        </div>
+        <div class="card">
+          <div class="card-header" style="flex-wrap:wrap;gap:10px">
+            <div class="card-title">Elenco prenotazioni</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <input type="search" id="pren-filter-text" class="form-input" placeholder="Cerca per nome, cliente o ombrellone…" style="width:260px;padding:6px 10px;font-size:13px" oninput="renderPrenotazioni()">
+              <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
+                <span>Dal</span>
+                <input type="date" id="pren-filter-from" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="renderPrenotazioni()">
+                <span>al</span>
+                <input type="date" id="pren-filter-to" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="renderPrenotazioni()">
+              </div>
+              <button type="button" class="btn btn-outline btn-sm" onclick="clearPrenFilters()">Pulisci</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="pren-count-label" style="font-size:13px;color:var(--text-light);margin-bottom:10px"></div>
+            <div id="prenotazioni-list"><div class="tx-empty">Caricamento...</div></div>
+          </div>
+        </div>
+      </div>
+
       <!-- TRANSAZIONI TAB -->
       <div id="mtab-transazioni" class="tab-content">
         <div class="page-header"><div><div class="page-title">Transazioni</div><div class="page-subtitle">Storico completo di tutte le operazioni</div></div></div>
@@ -609,9 +637,25 @@
     <div class="form-group"><label class="form-label">Data</label>
       <input type="date" id="sa-data" class="form-input">
     </div>
+    <div class="form-group"><label class="form-label">Nome prenotazione <span style="font-size:11px;color:var(--text-light);font-weight:400">(opzionale)</span></label>
+      <input type="text" id="sa-nome-prenotazione" class="form-input" placeholder="es. Famiglia Rossi — settimana 12" maxlength="120">
+      <div style="font-size:12px;color:var(--text-light);margin-top:4px">Utile per raggruppare sub-affitti di più giorni o più ombrelloni sotto la stessa prenotazione.</div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-outline btn-sm" onclick="closeModal('modal-subaffitto')">Annulla</button>
-      <button class="btn btn-primary btn-sm" onclick="confirmSubaffitto()">Conferma sub-affitto</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmSubaffitto()">Procedi</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-subaffitto-confirm" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Confermare il sub-affitto?</div>
+    <div class="modal-sub" id="sa-confirm-summary"></div>
+    <div id="subaffitto-confirm-alert"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-subaffitto-confirm')">Indietro</button>
+      <button class="btn btn-primary btn-sm" onclick="finalizeSubaffitto()">Conferma sub-affitto</button>
     </div>
   </div>
 </div>

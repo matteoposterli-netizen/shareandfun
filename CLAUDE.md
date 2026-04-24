@@ -25,7 +25,7 @@ Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono ren
 | `stabilimenti` | Stabilimento balneare, owned da un proprietario. Template email personalizzabili: `email_benvenuto_*`, `email_invito_*`, `email_credito_accreditato_*`, `email_credito_ritirato_*` (fallback ai default in `js/email.js` se NULL). Le colonne `email_attesa_*`/`email_approvazione_*` esistono ancora nello schema ma non sono più esposte dalla UI (flow invite-only). |
 | `ombrelloni` | Ombrelloni di uno stabilimento (fila, numero, credito giornaliero) |
 | `clienti_stagionali` | Clienti stagionali con `approvato`/`rifiutato`/`fonte` e `invito_token` per registrazione via link. **Nessuna registrazione autonoma**: esistono solo record creati dal proprietario (invito singolo o CSV); `user_id` viene popolato quando il cliente completa l'invito. |
-| `disponibilita` | Giornate in cui un ombrellone è messo a disposizione o sub-affittato |
+| `disponibilita` | Giornate in cui un ombrellone è messo a disposizione o sub-affittato. Colonna opzionale `nome_prenotazione` (text, nullable) per raggruppare sub-affitti multi-giorno / multi-ombrellone sotto una stessa etichetta visibile al gestore nella tab "Prenotazioni". |
 | `transazioni` | Storico contabile (credito aggiunto/usato, sub-affitti) |
 | `admins` | Account amministratori di sistema. PK `user_id` → `auth.users(id)`. **Non hanno riga in `profiles`**: le credenziali sono distinte dai proprietari/stagionali. Provisioning manuale via dashboard Supabase (vedi sezione "Area Admin"). |
 
@@ -35,6 +35,7 @@ RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select au
 > - `supabase/migrations/20260423000000_coin_email_templates.sql` — aggiunge 4 colonne `email_credito_*` a `stabilimenti`.
 > - `supabase/migrations/20260424000000_admin_section.sql` — crea tabella `admins`, funzione `is_admin()` e policy admin-full-access su tutte le 6 tabelle business. Finché non viene applicata: la view `?admin=1` si carica ma la query su `admins` fallirà in login.
 > - `supabase/migrations/20260424100000_stagionale_disponibilita_tx.sql` — estende `transazioni_insert` per permettere allo stagionale di inserire `disponibilita_aggiunta`/`disponibilita_rimossa` sul proprio `cliente_id` (con `importo IS NULL`). Senza questa migrazione le transazioni informative di calendario dello stagionale vengono scartate silenziosamente da RLS e il gestore non le vede nella tab Transazioni.
+> - `supabase/migrations/20260424200000_disponibilita_nome_prenotazione.sql` — aggiunge colonna `nome_prenotazione text` (nullable) su `disponibilita` + indice parziale. Supporta la tab "Prenotazioni" del gestore e il campo opzionale nel modal di conferma sub-affitto. Senza questa migrazione l'upsert in `confirmSubaffitto`/`finalizeSubaffitto` fallisce quando il nome viene compilato.
 >
 > Applicare via Supabase dashboard (SQL Editor), `supabase db push` o `psql`.
 
