@@ -545,7 +545,13 @@ async function loadCreditiAnalytics() {
 
 async function loadManagerTx() {
   const { data } = await sb.from('transazioni').select('*').eq('stabilimento_id', currentStabilimento.id).order('created_at', { ascending: false }).limit(8);
-  document.getElementById('manager-tx-list').innerHTML = renderTxList(data || []);
+  document.getElementById('manager-tx-list').innerHTML = renderTxList(data || [], currentStabilimento, ombById());
+}
+
+function ombById() {
+  const map = {};
+  (ombrelloniList || []).forEach(o => { map[o.id] = o; });
+  return map;
 }
 
 function populateTxOmbrelloneSelect() {
@@ -643,19 +649,26 @@ async function loadAllTx() {
       countEl.textContent = `${rows.length} transazion${rows.length === 1 ? 'e' : 'i'} trovat${rows.length === 1 ? 'a' : 'e'}`;
     }
   }
-  listEl.innerHTML = renderTxList(rows);
+  listEl.innerHTML = renderTxList(rows, currentStabilimento, ombById());
 }
 
-function renderTxList(txs, stab) {
+function renderTxList(txs, stab, ombsMap) {
   if (!txs.length) return '<div class="tx-empty">Nessuna transazione ancora</div>';
   const icons = { disponibilita_aggiunta: {e:'📅',c:'green'}, disponibilita_rimossa: {e:'🗑️',c:'red'}, sub_affitto: {e:'💰',c:'yellow'}, credito_ricevuto: {e:'⭐',c:'yellow'}, credito_usato: {e:'🎉',c:'coral'} };
   const labels = { disponibilita_aggiunta: 'Disponibilità dichiarata', disponibilita_rimossa: 'Disponibilità rimossa', sub_affitto: 'Sub-affitto confermato', credito_ricevuto: 'Credito ricevuto', credito_usato: 'Credito utilizzato' };
   return txs.map(t => {
     const ic = icons[t.tipo] || {e:'📌',c:'blue'};
+    let ombStr = '';
+    if (ombsMap && t.ombrellone_id) {
+      const o = ombsMap[t.ombrellone_id];
+      ombStr = o
+        ? `<span class="tx-omb">Fila ${o.fila} N°${o.numero}</span>`
+        : `<span class="tx-omb tx-omb-missing">ombrellone rimosso</span>`;
+    }
     return `<div class="tx-item">
       <div class="tx-dot ${ic.c}">${ic.e}</div>
       <div class="tx-info">
-        <div class="tx-title">${labels[t.tipo] || t.tipo}${t.importo ? ` — ${formatCoin(t.importo, stab)}` : ''}</div>
+        <div class="tx-title">${labels[t.tipo] || t.tipo}${t.importo ? ` — ${formatCoin(t.importo, stab)}` : ''}${ombStr ? ' ' + ombStr : ''}</div>
         <div class="tx-sub">${t.nota || ''}</div>
       </div>
       <div class="tx-time">${formatDateShort(t.created_at)}</div>
