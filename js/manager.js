@@ -769,28 +769,58 @@ function managerTab(tab, btn) {
   document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   if (tab === 'email') loadEmailTemplates();
+  if (tab === 'prenotazioni') loadPrenotazioni();
 }
 
 function openSubaffittoModal() {
   const today = todayStr();
   document.getElementById('sa-data').value = today;
+  document.getElementById('sa-nome-prenotazione').value = '';
   document.getElementById('sa-ombrellone').innerHTML = ombrelloniList.map(o =>
     `<option value="${o.id}">Fila ${o.fila} N°${o.numero} — ${formatCoin(o.credito_giornaliero)}/gg</option>`
   ).join('');
+  showAlert('subaffitto-alert', '', '');
   document.getElementById('modal-subaffitto').classList.remove('hidden');
 }
 
-async function confirmSubaffitto() {
+function confirmSubaffitto() {
   const ombId = document.getElementById('sa-ombrellone').value;
   const data = document.getElementById('sa-data').value;
   if (!ombId || !data) { showAlert('subaffitto-alert', 'Compila tutti i campi', 'error'); return; }
   const omb = ombrelloniList.find(o => o.id === ombId);
+  if (!omb) { showAlert('subaffitto-alert', 'Ombrellone non trovato', 'error'); return; }
   const cliente = clientiList.find(c => c.ombrellone_id === ombId);
+  const nomePrenotazione = document.getElementById('sa-nome-prenotazione').value.trim();
 
-  const { error } = await sb.from('disponibilita').upsert({ ombrellone_id: ombId, cliente_id: cliente?.id || null, data, stato: 'sub_affittato' }, { onConflict: 'ombrellone_id,data' });
-  if (error) { showAlert('subaffitto-alert', error.message, 'error'); return; }
+  const clienteLabel = cliente ? `${cliente.nome} ${cliente.cognome}` : 'nessun cliente stagionale assegnato';
+  const nomeLine = nomePrenotazione
+    ? `<div style="margin-top:6px"><strong>Nome prenotazione:</strong> ${nomePrenotazione}</div>`
+    : `<div style="margin-top:6px;color:var(--text-light)">Nessun nome prenotazione — potrai aggiungerlo più tardi modificando la prenotazione.</div>`;
+  document.getElementById('sa-confirm-summary').innerHTML = `
+    <div><strong>Ombrellone:</strong> Fila ${omb.fila} N°${omb.numero}</div>
+    <div style="margin-top:4px"><strong>Data:</strong> ${formatDate(data)}</div>
+    <div style="margin-top:4px"><strong>Importo:</strong> ${formatCoin(omb.credito_giornaliero, currentStabilimento)}</div>
+    <div style="margin-top:4px"><strong>Cliente:</strong> ${clienteLabel}</div>
+    ${nomeLine}
+  `;
+  showAlert('subaffitto-confirm-alert', '', '');
+  document.getElementById('modal-subaffitto-confirm').classList.remove('hidden');
+}
 
-  await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, ombrellone_id: ombId, cliente_id: cliente?.id || null, tipo: 'sub_affitto', importo: omb.credito_giornaliero, nota: `Ombrellone ${omb.fila}${omb.numero} sub-affittato il ${formatDate(data)}` });
+async function finalizeSubaffitto() {
+  const ombId = document.getElementById('sa-ombrellone').value;
+  const data = document.getElementById('sa-data').value;
+  if (!ombId || !data) { showAlert('subaffitto-confirm-alert', 'Dati mancanti — riprova', 'error'); return; }
+  const omb = ombrelloniList.find(o => o.id === ombId);
+  const cliente = clientiList.find(c => c.ombrellone_id === ombId);
+  const nomePrenotazione = document.getElementById('sa-nome-prenotazione').value.trim() || null;
+
+  const { error } = await sb.from('disponibilita').upsert({ ombrellone_id: ombId, cliente_id: cliente?.id || null, data, stato: 'sub_affittato', nome_prenotazione: nomePrenotazione }, { onConflict: 'ombrellone_id,data' });
+  if (error) { showAlert('subaffitto-confirm-alert', error.message, 'error'); return; }
+
+  const notaBase = `Ombrellone ${omb.fila}${omb.numero} sub-affittato il ${formatDate(data)}`;
+  const notaTx = nomePrenotazione ? `${notaBase} — prenotazione "${nomePrenotazione}"` : notaBase;
+  await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, ombrellone_id: ombId, cliente_id: cliente?.id || null, tipo: 'sub_affitto', importo: omb.credito_giornaliero, nota: notaTx });
 
   if (cliente) {
     const nuovoSaldo = (parseFloat(cliente.credito_saldo) + parseFloat(omb.credito_giornaliero)).toFixed(2);
@@ -810,9 +840,162 @@ async function confirmSubaffitto() {
     }
   }
 
+  closeModal('modal-subaffitto-confirm');
   closeModal('modal-subaffitto');
   await loadManagerData();
+  if (document.getElementById('mtab-prenotazioni')?.classList.contains('active')) {
+    await loadPrenotazioni();
+  }
   showAlert('', '', '');
+}
+
+function clearPrenFilters() {
+  const t = document.getElementById('pren-filter-text');
+  const f = document.getElementById('pren-filter-from');
+  const to = document.getElementById('pren-filter-to');
+  if (t) t.value = '';
+  if (f) f.value = '';
+  if (to) to.value = '';
+  renderPrenotazioni();
+}
+
+let prenotazioniList = [];
+
+async function loadPrenotazioni() {
+  const listEl = document.getElementById('prenotazioni-list');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="tx-empty">Caricamento...</div>';
+  const ombIds = (ombrelloniList || []).map(o => o.id);
+  if (!ombIds.length) {
+    prenotazioniList = [];
+    renderPrenotazioni();
+    return;
+  }
+  const { data, error } = await sb.from('disponibilita')
+    .select('*')
+    .in('ombrellone_id', ombIds)
+    .eq('stato', 'sub_affittato')
+    .order('data', { ascending: false });
+  if (error) { console.error(error); listEl.innerHTML = '<div class="tx-empty">Errore nel caricamento</div>'; return; }
+  prenotazioniList = data || [];
+  renderPrenotazioni();
+}
+
+function renderPrenotazioni() {
+  const listEl = document.getElementById('prenotazioni-list');
+  const countEl = document.getElementById('pren-count-label');
+  if (!listEl) return;
+
+  const q = (document.getElementById('pren-filter-text')?.value || '').trim().toLowerCase();
+  const from = document.getElementById('pren-filter-from')?.value || '';
+  const to = document.getElementById('pren-filter-to')?.value || '';
+  if (from && to && from > to) {
+    if (countEl) countEl.textContent = '';
+    listEl.innerHTML = '<div class="tx-empty">Periodo non valido: la data iniziale è successiva a quella finale</div>';
+    return;
+  }
+
+  const ombsMap = ombById();
+  const cliById = {};
+  (clientiList || []).forEach(c => { cliById[c.id] = c; });
+
+  const rows = (prenotazioniList || []).filter(p => {
+    if (from && p.data < from) return false;
+    if (to && p.data > to) return false;
+    if (!q) return true;
+    const omb = ombsMap[p.ombrellone_id];
+    const cli = p.cliente_id ? cliById[p.cliente_id] : null;
+    const hay = [
+      p.nome_prenotazione || '',
+      omb ? `fila ${omb.fila} n°${omb.numero} ${omb.fila}${omb.numero}` : '',
+      cli ? `${cli.nome} ${cli.cognome}` : '',
+    ].join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+
+  if (!rows.length) {
+    if (countEl) countEl.textContent = '';
+    listEl.innerHTML = '<div class="tx-empty">Nessuna prenotazione trovata</div>';
+    return;
+  }
+
+  const groups = new Map();
+  rows.forEach(r => {
+    const key = r.nome_prenotazione && r.nome_prenotazione.trim()
+      ? `N:${r.nome_prenotazione.trim()}`
+      : `I:${r.id}`;
+    if (!groups.has(key)) groups.set(key, { nome: r.nome_prenotazione || null, items: [] });
+    groups.get(key).items.push(r);
+  });
+
+  const ordered = Array.from(groups.values()).sort((a, b) => {
+    const maxA = a.items.reduce((m, x) => x.data > m ? x.data : m, '');
+    const maxB = b.items.reduce((m, x) => x.data > m ? x.data : m, '');
+    if (maxA !== maxB) return maxA < maxB ? 1 : -1;
+    return 0;
+  });
+
+  const totalBookings = rows.length;
+  const totalGroups = ordered.length;
+  if (countEl) {
+    countEl.textContent = `${totalGroups} prenotazion${totalGroups === 1 ? 'e' : 'i'} · ${totalBookings} sub-affitt${totalBookings === 1 ? 'o' : 'i'}`;
+  }
+
+  listEl.innerHTML = ordered.map(g => {
+    const items = g.items.slice().sort((a, b) => a.data < b.data ? -1 : a.data > b.data ? 1 : 0);
+    const dates = items.map(i => i.data);
+    const dateLabel = dates.length === 1
+      ? formatDate(dates[0])
+      : `${formatDate(dates[0])} → ${formatDate(dates[dates.length - 1])} (${dates.length} giorn${dates.length === 1 ? 'o' : 'i'})`;
+
+    const clientiSet = new Set();
+    items.forEach(i => {
+      if (i.cliente_id && cliById[i.cliente_id]) {
+        const c = cliById[i.cliente_id];
+        clientiSet.add(`${c.nome} ${c.cognome}`);
+      }
+    });
+    const clientiLabel = clientiSet.size
+      ? Array.from(clientiSet).join(', ')
+      : '<span style="color:var(--text-light)">nessun cliente stagionale</span>';
+
+    const totImporto = items.reduce((s, i) => {
+      const o = ombsMap[i.ombrellone_id];
+      return s + (o ? parseFloat(o.credito_giornaliero || 0) : 0);
+    }, 0);
+
+    const rowsHtml = items.map(i => {
+      const o = ombsMap[i.ombrellone_id];
+      const ombStr = o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">ombrellone rimosso</span>';
+      const cli = i.cliente_id ? cliById[i.cliente_id] : null;
+      const cliStr = cli ? `${cli.nome} ${cli.cognome}` : '<span style="color:var(--text-light)">—</span>';
+      const imp = o ? formatCoin(o.credito_giornaliero, currentStabilimento) : '—';
+      return `<tr>
+        <td>${formatDate(i.data)}</td>
+        <td><strong>${ombStr}</strong></td>
+        <td>${cliStr}</td>
+        <td style="text-align:right">${imp}</td>
+      </tr>`;
+    }).join('');
+
+    const title = g.nome
+      ? `<span style="font-weight:600">${g.nome}</span>`
+      : `<span style="color:var(--text-light);font-style:italic">Prenotazione senza nome</span>`;
+
+    return `<div class="card" style="margin-bottom:14px">
+      <div class="card-header" style="flex-wrap:wrap;gap:8px">
+        <div class="card-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">📖 ${title}</div>
+        <div style="font-size:13px;color:var(--text-mid)">${dateLabel}</div>
+      </div>
+      <div class="card-body">
+        <div style="font-size:13px;color:var(--text-mid);margin-bottom:8px"><strong>Cliente:</strong> ${clientiLabel} · <strong>Totale:</strong> ${formatCoin(totImporto, currentStabilimento)}</div>
+        <div class="table-wrap"><table class="data-table">
+          <thead><tr><th>Data</th><th>Ombrellone</th><th>Cliente</th><th style="text-align:right">Importo</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table></div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 async function usaCredito() {
