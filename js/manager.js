@@ -257,8 +257,7 @@ async function loadManagerData() {
   document.getElementById('stat-crediti').textContent = parseFloat(totCrediti || 0).toFixed(2);
   document.getElementById('stat-crediti-unit').textContent = coinName(currentStabilimento);
 
-  await loadDashboardUpcomingKpis(today);
-  await loadDashboardCreditsKpis();
+  await loadPanoramicaDefaultIfEmpty();
 
   await refreshMap();
   renderGestioneTable(ombrelloniList, dispMap, clientiList);
@@ -282,8 +281,14 @@ async function loadManagerData() {
     updateAnalyticsPresetActive();
     await loadCreditiAnalytics();
   }
-  if (typeof loadPanoramicaKpis === 'function') {
-    loadPanoramicaKpis().catch(console.error);
+}
+
+async function loadPanoramicaDefaultIfEmpty() {
+  if (document.getElementById('pano-overview') && typeof panoramicaInit === 'function') {
+    panoramicaInit();
+  } else {
+    if (typeof loadDashboardUpcomingKpis === 'function') await loadDashboardUpcomingKpis(todayStr());
+    if (typeof loadDashboardCreditsKpis === 'function') await loadDashboardCreditsKpis();
   }
 }
 
@@ -1203,6 +1208,7 @@ function managerTab(tab, btn) {
   panel.classList.add('active');
   document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  if (tab === 'panoramica' && typeof panoramicaInit === 'function') panoramicaInit();
   if (tab === 'config') {
     loadEmailTemplates();
     if (typeof loadStagione === 'function') loadStagione();

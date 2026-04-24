@@ -1,371 +1,478 @@
-/* ============================================================
-   Panoramica Manager — KPI, flow, top-3 + tab Configurazioni/Stagione
-   ============================================================
-   Dipende da globals esposti da js/manager.js, js/state.js, js/utils.js:
-     sb, currentStabilimento, ombrelloniList, clientiList,
-     formatCoin, coinName, formatDate, toLocalDateStr, todayStr
-   ============================================================ */
+// js/panoramica.js — Panoramica manager SpiaggiaMia (Consegna 1)
+//
+// Esporta globals: panoramicaInit, panoramicaLoad, setPanoramicaRange,
+//                  openDeepDive, ddBack, ddLoadDisponibilita,
+//                  ddLoadPrenotazioni, ddLoadCoinDistr, ddLoadCoinSpent
+//
+// Dipendenze globali attese (caricate PRIMA di questo file):
+//   sb (Supabase client), currentStabilimento, ombrelloniList, clientiList,
+//   formatCoin, coinName, toLocalDateStr, todayStr, formatDate, escapeHtml,
+//   showLoading, hideLoading, flatpickr, XLSX,
+//   dd-common.js (dateRangeQS, previousRange, computeDelta, formatDeltaHTML,
+//     renderSparkline, groupByDay, fillSeries, dateRangeDays, exportXlsx,
+//     labelRange)
 
-/* ---------- Range periodo (default: ultimi 30 giorni) ---------- */
-let panoramicaRange = { fromISO: null, toISO: null, label: 'Ultimi 30 giorni' };
+// ============================================================
+// STATO
+// ============================================================
 
-function panInitRange() {
-  const today = todayStr();
-  const from = new Date(today + 'T00:00:00');
-  from.setDate(from.getDate() - 29);
-  panoramicaRange.fromISO = toLocalDateStr(from);
-  panoramicaRange.toISO = today;
-  panoramicaRange.label = 'Ultimi 30 giorni';
-  const pillLabel = document.getElementById('dash-range-label');
-  if (pillLabel) pillLabel.textContent = panoramicaRange.label;
-}
+const panoramicaState = {
+  from: null,
+  to: null,
+  preset: '7d',      // '7d'|'30d'|'90d'|'season'|'custom'
+  compare: true,
+  kpiData: null,     // {disp, pren, distr, spent} popolato da panoramicaLoad
+};
 
-function panPrevRange() {
-  // Stesso numero di giorni, finestra immediatamente precedente.
-  const from = new Date(panoramicaRange.fromISO + 'T00:00:00');
-  const to = new Date(panoramicaRange.toISO + 'T00:00:00');
-  const days = Math.round((to - from) / 86400000) + 1;
-  const prevTo = new Date(from); prevTo.setDate(prevTo.getDate() - 1);
-  const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - (days - 1));
-  return { fromISO: toLocalDateStr(prevFrom), toISO: toLocalDateStr(prevTo), days };
-}
+const ddState = {
+  current: null,     // 'disponibilita'|'prenotazioni'|'coin-distr'|'coin-spent'|null
+  from: null,
+  to: null,
+  preset: '7d',
+  compare: true,
+  lastRows: [],      // per export Excel della vista attiva
+  lastFilename: 'deep-dive',
+};
 
-/* ---------- Helpers ---------- */
-function panPct(curr, prev) {
-  if (!prev) return curr > 0 ? '+∞%' : '';
-  const diff = ((curr - prev) / prev) * 100;
-  const sign = diff >= 0 ? '+' : '';
-  return `${sign}${diff.toFixed(0)}%`;
-}
+// ============================================================
+// TOOLBAR PERIODO (render + interaction)
+// ============================================================
 
-function panSetDelta(id, curr, prev) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  if (!prev && !curr) { el.textContent = ''; el.className = 'kpi-delta'; return; }
-  const pct = panPct(curr, prev);
-  const cls = curr >= prev ? 'kpi-delta up' : 'kpi-delta down';
-  el.className = cls;
-  el.textContent = `${pct} vs periodo prec.`;
-}
+/**
+ * Setta il range della panoramica su uno dei preset o custom.
+ * preset: '7d'|'30d'|'90d'|'season'|'custom'
+ */
+function setPanoramicaRange(preset) {
+  const today = new Date();
+  const todayStrV = toLocalDateStr(today);
+  let from = null, to = todayStrV;
 
-function panDrawSparkline(svgId, values, color) {
-  const svg = document.getElementById(svgId);
-  if (!svg) return;
-  svg.innerHTML = '';
-  if (!values || !values.length) return;
-  const W = 160, H = 40, PAD = 2;
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values, 0);
-  const range = max - min || 1;
-  const stepX = (W - PAD * 2) / Math.max(values.length - 1, 1);
-  const pts = values.map((v, i) => {
-    const x = PAD + i * stepX;
-    const y = H - PAD - ((v - min) / range) * (H - PAD * 2);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
-  const ns = 'http://www.w3.org/2000/svg';
-  const poly = document.createElementNS(ns, 'polyline');
-  poly.setAttribute('points', pts);
-  poly.setAttribute('fill', 'none');
-  poly.setAttribute('stroke', color);
-  poly.setAttribute('stroke-width', '1.5');
-  poly.setAttribute('stroke-linejoin', 'round');
-  svg.appendChild(poly);
-  // Area riempita
-  const area = document.createElementNS(ns, 'polygon');
-  area.setAttribute('points', `${PAD},${H} ${pts} ${W - PAD},${H}`);
-  area.setAttribute('fill', color);
-  area.setAttribute('opacity', '0.12');
-  svg.appendChild(area);
-}
-
-/* Raggruppa N valori in buckets giornalieri; ritorna array di somme */
-function panBucketByDay(rows, fromISO, toISO, getDateFn, getValFn) {
-  const buckets = {};
-  const d = new Date(fromISO + 'T00:00:00');
-  const end = new Date(toISO + 'T00:00:00');
-  while (d <= end) {
-    buckets[toLocalDateStr(d)] = 0;
-    d.setDate(d.getDate() + 1);
-  }
-  (rows || []).forEach(r => {
-    const k = getDateFn(r);
-    if (k in buckets) buckets[k] += getValFn(r);
-  });
-  return Object.values(buckets);
-}
-
-/* ---------- Caricamento dati + rendering ---------- */
-async function loadPanoramicaKpis() {
-  if (!panoramicaRange.fromISO) panInitRange();
-  if (!currentStabilimento) return;
-
-  const { fromISO, toISO } = panoramicaRange;
-  const prev = panPrevRange();
-
-  // Refresh label unità coin
-  document.querySelectorAll('.flow-coin-label').forEach(el => el.textContent = coinName(currentStabilimento) || 'Coin');
-  const setCoinLbl = (id) => { const el = document.getElementById(id); if (el) el.textContent = coinName(currentStabilimento) || 'Coin'; };
-  setCoinLbl('kpi-distr-coin-label');
-  setCoinLbl('kpi-spent-coin-label');
-
-  const ombIds = ombrelloniList.map(o => o.id);
-  const hasOmb = ombIds.length > 0;
-
-  // 1. Disponibilità — periodo corrente
-  const { data: dispCurr } = hasOmb ? await sb.from('disponibilita')
-    .select('ombrellone_id,data,stato,cliente_id')
-    .in('ombrellone_id', ombIds)
-    .gte('data', fromISO).lte('data', toISO) : { data: [] };
-  // 2. Disponibilità — periodo precedente
-  const { data: dispPrev } = hasOmb ? await sb.from('disponibilita')
-    .select('ombrellone_id,data,stato')
-    .in('ombrellone_id', ombIds)
-    .gte('data', prev.fromISO).lte('data', prev.toISO) : { data: [] };
-  // 3. Transazioni — periodo corrente
-  const { data: txCurr } = await sb.from('transazioni')
-    .select('tipo,importo,created_at,cliente_id,ombrellone_id,data_riferimento')
-    .eq('stabilimento_id', currentStabilimento.id)
-    .in('tipo', ['credito_ricevuto', 'credito_usato'])
-    .gte('created_at', fromISO + 'T00:00:00')
-    .lte('created_at', toISO + 'T23:59:59.999');
-  // 4. Transazioni — periodo precedente
-  const { data: txPrev } = await sb.from('transazioni')
-    .select('tipo,importo,created_at')
-    .eq('stabilimento_id', currentStabilimento.id)
-    .in('tipo', ['credito_ricevuto', 'credito_usato'])
-    .gte('created_at', prev.fromISO + 'T00:00:00')
-    .lte('created_at', prev.toISO + 'T23:59:59.999');
-
-  // --- Aggregazioni ---
-  const curr = dispCurr || [];
-  const prvD = dispPrev || [];
-
-  const dichCurr = curr.filter(d => d.stato === 'libero' || d.stato === 'sub_affittato').length;
-  const prenCurr = curr.filter(d => d.stato === 'sub_affittato').length;
-  const dichPrev = prvD.filter(d => d.stato === 'libero' || d.stato === 'sub_affittato').length;
-  const prenPrev = prvD.filter(d => d.stato === 'sub_affittato').length;
-
-  let distrCurr = 0, spentCurr = 0;
-  (txCurr || []).forEach(t => {
-    const v = parseFloat(t.importo || 0);
-    if (t.tipo === 'credito_ricevuto') distrCurr += v;
-    else if (t.tipo === 'credito_usato') spentCurr += v;
-  });
-  let distrPrev = 0, spentPrev = 0;
-  (txPrev || []).forEach(t => {
-    const v = parseFloat(t.importo || 0);
-    if (t.tipo === 'credito_ricevuto') distrPrev += v;
-    else if (t.tipo === 'credito_usato') spentPrev += v;
-  });
-
-  // --- KPI numbers ---
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set('kpi-dich-value', dichCurr);
-  set('kpi-pren-value', prenCurr);
-  set('kpi-distr-value', formatCoin(distrCurr));
-  set('kpi-spent-value', formatCoin(spentCurr));
-
-  panSetDelta('kpi-dich-delta', dichCurr, dichPrev);
-  panSetDelta('kpi-pren-delta', prenCurr, prenPrev);
-  panSetDelta('kpi-distr-delta', distrCurr, distrPrev);
-  panSetDelta('kpi-spent-delta', spentCurr, spentPrev);
-
-  // --- Sparklines ---
-  const sparkDich = panBucketByDay(
-    curr.filter(d => d.stato === 'libero' || d.stato === 'sub_affittato'),
-    fromISO, toISO, r => r.data, _ => 1
-  );
-  const sparkPren = panBucketByDay(
-    curr.filter(d => d.stato === 'sub_affittato'),
-    fromISO, toISO, r => r.data, _ => 1
-  );
-  const sparkDistr = panBucketByDay(
-    (txCurr || []).filter(t => t.tipo === 'credito_ricevuto'),
-    fromISO, toISO, r => (r.created_at || '').slice(0, 10), r => parseFloat(r.importo || 0)
-  );
-  const sparkSpent = panBucketByDay(
-    (txCurr || []).filter(t => t.tipo === 'credito_usato'),
-    fromISO, toISO, r => (r.created_at || '').slice(0, 10), r => parseFloat(r.importo || 0)
-  );
-  panDrawSparkline('kpi-dich-spark', sparkDich, '#4EA66E');
-  panDrawSparkline('kpi-pren-spark', sparkPren, '#E3B04B');
-  panDrawSparkline('kpi-distr-spark', sparkDistr, 'var(--ocean, #1B6CA8)');
-  panDrawSparkline('kpi-spent-spark', sparkSpent, 'var(--coral, #E07B54)');
-
-  // --- Flow diagram ---
-  set('flow-dich', dichCurr);
-  set('flow-pren', prenCurr);
-  set('flow-distr', formatCoin(distrCurr));
-  set('flow-spent', formatCoin(spentCurr));
-  const convRate = dichCurr ? Math.round((prenCurr / dichCurr) * 100) : 0;
-  set('flow-pren-sub', `${convRate}% delle dichiarate`);
-  const spentRate = distrCurr ? Math.round((spentCurr / distrCurr) * 100) : 0;
-  set('flow-spent-sub', distrCurr ? `${spentRate}% dei distribuiti` : 'nessun coin distribuito');
-
-  // --- Top 3 stagionali per credito maturato (credito_ricevuto) ---
-  const byCliente = new Map();
-  (txCurr || []).filter(t => t.tipo === 'credito_ricevuto' && t.cliente_id).forEach(t => {
-    byCliente.set(t.cliente_id, (byCliente.get(t.cliente_id) || 0) + parseFloat(t.importo || 0));
-  });
-  const topClienti = [...byCliente.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-  const cliById = Object.fromEntries(clientiList.map(c => [c.id, c]));
-  const elCliList = document.getElementById('top-clienti-list');
-  if (elCliList) {
-    if (!topClienti.length) {
-      elCliList.innerHTML = '<div class="top-empty">Nessun credito maturato nel periodo.</div>';
-    } else {
-      elCliList.innerHTML = topClienti.map(([id, imp], i) => {
-        const c = cliById[id];
-        const nome = c ? `${c.nome || ''} ${c.cognome || ''}`.trim() : 'Cliente rimosso';
-        return `<div class="top-item">
-          <div class="top-rank">${i + 1}</div>
-          <div class="top-name">${escapeHtml(nome)}</div>
-          <div class="top-value">${formatCoin(imp)}</div>
-        </div>`;
-      }).join('');
-    }
-  }
-
-  // --- Top 3 ombrelloni più prenotati ---
-  const byOmb = new Map();
-  curr.filter(d => d.stato === 'sub_affittato').forEach(d => {
-    byOmb.set(d.ombrellone_id, (byOmb.get(d.ombrellone_id) || 0) + 1);
-  });
-  const topOmb = [...byOmb.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-  const ombById = Object.fromEntries(ombrelloniList.map(o => [o.id, o]));
-  const elOmbList = document.getElementById('top-ombrelloni-list');
-  if (elOmbList) {
-    if (!topOmb.length) {
-      elOmbList.innerHTML = '<div class="top-empty">Nessuna prenotazione nel periodo.</div>';
-    } else {
-      elOmbList.innerHTML = topOmb.map(([id, count], i) => {
-        const o = ombById[id];
-        const label = o ? `${o.fila}${o.numero}` : '—';
-        return `<div class="top-item">
-          <div class="top-rank">${i + 1}</div>
-          <div class="top-name">Ombrellone <strong>${escapeHtml(label)}</strong></div>
-          <div class="top-value">${count} ${count === 1 ? 'giorno' : 'giorni'}</div>
-        </div>`;
-      }).join('');
-    }
-  }
-}
-
-/* ---------- Configurazioni → subtab switcher ---------- */
-function switchConfigSubtab(sub, btn) {
-  document.querySelectorAll('.config-subpanel').forEach(p => p.classList.remove('active'));
-  const panel = document.getElementById('config-sub-' + sub);
-  if (panel) panel.classList.add('active');
-  document.querySelectorAll('.config-subtab').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  if (sub === 'stagione') loadStagione();
-}
-
-/* ---------- Stagione: load/save ---------- */
-function loadStagione() {
-  if (!currentStabilimento) return;
-  const inizio = currentStabilimento.data_inizio_stagione || '';
-  const fine = currentStabilimento.data_fine_stagione || '';
-  const elI = document.getElementById('stagione-inizio');
-  const elF = document.getElementById('stagione-fine');
-  if (elI) elI.value = inizio;
-  if (elF) elF.value = fine;
-  renderStagioneSummary(inizio, fine);
-  const alert = document.getElementById('stagione-save-alert');
-  if (alert) alert.innerHTML = '';
-}
-
-function renderStagioneSummary(inizio, fine) {
-  const el = document.getElementById('stagione-summary');
-  if (!el) return;
-  if (!inizio || !fine) {
-    el.innerHTML = '<span style="color:var(--text-light)">Imposta entrambe le date per vedere la progressione.</span>';
-    return;
-  }
-  const from = new Date(inizio + 'T00:00:00');
-  const to = new Date(fine + 'T00:00:00');
-  const today = new Date(todayStr() + 'T00:00:00');
-  const totale = Math.round((to - from) / 86400000) + 1;
-  if (totale <= 0) {
-    el.innerHTML = '<span style="color:var(--coral)">La data di fine deve essere successiva a quella di inizio.</span>';
-    return;
-  }
-  let progress = 0, statoTxt = '';
-  if (today < from) {
-    const gg = Math.round((from - today) / 86400000);
-    statoTxt = `La stagione inizia fra <strong>${gg}</strong> ${gg === 1 ? 'giorno' : 'giorni'}`;
-    progress = 0;
-  } else if (today > to) {
-    statoTxt = `Stagione conclusa · durata totale <strong>${totale}</strong> giorni`;
-    progress = 100;
+  if (preset === '7d') {
+    const d = new Date(today); d.setDate(d.getDate() - 6);
+    from = toLocalDateStr(d);
+  } else if (preset === '30d') {
+    const d = new Date(today); d.setDate(d.getDate() - 29);
+    from = toLocalDateStr(d);
+  } else if (preset === '90d') {
+    const d = new Date(today); d.setDate(d.getDate() - 89);
+    from = toLocalDateStr(d);
+  } else if (preset === 'season') {
+    from = currentStabilimento?.data_inizio_stagione || (today.getFullYear() + '-06-01');
+    const fine = currentStabilimento?.data_fine_stagione || (today.getFullYear() + '-09-15');
+    // clampa a oggi se stagione non finita
+    to = fine < todayStrV ? fine : todayStrV;
   } else {
-    const fatti = Math.round((today - from) / 86400000) + 1;
-    const rest = totale - fatti;
-    statoTxt = `Giorno <strong>${fatti}</strong> di <strong>${totale}</strong> · mancano <strong>${rest}</strong> ${rest === 1 ? 'giorno' : 'giorni'}`;
-    progress = Math.round((fatti / totale) * 100);
-  }
-  el.innerHTML = `
-    <div style="font-size:13px;color:var(--text-mid);margin-bottom:10px">${statoTxt}</div>
-    <div style="background:#EEE9DF;border-radius:999px;height:10px;overflow:hidden">
-      <div style="background:linear-gradient(90deg,#4EA66E 0%,#E3B04B 100%);height:100%;width:${progress}%;transition:width .4s"></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-light);margin-top:6px">
-      <span>${formatDate(inizio)}</span>
-      <span>${formatDate(fine)}</span>
-    </div>`;
-}
-
-async function saveStagione() {
-  if (!currentStabilimento) return;
-  const alert = document.getElementById('stagione-save-alert');
-  const elI = document.getElementById('stagione-inizio');
-  const elF = document.getElementById('stagione-fine');
-  const inizio = elI ? elI.value : '';
-  const fine = elF ? elF.value : '';
-  if (!inizio || !fine) {
-    if (alert) alert.innerHTML = '<div class="alert alert-coral">Inserisci entrambe le date.</div>';
-    return;
-  }
-  if (fine < inizio) {
-    if (alert) alert.innerHTML = '<div class="alert alert-coral">La fine deve essere uguale o successiva all\'inizio.</div>';
-    return;
-  }
-  const { error } = await sb.from('stabilimenti')
-    .update({ data_inizio_stagione: inizio, data_fine_stagione: fine })
-    .eq('id', currentStabilimento.id);
-  if (error) {
-    if (alert) alert.innerHTML = `<div class="alert alert-coral">Errore: ${escapeHtml(error.message)}</div>`;
-    return;
-  }
-  currentStabilimento.data_inizio_stagione = inizio;
-  currentStabilimento.data_fine_stagione = fine;
-  if (alert) alert.innerHTML = '<div class="alert alert-info">✓ Date stagione salvate.</div>';
-  renderStagioneSummary(inizio, fine);
-  setTimeout(() => { if (alert) alert.innerHTML = ''; }, 3000);
-}
-
-/* ---------- Hook nel tab switcher ---------- */
-/* Monkey-patch di managerTab: quando l'utente torna su "panoramica", ricarica i KPI. */
-(function hookManagerTab() {
-  if (typeof window.managerTab !== 'function') {
-    // manager.js non ancora caricato: ritenta al prossimo tick.
-    setTimeout(hookManagerTab, 50);
-    return;
-  }
-  if (window.__panoramicaHooked) return;
-  window.__panoramicaHooked = true;
-  const orig = window.managerTab;
-  window.managerTab = function (tab, btn) {
-    orig(tab, btn);
-    if (tab === 'panoramica') {
-      loadPanoramicaKpis().catch(console.error);
+    // custom: mantiene from/to correnti se presenti, altrimenti default 7d
+    const fromEl = document.getElementById('pano-range-from');
+    const toEl = document.getElementById('pano-range-to');
+    if (fromEl?.value && toEl?.value) {
+      from = fromEl.value;
+      to = toEl.value;
+    } else {
+      const d = new Date(today); d.setDate(d.getDate() - 6);
+      from = toLocalDateStr(d);
     }
-  };
-})();
+  }
 
-/* Esponi funzioni globali usate dall'HTML */
-window.loadPanoramicaKpis = loadPanoramicaKpis;
-window.switchConfigSubtab = switchConfigSubtab;
-window.loadStagione = loadStagione;
-window.saveStagione = saveStagione;
+  panoramicaState.from = from;
+  panoramicaState.to = to;
+  panoramicaState.preset = preset;
+  syncPanoramicaToolbar();
+  panoramicaLoad();
+}
+
+/** Aggiorna UI toolbar: pill attiva, input date, label range */
+function syncPanoramicaToolbar() {
+  const { from, to, preset, compare } = panoramicaState;
+  document.querySelectorAll('.pano-preset-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === preset);
+  });
+  const fromEl = document.getElementById('pano-range-from');
+  const toEl = document.getElementById('pano-range-to');
+  if (fromEl && fromEl.value !== from) fromEl.value = from;
+  if (toEl && toEl.value !== to) toEl.value = to;
+  const label = document.getElementById('pano-range-label');
+  if (label) label.textContent = labelRange(from, to);
+  const cmp = document.getElementById('pano-compare');
+  if (cmp) cmp.checked = compare;
+}
+
+/** Called onchange dagli input custom date */
+function onPanoramicaCustomRange() {
+  const from = document.getElementById('pano-range-from').value;
+  const to = document.getElementById('pano-range-to').value;
+  if (!from || !to) return;
+  if (from > to) return;
+  panoramicaState.from = from;
+  panoramicaState.to = to;
+  panoramicaState.preset = 'custom';
+  syncPanoramicaToolbar();
+  panoramicaLoad();
+}
+
+function onPanoramicaCompareToggle() {
+  panoramicaState.compare = document.getElementById('pano-compare').checked;
+  panoramicaLoad();
+}
+
+// ============================================================
+// LOAD KPI
+// ============================================================
+
+/**
+ * Calcola i 4 KPI del range corrente + periodo di confronto + sparkline.
+ * Ogni KPI è un oggetto {value, prev, delta, spark[]}.
+ */
+async function panoramicaLoad() {
+  if (!currentStabilimento || !panoramicaState.from || !panoramicaState.to) return;
+  if (!ombrelloniList || !ombrelloniList.length) {
+    // Nessun ombrellone → azzera tutto
+    ['pano-kpi-disp','pano-kpi-pren','pano-kpi-distr','pano-kpi-spent'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.textContent = '0';
+    });
+    return;
+  }
+
+  showLoading();
+  try {
+    const { from, to, compare } = panoramicaState;
+    const prev = compare ? previousRange(from, to) : null;
+    const ombIds = ombrelloniList.map(o => o.id);
+
+    // === Query in parallelo ===
+    const [dispCur, dispPrev, distrCur, distrPrev, spentCur, spentPrev] = await Promise.all([
+      sb.from('disponibilita').select('ombrellone_id,data,stato')
+        .in('ombrellone_id', ombIds).gte('data', from).lte('data', to),
+      prev ? sb.from('disponibilita').select('ombrellone_id,data,stato')
+        .in('ombrellone_id', ombIds).gte('data', prev.from).lte('data', prev.to) : Promise.resolve({ data: [] }),
+      sb.from('transazioni').select('importo,created_at')
+        .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_ricevuto')
+        .gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59'),
+      prev ? sb.from('transazioni').select('importo,created_at')
+        .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_ricevuto')
+        .gte('created_at', prev.from + 'T00:00:00').lte('created_at', prev.to + 'T23:59:59') : Promise.resolve({ data: [] }),
+      sb.from('transazioni').select('importo,created_at,categoria')
+        .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_usato')
+        .gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59'),
+      prev ? sb.from('transazioni').select('importo,created_at')
+        .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_usato')
+        .gte('created_at', prev.from + 'T00:00:00').lte('created_at', prev.to + 'T23:59:59') : Promise.resolve({ data: [] }),
+    ]);
+
+    // === KPI 1: Disponibilità dichiarate (stato != 'ombrellone' / include libero+sub_affittato+sub_affittato_cliente) ===
+    // Conteggio: righe con stato tra {libero,sub_affittato}
+    const countDisp = rows => (rows || []).filter(r => r.stato === 'libero' || r.stato === 'sub_affittato').length;
+    const countPren = rows => (rows || []).filter(r => r.stato === 'sub_affittato').length;
+    const dispCurV = countDisp(dispCur.data);
+    const dispPrevV = countDisp(dispPrev.data);
+    const prenCurV = countPren(dispCur.data);
+    const prenPrevV = countPren(dispPrev.data);
+
+    // === KPI 3: Coin distribuiti ===
+    const sumImporto = rows => (rows || []).reduce((s, r) => s + parseFloat(r.importo || 0), 0);
+    const distrCurV = sumImporto(distrCur.data);
+    const distrPrevV = sumImporto(distrPrev.data);
+
+    // === KPI 4: Coin spesi ===
+    const spentCurV = sumImporto(spentCur.data);
+    const spentPrevV = sumImporto(spentPrev.data);
+
+    // === Sparkline (serie giornaliera) ===
+    const dispByDay = groupByDay((dispCur.data || []).filter(r => r.stato === 'libero' || r.stato === 'sub_affittato'), 'data');
+    const prenByDay = groupByDay((dispCur.data || []).filter(r => r.stato === 'sub_affittato'), 'data');
+    const distrByDay = groupByDay(distrCur.data, 'created_at', 'importo', true);
+    const spentByDay = groupByDay(spentCur.data, 'created_at', 'importo', true);
+
+    const sparkDisp = fillSeries(dispByDay, from, to);
+    const sparkPren = fillSeries(prenByDay, from, to);
+    const sparkDistr = fillSeries(distrByDay, from, to);
+    const sparkSpent = fillSeries(spentByDay, from, to);
+
+    panoramicaState.kpiData = {
+      disp: { value: dispCurV, prev: dispPrevV, delta: computeDelta(dispCurV, dispPrevV), spark: sparkDisp },
+      pren: { value: prenCurV, prev: prenPrevV, delta: computeDelta(prenCurV, prenPrevV), spark: sparkPren },
+      distr: { value: distrCurV, prev: distrPrevV, delta: computeDelta(distrCurV, distrPrevV), spark: sparkDistr },
+      spent: { value: spentCurV, prev: spentPrevV, delta: computeDelta(spentCurV, spentPrevV), spark: sparkSpent },
+    };
+
+    renderPanoramicaKpis();
+    renderPanoramicaFlow();
+    await renderPanoramicaTopClienti();
+  } finally {
+    hideLoading();
+  }
+}
+
+/** Popola le 4 KPI card con valore, delta, sparkline */
+function renderPanoramicaKpis() {
+  const { kpiData } = panoramicaState;
+  if (!kpiData) return;
+
+  const setKpi = (prefix, data, isCoin) => {
+    const valEl = document.getElementById(`${prefix}-val`);
+    const delEl = document.getElementById(`${prefix}-delta`);
+    const sparkEl = document.getElementById(`${prefix}-spark`);
+    if (valEl) {
+      valEl.textContent = isCoin
+        ? parseFloat(data.value || 0).toFixed(2)
+        : String(data.value || 0);
+    }
+    if (delEl) delEl.innerHTML = panoramicaState.compare ? formatDeltaHTML(data.delta) : '';
+    if (sparkEl) renderSparkline(sparkEl, data.spark, getComputedStyle(sparkEl).color || null);
+  };
+
+  setKpi('pano-kpi-disp', kpiData.disp, false);
+  setKpi('pano-kpi-pren', kpiData.pren, false);
+  setKpi('pano-kpi-distr', kpiData.distr, true);
+  setKpi('pano-kpi-spent', kpiData.spent, true);
+
+  // unità coin dinamica
+  document.querySelectorAll('[data-coin-unit]').forEach(el => {
+    el.textContent = coinName(currentStabilimento);
+  });
+}
+
+/** Flow diagram: disp → pren → distr → spent */
+function renderPanoramicaFlow() {
+  const { kpiData } = panoramicaState;
+  if (!kpiData) return;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('flow-disp', kpiData.disp.value);
+  set('flow-pren', kpiData.pren.value);
+  set('flow-distr', parseFloat(kpiData.distr.value || 0).toFixed(2));
+  set('flow-spent', parseFloat(kpiData.spent.value || 0).toFixed(2));
+
+  // Conversion rates
+  const toPct = (num, den) => den > 0 ? Math.round((num / den) * 100) + '%' : '–';
+  set('flow-conv-1', toPct(kpiData.pren.value, kpiData.disp.value));
+  set('flow-conv-2', toPct(kpiData.spent.value, kpiData.distr.value));
+}
+
+/** Top-3 ombrelloni più prenotati del periodo */
+async function renderPanoramicaTopClienti() {
+  const ul = document.getElementById('pano-top-ombrelloni');
+  if (!ul) return;
+  ul.innerHTML = '<li class="pano-top-empty">Caricamento…</li>';
+  const { from, to } = panoramicaState;
+  const ombIds = ombrelloniList.map(o => o.id);
+  const { data: rows } = await sb.from('disponibilita')
+    .select('ombrellone_id,stato')
+    .in('ombrellone_id', ombIds)
+    .eq('stato', 'sub_affittato')
+    .gte('data', from).lte('data', to);
+  const byOmb = {};
+  (rows || []).forEach(r => { byOmb[r.ombrellone_id] = (byOmb[r.ombrellone_id] || 0) + 1; });
+  const clienteByOmb = {};
+  (clientiList || []).filter(c => !c.rifiutato).forEach(c => { if (c.ombrellone_id) clienteByOmb[c.ombrellone_id] = c; });
+  const top = Object.entries(byOmb)
+    .map(([id, n]) => {
+      const o = ombrelloniList.find(x => x.id === id);
+      const c = clienteByOmb[id];
+      return {
+        id,
+        label: o ? `Fila ${o.fila} · N°${o.numero}` : 'Ombrellone',
+        cliente: c ? `${c.nome || ''} ${c.cognome || ''}`.trim() : '—',
+        count: n,
+      };
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+
+  if (!top.length) {
+    ul.innerHTML = '<li class="pano-top-empty">Nessun sub-affitto nel periodo.</li>';
+    return;
+  }
+  ul.innerHTML = top.map((t, i) => `
+    <li class="pano-top-item">
+      <span class="pano-top-rank">${i + 1}</span>
+      <span class="pano-top-label">
+        <span class="pano-top-title">${escapeHtml(t.label)}</span>
+        <span class="pano-top-sub">${escapeHtml(t.cliente)}</span>
+      </span>
+      <span class="pano-top-count">${t.count} notti</span>
+    </li>
+  `).join('');
+}
+
+// ============================================================
+// DEEP DIVE — router + stubs
+// ============================================================
+
+/**
+ * Apre il deep dive richiesto nascondendo la Panoramica.
+ * kind: 'disponibilita'|'prenotazioni'|'coin-distr'|'coin-spent'
+ */
+function openDeepDive(kind) {
+  const pano = document.getElementById('pano-overview');
+  const dd = document.getElementById('pano-deepdive');
+  if (!pano || !dd) return;
+  pano.classList.add('hidden');
+  dd.classList.remove('hidden');
+
+  // eredita range dalla panoramica
+  ddState.current = kind;
+  ddState.from = panoramicaState.from;
+  ddState.to = panoramicaState.to;
+  ddState.preset = panoramicaState.preset;
+  ddState.compare = panoramicaState.compare;
+
+  // mostra solo il pannello richiesto
+  document.querySelectorAll('.dd-panel').forEach(p => p.classList.add('hidden'));
+  const panel = document.getElementById(`dd-panel-${kind}`);
+  if (panel) panel.classList.remove('hidden');
+
+  // breadcrumb
+  const crumb = document.getElementById('dd-crumb-title');
+  if (crumb) crumb.textContent = deepDiveTitle(kind);
+  syncDdToolbar();
+
+  // load
+  if (kind === 'disponibilita') ddLoadDisponibilita();
+  else if (kind === 'prenotazioni') ddLoadPrenotazioni();
+  else if (kind === 'coin-distr') ddLoadCoinDistr();
+  else if (kind === 'coin-spent') ddLoadCoinSpent();
+
+  // scroll al top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function deepDiveTitle(kind) {
+  switch (kind) {
+    case 'disponibilita': return 'Disponibilità dichiarate';
+    case 'prenotazioni': return 'Prenotazioni effettuate';
+    case 'coin-distr': return `${coinName(currentStabilimento)} distribuiti`;
+    case 'coin-spent': return `${coinName(currentStabilimento)} spesi`;
+    default: return 'Deep dive';
+  }
+}
+
+/** Torna alla Panoramica dal deep dive */
+function ddBack() {
+  const pano = document.getElementById('pano-overview');
+  const dd = document.getElementById('pano-deepdive');
+  if (!pano || !dd) return;
+  dd.classList.add('hidden');
+  pano.classList.remove('hidden');
+  ddState.current = null;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/** Cambia range dentro il deep dive (mirror della toolbar panoramica) */
+function setDdRange(preset) {
+  const today = new Date();
+  const todayStrV = toLocalDateStr(today);
+  let from = null, to = todayStrV;
+  if (preset === '7d') { const d = new Date(today); d.setDate(d.getDate() - 6); from = toLocalDateStr(d); }
+  else if (preset === '30d') { const d = new Date(today); d.setDate(d.getDate() - 29); from = toLocalDateStr(d); }
+  else if (preset === '90d') { const d = new Date(today); d.setDate(d.getDate() - 89); from = toLocalDateStr(d); }
+  else if (preset === 'season') {
+    from = currentStabilimento?.data_inizio_stagione || (today.getFullYear() + '-06-01');
+    const fine = currentStabilimento?.data_fine_stagione || (today.getFullYear() + '-09-15');
+    to = fine < todayStrV ? fine : todayStrV;
+  } else {
+    const fromEl = document.getElementById('dd-range-from');
+    const toEl = document.getElementById('dd-range-to');
+    if (fromEl?.value && toEl?.value) { from = fromEl.value; to = toEl.value; }
+    else { const d = new Date(today); d.setDate(d.getDate() - 6); from = toLocalDateStr(d); }
+  }
+  ddState.from = from;
+  ddState.to = to;
+  ddState.preset = preset;
+  syncDdToolbar();
+  reloadCurrentDd();
+}
+
+function onDdCustomRange() {
+  const from = document.getElementById('dd-range-from').value;
+  const to = document.getElementById('dd-range-to').value;
+  if (!from || !to || from > to) return;
+  ddState.from = from;
+  ddState.to = to;
+  ddState.preset = 'custom';
+  syncDdToolbar();
+  reloadCurrentDd();
+}
+
+function onDdCompareToggle() {
+  ddState.compare = document.getElementById('dd-compare').checked;
+  reloadCurrentDd();
+}
+
+function syncDdToolbar() {
+  document.querySelectorAll('.dd-preset-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === ddState.preset);
+  });
+  const fromEl = document.getElementById('dd-range-from');
+  const toEl = document.getElementById('dd-range-to');
+  if (fromEl && fromEl.value !== ddState.from) fromEl.value = ddState.from;
+  if (toEl && toEl.value !== ddState.to) toEl.value = ddState.to;
+  const label = document.getElementById('dd-range-label');
+  if (label) label.textContent = labelRange(ddState.from, ddState.to);
+  const cmp = document.getElementById('dd-compare');
+  if (cmp) cmp.checked = ddState.compare;
+}
+
+function reloadCurrentDd() {
+  if (ddState.current === 'disponibilita') ddLoadDisponibilita();
+  else if (ddState.current === 'prenotazioni') ddLoadPrenotazioni();
+  else if (ddState.current === 'coin-distr') ddLoadCoinDistr();
+  else if (ddState.current === 'coin-spent') ddLoadCoinSpent();
+}
+
+function ddExport() {
+  if (!ddState.lastRows || !ddState.lastRows.length) {
+    alert('Nessun dato da esportare in questo periodo.');
+    return;
+  }
+  exportXlsx(ddState.lastRows, ddState.lastFilename, deepDiveTitle(ddState.current));
+}
+
+// ============================================================
+// DEEP DIVE — DISPONIBILITÀ (stub Consegna 2)
+// ============================================================
+
+async function ddLoadDisponibilita() {
+  const body = document.getElementById('dd-body-disponibilita');
+  if (!body) return;
+  body.innerHTML = '<div class="dd-placeholder">La versione estesa con grafici, fonti e confronto arriva nella Consegna 2. Per ora usa la tab Ombrelloni per la mappa.</div>';
+  ddState.lastRows = [];
+  ddState.lastFilename = 'disponibilita';
+}
+
+async function ddLoadPrenotazioni() {
+  const body = document.getElementById('dd-body-prenotazioni');
+  if (!body) return;
+  body.innerHTML = '<div class="dd-placeholder">La versione estesa con funnel, tempo medio di piazzamento e mix multi-giorno arriva nella Consegna 2. Per ora usa la tab Prenotazioni.</div>';
+  ddState.lastRows = [];
+  ddState.lastFilename = 'prenotazioni';
+}
+
+async function ddLoadCoinDistr() {
+  const body = document.getElementById('dd-body-coin-distr');
+  if (!body) return;
+  body.innerHTML = '<div class="dd-placeholder">La versione estesa con heatmap ora/giorno e top cliente/ombrellone arriva nella Consegna 2. Per ora usa la tab Crediti.</div>';
+  ddState.lastRows = [];
+  ddState.lastFilename = 'coin-distribuiti';
+}
+
+async function ddLoadCoinSpent() {
+  const body = document.getElementById('dd-body-coin-spent');
+  if (!body) return;
+  body.innerHTML = '<div class="dd-placeholder">La versione estesa con pie chart per categoria (bar/ristorante/altro), top spender e tempo distr→spent arriva nella Consegna 2. Per ora usa la tab Crediti.</div>';
+  ddState.lastRows = [];
+  ddState.lastFilename = 'coin-spesi';
+}
+
+// ============================================================
+// INIT
+// ============================================================
+
+/** Chiamata una volta all'apertura del tab Panoramica. */
+function panoramicaInit() {
+  if (!panoramicaState.from) {
+    setPanoramicaRange('7d'); // default
+  } else {
+    syncPanoramicaToolbar();
+    panoramicaLoad();
+  }
+}
