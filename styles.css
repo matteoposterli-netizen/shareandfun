@@ -1488,3 +1488,42 @@ body {
 .avanzate-day-state.libero { background: var(--green-light); color: var(--green); }
 .avanzate-day-state.sub_affittato { background: var(--yellow-light); color: #9C7A1F; }
 .avanzate-day-state.occupied { background: var(--ocean-light); color: var(--ocean); }
+
+/* RESET STAGIONE — card + wizard */
+.reset-card { border: 1px solid var(--coral); background: #FFF8F4; }
+.reset-step { display: block; }
+.reset-step.hidden { display: none; }
+.reset-option {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px; margin: 8px 0;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: #fff; cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.reset-option:has(input:checked) { border-color: var(--ocean); background: var(--ocean-light); }
+.reset-option input[type="radio"] { margin-top: 3px; flex-shrink: 0; }
+.reset-option-title { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.reset-option-desc { font-size: 12px; color: var(--text-mid); line-height: 1.45; }
+.reset-summary {
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--sand); border-radius: var(--radius-sm); padding: 12px;
+  font-size: 13px;
+}
+.reset-summary-row { display: flex; align-items: center; gap: 8px; }
+.reset-summary-row .icon { width: 20px; flex-shrink: 0; text-align: center; }
+.reset-summary-row.kill { color: var(--coral); }
+.reset-summary-row.keep { color: var(--green); }
+
+/* BACKUP LIST */
+.backup-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: #fff;
+}
+.backup-row + .backup-row { margin-top: 6px; }
+.backup-row-info { min-width: 0; flex: 1; }
+.backup-row-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+.backup-row-meta { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+.backup-row-actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+.backup-empty { font-size: 13px; color: var(--text-light); padding: 18px 12px; text-align: center; }
