@@ -1298,6 +1298,8 @@ function managerTab(tab, btn) {
   if (tab === 'config') {
     loadEmailTemplates();
     if (typeof loadStagione === 'function') loadStagione();
+    if (typeof loadRegoleStato === 'function') loadRegoleStato();
+    if (typeof loadBackupList === 'function') loadBackupList();
   }
   if (tab === 'prenotazioni') loadPrenotazioni();
   if (tab === 'log') {

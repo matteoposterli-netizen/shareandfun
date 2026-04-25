@@ -486,41 +486,48 @@
               </div>
             </div>
             <div class="card-body">
-              <div class="alert alert-info" style="font-size:13px;margin-bottom:16px">
-                <strong>Chiusura speciale</strong>: bagno chiuso, le prenotazioni esistenti nel range vengono annullate automaticamente. ·
-                <strong>Sempre subaffittabile</strong>: i clienti stagionali non possono ritirare la disponibilità. ·
-                <strong>Mai subaffittabile</strong>: i clienti stagionali non possono dichiarare libero (bagno aperto).
-              </div>
-              <div id="regole-save-alert" style="margin-bottom:12px"></div>
-              <div class="regole-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:8px">
-                <div class="form-group" style="margin:0">
-                  <label class="form-label" for="regola-tipo">Tipo</label>
-                  <select id="regola-tipo" class="form-input">
-                    <option value="chiusura_speciale">Chiusura speciale</option>
-                    <option value="sempre_libero">Sempre subaffittabile</option>
-                    <option value="mai_libero">Mai subaffittabile</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin:0">
-                  <label class="form-label" for="regola-data-da">Dal</label>
-                  <input type="date" id="regola-data-da" class="form-input">
-                </div>
-                <div class="form-group" style="margin:0">
-                  <label class="form-label" for="regola-data-a">Al</label>
-                  <input type="date" id="regola-data-a" class="form-input">
-                </div>
-                <div class="form-group" style="margin:0;grid-column:1/-1">
-                  <label class="form-label" for="regola-nota">Nota (opzionale)</label>
-                  <input type="text" id="regola-nota" class="form-input" maxlength="200" placeholder="es. Ferragosto, manutenzione, maltempo…">
-                </div>
-              </div>
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:18px">
-                <button class="btn btn-primary btn-sm" onclick="creaRegolaStato()">Crea regola</button>
-                <label style="font-size:13px;color:var(--text-mid);display:flex;align-items:center;gap:6px;margin-left:auto">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+                <div style="font-size:13px;font-weight:600;color:var(--text-strong)">Regole attive e future</div>
+                <label style="font-size:13px;color:var(--text-mid);display:flex;align-items:center;gap:6px">
                   <input type="checkbox" id="regole-show-history" onchange="renderRegoleList()"> Mostra anche le regole passate
                 </label>
               </div>
-              <div id="regole-list"></div>
+              <div id="regole-list" style="margin-bottom:18px"></div>
+
+              <div style="border-top:1px solid var(--border);padding-top:16px">
+                <div style="font-size:13px;font-weight:600;color:var(--text-strong);margin-bottom:10px">Crea nuova regola</div>
+                <div class="alert alert-info" style="font-size:13px;margin-bottom:16px">
+                  <strong>Chiusura speciale</strong>: bagno chiuso, le prenotazioni esistenti nel range vengono annullate automaticamente. ·
+                  <strong>Sempre subaffittabile</strong>: i clienti stagionali non possono ritirare la disponibilità. ·
+                  <strong>Mai subaffittabile</strong>: i clienti stagionali non possono dichiarare libero (bagno aperto).
+                </div>
+                <div id="regole-save-alert" style="margin-bottom:12px"></div>
+                <div class="regole-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:8px">
+                  <div class="form-group" style="margin:0">
+                    <label class="form-label" for="regola-tipo">Tipo</label>
+                    <select id="regola-tipo" class="form-input">
+                      <option value="chiusura_speciale">Chiusura speciale</option>
+                      <option value="sempre_libero">Sempre subaffittabile</option>
+                      <option value="mai_libero">Mai subaffittabile</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin:0">
+                    <label class="form-label" for="regola-data-da">Dal</label>
+                    <input type="date" id="regola-data-da" class="form-input">
+                  </div>
+                  <div class="form-group" style="margin:0">
+                    <label class="form-label" for="regola-data-a">Al</label>
+                    <input type="date" id="regola-data-a" class="form-input">
+                  </div>
+                  <div class="form-group" style="margin:0;grid-column:1/-1">
+                    <label class="form-label" for="regola-nota">Nota (opzionale)</label>
+                    <input type="text" id="regola-nota" class="form-input" maxlength="200" placeholder="es. Ferragosto, manutenzione, maltempo…">
+                  </div>
+                </div>
+                <div>
+                  <button class="btn btn-primary btn-sm" onclick="creaRegolaStato()">Crea regola</button>
+                </div>
+              </div>
             </div>
           </div>
 
