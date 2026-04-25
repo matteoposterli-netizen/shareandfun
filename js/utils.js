@@ -68,10 +68,16 @@ function formatDateShort(str) {
   if (!str) return '';
   const d = new Date(str);
   const today = new Date();
-  const diff = Math.floor((today - d) / 86400000);
-  if (diff === 0) return 'Oggi ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-  if (diff === 1) return 'Ieri';
-  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+  // Confronta i giorni nel fuso italiano, così "Oggi"/"Ieri" e l'ora mostrata
+  // sono coerenti con l'orario locale dello stabilimento, indipendentemente dal
+  // fuso del browser.
+  const dayKey = (x) => x.toLocaleDateString('en-CA', { timeZone: 'Europe/Rome' });
+  const yest = new Date(today.getTime() - 86400000);
+  if (dayKey(d) === dayKey(today)) {
+    return 'Oggi ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' });
+  }
+  if (dayKey(d) === dayKey(yest)) return 'Ieri';
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', timeZone: 'Europe/Rome' });
 }
 
 function substitutePlaceholders(text, data) {
