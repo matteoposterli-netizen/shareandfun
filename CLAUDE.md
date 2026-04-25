@@ -22,11 +22,11 @@ Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono ren
 | Tabella | Scopo |
 |---|---|
 | `profiles` | Utenti (ruolo: `proprietario` o `stagionale`), FK ad `auth.users` |
-| `stabilimenti` | Stabilimento balneare, owned da un proprietario. Template email personalizzabili: `email_benvenuto_*`, `email_invito_*`, `email_credito_accreditato_*`, `email_credito_ritirato_*` (fallback ai default in `js/email.js` se NULL). Le colonne `email_attesa_*`/`email_approvazione_*` esistono ancora nello schema ma non sono più esposte dalla UI (flow invite-only). |
+| `stabilimenti` | Stabilimento balneare, owned da un proprietario. Template email personalizzabili: `email_benvenuto_*`, `email_invito_*`, `email_credito_accreditato_*`, `email_credito_ritirato_*` (fallback ai default in `js/email.js` se NULL). Le colonne `email_attesa_*`/`email_approvazione_*` esistono ancora nello schema ma non sono più esposte dalla UI (flow invite-only). Stagione: `data_inizio_stagione` / `data_fine_stagione` (date, default 1 giu / 15 set dell'anno corrente, CHECK fine ≥ inizio). Contabilità: `citta` (text nullable) — usato come breadcrumb nella Panoramica manager; se NULL il breadcrumb mostra solo `SPIAGGIAMIA · <nome>`. |
 | `ombrelloni` | Ombrelloni di uno stabilimento (fila, numero, credito giornaliero) |
 | `clienti_stagionali` | Clienti stagionali con `approvato`/`rifiutato`/`fonte` e `invito_token` per registrazione via link. **Nessuna registrazione autonoma**: esistono solo record creati dal proprietario (invito singolo o CSV); `user_id` viene popolato quando il cliente completa l'invito. |
 | `disponibilita` | Giornate in cui un ombrellone è messo a disposizione o sub-affittato. Colonna opzionale `nome_prenotazione` (text, nullable) per raggruppare sub-affitti multi-giorno / multi-ombrellone sotto una stessa etichetta visibile al gestore nella tab "Prenotazioni". |
-| `transazioni` | Storico contabile (credito aggiunto/usato, sub-affitti) |
+| `transazioni` | Storico contabile (credito aggiunto/usato, sub-affitti). Colonna opzionale `categoria` (text nullable, CHECK `bar`/`ristorante`/`altro`) popolata solo per `tipo='credito_usato'` — alimenta il pie chart "Dove spendono" della Panoramica deep dive. NULL altrove. Indice `idx_transazioni_stab_tipo_created` su `(stabilimento_id, tipo, created_at DESC)` per le query KPI di range. |
 | `admins` | Account amministratori di sistema. PK `user_id` → `auth.users(id)`. **Non hanno riga in `profiles`**: le credenziali sono distinte dai proprietari/stagionali. Provisioning manuale via dashboard Supabase (vedi sezione "Area Admin"). |
 | `audit_log` | Log delle modifiche fatte sullo stabilimento (INSERT/UPDATE/DELETE su tutte le tabelle business + login proprietario + email inviate + import batch). Populato via trigger `_audit_row_trigger` (SECURITY DEFINER) e RPC `audit_log_write` / `audit_coalesce_import`. RLS: proprietario vede solo i propri eventi, admin vede tutto. Retention 30 giorni via job `pg_cron` "audit-log-retention" (03:00 daily). Vedi sezione "Audit log". |
 
@@ -110,6 +110,10 @@ Tab "Log attività" lato proprietario (`#mtab-log` in `index.html`, logica in `j
 - Il file `index.html` è una SPA monolitica: modifiche vanno fatte in-place con Edit, non riscrivere da zero.
 - Advisors Supabase da monitorare dopo modifiche RLS: `mcp__*__get_advisors` per `security` e `performance`.
 - Unico warning di sicurezza noto e non risolvibile via SQL: `Leaked Password Protection` — va attivato manualmente dal dashboard Auth.
+- Il CSS è in `styles.css` (file separato linkato da `index.html`), non più inline. Le classi della Panoramica manager (`.pano-*`, `.dd-*`, `.kpi-delta-*`) sono in coda al file.
+- Tab `mtab-panoramica` è guidato da `panoramicaInit()` in `js/panoramica.js`, invocato da `managerTab('panoramica')` e da `loadPanoramicaDefaultIfEmpty()` in `js/manager.js` (quest'ultima fa fallback alle vecchie KPI `loadDashboardUpcomingKpis`/`loadDashboardCreditsKpis` solo se il nuovo HTML non è presente). I deep dive (4 panel `dd-panel-*` dentro `mtab-panoramica`) sono placeholder in Consegna 1; verranno popolati in Consegna 2.
+- `js/dd-common.js`: helpers condivisi tra Panoramica e deep dive (`dateRangeQS`, `previousRange`, `computeDelta`, `formatDeltaHTML`, `renderSparkline`, `groupByDay`, `fillSeries`, `dateRangeDays`, `exportXlsx`, `labelRange`).
+- `js/configurazioni.js`: estratto dal vecchio `js/panoramica.js` per separare la logica della tab Configurazioni (`switchConfigSubtab`, `loadStagione`, `saveStagione`, `renderStagioneSummary`) dalla nuova Panoramica.
 
 ## Mantenimento di questo file
 

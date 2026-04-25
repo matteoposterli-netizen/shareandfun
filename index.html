@@ -207,38 +207,170 @@
       <button class="sidebar-item" onclick="managerTab('prenotazioni',this)"><span class="icon">📖</span> Prenotazioni</button>
       <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Gestione Credito</button>
       <button class="sidebar-item" onclick="managerTab('gestione',this)"><span class="icon">🗺️</span> Ombrelloni e Clienti</button>
-      <button class="sidebar-item" onclick="managerTab('email',this)"><span class="icon">✉️</span> Email</button>
+      <button class="sidebar-item" onclick="managerTab('config',this)"><span class="icon">⚙️</span> Configurazioni</button>
       <button class="sidebar-item" onclick="managerTab('log',this)"><span class="icon">🕵️</span> Log attività</button>
     </div>
     <div class="main-content">
       <!-- DASHBOARD (KPI overview) -->
+      <!-- DASHBOARD (KPI overview — 4 KPI + flow + top-3) -->
       <div id="mtab-panoramica" class="tab-content active">
-        <div class="page-header">
-          <div><div class="page-title" id="manager-stab-nome">Dashboard</div><div class="page-subtitle" id="manager-today-label"></div></div>
+
+        <!-- ============ OVERVIEW (default) ============ -->
+        <div id="pano-overview">
+
+          <div class="page-header">
+            <div>
+              <div class="page-title">Panoramica</div>
+              <div class="page-subtitle">Contabilità del progetto SpiaggiaMia</div>
+            </div>
+          </div>
+
+          <!-- Toolbar periodo -->
+          <div class="pano-toolbar" role="toolbar" aria-label="Selezione periodo">
+            <span class="pano-toolbar-label">📅 <span id="pano-range-label">–</span></span>
+            <div class="pano-toolbar-presets">
+              <button class="pano-preset-btn" data-preset="7d" onclick="setPanoramicaRange('7d')">Ultimi 7 gg</button>
+              <button class="pano-preset-btn" data-preset="30d" onclick="setPanoramicaRange('30d')">Ultimi 30 gg</button>
+              <button class="pano-preset-btn" data-preset="90d" onclick="setPanoramicaRange('90d')">Ultimi 90 gg</button>
+              <button class="pano-preset-btn" data-preset="season" onclick="setPanoramicaRange('season')">Stagione</button>
+            </div>
+            <span class="pano-toolbar-custom">
+              <span>Dal</span>
+              <input type="date" id="pano-range-from" onchange="onPanoramicaCustomRange()">
+              <span>al</span>
+              <input type="date" id="pano-range-to" onchange="onPanoramicaCustomRange()">
+            </span>
+            <label class="pano-toolbar-compare">
+              <input type="checkbox" id="pano-compare" checked onchange="onPanoramicaCompareToggle()">
+              Confronta con periodo precedente
+            </label>
+          </div>
+
+          <!-- 4 KPI card cliccabili -->
+          <div class="pano-kpi-grid">
+            <button type="button" class="pano-kpi-card" data-accent="ocean" onclick="openDeepDive('disponibilita')" aria-label="Disponibilità dichiarate — apri dettaglio">
+              <div class="pano-kpi-head">
+                <span class="pano-kpi-label">Disponibilità dichiarate</span>
+                <span class="pano-kpi-delta" id="pano-kpi-disp-delta"></span>
+              </div>
+              <div class="pano-kpi-value-row">
+                <span class="pano-kpi-value" id="pano-kpi-disp-val">–</span>
+                <span class="pano-kpi-unit">notti</span>
+              </div>
+              <svg class="pano-kpi-spark" id="pano-kpi-disp-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+            </button>
+
+            <button type="button" class="pano-kpi-card" data-accent="ink" onclick="openDeepDive('prenotazioni')" aria-label="Prenotazioni effettuate — apri dettaglio">
+              <div class="pano-kpi-head">
+                <span class="pano-kpi-label">Prenotazioni effettuate</span>
+                <span class="pano-kpi-delta" id="pano-kpi-pren-delta"></span>
+              </div>
+              <div class="pano-kpi-value-row">
+                <span class="pano-kpi-value" id="pano-kpi-pren-val">–</span>
+                <span class="pano-kpi-unit">notti</span>
+              </div>
+              <svg class="pano-kpi-spark" id="pano-kpi-pren-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+            </button>
+
+            <button type="button" class="pano-kpi-card" data-accent="green" onclick="openDeepDive('coin-distr')" aria-label="Coin distribuiti — apri dettaglio">
+              <div class="pano-kpi-head">
+                <span class="pano-kpi-label" data-coin-unit-prefix>Coin distribuiti</span>
+                <span class="pano-kpi-delta" id="pano-kpi-distr-delta"></span>
+              </div>
+              <div class="pano-kpi-value-row">
+                <span class="pano-kpi-value" id="pano-kpi-distr-val">–</span>
+                <span class="pano-kpi-unit" data-coin-unit>Coin</span>
+              </div>
+              <svg class="pano-kpi-spark" id="pano-kpi-distr-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+            </button>
+
+            <button type="button" class="pano-kpi-card" data-accent="coral" onclick="openDeepDive('coin-spent')" aria-label="Coin spesi — apri dettaglio">
+              <div class="pano-kpi-head">
+                <span class="pano-kpi-label">Coin spesi</span>
+                <span class="pano-kpi-delta" id="pano-kpi-spent-delta"></span>
+              </div>
+              <div class="pano-kpi-value-row">
+                <span class="pano-kpi-value" id="pano-kpi-spent-val">–</span>
+                <span class="pano-kpi-unit" data-coin-unit>Coin</span>
+              </div>
+              <svg class="pano-kpi-spark" id="pano-kpi-spent-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+            </button>
+          </div>
+
+          <!-- Top 3 ombrelloni del periodo -->
+          <div class="pano-top-card">
+            <div class="pano-top-title-h">Top ombrelloni del periodo</div>
+            <ul class="pano-top-list" id="pano-top-ombrelloni">
+              <li class="pano-top-empty">Caricamento…</li>
+            </ul>
+          </div>
+
         </div>
 
-        <div class="section-divider">📊 Oggi</div>
-        <div class="stats-row">
-          <div class="stat-card"><div class="stat-label">Ombrelloni totali</div><div class="stat-value" id="stat-totali">–</div><div class="stat-sub">registrati</div></div>
-          <div class="stat-card"><div class="stat-label">Liberi oggi</div><div class="stat-value green" id="stat-liberi">–</div><div class="stat-sub">disponibili</div></div>
-          <div class="stat-card"><div class="stat-label">Sub-affittati oggi</div><div class="stat-value coral" id="stat-subaffittati">–</div><div class="stat-sub" id="stat-incassati"></div></div>
-          <div class="stat-card"><div class="stat-label">Crediti distribuiti</div><div class="stat-value ocean"><span id="stat-crediti">–</span> <span class="stat-value-unit" id="stat-crediti-unit"></span></div><div class="stat-sub">ultimi 7 giorni</div></div>
+        <!-- ============ DEEP DIVE (hidden by default) ============ -->
+        <div id="pano-deepdive" class="hidden">
+
+          <!-- Breadcrumb -->
+          <div class="dd-crumb">
+            <button type="button" class="dd-crumb-back" onclick="ddBack()">← Panoramica</button>
+            <span class="dd-crumb-sep">/</span>
+            <span class="dd-crumb-title" id="dd-crumb-title">Deep dive</span>
+            <button type="button" class="btn btn-outline btn-sm" style="margin-left:auto" onclick="ddExport()">📥 Esporta Excel</button>
+          </div>
+
+          <!-- Toolbar periodo deep dive -->
+          <div class="pano-toolbar">
+            <span class="pano-toolbar-label">📅 <span id="dd-range-label">–</span></span>
+            <div class="pano-toolbar-presets">
+              <button class="dd-preset-btn" data-preset="7d" onclick="setDdRange('7d')">7 gg</button>
+              <button class="dd-preset-btn" data-preset="30d" onclick="setDdRange('30d')">30 gg</button>
+              <button class="dd-preset-btn" data-preset="90d" onclick="setDdRange('90d')">90 gg</button>
+              <button class="dd-preset-btn" data-preset="season" onclick="setDdRange('season')">Stagione</button>
+            </div>
+            <span class="pano-toolbar-custom">
+              <span>Dal</span>
+              <input type="date" id="dd-range-from" onchange="onDdCustomRange()">
+              <span>al</span>
+              <input type="date" id="dd-range-to" onchange="onDdCustomRange()">
+            </span>
+            <label class="pano-toolbar-compare">
+              <input type="checkbox" id="dd-compare" checked onchange="onDdCompareToggle()">
+              Confronta con periodo precedente
+            </label>
+          </div>
+
+          <!-- Panel Disponibilità -->
+          <div id="dd-panel-disponibilita" class="dd-panel hidden">
+            <div id="dd-body-disponibilita"></div>
+          </div>
+
+          <!-- Panel Prenotazioni -->
+          <div id="dd-panel-prenotazioni" class="dd-panel hidden">
+            <div id="dd-body-prenotazioni"></div>
+          </div>
+
+          <!-- Panel Coin distribuiti -->
+          <div id="dd-panel-coin-distr" class="dd-panel hidden">
+            <div id="dd-body-coin-distr"></div>
+          </div>
+
+          <!-- Panel Coin spesi -->
+          <div id="dd-panel-coin-spent" class="dd-panel hidden">
+            <div id="dd-body-coin-spent"></div>
+          </div>
+
         </div>
 
-        <div class="section-divider">☂️ Prossimi giorni</div>
-        <div class="stats-row">
-          <div class="stat-card"><div class="stat-label">Liberi nei prossimi 3 gg</div><div class="stat-value green" id="stat-liberi-3gg">–</div><div class="stat-sub">almeno un giorno libero</div></div>
-          <div class="stat-card"><div class="stat-label">Sub-affittati nei prossimi 3 gg</div><div class="stat-value coral" id="stat-sub-3gg">–</div><div class="stat-sub">almeno un giorno</div></div>
-          <div class="stat-card"><div class="stat-label">Liberi nei prossimi 7 gg</div><div class="stat-value green" id="stat-liberi-7gg">–</div><div class="stat-sub">almeno un giorno libero</div></div>
-          <div class="stat-card"><div class="stat-label">Sub-affittati nei prossimi 7 gg</div><div class="stat-value coral" id="stat-sub-7gg">–</div><div class="stat-sub">almeno un giorno</div></div>
-        </div>
+        <!-- Placeholder ID legacy: loadManagerData/refreshMap scrivono qui su elementi
+             invisibili. Il nuovo design popola valori equivalenti via panoramicaLoad. -->
+        <span id="manager-stab-nome" hidden></span>
+        <span id="manager-today-label" hidden></span>
+        <span id="stat-totali" hidden></span>
+        <span id="stat-liberi" hidden></span>
+        <span id="stat-subaffittati" hidden></span>
+        <span id="stat-crediti" hidden></span>
+        <span id="stat-crediti-unit" hidden></span>
 
-        <div class="section-divider">💳 Crediti (ultimi 30 giorni)</div>
-        <div class="stats-row">
-          <div class="stat-card"><div class="stat-label">Crediti distribuiti</div><div class="stat-value ocean" id="dash-crediti-ricevuti">–</div><div class="stat-sub">ai clienti stagionali</div></div>
-          <div class="stat-card"><div class="stat-label">Crediti spesi</div><div class="stat-value coral" id="dash-crediti-spesi">–</div><div class="stat-sub">dai clienti stagionali</div></div>
-          <div class="stat-card"><div class="stat-label">Sub-affitti</div><div class="stat-value green" id="dash-subaffitti">–</div><div class="stat-sub" id="dash-subaffitti-sub">giornate sub-affittate</div></div>
-        </div>
       </div>
 
       <!-- GESTIONE TAB (ombrelloni + clienti) -->
@@ -306,17 +438,63 @@
       </div>
 
       <!-- EMAIL TAB -->
-      <div id="mtab-email" class="tab-content">
+      <!-- CONFIGURAZIONI TAB (Stagione + Email) -->
+      <div id="mtab-config" class="tab-content">
         <div class="page-header">
-          <div><div class="page-title">Gestione Email</div><div class="page-subtitle">Personalizza i testi delle email ai tuoi clienti</div></div>
-          <button class="btn btn-primary btn-sm" onclick="saveEmailTemplates()">Salva tutto</button>
-        </div>
-        <div id="email-save-alert" style="margin-bottom:16px"></div>
-        <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
-          Le email includeranno sempre in automatico il nome, telefono ed email del tuo stabilimento. Il tono è caldo e accogliente.
+          <div>
+            <div class="page-title">Configurazioni</div>
+            <div class="page-subtitle">Gestisci i parametri del tuo stabilimento</div>
+          </div>
         </div>
 
-        <!-- Invito -->
+        <div class="config-subtabs">
+          <button class="config-subtab active" data-subtab="stagione" onclick="switchConfigSubtab('stagione',this)">🗓️ Stagione</button>
+          <button class="config-subtab" data-subtab="email-sub" onclick="switchConfigSubtab('email-sub',this)">✉️ Email</button>
+        </div>
+
+        <!-- STAGIONE SUBTAB -->
+        <div id="config-sub-stagione" class="config-subpanel active">
+          <div id="stagione-save-alert" style="margin-bottom:16px"></div>
+          <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
+            Definisci quando inizia e finisce la tua stagione. I clienti stagionali potranno dichiarare le proprie disponibilità solo all'interno di queste date.
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">📅 Date della stagione corrente</div>
+                <div class="card-subtitle">Prima e ultima giornata di operatività</div>
+              </div>
+            </div>
+            <div class="stagione-form">
+              <div class="form-group">
+                <label class="form-label" for="stagione-inizio">Inizio stagione</label>
+                <input type="date" id="stagione-inizio" class="form-input">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="stagione-fine">Fine stagione</label>
+                <input type="date" id="stagione-fine" class="form-input">
+              </div>
+              <div class="stagione-summary" id="stagione-summary"></div>
+              <div class="stagione-actions">
+                <button class="btn btn-primary btn-sm" onclick="saveStagione()">Salva date</button>
+                <button class="btn btn-outline btn-sm" onclick="loadStagione()">Ripristina</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- EMAIL SUBTAB (contenuto del precedente mtab-email) -->
+        <div id="config-sub-email-sub" class="config-subpanel">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+            <div style="font-size:13px;color:var(--text-mid)">Personalizza i testi delle email ai tuoi clienti</div>
+            <button class="btn btn-primary btn-sm" onclick="saveEmailTemplates()">Salva tutto</button>
+          </div>
+          <div id="email-save-alert" style="margin-bottom:16px"></div>
+          <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
+            Le email includeranno sempre in automatico il nome, telefono ed email del tuo stabilimento. Il tono è caldo e accogliente.
+          </div>
+
+          <!-- Invito -->
         <div class="email-section">
           <div class="email-section-header" onclick="toggleEmailSection('invito')">
             <div class="email-section-title">✉️ Email di invito <span style="font-size:12px;color:var(--text-light);font-weight:400">(quando invii il link personale al cliente)</span></div>
@@ -419,6 +597,7 @@
           </div>
         </div>
 
+        </div><!-- /config-sub-email-sub -->
       </div>
 
       <!-- PRENOTAZIONI TAB (mappa + lista + transazioni) -->
@@ -1058,7 +1237,9 @@
 <script src="js/auth.js"></script>
 <script src="js/setup.js"></script>
 <script src="js/manager.js"></script>
+<script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
+<script src="js/configurazioni.js"></script>
 <script src="js/clienti.js"></script>
 <script src="js/stagionale.js"></script>
 <script src="js/email.js"></script>
