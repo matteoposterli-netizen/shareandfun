@@ -19,13 +19,11 @@ let avanzateClienteCurrent = null;   // { id, nome, ..., credito_saldo } | null
 
 function avanzateInit() {
   if (!currentStabilimento) return;
-  const today = todayStr();
-  const fromEl = document.getElementById('avanzate-date-from');
-  const toEl = document.getElementById('avanzate-date-to');
-  if (!fromEl.value) fromEl.value = today;
-  if (!toEl.value) toEl.value = fromEl.value;
-  initAvanzateRangePicker(fromEl.value);
-  refreshAvanzateMap();
+  // First-time init of flatpickr (no-op if already instantiated)
+  if (!avanzateRangePickerInstance) initAvanzateRangePicker(todayStr());
+  // Default: oggi → +6gg, così l'input mostra subito un range e non una data singola.
+  // setAvanzateRangePreset triggera il refresh della mappa.
+  setAvanzateRangePreset(7);
 }
 
 function initAvanzateRangePicker(fromDate) {
@@ -33,15 +31,17 @@ function initAvanzateRangePicker(fromDate) {
   const input = document.getElementById('avanzate-range-picker');
   if (!input) return;
   const startDate = new Date(fromDate + 'T00:00:00');
+  const endDefault = new Date(fromDate + 'T00:00:00');
+  endDefault.setDate(endDefault.getDate() + 6);
   if (avanzateRangePickerInstance) {
-    avanzateRangePickerInstance.setDate([startDate, startDate], false);
+    avanzateRangePickerInstance.setDate([startDate, endDefault], false);
     return;
   }
   avanzateRangePickerInstance = flatpickr(input, {
     mode: 'range',
     locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
     dateFormat: 'd/m/Y',
-    defaultDate: [startDate, startDate],
+    defaultDate: [startDate, endDefault],
     showMonths: 1,
     disableMobile: true,
     onChange: (selectedDates) => {
