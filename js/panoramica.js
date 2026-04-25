@@ -19,7 +19,7 @@
 const panoramicaState = {
   from: null,
   to: null,
-  preset: '7d',      // '7d'|'30d'|'90d'|'season'|'custom'
+  preset: 'season',  // '7d'|'30d'|'90d'|'season'|'custom'
   kpiData: null,     // {disp, pren, distr, spent} popolato da panoramicaLoad
 };
 
@@ -465,10 +465,10 @@ async function ddLoadCoinSpent() {
 /** Chiamata una volta all'apertura del tab Panoramica. */
 function panoramicaInit() {
   if (!panoramicaState.from) {
-    const { from, to } = panoramicaPresetDates('7d');
+    const { from, to } = panoramicaPresetDates('season');
     panoramicaState.from = from;
     panoramicaState.to = to;
-    panoramicaState.preset = '7d';
+    panoramicaState.preset = 'season';
   }
   const fromHidden = document.getElementById('pano-date-from');
   const toHidden = document.getElementById('pano-date-to');
