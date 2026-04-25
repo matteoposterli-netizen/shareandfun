@@ -20,9 +20,10 @@ const panoramicaState = {
   from: null,
   to: null,
   preset: '7d',      // '7d'|'30d'|'90d'|'season'|'custom'
-  compare: true,
   kpiData: null,     // {disp, pren, distr, spent} popolato da panoramicaLoad
 };
+
+let panoramicaRangePickerInstance = null;
 
 const ddState = {
   current: null,     // 'disponibilita'|'prenotazioni'|'coin-distr'|'coin-spent'|null
@@ -39,80 +40,86 @@ const ddState = {
 // ============================================================
 
 /**
- * Setta il range della panoramica su uno dei preset o custom.
- * preset: '7d'|'30d'|'90d'|'season'|'custom'
+ * Calcola le date {from, to} per un preset di periodo (passato).
+ * preset: '7d'|'30d'|'90d'|'season'
  */
-function setPanoramicaRange(preset) {
+function panoramicaPresetDates(preset) {
   const today = new Date();
   const todayStrV = toLocalDateStr(today);
-  let from = null, to = todayStrV;
-
-  if (preset === '7d') {
-    const d = new Date(today); d.setDate(d.getDate() - 6);
-    from = toLocalDateStr(d);
-  } else if (preset === '30d') {
-    const d = new Date(today); d.setDate(d.getDate() - 29);
-    from = toLocalDateStr(d);
-  } else if (preset === '90d') {
-    const d = new Date(today); d.setDate(d.getDate() - 89);
-    from = toLocalDateStr(d);
-  } else if (preset === 'season') {
-    from = currentStabilimento?.data_inizio_stagione || (today.getFullYear() + '-06-01');
+  if (preset === 'season') {
+    const inizio = currentStabilimento?.data_inizio_stagione || (today.getFullYear() + '-06-01');
     const fine = currentStabilimento?.data_fine_stagione || (today.getFullYear() + '-09-15');
-    // clampa a oggi se stagione non finita
-    to = fine < todayStrV ? fine : todayStrV;
-  } else {
-    // custom: mantiene from/to correnti se presenti, altrimenti default 7d
-    const fromEl = document.getElementById('pano-range-from');
-    const toEl = document.getElementById('pano-range-to');
-    if (fromEl?.value && toEl?.value) {
-      from = fromEl.value;
-      to = toEl.value;
-    } else {
-      const d = new Date(today); d.setDate(d.getDate() - 6);
-      from = toLocalDateStr(d);
-    }
+    return { from: inizio, to: fine < todayStrV ? fine : todayStrV };
   }
+  const days = preset === '7d' ? 7 : preset === '30d' ? 30 : preset === '90d' ? 90 : 7;
+  const d = new Date(today); d.setDate(d.getDate() - (days - 1));
+  return { from: toLocalDateStr(d), to: todayStrV };
+}
 
+/**
+ * Setta il range della panoramica su un preset, aggiorna picker + state, ricarica.
+ */
+function setPanoramicaRange(preset) {
+  const { from, to } = panoramicaPresetDates(preset);
   panoramicaState.from = from;
   panoramicaState.to = to;
   panoramicaState.preset = preset;
-  syncPanoramicaToolbar();
+  const fromHidden = document.getElementById('pano-date-from');
+  const toHidden = document.getElementById('pano-date-to');
+  if (fromHidden) fromHidden.value = from;
+  if (toHidden) toHidden.value = to;
+  if (panoramicaRangePickerInstance) {
+    const fromDate = new Date(from + 'T00:00:00');
+    const toDate = new Date(to + 'T00:00:00');
+    panoramicaRangePickerInstance.setDate([fromDate, toDate], false);
+  }
+  updatePanoramicaPresetActive();
   panoramicaLoad();
 }
 
-/** Aggiorna UI toolbar: pill attiva, input date, label range */
-function syncPanoramicaToolbar() {
-  const { from, to, preset, compare } = panoramicaState;
-  document.querySelectorAll('.pano-preset-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.preset === preset);
+/** Inizializza il flatpickr range picker (idempotente). */
+function initPanoramicaRangePicker(from, to) {
+  if (typeof flatpickr === 'undefined') return;
+  const input = document.getElementById('pano-range-picker');
+  if (!input) return;
+  const fromDate = new Date(from + 'T00:00:00');
+  const toDate = new Date(to + 'T00:00:00');
+  if (panoramicaRangePickerInstance) {
+    panoramicaRangePickerInstance.setDate([fromDate, toDate], false);
+    return;
+  }
+  panoramicaRangePickerInstance = flatpickr(input, {
+    mode: 'range',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
+    dateFormat: 'd/m/Y',
+    defaultDate: [fromDate, toDate],
+    showMonths: 1,
+    disableMobile: true,
+    onChange: (selectedDates) => {
+      if (selectedDates.length !== 2) return;
+      const f = toLocalDateStr(selectedDates[0]);
+      const t = toLocalDateStr(selectedDates[1]);
+      panoramicaState.from = f;
+      panoramicaState.to = t;
+      panoramicaState.preset = 'custom';
+      const fh = document.getElementById('pano-date-from');
+      const th = document.getElementById('pano-date-to');
+      if (fh) fh.value = f;
+      if (th) th.value = t;
+      updatePanoramicaPresetActive();
+      panoramicaLoad();
+    },
   });
-  const fromEl = document.getElementById('pano-range-from');
-  const toEl = document.getElementById('pano-range-to');
-  if (fromEl && fromEl.value !== from) fromEl.value = from;
-  if (toEl && toEl.value !== to) toEl.value = to;
-  const label = document.getElementById('pano-range-label');
-  if (label) label.textContent = labelRange(from, to);
-  const cmp = document.getElementById('pano-compare');
-  if (cmp) cmp.checked = compare;
 }
 
-/** Called onchange dagli input custom date */
-function onPanoramicaCustomRange() {
-  const from = document.getElementById('pano-range-from').value;
-  const to = document.getElementById('pano-range-to').value;
-  if (!from || !to) return;
-  if (from > to) return;
-  panoramicaState.from = from;
-  panoramicaState.to = to;
-  panoramicaState.preset = 'custom';
-  syncPanoramicaToolbar();
-  panoramicaLoad();
-}
-
-function onPanoramicaCompareToggle() {
-  panoramicaState.compare = document.getElementById('pano-compare').checked;
-  panoramicaLoad();
+/** Toggle .btn-primary / .btn-outline sui bottoni preset in base allo state. */
+function updatePanoramicaPresetActive() {
+  const preset = panoramicaState.preset;
+  document.querySelectorAll('.pano-preset-btn').forEach(btn => {
+    const active = btn.dataset.preset === preset;
+    btn.classList.toggle('btn-primary', active);
+    btn.classList.toggle('btn-outline', !active);
+  });
 }
 
 // ============================================================
@@ -120,8 +127,8 @@ function onPanoramicaCompareToggle() {
 // ============================================================
 
 /**
- * Calcola i 4 KPI del range corrente + periodo di confronto + sparkline.
- * Ogni KPI è un oggetto {value, prev, delta, spark[]}.
+ * Calcola i 4 KPI del range corrente + sparkline.
+ * Ogni KPI è un oggetto {value, spark[]}.
  */
 async function panoramicaLoad() {
   if (!currentStabilimento || !panoramicaState.from || !panoramicaState.to) return;
@@ -135,47 +142,31 @@ async function panoramicaLoad() {
 
   showLoading();
   try {
-    const { from, to, compare } = panoramicaState;
-    const prev = compare ? previousRange(from, to) : null;
+    const { from, to } = panoramicaState;
     const ombIds = ombrelloniList.map(o => o.id);
 
-    // === Query in parallelo ===
-    const [dispCur, dispPrev, distrCur, distrPrev, spentCur, spentPrev] = await Promise.all([
+    // === Query in parallelo (solo periodo corrente, niente confronto) ===
+    const [dispCur, distrCur, spentCur] = await Promise.all([
       sb.from('disponibilita').select('ombrellone_id,data,stato')
         .in('ombrellone_id', ombIds).gte('data', from).lte('data', to),
-      prev ? sb.from('disponibilita').select('ombrellone_id,data,stato')
-        .in('ombrellone_id', ombIds).gte('data', prev.from).lte('data', prev.to) : Promise.resolve({ data: [] }),
       sb.from('transazioni').select('importo,created_at')
         .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_ricevuto')
         .gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59'),
-      prev ? sb.from('transazioni').select('importo,created_at')
-        .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_ricevuto')
-        .gte('created_at', prev.from + 'T00:00:00').lte('created_at', prev.to + 'T23:59:59') : Promise.resolve({ data: [] }),
       sb.from('transazioni').select('importo,created_at,categoria')
         .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_usato')
         .gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59'),
-      prev ? sb.from('transazioni').select('importo,created_at')
-        .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_usato')
-        .gte('created_at', prev.from + 'T00:00:00').lte('created_at', prev.to + 'T23:59:59') : Promise.resolve({ data: [] }),
     ]);
 
-    // === KPI 1: Disponibilità dichiarate (stato != 'ombrellone' / include libero+sub_affittato+sub_affittato_cliente) ===
-    // Conteggio: righe con stato tra {libero,sub_affittato}
+    // === KPI 1+2: Disponibilità dichiarate / Prenotate ===
     const countDisp = rows => (rows || []).filter(r => r.stato === 'libero' || r.stato === 'sub_affittato').length;
     const countPren = rows => (rows || []).filter(r => r.stato === 'sub_affittato').length;
     const dispCurV = countDisp(dispCur.data);
-    const dispPrevV = countDisp(dispPrev.data);
     const prenCurV = countPren(dispCur.data);
-    const prenPrevV = countPren(dispPrev.data);
 
-    // === KPI 3: Coin distribuiti ===
+    // === KPI 3+4: Coin distribuiti / spesi ===
     const sumImporto = rows => (rows || []).reduce((s, r) => s + parseFloat(r.importo || 0), 0);
     const distrCurV = sumImporto(distrCur.data);
-    const distrPrevV = sumImporto(distrPrev.data);
-
-    // === KPI 4: Coin spesi ===
     const spentCurV = sumImporto(spentCur.data);
-    const spentPrevV = sumImporto(spentPrev.data);
 
     // === Sparkline (serie giornaliera) ===
     const dispByDay = groupByDay((dispCur.data || []).filter(r => r.stato === 'libero' || r.stato === 'sub_affittato'), 'data');
@@ -189,10 +180,10 @@ async function panoramicaLoad() {
     const sparkSpent = fillSeries(spentByDay, from, to);
 
     panoramicaState.kpiData = {
-      disp: { value: dispCurV, prev: dispPrevV, delta: computeDelta(dispCurV, dispPrevV), spark: sparkDisp },
-      pren: { value: prenCurV, prev: prenPrevV, delta: computeDelta(prenCurV, prenPrevV), spark: sparkPren },
-      distr: { value: distrCurV, prev: distrPrevV, delta: computeDelta(distrCurV, distrPrevV), spark: sparkDistr },
-      spent: { value: spentCurV, prev: spentPrevV, delta: computeDelta(spentCurV, spentPrevV), spark: sparkSpent },
+      disp: { value: dispCurV, spark: sparkDisp },
+      pren: { value: prenCurV, spark: sparkPren },
+      distr: { value: distrCurV, spark: sparkDistr },
+      spent: { value: spentCurV, spark: sparkSpent },
     };
 
     renderPanoramicaKpis();
@@ -217,7 +208,7 @@ function renderPanoramicaKpis() {
         ? parseFloat(data.value || 0).toFixed(2)
         : String(data.value || 0);
     }
-    if (delEl) delEl.innerHTML = panoramicaState.compare ? formatDeltaHTML(data.delta) : '';
+    if (delEl) delEl.innerHTML = '';
     if (sparkEl) renderSparkline(sparkEl, data.spark, getComputedStyle(sparkEl).color || null);
   };
 
@@ -314,7 +305,6 @@ function openDeepDive(kind) {
   ddState.from = panoramicaState.from;
   ddState.to = panoramicaState.to;
   ddState.preset = panoramicaState.preset;
-  ddState.compare = panoramicaState.compare;
 
   // mostra solo il pannello richiesto
   document.querySelectorAll('.dd-panel').forEach(p => p.classList.add('hidden'));
@@ -402,10 +392,16 @@ function syncDdToolbar() {
   document.querySelectorAll('.dd-preset-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.preset === ddState.preset);
   });
-  const fromEl = document.getElementById('dd-range-from');
-  const toEl = document.getElementById('dd-range-to');
-  if (fromEl && fromEl.value !== ddState.from) fromEl.value = ddState.from;
-  if (toEl && toEl.value !== ddState.to) toEl.value = ddState.to;
+  const ddFromEl = document.getElementById('dd-range-from');
+  const ddToEl = document.getElementById('dd-range-to');
+  if (ddFromEl) {
+    if (ddFromEl._flatpickr && typeof ddFromEl._flatpickr.setDate === 'function') ddFromEl._flatpickr.setDate(ddState.from, false);
+    else if (ddFromEl.value !== ddState.from) ddFromEl.value = ddState.from;
+  }
+  if (ddToEl) {
+    if (ddToEl._flatpickr && typeof ddToEl._flatpickr.setDate === 'function') ddToEl._flatpickr.setDate(ddState.to, false);
+    else if (ddToEl.value !== ddState.to) ddToEl.value = ddState.to;
+  }
   const label = document.getElementById('dd-range-label');
   if (label) label.textContent = labelRange(ddState.from, ddState.to);
   const cmp = document.getElementById('dd-compare');
@@ -470,9 +466,16 @@ async function ddLoadCoinSpent() {
 /** Chiamata una volta all'apertura del tab Panoramica. */
 function panoramicaInit() {
   if (!panoramicaState.from) {
-    setPanoramicaRange('7d'); // default
-  } else {
-    syncPanoramicaToolbar();
-    panoramicaLoad();
+    const { from, to } = panoramicaPresetDates('7d');
+    panoramicaState.from = from;
+    panoramicaState.to = to;
+    panoramicaState.preset = '7d';
   }
+  const fromHidden = document.getElementById('pano-date-from');
+  const toHidden = document.getElementById('pano-date-to');
+  if (fromHidden) fromHidden.value = panoramicaState.from;
+  if (toHidden) toHidden.value = panoramicaState.to;
+  initPanoramicaRangePicker(panoramicaState.from, panoramicaState.to);
+  updatePanoramicaPresetActive();
+  panoramicaLoad();
 }
