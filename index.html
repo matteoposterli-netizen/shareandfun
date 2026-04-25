@@ -1236,7 +1236,7 @@
         </div>
         <div class="card-body">
           <div class="alert alert-info" style="font-size:13px;line-height:1.55;margin-bottom:12px">
-            Clicca sul calendario per indicare i giorni in cui <strong>non userai il tuo ombrellone</strong>: lo stabilimento potrà sub-affittarlo e tu accumulerai credito da spendere al bar o al ristorante.
+            Clicca sul calendario per <strong>selezionare</strong> i giorni in cui non userai l'ombrellone (o per <strong>rimuovere</strong> giorni già dichiarati liberi). Le modifiche diventano definitive solo quando premi <strong>Salva modifiche</strong>.
             Quando un giorno viene sub-affittato, il colore della casella <strong>cambia</strong> e ricevi un'<strong>email di conferma</strong> con il credito accreditato.
           </div>
           <div id="stag-alert" style="margin-bottom:8px"></div>
@@ -1251,9 +1251,12 @@
             <div class="cal-day-name">Gio</div><div class="cal-day-name">Ven</div><div class="cal-day-name">Sab</div><div class="cal-day-name">Dom</div>
           </div>
           <div class="cal-days-grid" id="stag-calendar"></div>
+          <div id="stag-pending-bar" class="stag-pending-bar" style="display:none"></div>
           <div class="cal-legend">
             <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Dichiarato libero</div>
             <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+            <div class="legend-item"><div class="legend-dot" style="background:rgba(150,221,184,0.35);border:1.5px dashed var(--green)"></div>Da salvare (aggiunta)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:rgba(224,123,84,0.15);border:1.5px dashed var(--coral)"></div>Da salvare (rimozione)</div>
             <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,#EEE 0 4px,#DDD 4px 8px);border:1.5px solid #BBB"></div>Non modificabile</div>
           </div>
         </div>
@@ -1267,6 +1270,16 @@
 </div>
 
 <!-- MODALS -->
+<div id="modal-stag-saved" class="modal-overlay hidden">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title" id="stag-saved-confirm-title">Modifiche salvate ✓</div>
+    <div class="modal-sub" id="stag-saved-confirm-body" style="font-size:14px;line-height:1.55"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-sm" onclick="closeModal('modal-stag-saved')">OK</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-import-confirm" class="modal-overlay hidden">
   <div class="modal" style="max-width:560px">
     <div class="modal-title">Conferma importazione Excel</div>
