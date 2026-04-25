@@ -891,9 +891,124 @@ function renderCreditiTable(clienti, ombs) {
   }).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--text-light);padding:24px">${q ? 'Nessun risultato per la ricerca' : 'Nessun cliente'}</td></tr>`;
 }
 
+async function refreshCreditoCliente() {
+  if (!currentStabilimento) return;
+  const [{ data: clienti }, { data: ombs }] = await Promise.all([
+    sb.from('clienti_stagionali').select('*').eq('stabilimento_id', currentStabilimento.id),
+    sb.from('ombrelloni').select('*').eq('stabilimento_id', currentStabilimento.id).order('fila').order('numero'),
+  ]);
+  if (clienti) clientiList = clienti;
+  if (ombs) ombrelloniList = ombs;
+  populateClienteSelect();
+}
+
 function populateClienteSelect() {
-  const sel = document.getElementById('credito-cliente');
-  sel.innerHTML = clientiList.map(c => `<option value="${c.id}">${c.nome} ${c.cognome} (${formatCoin(c.credito_saldo)})</option>`).join('');
+  const root = document.querySelector('[data-combobox="credito-cliente"]');
+  if (!root) return;
+  const search = document.getElementById('credito-cliente-search');
+  const hidden = document.getElementById('credito-cliente');
+  const list = document.getElementById('credito-cliente-list');
+
+  const ombsById = {};
+  (ombrelloniList || []).forEach(o => { ombsById[o.id] = o; });
+  const entries = (clientiList || []).map(c => {
+    const o = c.ombrellone_id ? ombsById[c.ombrellone_id] : null;
+    const nome = `${c.nome || ''} ${c.cognome || ''}`.trim() || c.email || '(senza nome)';
+    return {
+      id: c.id,
+      nome,
+      ombrellone: o ? `${o.fila}${o.numero}` : '',
+      saldoLabel: formatCoin(c.credito_saldo, currentStabilimento),
+    };
+  });
+  entries.sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+  root._entries = entries;
+
+  initClienteCombobox();
+
+  if (hidden.value) {
+    const sel = entries.find(e => e.id === hidden.value);
+    if (sel) {
+      search.value = formatClienteComboLabel(sel);
+    } else {
+      hidden.value = '';
+      search.value = '';
+    }
+  }
+  renderClienteComboList(list.classList.contains('hidden') ? '' : search.value);
+}
+
+function formatClienteComboLabel(e) {
+  const omb = e.ombrellone ? ` · ${e.ombrellone}` : '';
+  return `${e.nome}${omb} (${e.saldoLabel})`;
+}
+
+function renderClienteComboList(query) {
+  const root = document.querySelector('[data-combobox="credito-cliente"]');
+  if (!root) return;
+  const list = document.getElementById('credito-cliente-list');
+  const entries = root._entries || [];
+  const q = (query || '').trim().toLowerCase();
+  const filtered = q
+    ? entries.filter(e => e.nome.toLowerCase().includes(q) || e.ombrellone.toLowerCase().includes(q))
+    : entries;
+  if (!filtered.length) {
+    list.innerHTML = `<div class="combobox-empty">Nessun cliente trovato</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(e => `
+    <button type="button" class="combobox-item" data-id="${e.id}">
+      <span class="combobox-item-main">${escapeHtml(e.nome)}${e.ombrellone ? ` <span class="combobox-item-omb">${escapeHtml(e.ombrellone)}</span>` : ''}</span>
+      <span class="combobox-item-saldo">${escapeHtml(e.saldoLabel)}</span>
+    </button>`).join('');
+}
+
+function selectClienteCombo(id) {
+  const root = document.querySelector('[data-combobox="credito-cliente"]');
+  if (!root) return;
+  const entries = root._entries || [];
+  const e = entries.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('credito-cliente').value = id;
+  document.getElementById('credito-cliente-search').value = formatClienteComboLabel(e);
+  document.getElementById('credito-cliente-list').classList.add('hidden');
+}
+
+function initClienteCombobox() {
+  const search = document.getElementById('credito-cliente-search');
+  const list = document.getElementById('credito-cliente-list');
+  if (!search || !list || search._comboBound) return;
+  search._comboBound = true;
+
+  search.addEventListener('input', () => {
+    document.getElementById('credito-cliente').value = '';
+    renderClienteComboList(search.value);
+    list.classList.remove('hidden');
+  });
+  search.addEventListener('focus', () => {
+    // Se c'è già una selezione, seleziona tutto il testo: la prima digitazione
+    // lo sostituisce (così l'utente non deve cancellare a mano la label "(saldo)").
+    if (document.getElementById('credito-cliente').value) {
+      try { search.select(); } catch (_) {}
+    }
+    // Mostra sempre l'elenco completo al focus (non filtrare con la label completa).
+    renderClienteComboList('');
+    list.classList.remove('hidden');
+  });
+  search.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { list.classList.add('hidden'); search.blur(); }
+  });
+  list.addEventListener('mousedown', (e) => {
+    const btn = e.target.closest('.combobox-item');
+    if (!btn) return;
+    e.preventDefault();
+    selectClienteCombo(btn.dataset.id);
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-combobox="credito-cliente"]')) {
+      list.classList.add('hidden');
+    }
+  });
 }
 
 const ANALYTICS_PAGE_SIZE = 10;
@@ -1302,6 +1417,7 @@ function managerTab(tab, btn) {
     if (typeof loadBackupList === 'function') loadBackupList();
   }
   if (tab === 'prenotazioni') loadPrenotazioni();
+  if (tab === 'crediti') refreshCreditoCliente();
   if (tab === 'log') {
     // Default: ultimi 7 giorni, size 30.
     if (!document.getElementById('audit-date-from').value) {

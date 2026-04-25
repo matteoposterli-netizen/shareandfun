@@ -511,6 +511,10 @@ async function reloadAfterMutation() {
   if (typeof refreshMap === 'function') {
     try { await refreshMap(); } catch (_) {}
   }
+  // Tieni allineato anche il selettore della tab "Gestione Credito"
+  if (typeof populateClienteSelect === 'function') {
+    try { populateClienteSelect(); } catch (_) {}
+  }
 }
 
 /* ---------- Esposizione globale ---------- */
