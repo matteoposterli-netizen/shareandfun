@@ -9,6 +9,47 @@ function getDatesInRange(from, to) {
   return dates;
 }
 
+async function renderMapRegoleBanner(from, to, dates) {
+  const el = document.getElementById('map-regole-banner');
+  if (!el || !currentStabilimento) return;
+  const inizio = currentStabilimento.data_inizio_stagione;
+  const fine = currentStabilimento.data_fine_stagione;
+  const pills = [];
+
+  // Fuori stagione: completamente o parzialmente.
+  if (inizio && fine && dates.length) {
+    const allOut = dates.every(d => d < inizio || d > fine);
+    const someOut = !allOut && dates.some(d => d < inizio || d > fine);
+    if (allOut) {
+      pills.push({ bg:'var(--sand)', fg:'var(--text-strong)', icon:'🌙', text:`Periodo interamente fuori stagione (${formatDate(inizio)} → ${formatDate(fine)})` });
+    } else if (someOut) {
+      pills.push({ bg:'var(--sand)', fg:'var(--text-mid)', icon:'⚠️', text:`Parte del periodo è fuori stagione (${formatDate(inizio)} → ${formatDate(fine)})` });
+    }
+  }
+
+  // Regole forzate sovrapposte al range.
+  const { data: regole } = await sb.from('regole_stato_ombrelloni')
+    .select('*')
+    .eq('stabilimento_id', currentStabilimento.id)
+    .gte('data_a', from)
+    .lte('data_da', to);
+  const labelByTipo = {
+    chiusura_speciale: { l:'Chiusura speciale', bg:'var(--coral-light)', fg:'var(--coral)', icon:'🚫' },
+    sempre_libero:     { l:'Sempre subaffittabile', bg:'var(--green-light)', fg:'var(--green)', icon:'✅' },
+    mai_libero:        { l:'Mai subaffittabile', bg:'var(--yellow-light)', fg:'#9C7A1F', icon:'🔒' },
+  };
+  (regole || []).forEach(r => {
+    const m = labelByTipo[r.tipo]; if (!m) return;
+    const range = r.data_da === r.data_a ? formatDate(r.data_da) : `${formatDate(r.data_da)} → ${formatDate(r.data_a)}`;
+    pills.push({ bg:m.bg, fg:m.fg, icon:m.icon, text:`${m.l} attiva (${range})` });
+  });
+
+  if (!pills.length) { el.innerHTML = ''; return; }
+  el.innerHTML = pills.map(p =>
+    `<div style="background:${p.bg};color:${p.fg};padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;display:inline-block;margin:2px 4px 2px 0">${p.icon} ${escapeHtml(p.text)}</div>`
+  ).join('');
+}
+
 function changeMapDate(dir) {
   const d = new Date(currentMapDate + 'T00:00:00');
   d.setDate(d.getDate() + dir);
@@ -91,6 +132,8 @@ async function refreshMap() {
   if (!from) return;
   const dates = getDatesInRange(from, to);
   if (dates.length === 0) return;
+
+  renderMapRegoleBanner(from, to, dates);
 
   const { data: disp } = await sb.from('disponibilita')
     .select('*')
@@ -1174,6 +1217,8 @@ function renderTxList(txs, stab, ombsMap) {
     credito_ricevuto: {e:'⭐',c:'yellow'},
     credito_usato: {e:'🎉',c:'coral'},
     credito_revocato: {e:'⛔',c:'red'},
+    regola_forzata_aggiunta: {e:'🛠️',c:'blue'},
+    regola_forzata_rimossa: {e:'🛠️',c:'blue'},
   };
   const labels = {
     disponibilita_aggiunta: 'Disponibilità dichiarata',
@@ -1183,6 +1228,8 @@ function renderTxList(txs, stab, ombsMap) {
     credito_ricevuto: 'Credito ricevuto',
     credito_usato: 'Credito utilizzato',
     credito_revocato: 'Credito revocato',
+    regola_forzata_aggiunta: 'Regola gestore: impostata',
+    regola_forzata_rimossa: 'Regola gestore: revocata',
   };
   return txs.map(t => {
     const ic = icons[t.tipo] || {e:'📌',c:'blue'};

@@ -15,6 +15,7 @@ const AUDIT_ENTITY_LABELS = {
   email: 'Email inviata',
   auth: 'Accesso',
   import: 'Import batch',
+  regola_stato: 'Regola calendario',
 };
 
 const AUDIT_ACTION_LABELS = {

@@ -12,7 +12,7 @@ function switchConfigSubtab(sub, btn) {
   if (panel) panel.classList.add('active');
   document.querySelectorAll('.config-subtab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  if (sub === 'stagione') loadStagione();
+  if (sub === 'stagione') { loadStagione(); loadRegoleStato(); }
   if (sub === 'avanzate' && typeof avanzateInit === 'function') avanzateInit();
 }
 
@@ -99,7 +99,154 @@ async function saveStagione() {
   setTimeout(() => { if (alert) alert.innerHTML = ''; }, 3000);
 }
 
+/* ---------- Regole forzate (chiusura_speciale / sempre_libero / mai_libero) ---------- */
+
+let regoleStatoList = [];
+
+const REGOLA_LABELS = {
+  chiusura_speciale: { label: 'Chiusura speciale', emoji: '🚫', color: 'var(--coral)', bg: 'var(--coral-light)' },
+  sempre_libero:     { label: 'Sempre subaffittabile', emoji: '✅', color: 'var(--green)', bg: 'var(--green-light)' },
+  mai_libero:        { label: 'Mai subaffittabile', emoji: '🔒', color: '#9C7A1F', bg: 'var(--yellow-light)' },
+};
+
+async function loadRegoleStato() {
+  if (!currentStabilimento) return;
+  const { data, error } = await sb.from('regole_stato_ombrelloni')
+    .select('*')
+    .eq('stabilimento_id', currentStabilimento.id)
+    .order('data_da', { ascending: false });
+  if (error) {
+    regoleStatoList = [];
+    const el = document.getElementById('regole-list');
+    if (el) el.innerHTML = `<div class="alert alert-coral">Errore caricamento regole: ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+  regoleStatoList = data || [];
+  renderRegoleList();
+}
+
+function renderRegoleList() {
+  const el = document.getElementById('regole-list');
+  if (!el) return;
+  const showHist = document.getElementById('regole-show-history')?.checked;
+  const today = todayStr();
+  const items = regoleStatoList.filter(r => showHist || r.data_a >= today);
+  if (!items.length) {
+    el.innerHTML = `<div style="color:var(--text-light);font-size:13px;padding:8px 0">${
+      showHist ? 'Nessuna regola registrata.' : 'Nessuna regola attiva o futura. Spunta "Mostra anche le regole passate" per vederle tutte.'
+    }</div>`;
+    return;
+  }
+  el.innerHTML = items.map(r => {
+    const meta = REGOLA_LABELS[r.tipo] || { label: r.tipo, emoji: '•', color: 'var(--text-mid)', bg: 'var(--sand)' };
+    const range = r.data_da === r.data_a
+      ? formatDate(r.data_da)
+      : `${formatDate(r.data_da)} → ${formatDate(r.data_a)}`;
+    const isPast = r.data_a < today;
+    const nota = r.nota && r.nota.trim()
+      ? `<div style="font-size:12px;color:var(--text-mid);margin-top:4px">${escapeHtml(r.nota)}</div>`
+      : '';
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;${isPast ? 'opacity:0.6;' : ''}">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="background:${meta.bg};color:${meta.color};padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600">${meta.emoji} ${escapeHtml(meta.label)}</span>
+            <span style="font-size:13px;color:var(--text-strong);font-weight:600">${escapeHtml(range)}</span>
+            ${isPast ? '<span style="font-size:11px;color:var(--text-light)">(passata)</span>' : ''}
+          </div>
+          ${nota}
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="eliminaRegolaStato('${r.id}')">Rimuovi</button>
+      </div>`;
+  }).join('');
+}
+
+async function creaRegolaStato() {
+  if (!currentStabilimento) return;
+  const alert = document.getElementById('regole-save-alert');
+  const tipo  = document.getElementById('regola-tipo').value;
+  const dDa   = document.getElementById('regola-data-da').value;
+  const dA    = document.getElementById('regola-data-a').value;
+  const nota  = (document.getElementById('regola-nota').value || '').trim();
+  if (!tipo || !dDa || !dA) {
+    alert.innerHTML = '<div class="alert alert-coral">Seleziona tipo e date.</div>';
+    return;
+  }
+  if (dA < dDa) {
+    alert.innerHTML = '<div class="alert alert-coral">La data di fine deve essere uguale o successiva a quella di inizio.</div>';
+    return;
+  }
+
+  // Conferma esplicita per chiusura_speciale con sub-affitti nel range.
+  if (tipo === 'chiusura_speciale') {
+    const { data: ombs } = await sb.from('ombrelloni')
+      .select('id').eq('stabilimento_id', currentStabilimento.id);
+    const ombIds = (ombs || []).map(o => o.id);
+    let nBookings = 0;
+    if (ombIds.length) {
+      const { count } = await sb.from('disponibilita')
+        .select('id', { count: 'exact', head: true })
+        .in('ombrellone_id', ombIds)
+        .gte('data', dDa).lte('data', dA)
+        .eq('stato', 'sub_affittato');
+      nBookings = count || 0;
+    }
+    if (nBookings > 0) {
+      const ok = confirm(
+        `Ci sono ${nBookings} sub-affitt${nBookings === 1 ? 'o' : 'i'} nel range scelto.\n\n` +
+        `Verranno annullati automaticamente e il credito verrà rimborsato ai clienti.\n\n` +
+        `Continuare?`
+      );
+      if (!ok) return;
+    }
+  }
+
+  showLoading();
+  const { error } = await sb.rpc('crea_regola_stato', {
+    p_stabilimento_id: currentStabilimento.id,
+    p_tipo: tipo,
+    p_data_da: dDa,
+    p_data_a: dA,
+    p_nota: nota || null,
+  });
+  hideLoading();
+  if (error) {
+    alert.innerHTML = `<div class="alert alert-coral">Errore: ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+  alert.innerHTML = '<div class="alert alert-info">✓ Regola creata.</div>';
+  document.getElementById('regola-data-da').value = '';
+  document.getElementById('regola-data-a').value = '';
+  document.getElementById('regola-nota').value = '';
+  await loadRegoleStato();
+  setTimeout(() => { if (alert) alert.innerHTML = ''; }, 3000);
+}
+
+async function eliminaRegolaStato(id) {
+  if (!id) return;
+  const r = regoleStatoList.find(x => x.id === id);
+  if (!r) return;
+  const meta = REGOLA_LABELS[r.tipo] || { label: r.tipo };
+  const range = r.data_da === r.data_a ? formatDate(r.data_da) : `${formatDate(r.data_da)} → ${formatDate(r.data_a)}`;
+  if (!confirm(`Rimuovere la regola "${meta.label}" del ${range}?\n\nI clienti stagionali riceveranno una notifica nel proprio storico.`)) return;
+  showLoading();
+  const { error } = await sb.rpc('elimina_regola_stato', { p_regola_id: id });
+  hideLoading();
+  const alert = document.getElementById('regole-save-alert');
+  if (error) {
+    if (alert) alert.innerHTML = `<div class="alert alert-coral">Errore: ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+  if (alert) alert.innerHTML = '<div class="alert alert-info">✓ Regola rimossa.</div>';
+  await loadRegoleStato();
+  setTimeout(() => { if (alert) alert.innerHTML = ''; }, 3000);
+}
+
 /* Esponi funzioni globali usate dall'HTML */
 window.switchConfigSubtab = switchConfigSubtab;
 window.loadStagione = loadStagione;
 window.saveStagione = saveStagione;
+window.loadRegoleStato = loadRegoleStato;
+window.renderRegoleList = renderRegoleList;
+window.creaRegolaStato = creaRegolaStato;
+window.eliminaRegolaStato = eliminaRegolaStato;

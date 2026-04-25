@@ -559,6 +559,11 @@ body {
 .cal-day.cal-day-readonly.today:hover { border-color: var(--ink); }
 .cal-day.cal-day-readonly.free:hover { border-color: #96DDB8; }
 .cal-day.cal-day-readonly.subleased:hover { border-color: var(--yellow); }
+/* Restrizioni: fuori stagione + regole forzate dal proprietario */
+.cal-day.restricted { cursor: not-allowed; color: var(--text-light); border-color: #DDD; background: repeating-linear-gradient(45deg, #F5F5F5 0 4px, #ECECEC 4px 8px); }
+.cal-day.restricted:hover:not(.empty):not(.past) { border-color: #DDD; }
+.cal-day.restricted.subleased { background: var(--yellow-light); color: #9C7A1F; border-color: var(--yellow); }
+.cal-day.restricted.free { background: var(--green-light); color: var(--green); border-color: #96DDB8; }
 .cal-legend { display: flex; gap: 20px; padding: 20px 0 4px; flex-wrap: wrap; border-top: 1px solid var(--border); margin-top: 20px; }
 
 /* MODAL */

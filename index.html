@@ -477,6 +477,52 @@
               </div>
             </div>
           </div>
+
+          <div class="card" style="margin-top:24px">
+            <div class="card-header">
+              <div>
+                <div class="card-title">🛠️ Regole forzate sul calendario</div>
+                <div class="card-subtitle">Sovrascrivi il comportamento di default per range di date specifici</div>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="alert alert-info" style="font-size:13px;margin-bottom:16px">
+                <strong>Chiusura speciale</strong>: bagno chiuso, le prenotazioni esistenti nel range vengono annullate automaticamente. ·
+                <strong>Sempre subaffittabile</strong>: i clienti stagionali non possono ritirare la disponibilità. ·
+                <strong>Mai subaffittabile</strong>: i clienti stagionali non possono dichiarare libero (bagno aperto).
+              </div>
+              <div id="regole-save-alert" style="margin-bottom:12px"></div>
+              <div class="regole-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:8px">
+                <div class="form-group" style="margin:0">
+                  <label class="form-label" for="regola-tipo">Tipo</label>
+                  <select id="regola-tipo" class="form-input">
+                    <option value="chiusura_speciale">Chiusura speciale</option>
+                    <option value="sempre_libero">Sempre subaffittabile</option>
+                    <option value="mai_libero">Mai subaffittabile</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin:0">
+                  <label class="form-label" for="regola-data-da">Dal</label>
+                  <input type="date" id="regola-data-da" class="form-input">
+                </div>
+                <div class="form-group" style="margin:0">
+                  <label class="form-label" for="regola-data-a">Al</label>
+                  <input type="date" id="regola-data-a" class="form-input">
+                </div>
+                <div class="form-group" style="margin:0;grid-column:1/-1">
+                  <label class="form-label" for="regola-nota">Nota (opzionale)</label>
+                  <input type="text" id="regola-nota" class="form-input" maxlength="200" placeholder="es. Ferragosto, manutenzione, maltempo…">
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:18px">
+                <button class="btn btn-primary btn-sm" onclick="creaRegolaStato()">Crea regola</button>
+                <label style="font-size:13px;color:var(--text-mid);display:flex;align-items:center;gap:6px;margin-left:auto">
+                  <input type="checkbox" id="regole-show-history" onchange="renderRegoleList()"> Mostra anche le regole passate
+                </label>
+              </div>
+              <div id="regole-list"></div>
+            </div>
+          </div>
         </div>
 
         <!-- EMAIL SUBTAB (contenuto del precedente mtab-email) -->
@@ -689,6 +735,7 @@
                   <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,var(--coral) 0 3px,var(--coral-light) 3px 7px);border:2px solid var(--coral)"></div>Parte di una combinazione</div>
                   <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
                 </div>
+                <div id="map-regole-banner" style="margin-top:10px"></div>
                 <div id="map-free-count" style="margin-top:10px"></div>
                 <div style="font-size:12px;color:var(--text-light);margin-top:8px">Periodo: <strong id="map-range-label">oggi</strong></div>
               </div>
@@ -904,6 +951,7 @@
                 <option value="email">Email inviata</option>
                 <option value="auth">Accesso</option>
                 <option value="import">Import batch</option>
+                <option value="regola_stato">Regola calendario</option>
               </select>
             </div>
             <div>
@@ -985,6 +1033,7 @@
         </div>
         <div class="card-body">
           <div id="stag-alert" style="margin-bottom:8px"></div>
+          <div id="stag-stagione-banner" class="alert alert-info" style="font-size:12px;margin-bottom:10px;display:none"></div>
           <div class="cal-header">
             <button class="cal-nav" onclick="calNav(-1)">‹</button>
             <div class="cal-month" id="cal-label"></div>
@@ -998,6 +1047,7 @@
           <div class="cal-legend">
             <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Dichiarato libero</div>
             <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+            <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,#EEE 0 4px,#DDD 4px 8px);border:1.5px solid #BBB"></div>Non modificabile</div>
           </div>
         </div>
       </div>
