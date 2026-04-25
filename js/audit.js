@@ -1,7 +1,12 @@
 // Audit log (tab "Log attività" lato proprietario).
 // - Carica eventi dalla tabella public.audit_log (RLS: proprietario vede solo i
 //   propri eventi).
-// - Filtri: range date, attore (tipo + label), entità, azione, testo libero.
+// - Filtri: range date, attore (tipo + label), entità, azione, testo libero,
+//   cliente/ombrellone coinvolto (risolto client-side dalle anagrafiche locali
+//   in lista di id passati al server come or() su entity_id + JSONB
+//   before/after).
+// - Colonna "Coinvolto" mostra ombrellone + cliente estratti dal payload
+//   before/after di ogni riga.
 // - Paginazione keyset su created_at DESC con size selezionabile (default 30).
 // - Export Excel dei risultati filtrati (tutti i match, non solo la pagina).
 
@@ -42,6 +47,98 @@ const auditState = {
   expanded: new Set(),
 };
 
+// Lookup maps per stabilimento corrente, popolate da auditLoadLookups().
+// Servono sia per renderizzare la colonna "Coinvolto" sia per risolvere il
+// filtro "Cliente / Ombrellone" in lista di id da passare al server.
+const auditMaps = {
+  stabilimentoId: null,
+  ombrelloni: new Map(), // id -> { fila, numero, label }
+  clienti:    new Map(), // id -> { nome, cognome, email, label }
+};
+
+async function auditLoadLookups(force = false) {
+  if (!currentStabilimento?.id) return;
+  if (!force && auditMaps.stabilimentoId === currentStabilimento.id) return;
+  auditMaps.stabilimentoId = currentStabilimento.id;
+  auditMaps.ombrelloni.clear();
+  auditMaps.clienti.clear();
+  const [ombRes, cliRes] = await Promise.all([
+    sb.from('ombrelloni').select('id, fila, numero').eq('stabilimento_id', currentStabilimento.id),
+    sb.from('clienti_stagionali').select('id, nome, cognome, email').eq('stabilimento_id', currentStabilimento.id),
+  ]);
+  (ombRes.data || []).forEach(o => {
+    auditMaps.ombrelloni.set(o.id, {
+      fila: o.fila, numero: o.numero,
+      label: `Fila ${o.fila} N°${o.numero}`,
+    });
+  });
+  (cliRes.data || []).forEach(c => {
+    const full = `${c.nome || ''} ${c.cognome || ''}`.trim();
+    auditMaps.clienti.set(c.id, {
+      nome: c.nome, cognome: c.cognome, email: c.email,
+      label: full || c.email || '–',
+    });
+  });
+}
+
+// Estrae l'id ombrellone e l'id cliente coinvolti in un evento di audit.
+function auditExtractInvolvedIds(row) {
+  const a = row.after  || {};
+  const b = row.before || {};
+  let ombrelloneId = a.ombrellone_id || b.ombrellone_id || null;
+  let clienteId    = a.cliente_id    || b.cliente_id    || null;
+  if (row.entity_type === 'ombrellone'         && row.entity_id) ombrelloneId = ombrelloneId || row.entity_id;
+  if (row.entity_type === 'cliente_stagionale' && row.entity_id) clienteId    = clienteId    || row.entity_id;
+  return { ombrelloneId, clienteId };
+}
+
+function auditInvolvedHtml(row) {
+  const { ombrelloneId, clienteId } = auditExtractInvolvedIds(row);
+  const parts = [];
+  if (ombrelloneId) {
+    const o = auditMaps.ombrelloni.get(ombrelloneId);
+    parts.push(`<div style="font-size:12px"><span style="color:var(--text-light)">⛱</span> ${escapeHtml(o ? o.label : 'Ombrellone eliminato')}</div>`);
+  }
+  if (clienteId) {
+    const c = auditMaps.clienti.get(clienteId);
+    parts.push(`<div style="font-size:12px"><span style="color:var(--text-light)">👤</span> ${escapeHtml(c ? c.label : 'Cliente eliminato')}</div>`);
+  }
+  return parts.length ? parts.join('') : '<span style="color:var(--text-light);font-size:12px">–</span>';
+}
+
+function auditInvolvedText(row) {
+  const { ombrelloneId, clienteId } = auditExtractInvolvedIds(row);
+  const parts = [];
+  if (ombrelloneId) {
+    const o = auditMaps.ombrelloni.get(ombrelloneId);
+    parts.push(o ? o.label : `Ombrellone ${ombrelloneId.slice(0, 8)}`);
+  }
+  if (clienteId) {
+    const c = auditMaps.clienti.get(clienteId);
+    parts.push(c ? c.label : `Cliente ${clienteId.slice(0, 8)}`);
+  }
+  return parts.join(' · ');
+}
+
+// Risolve la stringa di ricerca contro le mappe locali: ritorna gli id che
+// matchano. Usato per costruire l'OR server-side senza bisogno di nuovi
+// indici / colonne sull'audit_log.
+function auditResolveTargetIds(searchText) {
+  const s = (searchText || '').trim().toLowerCase();
+  if (!s) return null;
+  const ombrelloneIds = [];
+  const clienteIds    = [];
+  for (const [id, o] of auditMaps.ombrelloni) {
+    const compact = `fila${o.fila}n${o.numero}`.toLowerCase();
+    if (o.label.toLowerCase().includes(s) || compact.includes(s)) ombrelloneIds.push(id);
+  }
+  for (const [id, c] of auditMaps.clienti) {
+    const blob = `${c.label} ${c.email || ''}`.toLowerCase();
+    if (blob.includes(s)) clienteIds.push(id);
+  }
+  return { ombrelloneIds, clienteIds };
+}
+
 function auditTodayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -58,6 +155,8 @@ function auditResetFilters() {
   document.getElementById('audit-entity-type').value = '';
   document.getElementById('audit-action').value = '';
   document.getElementById('audit-search').value = '';
+  const tgt = document.getElementById('audit-search-target');
+  if (tgt) tgt.value = '';
   document.getElementById('audit-page-size').value = '30';
   auditState.page = 1;
   auditState.pageSize = 30;
@@ -71,7 +170,8 @@ function auditReadFilters() {
   const entityType = document.getElementById('audit-entity-type')?.value || '';
   const action = document.getElementById('audit-action')?.value || '';
   const search = (document.getElementById('audit-search')?.value || '').trim();
-  return { from, to, actorType, entityType, action, search };
+  const searchTarget = (document.getElementById('audit-search-target')?.value || '').trim();
+  return { from, to, actorType, entityType, action, search, searchTarget };
 }
 
 function auditBuildBaseQuery(filters) {
@@ -88,6 +188,30 @@ function auditBuildBaseQuery(filters) {
     const s = filters.search.replace(/[%_]/g, m => '\\' + m);
     q = q.or(`description.ilike.%${s}%,actor_label.ilike.%${s}%`);
   }
+  if (filters.searchTarget) {
+    const resolved = auditResolveTargetIds(filters.searchTarget);
+    const ombIds = resolved?.ombrelloneIds || [];
+    const cliIds = resolved?.clienteIds    || [];
+    if (ombIds.length === 0 && cliIds.length === 0) {
+      // Nessun match nelle anagrafiche: forzo zero risultati senza colpire il DB inutilmente.
+      q = q.eq('id', '00000000-0000-0000-0000-000000000000');
+    } else {
+      const orParts = [];
+      if (ombIds.length) {
+        const list = `(${ombIds.join(',')})`;
+        orParts.push(`and(entity_type.eq.ombrellone,entity_id.in.${list})`);
+        orParts.push(`after->>ombrellone_id.in.${list}`);
+        orParts.push(`before->>ombrellone_id.in.${list}`);
+      }
+      if (cliIds.length) {
+        const list = `(${cliIds.join(',')})`;
+        orParts.push(`and(entity_type.eq.cliente_stagionale,entity_id.in.${list})`);
+        orParts.push(`after->>cliente_id.in.${list}`);
+        orParts.push(`before->>cliente_id.in.${list}`);
+      }
+      q = q.or(orParts.join(','));
+    }
+  }
   return q.order('created_at', { ascending: false });
 }
 
@@ -95,7 +219,9 @@ async function loadAuditLog() {
   if (!currentStabilimento?.id) return;
   const tbody = document.getElementById('audit-tbody');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-light)">Caricamento…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-light)">Caricamento…</td></tr>`;
+
+  await auditLoadLookups();
 
   const filters = auditReadFilters();
   const size = parseInt(document.getElementById('audit-page-size')?.value || auditState.pageSize) || 30;
@@ -106,7 +232,7 @@ async function loadAuditLog() {
 
   const { data, count, error } = await auditBuildBaseQuery(filters).range(from, to);
   if (error) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--red)">Errore: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--red)">Errore: ${error.message}</td></tr>`;
     return;
   }
 
@@ -120,7 +246,7 @@ async function loadAuditLog() {
 function renderAuditRows() {
   const tbody = document.getElementById('audit-tbody');
   if (!auditState.rows.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-light)">Nessun evento nel periodo/filtri selezionati</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-light)">Nessun evento nel periodo/filtri selezionati</td></tr>`;
     return;
   }
   tbody.innerHTML = auditState.rows.map(row => {
@@ -136,17 +262,19 @@ function renderAuditRows() {
       : 'var(--text-mid)';
     const expanded = auditState.expanded.has(row.id);
     const detailsBtn = `<button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px" onclick="toggleAuditDetail('${row.id}')">${expanded ? '▴ Nascondi' : '▾ Dettagli'}</button>`;
+    const involvedHtml = auditInvolvedHtml(row);
     const mainTr = `
       <tr>
         <td style="white-space:nowrap;font-variant-numeric:tabular-nums;font-size:12px;color:var(--text-mid)">${dtStr}</td>
         <td style="font-size:13px"><div>${actor}</div>${actorBadge}</td>
         <td style="font-size:13px"><div>${escapeHtml(entityLbl)}</div><span style="color:${actionColor};font-size:11px;font-weight:600">${escapeHtml(actionLbl)}</span></td>
+        <td style="font-size:13px">${involvedHtml}</td>
         <td style="font-size:13px">${escapeHtml(row.description || '–')}</td>
         <td style="text-align:right;white-space:nowrap">${detailsBtn}</td>
       </tr>`;
     if (!expanded) return mainTr;
     const detailTr = `
-      <tr><td colspan="5" style="background:var(--sand);padding:12px 16px">
+      <tr><td colspan="6" style="background:var(--sand);padding:12px 16px">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;font-size:12px;font-family:ui-monospace,Menlo,Consolas,monospace">
           ${row.diff   ? `<div><strong>Diff</strong><pre style="margin:4px 0 0;white-space:pre-wrap;word-break:break-word;max-height:240px;overflow:auto;background:#fff;padding:8px;border-radius:4px;border:1px solid var(--border)">${escapeHtml(JSON.stringify(row.diff, null, 2))}</pre></div>` : ''}
           ${row.before ? `<div><strong>Before</strong><pre style="margin:4px 0 0;white-space:pre-wrap;word-break:break-word;max-height:240px;overflow:auto;background:#fff;padding:8px;border-radius:4px;border:1px solid var(--border)">${escapeHtml(JSON.stringify(row.before, null, 2))}</pre></div>` : ''}
@@ -193,6 +321,7 @@ function auditApplyFilters() {
 
 async function exportAuditXlsx() {
   if (!currentStabilimento?.id) return;
+  await auditLoadLookups();
   const filters = auditReadFilters();
   const btn = document.getElementById('audit-export-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Export in corso…'; }
@@ -216,6 +345,7 @@ async function exportAuditXlsx() {
       'Tipo attore': AUDIT_ACTOR_LABELS[r.actor_type] || r.actor_type,
       Entità: AUDIT_ENTITY_LABELS[r.entity_type] || r.entity_type,
       Azione: AUDIT_ACTION_LABELS[r.action] || r.action,
+      Coinvolto: auditInvolvedText(r),
       Descrizione: r.description || '',
       'ID entità': r.entity_id || '',
       Before: r.before ? JSON.stringify(r.before) : '',
