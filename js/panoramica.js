@@ -280,7 +280,7 @@ async function renderPanoramicaTopClienti() {
         <span class="pano-top-title">${escapeHtml(t.label)}</span>
         <span class="pano-top-sub">${escapeHtml(t.cliente)}</span>
       </span>
-      <span class="pano-top-count">${t.count} notti</span>
+      <span class="pano-top-count">${t.count} codice</span>
     </li>
   `).join('');
 }
