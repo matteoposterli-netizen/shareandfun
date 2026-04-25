@@ -34,7 +34,7 @@ Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono ren
 
 RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select auth.uid())` per performance. In aggiunta, ogni tabella business ha un set di policy `*_admin_*` che concedono accesso totale agli utenti presenti in `public.admins` (controllato via `public.is_admin(uid)` — SECURITY DEFINER). L'intero schema `public` (tabelle, FK, indexes, RLS, policies, RPC) è catturato come baseline in `supabase/migrations/20260420000000_baseline.sql`; migrazioni future vanno come file addizionali con timestamp successivo.
 
-> Tutte le migrazioni in `supabase/migrations/` sono state applicate sul DB di produzione al 2026-04-25, **eccetto** `20260425300000_reset_stagione_clear_registration.sql` e `20260425500000_reset_stagione_delete_orphan_auth_users.sql` che vanno applicate manualmente prima del prossimo reset stagione (CB) per ottenere il reset dello stato di registrazione e la pulizia delle righe orfane di `auth.users`. La 500000 è cumulativa rispetto alla 300000 (rimpiazza l'intera function `reset_stagione` con la versione finale): se applichi solo la 500000 ottieni comunque il comportamento corretto.
+> Tutte le migrazioni in `supabase/migrations/` sono state applicate sul DB di produzione al 2026-04-25 (la 500000 è cumulativa rispetto alla 300000: rimpiazza l'intera function `reset_stagione` con la versione finale che include sia il reset dello stato di registrazione sia la pulizia delle righe orfane di `auth.users`).
 >
 > Applicare nuove migrazioni via Supabase dashboard (SQL Editor), `supabase db push` o `psql`.
 >
