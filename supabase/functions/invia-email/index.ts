@@ -36,7 +36,7 @@ interface EmailRequest {
   testo_custom?: string;
 }
 
-function buildEmailHtml(opts: {
+interface EmailContentOpts {
   headerColor: string;
   headerEmoji: string;
   headerSub: string;
@@ -53,7 +53,48 @@ function buildEmailHtml(opts: {
   stabilimento_telefono?: string;
   stabilimento_email?: string;
   footer_extra?: string;
-}): string {
+}
+
+function stripHtml(s: string): string {
+  return s
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function buildEmailText(opts: EmailContentOpts): string {
+  const titolo = stripHtml(opts.boxTitolo);
+  const linee: string[] = [
+    `Ciao ${opts.nome},`,
+    "",
+    stripHtml(opts.testoPrincipale),
+    "",
+    titolo,
+    stripHtml(opts.boxTesto),
+  ];
+  if (opts.ctaLabel && opts.ctaLink) {
+    linee.push("", `${stripHtml(opts.ctaLabel)}: ${opts.ctaLink}`);
+  }
+  if (opts.footer_extra) {
+    linee.push("", stripHtml(opts.footer_extra));
+  }
+  linee.push("", "—", opts.stabilimento_nome);
+  if (opts.stabilimento_telefono) linee.push(`Tel: ${opts.stabilimento_telefono}`);
+  if (opts.stabilimento_email) linee.push(`Email: ${opts.stabilimento_email}`);
+  linee.push("", "Per qualsiasi necessità contatta direttamente il tuo stabilimento balneare.");
+  return linee.join("\n");
+}
+
+function buildEmailHtml(opts: EmailContentOpts): string {
   const cta = opts.ctaLabel && opts.ctaLink
     ? `<div style="text-align:center;margin:24px 0">
         <a href="${opts.ctaLink}" style="background:#1B6CA8;color:white;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block">${opts.ctaLabel}</a>
@@ -135,12 +176,12 @@ Deno.serve(async (req: Request) => {
   }
 
   let subject: string;
-  let html: string;
+  let opts: EmailContentOpts;
 
   if (tipo === "attesa") {
     subject = oggetto_custom || `Richiesta di iscrizione ricevuta — ${stabilimento_nome}`;
     const testoCustom = testo_custom || "La tua richiesta di iscrizione è stata ricevuta con successo. Il proprietario la esaminerà a breve e riceverai una notifica non appena sarà elaborata.";
-    html = buildEmailHtml({
+    opts = {
       headerColor: "linear-gradient(135deg,#1B6CA8 0%,#2B8DC8 100%)",
       headerEmoji: "🌊 ☂️",
       headerSub: `${stabilimento_nome}`,
@@ -155,12 +196,12 @@ Deno.serve(async (req: Request) => {
       stabilimento_telefono,
       stabilimento_email,
       footer_extra: `Hai dubbi? Contatta direttamente <strong>${stabilimento_nome}</strong> — siamo qui per te!`,
-    });
+    };
 
   } else if (tipo === "approvazione") {
     subject = oggetto_custom || `La tua iscrizione è stata approvata — ${stabilimento_nome}`;
     const testoCustom = testo_custom || "Ottima notizia! La tua iscrizione è stata approvata. Puoi ora accedere a tutte le funzionalità della piattaforma.";
-    html = buildEmailHtml({
+    opts = {
       headerColor: "linear-gradient(135deg,#2EAA6B 0%,#38c97e 100%)",
       headerEmoji: "✅ 🌊",
       headerSub: "Iscrizione approvata!",
@@ -175,13 +216,13 @@ Deno.serve(async (req: Request) => {
       stabilimento_telefono,
       stabilimento_email,
       footer_extra: `Buona stagione! ☀️ Per qualsiasi necessità il team di <strong>${stabilimento_nome}</strong> è sempre a disposizione.`,
-    });
+    };
 
   } else if (tipo === "benvenuto") {
     subject = oggetto_custom || `Benvenuto su SpiaggiaMia — ${stabilimento_nome}`;
     const testoCustom = testo_custom || "Siamo felicissimi di averti con noi per questa stagione! Il tuo account è attivo e puoi già accedere alla piattaforma.";
     const ombrelloneText = ombrellone ? `Il tuo ombrellone è <strong>${ombrellone}</strong>. ` : "";
-    html = buildEmailHtml({
+    opts = {
       headerColor: "linear-gradient(135deg,#E07B54 0%,#f09060 100%)",
       headerEmoji: "☀️ ☂️",
       headerSub: `${stabilimento_nome} ti dà il benvenuto!`,
@@ -198,14 +239,14 @@ Deno.serve(async (req: Request) => {
       stabilimento_telefono,
       stabilimento_email,
       footer_extra: `Non vediamo l'ora di vederti in spiaggia! 🌊 Per qualsiasi necessità contatta direttamente <strong>${stabilimento_nome}</strong>.`,
-    });
+    };
 
   } else if (tipo === "invito") {
     subject = oggetto_custom || `Sei stato invitato su SpiaggiaMia — ${stabilimento_nome}`;
     const testoPrincipaleCustom = testo_custom
       ? testo_custom.replace(/\n/g, "<br>")
       : `<strong>${stabilimento_nome}</strong> ti ha invitato a registrarti su <strong>SpiaggiaMia</strong>, la piattaforma per la gestione degli ombrelloni stagionali.`;
-    html = buildEmailHtml({
+    opts = {
       headerColor: "linear-gradient(135deg,#1B6CA8 0%,#2B8DC8 100%)",
       headerEmoji: "🌊 ☂️",
       headerSub: `${stabilimento_nome} ti invita`,
@@ -222,14 +263,14 @@ Deno.serve(async (req: Request) => {
       stabilimento_telefono,
       stabilimento_email,
       footer_extra: `Hai ricevuto questa email perché il tuo stabilimento ti ha invitato. Per qualsiasi domanda contatta direttamente <strong>${stabilimento_nome}</strong>.`,
-    });
+    };
 
   } else if (tipo === "credito_accreditato") {
     subject = oggetto_custom || `Hai ricevuto ${importo_formatted ?? "dei coin"} — ${stabilimento_nome}`;
     const testoCustom = testo_custom
       ? testo_custom.replace(/\n/g, "<br>")
       : `Abbiamo appena accreditato <strong>${importo_formatted ?? ""}</strong> sul tuo saldo ShareAndFun.${saldo_formatted ? ` Il tuo nuovo saldo è <strong>${saldo_formatted}</strong>.` : ""}${nota ? `<br><br><em>${nota}</em>` : ""}`;
-    html = buildEmailHtml({
+    opts = {
       headerColor: "linear-gradient(135deg,#2EAA6B 0%,#38c97e 100%)",
       headerEmoji: "⭐ 💰",
       headerSub: `Coin accreditati da ${stabilimento_nome}`,
@@ -244,14 +285,14 @@ Deno.serve(async (req: Request) => {
       stabilimento_telefono,
       stabilimento_email,
       footer_extra: `Puoi usare i tuoi coin al bar o al ristorante di <strong>${stabilimento_nome}</strong>. Buona estate! ☀️`,
-    });
+    };
 
   } else if (tipo === "credito_ritirato") {
     subject = oggetto_custom || `Hai utilizzato ${importo_formatted ?? "dei coin"} — ${stabilimento_nome}`;
     const testoCustom = testo_custom
       ? testo_custom.replace(/\n/g, "<br>")
       : `Abbiamo registrato l'utilizzo di <strong>${importo_formatted ?? ""}</strong> dal tuo saldo ShareAndFun.${saldo_formatted ? ` Il tuo saldo residuo è <strong>${saldo_formatted}</strong>.` : ""}${nota ? `<br><br><em>${nota}</em>` : ""}`;
-    html = buildEmailHtml({
+    opts = {
       headerColor: "linear-gradient(135deg,#E07B54 0%,#f09060 100%)",
       headerEmoji: "🎉 🧾",
       headerSub: `Coin utilizzati presso ${stabilimento_nome}`,
@@ -266,7 +307,7 @@ Deno.serve(async (req: Request) => {
       stabilimento_telefono,
       stabilimento_email,
       footer_extra: `Per qualsiasi dubbio sul saldo contatta direttamente <strong>${stabilimento_nome}</strong>.`,
-    });
+    };
 
   } else {
     return new Response(JSON.stringify({ error: "Tipo non valido" }), {
@@ -274,6 +315,9 @@ Deno.serve(async (req: Request) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  const html = buildEmailHtml(opts);
+  const text = buildEmailText(opts);
 
   if (!RESEND_API_KEY) {
     console.error("RESEND_API_KEY non configurata — email non inviata");
@@ -283,7 +327,17 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const payload: Record<string, unknown> = { from: buildFromHeader(stabilimento_nome), to: email, subject, html };
+  const unsubscribeMailto = stabilimento_email || "noreply@spiaggiamia.com";
+  const payload: Record<string, unknown> = {
+    from: buildFromHeader(stabilimento_nome),
+    to: email,
+    subject,
+    html,
+    text,
+    headers: {
+      "List-Unsubscribe": `<mailto:${unsubscribeMailto}?subject=Unsubscribe>`,
+    },
+  };
   if (stabilimento_email) payload.reply_to = stabilimento_email;
 
   const res = await fetch("https://api.resend.com/emails", {
