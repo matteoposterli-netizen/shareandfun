@@ -523,6 +523,39 @@
               <div id="regole-list"></div>
             </div>
           </div>
+
+          <!-- RESET STAGIONE: zona pericolosa -->
+          <div class="card reset-card" style="margin-top:24px">
+            <div class="card-header">
+              <div>
+                <div class="card-title" style="color:var(--coral)">⚠️ Reset stagione</div>
+                <div class="card-subtitle">Pulisce tutto per far partire una nuova stagione. Operazione protetta da backup automatico.</div>
+              </div>
+            </div>
+            <div style="padding:0 4px 8px">
+              <div class="alert alert-coral" style="font-size:13px;margin-bottom:16px">
+                Il reset cancella <strong>disponibilità</strong>, <strong>transazioni</strong> e azzera i <strong>saldi coin</strong>. Puoi scegliere se mantenere la base clienti (CB) o azzerarla insieme alla mappa ombrelloni. Prima di eseguire viene creato automaticamente un backup completo, ripristinabile in qualsiasi momento.
+              </div>
+              <button class="btn btn-danger btn-sm" onclick="apriResetWizard()">🔄 Avvia reset stagione</button>
+            </div>
+          </div>
+
+          <!-- BACKUP: lista ripristinabile -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">💾 Backup disponibili</div>
+                <div class="card-subtitle">Ultimi 10 backup. Ripristinare riapplica clienti, ombrelloni, disponibilità, transazioni e saldi del momento del backup.</div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-outline btn-sm" onclick="creaBackupManuale()">+ Crea backup ora</button>
+                <button class="btn btn-outline btn-sm" onclick="loadBackupList()">↻ Aggiorna</button>
+              </div>
+            </div>
+            <div id="backup-list" style="padding:0 4px 8px">
+              <div style="font-size:13px;color:var(--text-light);padding:12px 0">Caricamento…</div>
+            </div>
+          </div>
         </div>
 
         <!-- EMAIL SUBTAB (contenuto del precedente mtab-email) -->
@@ -1300,6 +1333,89 @@
   </div>
 </div>
 
+<!-- RESET STAGIONE — wizard 3 step -->
+<div id="modal-reset-wizard" class="modal-overlay hidden">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title" id="reset-wizard-title">🔄 Reset stagione</div>
+    <div id="reset-wizard-alert"></div>
+
+    <!-- STEP 1: scelta tipo -->
+    <div id="reset-step-1" class="reset-step">
+      <div class="modal-sub">Scegli come vuoi procedere. In entrambi i casi creiamo prima un backup completo dello stato attuale.</div>
+      <label class="reset-option">
+        <input type="radio" name="reset-tipo" value="mantieni" checked>
+        <div>
+          <div class="reset-option-title">Mantieni la base clienti</div>
+          <div class="reset-option-desc">Cancella disponibilità + transazioni, azzera i saldi coin. Conserva clienti, ombrelloni, mappa.</div>
+        </div>
+      </label>
+      <label class="reset-option">
+        <input type="radio" name="reset-tipo" value="totale">
+        <div>
+          <div class="reset-option-title" style="color:var(--coral)">Reset totale</div>
+          <div class="reset-option-desc">Cancella anche tutti i clienti stagionali e tutta la mappa ombrelloni. La stagione riparte da zero.</div>
+        </div>
+      </label>
+      <div class="modal-footer">
+        <button class="btn btn-outline btn-sm" onclick="closeModal('modal-reset-wizard')">Annulla</button>
+        <button class="btn btn-primary btn-sm" onclick="resetWizardNext(2)">Avanti →</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: riepilogo -->
+    <div id="reset-step-2" class="reset-step hidden">
+      <div class="modal-sub">Riepilogo operazione. Verifica prima di proseguire.</div>
+      <div id="reset-summary" class="reset-summary"></div>
+      <div class="alert alert-coral" style="font-size:12px;margin-top:12px">
+        Operazione irreversibile senza ripristino. Verrà creato un backup automatico con etichetta riconoscibile, recuperabile dalla lista in alto.
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline btn-sm" onclick="resetWizardNext(1)">← Indietro</button>
+        <button class="btn btn-primary btn-sm" onclick="resetWizardNext(3)">Avanti →</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: conferma forte -->
+    <div id="reset-step-3" class="reset-step hidden">
+      <div class="modal-sub">Per confermare, digita esattamente il nome dello stabilimento: <strong id="reset-stab-nome"></strong></div>
+      <div class="form-group" style="margin-top:12px">
+        <input type="text" id="reset-stab-input" class="form-input" autocomplete="off" placeholder="Nome stabilimento" oninput="resetWizardCheckMatch()">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline btn-sm" onclick="resetWizardNext(2)">← Indietro</button>
+        <button class="btn btn-danger btn-sm" id="reset-confirm-btn" onclick="resetWizardExecute()" disabled>Conferma reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RIPRISTINA BACKUP — modale conferma -->
+<div id="modal-restore-backup" class="modal-overlay hidden">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">♻️ Ripristina backup</div>
+    <div class="modal-sub" id="restore-backup-sub">Stai per ripristinare lo stato salvato in un backup. Lo stato attuale verrà sostituito.</div>
+    <div id="restore-backup-alert"></div>
+
+    <div class="alert alert-info" style="font-size:12px;margin-top:12px">
+      Prima di procedere viene creato automaticamente un backup dello stato corrente, così puoi tornare indietro.
+    </div>
+
+    <div style="margin-top:14px">
+      <button class="btn btn-outline btn-sm" onclick="scaricaClientiAttualiExcel()">📥 Scarica clienti attuali (Excel)</button>
+    </div>
+
+    <div class="form-group" style="margin-top:18px">
+      <label class="form-label">Per confermare, digita il nome dello stabilimento: <strong id="restore-stab-nome"></strong></label>
+      <input type="text" id="restore-stab-input" class="form-input" autocomplete="off" placeholder="Nome stabilimento" oninput="restoreCheckMatch()">
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-restore-backup')">Annulla</button>
+      <button class="btn btn-primary btn-sm" id="restore-confirm-btn" onclick="confirmRestoreBackup()" disabled>Conferma ripristino</button>
+    </div>
+  </div>
+</div>
+
 <!-- Conflitto ombrellone -->
 <div id="modal-conflict-cliente" class="modal-overlay hidden">
   <div class="modal">
@@ -1423,6 +1539,7 @@
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>
 <script src="js/avanzate.js"></script>
+<script src="js/reset-stagione.js"></script>
 <script src="js/clienti.js"></script>
 <script src="js/stagionale.js"></script>
 <script src="js/email.js"></script>

@@ -12,7 +12,11 @@ function switchConfigSubtab(sub, btn) {
   if (panel) panel.classList.add('active');
   document.querySelectorAll('.config-subtab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  if (sub === 'stagione') { loadStagione(); loadRegoleStato(); }
+  if (sub === 'stagione') {
+    loadStagione();
+    if (typeof loadRegoleStato === 'function') loadRegoleStato();
+    if (typeof loadBackupList === 'function') loadBackupList();
+  }
   if (sub === 'avanzate' && typeof avanzateInit === 'function') avanzateInit();
 }
 
