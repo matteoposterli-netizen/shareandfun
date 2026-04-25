@@ -69,12 +69,32 @@ function setAvanzateRangePreset(days) {
   refreshAvanzateMap();
 }
 
+function setAvanzateRangeStagione() {
+  if (!currentStabilimento) return;
+  const inizio = currentStabilimento.data_inizio_stagione;
+  const fine = currentStabilimento.data_fine_stagione;
+  if (!inizio || !fine) {
+    showAlert('avanzate-save-alert', 'Date di stagione non impostate. Vai in Configurazioni → Stagione.', 'error');
+    setTimeout(() => showAlert('avanzate-save-alert', '', ''), 4000);
+    return;
+  }
+  const startDate = new Date(inizio + 'T00:00:00');
+  const endDate = new Date(fine + 'T00:00:00');
+  document.getElementById('avanzate-date-from').value = inizio;
+  document.getElementById('avanzate-date-to').value = fine;
+  if (avanzateRangePickerInstance) avanzateRangePickerInstance.setDate([startDate, endDate], false);
+  refreshAvanzateMap();
+}
+
 function updateAvanzatePresetActive() {
   const from = document.getElementById('avanzate-date-from').value;
   const to = document.getElementById('avanzate-date-to').value || from;
   const today = todayStr();
   let activeDays = null;
-  if (from === today) {
+  let isStagione = false;
+  if (currentStabilimento && from === currentStabilimento.data_inizio_stagione && to === currentStabilimento.data_fine_stagione) {
+    isStagione = true;
+  } else if (from === today) {
     const start = new Date(from + 'T00:00:00');
     const endD = new Date(to + 'T00:00:00');
     const diff = Math.round((endD - start) / 86400000) + 1;
@@ -82,7 +102,9 @@ function updateAvanzatePresetActive() {
   }
   document.querySelectorAll('.avanzate-preset-btn').forEach(btn => {
     const days = parseInt(btn.dataset.days, 10);
-    if (days === activeDays) {
+    const preset = btn.dataset.preset;
+    const active = (preset === 'stagione' && isStagione) || (!isNaN(days) && days === activeDays);
+    if (active) {
       btn.classList.remove('btn-outline');
       btn.classList.add('btn-primary');
     } else {
@@ -495,6 +517,7 @@ async function reloadAfterMutation() {
 
 window.avanzateInit = avanzateInit;
 window.setAvanzateRangePreset = setAvanzateRangePreset;
+window.setAvanzateRangeStagione = setAvanzateRangeStagione;
 window.refreshAvanzateMap = refreshAvanzateMap;
 window.openAvanzateOmbModal = openAvanzateOmbModal;
 window.avanzateForceCurrentRange = avanzateForceCurrentRange;
