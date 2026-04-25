@@ -225,25 +225,20 @@
             </div>
           </div>
 
-          <!-- Toolbar periodo -->
-          <div class="pano-toolbar" role="toolbar" aria-label="Selezione periodo">
-            <span class="pano-toolbar-label">📅 <span id="pano-range-label">–</span></span>
-            <div class="pano-toolbar-presets">
-              <button type="button" class="pano-preset-btn" data-preset="7d" onclick="setPanoramicaRange('7d')">Ultimi 7 gg</button>
-              <button type="button" class="pano-preset-btn" data-preset="30d" onclick="setPanoramicaRange('30d')">Ultimi 30 gg</button>
-              <button type="button" class="pano-preset-btn" data-preset="90d" onclick="setPanoramicaRange('90d')">Ultimi 90 gg</button>
-              <button type="button" class="pano-preset-btn" data-preset="season" onclick="setPanoramicaRange('season')">Stagione</button>
+          <!-- Toolbar periodo (range picker + preset, stile mappa Prenotazioni) -->
+          <div class="card" style="margin-bottom:20px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-size:13px;color:var(--text-mid)">Periodo</span>
+              <input type="text" id="pano-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+              <input type="hidden" id="pano-date-from">
+              <input type="hidden" id="pano-date-to">
             </div>
-            <span class="pano-toolbar-custom">
-              <span>Dal</span>
-              <input type="date" id="pano-range-from" onchange="onPanoramicaCustomRange()">
-              <span>al</span>
-              <input type="date" id="pano-range-to" onchange="onPanoramicaCustomRange()">
-            </span>
-            <label class="pano-toolbar-compare">
-              <input type="checkbox" id="pano-compare" checked onchange="onPanoramicaCompareToggle()">
-              Confronta con periodo precedente
-            </label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+              <button type="button" class="btn btn-outline btn-sm pano-preset-btn" data-preset="7d" onclick="setPanoramicaRange('7d')">Ultimi 7 gg</button>
+              <button type="button" class="btn btn-outline btn-sm pano-preset-btn" data-preset="30d" onclick="setPanoramicaRange('30d')">Ultimi 30 gg</button>
+              <button type="button" class="btn btn-outline btn-sm pano-preset-btn" data-preset="90d" onclick="setPanoramicaRange('90d')">Ultimi 90 gg</button>
+              <button type="button" class="btn btn-outline btn-sm pano-preset-btn" data-preset="season" onclick="setPanoramicaRange('season')">Stagione</button>
+            </div>
           </div>
 
           <!-- 4 KPI card cliccabili -->
