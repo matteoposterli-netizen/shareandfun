@@ -81,16 +81,24 @@ function setPanoramicaRange(preset) {
   panoramicaLoad();
 }
 
+/** Setta il valore di un input date rispettando flatpickr se attivo. */
+function setDateInputValue(el, value) {
+  if (!el) return;
+  if (el._flatpickr && typeof el._flatpickr.setDate === 'function') {
+    el._flatpickr.setDate(value, false);
+  } else if (el.value !== value) {
+    el.value = value;
+  }
+}
+
 /** Aggiorna UI toolbar: pill attiva, input date, label range */
 function syncPanoramicaToolbar() {
   const { from, to, preset, compare } = panoramicaState;
   document.querySelectorAll('.pano-preset-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.preset === preset);
   });
-  const fromEl = document.getElementById('pano-range-from');
-  const toEl = document.getElementById('pano-range-to');
-  if (fromEl && fromEl.value !== from) fromEl.value = from;
-  if (toEl && toEl.value !== to) toEl.value = to;
+  setDateInputValue(document.getElementById('pano-range-from'), from);
+  setDateInputValue(document.getElementById('pano-range-to'), to);
   const label = document.getElementById('pano-range-label');
   if (label) label.textContent = labelRange(from, to);
   const cmp = document.getElementById('pano-compare');
@@ -402,10 +410,8 @@ function syncDdToolbar() {
   document.querySelectorAll('.dd-preset-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.preset === ddState.preset);
   });
-  const fromEl = document.getElementById('dd-range-from');
-  const toEl = document.getElementById('dd-range-to');
-  if (fromEl && fromEl.value !== ddState.from) fromEl.value = ddState.from;
-  if (toEl && toEl.value !== ddState.to) toEl.value = ddState.to;
+  setDateInputValue(document.getElementById('dd-range-from'), ddState.from);
+  setDateInputValue(document.getElementById('dd-range-to'), ddState.to);
   const label = document.getElementById('dd-range-label');
   if (label) label.textContent = labelRange(ddState.from, ddState.to);
   const cmp = document.getElementById('dd-compare');
