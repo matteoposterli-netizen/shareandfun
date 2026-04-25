@@ -2,10 +2,11 @@
 // - Carica eventi dalla tabella public.audit_log (RLS: proprietario vede solo i
 //   propri eventi).
 // - Filtri: range date, attore (tipo + label), entità, azione, testo libero,
-//   nome/cognome cliente coinvolto e numero ombrellone coinvolto (risolti
-//   client-side dalle anagrafiche locali in liste di id passate al server
-//   come or() su entity_id + JSONB before/after, combinate in AND quando
-//   entrambi i filtri sono valorizzati).
+//   nome / cognome / email del cliente coinvolto e numero ombrellone
+//   coinvolto (risolti client-side dalle anagrafiche locali in liste di id
+//   passate al server come or() su entity_id + JSONB before/after; i filtri
+//   nome/cognome/email convergono in un unico set di clienteIds AND-ato col
+//   set di ombrelloni — ogni filtro applicato è un AND coi precedenti).
 // - Colonna "Coinvolto" mostra ombrellone + cliente estratti dal payload
 //   before/after di ogni riga.
 // - Paginazione keyset su created_at DESC con size selezionabile (default 30).
@@ -121,16 +122,27 @@ function auditInvolvedText(row) {
   return parts.join(' · ');
 }
 
-// Risolve i filtri "Nome e cognome" / "Numero ombrellone" contro le mappe
-// locali: ritornano gli id che matchano. Usati per costruire OR server-side
-// senza bisogno di nuovi indici / colonne sull'audit_log.
-function auditResolveClienteIds(searchText) {
-  const s = (searchText || '').trim().toLowerCase();
-  if (!s) return null;
+// Risolve i filtri Nome / Cognome / Email / Numero ombrellone contro le
+// mappe locali: ritornano gli id che matchano. Usati per costruire OR
+// server-side senza bisogno di nuovi indici / colonne sull'audit_log.
+//
+// auditResolveClienteIds combina nome/cognome/email in AND: un cliente
+// matcha solo se passa tutti i campi valorizzati. Se nessuno dei tre è
+// valorizzato ritorna null (filtro disattivato).
+function auditResolveClienteIds({ nome, cognome, email }) {
+  const n = (nome    || '').trim().toLowerCase();
+  const c = (cognome || '').trim().toLowerCase();
+  const e = (email   || '').trim().toLowerCase();
+  if (!n && !c && !e) return null;
   const ids = [];
-  for (const [id, c] of auditMaps.clienti) {
-    const blob = `${c.nome || ''} ${c.cognome || ''} ${c.email || ''}`.toLowerCase();
-    if (blob.includes(s)) ids.push(id);
+  for (const [id, cli] of auditMaps.clienti) {
+    const cn = (cli.nome    || '').toLowerCase();
+    const cc = (cli.cognome || '').toLowerCase();
+    const ce = (cli.email   || '').toLowerCase();
+    if (n && !cn.includes(n)) continue;
+    if (c && !cc.includes(c)) continue;
+    if (e && !ce.includes(e)) continue;
+    ids.push(id);
   }
   return ids;
 }
@@ -166,10 +178,10 @@ function auditResetFilters() {
   document.getElementById('audit-entity-type').value = '';
   document.getElementById('audit-action').value = '';
   document.getElementById('audit-search').value = '';
-  const cli = document.getElementById('audit-search-cliente');
-  if (cli) cli.value = '';
-  const omb = document.getElementById('audit-search-ombrellone');
-  if (omb) omb.value = '';
+  ['audit-search-nome', 'audit-search-cognome', 'audit-search-email', 'audit-search-ombrellone'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
   document.getElementById('audit-page-size').value = '30';
   auditState.page = 1;
   auditState.pageSize = 30;
@@ -183,9 +195,11 @@ function auditReadFilters() {
   const entityType = document.getElementById('audit-entity-type')?.value || '';
   const action = document.getElementById('audit-action')?.value || '';
   const search = (document.getElementById('audit-search')?.value || '').trim();
-  const searchCliente    = (document.getElementById('audit-search-cliente')?.value    || '').trim();
+  const searchNome       = (document.getElementById('audit-search-nome')?.value       || '').trim();
+  const searchCognome    = (document.getElementById('audit-search-cognome')?.value    || '').trim();
+  const searchEmail      = (document.getElementById('audit-search-email')?.value      || '').trim();
   const searchOmbrellone = (document.getElementById('audit-search-ombrellone')?.value || '').trim();
-  return { from, to, actorType, entityType, action, search, searchCliente, searchOmbrellone };
+  return { from, to, actorType, entityType, action, search, searchNome, searchCognome, searchEmail, searchOmbrellone };
 }
 
 function auditBuildBaseQuery(filters) {
@@ -202,13 +216,17 @@ function auditBuildBaseQuery(filters) {
     const s = filters.search.replace(/[%_]/g, m => '\\' + m);
     q = q.or(`description.ilike.%${s}%,actor_label.ilike.%${s}%`);
   }
-  if (filters.searchCliente) {
-    const cliIds = auditResolveClienteIds(filters.searchCliente) || [];
-    if (cliIds.length === 0) {
-      // Nessun match nelle anagrafiche: forzo zero risultati senza colpire il DB inutilmente.
+  const cliResolved = auditResolveClienteIds({
+    nome:    filters.searchNome,
+    cognome: filters.searchCognome,
+    email:   filters.searchEmail,
+  });
+  if (cliResolved !== null) {
+    if (cliResolved.length === 0) {
+      // Nessun cliente matcha: forzo zero risultati senza colpire il DB inutilmente.
       q = q.eq('id', '00000000-0000-0000-0000-000000000000');
     } else {
-      const list = `(${cliIds.join(',')})`;
+      const list = `(${cliResolved.join(',')})`;
       q = q.or([
         `and(entity_type.eq.cliente_stagionale,entity_id.in.${list})`,
         `after->>cliente_id.in.${list}`,
