@@ -49,7 +49,7 @@ function panoramicaPresetDates(preset) {
   if (preset === 'season') {
     const inizio = currentStabilimento?.data_inizio_stagione || (today.getFullYear() + '-06-01');
     const fine = currentStabilimento?.data_fine_stagione || (today.getFullYear() + '-09-15');
-    return { from: inizio, to: fine < todayStrV ? fine : todayStrV };
+    return { from: inizio, to: fine };
   }
   const days = preset === '7d' ? 7 : preset === '30d' ? 30 : preset === '90d' ? 90 : 7;
   const d = new Date(today); d.setDate(d.getDate() - (days - 1));
@@ -357,8 +357,7 @@ function setDdRange(preset) {
   else if (preset === '90d') { const d = new Date(today); d.setDate(d.getDate() - 89); from = toLocalDateStr(d); }
   else if (preset === 'season') {
     from = currentStabilimento?.data_inizio_stagione || (today.getFullYear() + '-06-01');
-    const fine = currentStabilimento?.data_fine_stagione || (today.getFullYear() + '-09-15');
-    to = fine < todayStrV ? fine : todayStrV;
+    to = currentStabilimento?.data_fine_stagione || (today.getFullYear() + '-09-15');
   } else {
     const fromEl = document.getElementById('dd-range-from');
     const toEl = document.getElementById('dd-range-to');
