@@ -618,9 +618,14 @@ async function confirmBulkInvite() {
       ),
       3, 500
     );
-    if (ok) { sent++; await sb.from('clienti_stagionali').update({ invitato_at: now }).eq('id', c.id); }
-    else failed++;
+    if (ok) {
+      const { error: upErr } = await sb.from('clienti_stagionali').update({ invitato_at: now }).eq('id', c.id);
+      if (upErr) { console.error('Update invitato_at fallito per', c.id, upErr); failed++; }
+      else { sent++; c.invitato_at = now; }
+    } else failed++;
   }, (done, total) => renderProgressInAlert('bulk-invite-alert', 'Invio email…', done, total));
+
+  if (typeof renderGestioneFiltered === 'function') renderGestioneFiltered();
 
   btn.disabled = false;
   btn.textContent = `Invia a ${bulkInviteTargets.length} clienti`;
