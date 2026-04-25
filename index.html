@@ -450,6 +450,7 @@
         <div class="config-subtabs">
           <button class="config-subtab active" data-subtab="stagione" onclick="switchConfigSubtab('stagione',this)">🗓️ Stagione</button>
           <button class="config-subtab" data-subtab="email-sub" onclick="switchConfigSubtab('email-sub',this)">✉️ Email</button>
+          <button class="config-subtab" data-subtab="avanzate" onclick="switchConfigSubtab('avanzate',this)">⚙️ Avanzate</button>
         </div>
 
         <!-- STAGIONE SUBTAB -->
@@ -598,6 +599,64 @@
         </div>
 
         </div><!-- /config-sub-email-sub -->
+
+        <!-- AVANZATE SUBTAB: mappa con azioni gestore -->
+        <div id="config-sub-avanzate" class="config-subpanel">
+          <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
+            Da qui puoi forzare lo stato degli ombrelloni indipendentemente da quello che dichiara il cliente stagionale: rendere disponibili per sub-affitto, rimuovere disponibilità, modificare l'anagrafica o cancellare un ombrellone dalla mappa.
+          </div>
+
+          <div id="avanzate-save-alert" style="margin-bottom:16px"></div>
+
+          <div class="card">
+            <div class="card-header" style="flex-wrap:wrap;gap:12px">
+              <div>
+                <div class="card-title">🗺️ Mappa ombrelloni</div>
+                <div class="card-subtitle">Clicca un ombrellone per modificarne lo stato o l'anagrafica</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span style="font-size:12px;color:var(--text-light)">Periodo:</span>
+                <input type="text" id="avanzate-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+                <input type="hidden" id="avanzate-date-from">
+                <input type="hidden" id="avanzate-date-to">
+              </div>
+            </div>
+
+            <div id="avanzate-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px 12px">
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="1" onclick="setAvanzateRangePreset(1)">Oggi</button>
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="2" onclick="setAvanzateRangePreset(2)">Prossimi 2 giorni</button>
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="3" onclick="setAvanzateRangePreset(3)">Prossimi 3 giorni</button>
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="7" onclick="setAvanzateRangePreset(7)">Prossimi 7 giorni</button>
+            </div>
+
+            <div class="avanzate-bulk-bar">
+              <div style="font-size:12px;color:var(--text-mid)">Azioni di massa (su tutti gli ombrelloni del periodo selezionato):</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-outline btn-sm" onclick="bulkAvanzateForceDisponibile()">✓ Rendi tutti disponibili</button>
+                <button class="btn btn-outline btn-sm" onclick="bulkAvanzateRemoveDisponibilita()">✗ Rimuovi tutte le disponibilità</button>
+              </div>
+            </div>
+
+            <div class="beach-map-wrap">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                <div>
+                  <div class="map-legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Occupato dal cliente</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Libero tutto il periodo</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,var(--green-light) 0 6px,var(--ocean-light) 6px 12px);border:1.5px solid #96DDB8"></div>Libero parziale</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+                  </div>
+                  <div id="avanzate-summary" style="font-size:12px;color:var(--text-light);margin-top:10px"></div>
+                  <div style="font-size:12px;color:var(--text-light);margin-top:8px">Periodo: <strong id="avanzate-range-label">oggi</strong></div>
+                </div>
+                <div>
+                  <div class="map-rows" id="avanzate-map"></div>
+                  <div class="sea-label">~ ~ ~ MARE ~ ~ ~</div>
+                </div>
+              </div>
+            </div><!-- /beach-map-wrap -->
+          </div>
+        </div><!-- /config-sub-avanzate -->
       </div>
 
       <!-- PRENOTAZIONI TAB (mappa + lista + transazioni) -->
@@ -1118,6 +1177,83 @@
   </div>
 </div>
 
+<!-- AVANZATE: scheda ombrellone con azioni gestore -->
+<div id="modal-avanzate-omb" class="modal-overlay hidden">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title" id="avanzate-omb-title">☂️ Ombrellone</div>
+    <div class="modal-sub">Forza lo stato dell'ombrellone, modifica anagrafica o cancellalo dalla mappa.</div>
+    <div id="avanzate-omb-alert" style="margin-top:8px"></div>
+
+    <div class="avanzate-omb-info">
+      <div class="avanzate-omb-info-cell" style="grid-column:1/-1">
+        <div class="avanzate-omb-info-label">Cliente assegnato</div>
+        <div class="avanzate-omb-info-value" id="avanzate-omb-cliente">–</div>
+      </div>
+      <div class="avanzate-omb-info-cell">
+        <div class="avanzate-omb-info-label">Credito giornaliero</div>
+        <div class="avanzate-omb-info-value" id="avanzate-omb-credito">–</div>
+      </div>
+      <div class="avanzate-omb-info-cell">
+        <div class="avanzate-omb-info-label">Saldo coin cliente</div>
+        <div class="avanzate-omb-info-value" id="avanzate-omb-saldo">–</div>
+      </div>
+    </div>
+
+    <div class="avanzate-omb-section">
+      <div class="avanzate-omb-section-title">Stato per il periodo selezionato</div>
+      <div id="avanzate-omb-range-label" style="font-size:12px;color:var(--text-light);margin-bottom:8px"></div>
+      <div id="avanzate-omb-day-list" class="avanzate-day-list"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn btn-outline btn-sm" onclick="avanzateForceCurrentRange()">✓ Rendi disponibile per tutto il periodo</button>
+        <button class="btn btn-outline btn-sm" onclick="avanzateRemoveCurrentRange()">✗ Rimuovi disponibilità nel periodo</button>
+      </div>
+    </div>
+
+    <div class="avanzate-omb-section">
+      <div class="avanzate-omb-section-title">Anagrafica e cliente</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="avanzateOpenEdit()">✏️ Modifica anagrafica</button>
+        <button class="btn btn-outline btn-sm" onclick="avanzateAdjustSaldo()" id="avanzate-saldo-btn">💰 Rettifica saldo coin</button>
+      </div>
+    </div>
+
+    <div class="avanzate-omb-section">
+      <div class="avanzate-omb-section-title" style="color:var(--coral)">Zona pericolosa</div>
+      <button class="btn btn-danger btn-sm" onclick="avanzateDeleteOmbrellone()">🗑️ Cancella ombrellone dalla mappa</button>
+      <div style="font-size:11px;color:var(--text-light);margin-top:6px">L'eliminazione rimuove anche il cliente associato (se presente) e le disponibilità collegate.</div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-avanzate-omb')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- AVANZATE: rettifica saldo cliente -->
+<div id="modal-avanzate-saldo" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">💰 Rettifica saldo coin</div>
+    <div class="modal-sub" id="avanzate-saldo-sub">La modifica viene tracciata come transazione di rettifica nello storico.</div>
+    <div id="avanzate-saldo-alert"></div>
+    <div class="form-group">
+      <label class="form-label">Saldo attuale</label>
+      <div id="avanzate-saldo-corrente" style="font-size:16px;font-weight:600;color:var(--ink);padding:10px 12px;background:var(--sand);border-radius:var(--radius-sm)">–</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="avanzate-saldo-nuovo">Nuovo saldo</label>
+      <input type="number" id="avanzate-saldo-nuovo" class="form-input" step="0.01" min="0" placeholder="es. 50.00">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="avanzate-saldo-nota">Nota (facoltativa)</label>
+      <input type="text" id="avanzate-saldo-nota" class="form-input" maxlength="200" placeholder="es. Rettifica manuale">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-avanzate-saldo')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmAvanzateSaldo()">Salva rettifica</button>
+    </div>
+  </div>
+</div>
+
 <!-- Conflitto ombrellone -->
 <div id="modal-conflict-cliente" class="modal-overlay hidden">
   <div class="modal">
@@ -1240,6 +1376,7 @@
 <script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>
+<script src="js/avanzate.js"></script>
 <script src="js/clienti.js"></script>
 <script src="js/stagionale.js"></script>
 <script src="js/email.js"></script>
