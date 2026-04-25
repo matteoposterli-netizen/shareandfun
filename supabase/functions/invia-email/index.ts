@@ -16,7 +16,7 @@ function buildFromHeader(displayName: string | undefined): string {
 }
 
 interface EmailRequest {
-  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato";
+  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "chiusura_stagione";
   email: string;
   nome: string;
   cognome?: string;
@@ -31,6 +31,11 @@ interface EmailRequest {
   importo_formatted?: string;
   saldo_formatted?: string;
   nota?: string;
+  // Riepilogo stagionale (per tipo chiusura_stagione)
+  gg_disponibilita?: number;
+  gg_subaffittato?: number;
+  coin_ricevuti_formatted?: string;
+  coin_spesi_formatted?: string;
   // Testi personalizzati dall'owner
   oggetto_custom?: string;
   testo_custom?: string;
@@ -166,7 +171,7 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const { tipo, email, nome, cognome = "", stabilimento_id, stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, login_link, importo_formatted, saldo_formatted, nota, oggetto_custom, testo_custom } = body;
+  const { tipo, email, nome, cognome = "", stabilimento_id, stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, login_link, importo_formatted, saldo_formatted, nota, gg_disponibilita, gg_subaffittato, coin_ricevuti_formatted, coin_spesi_formatted, oggetto_custom, testo_custom } = body;
 
   if (!tipo || !email || !nome) {
     return new Response(JSON.stringify({ error: "Parametri mancanti: tipo, email, nome" }), {
@@ -307,6 +312,39 @@ Deno.serve(async (req: Request) => {
       stabilimento_telefono,
       stabilimento_email,
       footer_extra: `Per qualsiasi dubbio sul saldo contatta direttamente <strong>${stabilimento_nome}</strong>.`,
+    };
+
+  } else if (tipo === "chiusura_stagione") {
+    subject = oggetto_custom || `La stagione è terminata — ${stabilimento_nome}`;
+    const ggDisp = gg_disponibilita ?? 0;
+    const ggSub = gg_subaffittato ?? 0;
+    const coinIn = coin_ricevuti_formatted ?? "0";
+    const coinOut = coin_spesi_formatted ?? "0";
+    const riepilogoHtml = `
+      <ul style="margin:8px 0 0;padding-left:20px;color:#5A6A7A;font-size:14px;line-height:1.7">
+        <li><strong>${ggDisp}</strong> ${ggDisp === 1 ? "giorno" : "giorni"} di disponibilità dichiarata</li>
+        <li><strong>${ggSub}</strong> ${ggSub === 1 ? "giorno" : "giorni"} effettivamente sub-affittato</li>
+        <li><strong>${coinIn}</strong> ricevuti durante la stagione</li>
+        <li><strong>${coinOut}</strong> spesi durante la stagione</li>
+      </ul>`;
+    const testoCustom = testo_custom
+      ? testo_custom.replace(/\n/g, "<br>")
+      : `La stagione è ufficialmente conclusa: il tuo account su <strong>SpiaggiaMia</strong> non sarà più attivo fino alla riapertura.<br><br>Grazie di aver fatto parte della stagione! Ecco il tuo riepilogo:`;
+    opts = {
+      headerColor: "linear-gradient(135deg,#1B6CA8 0%,#2B8DC8 100%)",
+      headerEmoji: "🌅 ☂️",
+      headerSub: `Fine stagione · ${stabilimento_nome}`,
+      nome,
+      testoPrincipale: testoCustom,
+      boxColor: "#E8F4FD",
+      boxBorderColor: "#4A9FD4",
+      boxTitoloColor: "#1B6CA8",
+      boxTitolo: "📋 Il tuo riepilogo stagionale",
+      boxTesto: riepilogoHtml,
+      stabilimento_nome,
+      stabilimento_telefono,
+      stabilimento_email,
+      footer_extra: `Ci vediamo alla prossima stagione! 🌊 Per qualsiasi domanda contatta direttamente <strong>${stabilimento_nome}</strong>.`,
     };
 
   } else {

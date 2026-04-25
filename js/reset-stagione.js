@@ -121,8 +121,25 @@ function resetWizardNext(step) {
     const radio = document.querySelector('input[name="reset-tipo"]:checked');
     resetTipoCorrente = radio ? radio.value : 'mantieni';
     renderResetSummary();
+    refreshChiusuraEmailCount();
   }
   resetWizardShowStep(step);
+}
+
+async function refreshChiusuraEmailCount() {
+  const el = document.getElementById('reset-send-chiusura-count');
+  if (!el || !currentStabilimento) return;
+  el.textContent = '';
+  const { count } = await sb.from('clienti_stagionali')
+    .select('id', { count: 'exact', head: true })
+    .eq('stabilimento_id', currentStabilimento.id)
+    .not('user_id', 'is', null)
+    .not('email', 'is', null);
+  if (typeof count === 'number') {
+    el.textContent = count > 0
+      ? `(${count} ${count === 1 ? 'cliente' : 'clienti'} riceveranno l'email)`
+      : '(nessun cliente attualmente registrato — nessuna email da inviare)';
+  }
 }
 
 function renderResetSummary() {
@@ -157,6 +174,20 @@ async function resetWizardExecute() {
   btn.disabled = true;
   btn.textContent = 'Esecuzione…';
   showAlert('reset-wizard-alert', '', '');
+
+  const sendEmails = !!document.getElementById('reset-send-chiusura-email')?.checked;
+  let emailStats = { sent: 0, failed: 0, total: 0 };
+  if (sendEmails) {
+    btn.textContent = 'Invio email…';
+    try {
+      emailStats = await sendChiusuraStagioneEmails();
+    } catch (e) {
+      console.error('Invio email chiusura stagione fallito:', e);
+      // Non blocchiamo il reset: l'utente ha già confermato l'irreversibile.
+    }
+  }
+
+  btn.textContent = 'Reset in corso…';
   const { error } = await sb.rpc('reset_stagione', {
     p_stabilimento_id: currentStabilimento.id,
     p_mantieni_cb: resetTipoCorrente === 'mantieni',
@@ -171,7 +202,90 @@ async function resetWizardExecute() {
   if (typeof loadManagerData === 'function') await loadManagerData();
   await loadBackupList();
   btn.textContent = 'Conferma reset';
-  alert('Reset completato. Il backup automatico è disponibile nella lista.');
+  let msg = 'Reset completato. Il backup automatico è disponibile nella lista.';
+  if (sendEmails && emailStats.total > 0) {
+    msg += `\n\nEmail di chiusura: ${emailStats.sent}/${emailStats.total} inviate`;
+    if (emailStats.failed > 0) msg += ` (${emailStats.failed} fallite, vedi console)`;
+    msg += '.';
+  }
+  alert(msg);
+}
+
+// Calcola il riepilogo per ogni cliente registrato e invia l'email di chiusura
+// stagione PRIMA che il reset cancelli disponibilità e transazioni. Bulk-fetch
+// per evitare N+1 e aggregazione client-side.
+async function sendChiusuraStagioneEmails() {
+  const stab = currentStabilimento;
+  if (!stab) return { sent: 0, failed: 0, total: 0 };
+
+  // 1. Clienti registrati (user_id valorizzato) con email
+  const { data: clienti, error: cErr } = await sb.from('clienti_stagionali')
+    .select('id, nome, cognome, email, ombrellone_id')
+    .eq('stabilimento_id', stab.id)
+    .not('user_id', 'is', null)
+    .not('email', 'is', null);
+  if (cErr) throw cErr;
+  const targets = (clienti || []).filter(c => c.email && c.email.trim());
+  if (targets.length === 0) return { sent: 0, failed: 0, total: 0 };
+
+  // 2. Mappa ombrelloni per label
+  const ombIds = Array.from(new Set(targets.map(c => c.ombrellone_id).filter(Boolean)));
+  let ombMap = {};
+  if (ombIds.length > 0) {
+    const { data: omb } = await sb.from('ombrelloni').select('id, fila, numero').in('id', ombIds);
+    (omb || []).forEach(o => { ombMap[o.id] = `Fila ${o.fila} N°${o.numero}`; });
+  }
+
+  // 3. Disponibilità raggruppate per cliente
+  const ggDisp = {}, ggSub = {};
+  targets.forEach(c => { ggDisp[c.id] = 0; ggSub[c.id] = 0; });
+  if (ombIds.length > 0) {
+    const { data: disps } = await sb.from('disponibilita')
+      .select('ombrellone_id, stato')
+      .in('ombrellone_id', ombIds);
+    const cliByOmb = {};
+    targets.forEach(c => { if (c.ombrellone_id) cliByOmb[c.ombrellone_id] = c.id; });
+    (disps || []).forEach(d => {
+      const cid = cliByOmb[d.ombrellone_id];
+      if (!cid) return;
+      // gg_disponibilita = totale disponibilità (libero + sub_affittato)
+      ggDisp[cid] = (ggDisp[cid] || 0) + 1;
+      if (d.stato === 'sub_affittato') ggSub[cid] = (ggSub[cid] || 0) + 1;
+    });
+  }
+
+  // 4. Transazioni coin per cliente
+  const coinIn = {}, coinOut = {};
+  targets.forEach(c => { coinIn[c.id] = 0; coinOut[c.id] = 0; });
+  const cIds = targets.map(c => c.id);
+  if (cIds.length > 0) {
+    const { data: txs } = await sb.from('transazioni')
+      .select('cliente_id, tipo, importo')
+      .in('cliente_id', cIds)
+      .in('tipo', ['credito_ricevuto', 'credito_usato']);
+    (txs || []).forEach(t => {
+      const amt = parseFloat(t.importo || 0);
+      if (t.tipo === 'credito_ricevuto') coinIn[t.cliente_id] = (coinIn[t.cliente_id] || 0) + amt;
+      else if (t.tipo === 'credito_usato') coinOut[t.cliente_id] = (coinOut[t.cliente_id] || 0) + amt;
+    });
+  }
+
+  // 5. Invio sequenziale (più affidabile rispetto al parallelo per Resend)
+  let sent = 0, failed = 0;
+  for (const c of targets) {
+    const ok = await inviaEmail('chiusura_stagione', {
+      email: c.email,
+      nome: c.nome || '',
+      cognome: c.cognome || '',
+      ombrellone: c.ombrellone_id ? (ombMap[c.ombrellone_id] || '') : '',
+      gg_disponibilita: ggDisp[c.id] || 0,
+      gg_subaffittato: ggSub[c.id] || 0,
+      coin_ricevuti_formatted: formatCoin(coinIn[c.id] || 0, stab),
+      coin_spesi_formatted: formatCoin(coinOut[c.id] || 0, stab),
+    }, stab);
+    if (ok) sent++; else failed++;
+  }
+  return { sent, failed, total: targets.length };
 }
 
 /* ---------- Ripristino ---------- */
@@ -262,3 +376,4 @@ window.apriRipristinoModal = apriRipristinoModal;
 window.restoreCheckMatch = restoreCheckMatch;
 window.confirmRestoreBackup = confirmRestoreBackup;
 window.scaricaClientiAttualiExcel = scaricaClientiAttualiExcel;
+window.refreshChiusuraEmailCount = refreshChiusuraEmailCount;

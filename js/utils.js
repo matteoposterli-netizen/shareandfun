@@ -101,7 +101,11 @@ function substitutePlaceholders(text, data) {
     .replace(/\{\{\s*importo\s*\}\}/gi, data?.importo_formatted || '')
     .replace(/\{\{\s*saldo\s*\}\}/gi, data?.saldo_formatted || '')
     .replace(/\{\{\s*stabilimento\s*\}\}/gi, data?.stabilimento_nome || '')
-    .replace(/\{\{\s*nota\s*\}\}/gi, data?.nota || '');
+    .replace(/\{\{\s*nota\s*\}\}/gi, data?.nota || '')
+    .replace(/\{\{\s*gg_disponibilita\s*\}\}/gi, String(data?.gg_disponibilita ?? ''))
+    .replace(/\{\{\s*gg_subaffittato\s*\}\}/gi, String(data?.gg_subaffittato ?? ''))
+    .replace(/\{\{\s*coin_ricevuti\s*\}\}/gi, data?.coin_ricevuti_formatted || '')
+    .replace(/\{\{\s*coin_spesi\s*\}\}/gi, data?.coin_spesi_formatted || '');
 }
 
 async function inviaEmail(tipo, clienteData, stab, override) {
@@ -122,6 +126,9 @@ async function inviaEmail(tipo, clienteData, stab, override) {
     } else if (tipo === 'credito_ritirato') {
       oggetto_custom = stab?.email_credito_ritirato_oggetto || null;
       testo_custom = stab?.email_credito_ritirato_testo || null;
+    } else if (tipo === 'chiusura_stagione') {
+      oggetto_custom = stab?.email_chiusura_stagione_oggetto || null;
+      testo_custom = stab?.email_chiusura_stagione_testo || null;
     }
     const placeholderData = { ...clienteData, stabilimento_nome: stab?.nome || '' };
     oggetto_custom = substitutePlaceholders(oggetto_custom, placeholderData);
@@ -144,6 +151,10 @@ async function inviaEmail(tipo, clienteData, stab, override) {
         importo_formatted: clienteData.importo_formatted || null,
         saldo_formatted: clienteData.saldo_formatted || null,
         nota: clienteData.nota || null,
+        gg_disponibilita: clienteData.gg_disponibilita ?? null,
+        gg_subaffittato: clienteData.gg_subaffittato ?? null,
+        coin_ricevuti_formatted: clienteData.coin_ricevuti_formatted || null,
+        coin_spesi_formatted: clienteData.coin_spesi_formatted || null,
         stabilimento_id: stab?.id || null,
         stabilimento_nome: stab?.nome || '',
         stabilimento_telefono: stab?.telefono || '',

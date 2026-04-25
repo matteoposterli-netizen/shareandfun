@@ -38,6 +38,21 @@ async function loadUserAndRoute() {
     await loadManagerData();
     showView('manager');
   } else {
+    // Dopo un reset stagione `clienti_stagionali.user_id` viene azzerato ma
+    // il record auth.users resta vivo: senza questo check, il vecchio cliente
+    // potrebbe ancora autenticarsi e vedere la home stagionale vuota.
+    const { data: cliente } = await sb.from('clienti_stagionali')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+    if (!cliente) {
+      await sb.auth.signOut();
+      currentUser = null; currentProfile = null; currentStabilimento = null;
+      updateNav();
+      showView('auth', 'login');
+      alert('Il tuo account stagionale non è più attivo: la stagione è stata chiusa dal tuo stabilimento. Per la prossima stagione riceverai un nuovo invito.');
+      return;
+    }
     showView('stagionale');
     await loadStagionaleData();
   }

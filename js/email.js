@@ -18,6 +18,11 @@ const DEFAULT_EMAIL_TEMPLATES = {
     "Ciao {{nome}}!\n\n" +
     "Abbiamo registrato l'utilizzo di {{importo}} dal tuo saldo. Ti restano {{saldo}}.\n\n" +
     "Grazie, e a presto sotto l'ombrellone! ☂️",
+  chiusura_stagione_oggetto: "🌅 La stagione è finita — grazie {{nome}}!",
+  chiusura_stagione_testo:
+    "Ciao {{nome}}! 🌊\n\n" +
+    "La stagione su {{stabilimento}} è ufficialmente conclusa: il tuo account su SpiaggiaMia non sarà più attivo fino alla riapertura della prossima stagione.\n\n" +
+    "Grazie per averci accompagnato! Ci vediamo l'estate prossima sotto l'ombrellone. ☂️",
 };
 
 function toggleEmailSection(tipo) {
@@ -37,13 +42,13 @@ function updateCounter(id, max) {
 async function loadEmailTemplates() {
   if (!currentStabilimento) return;
   const { data: stab } = await sb.from('stabilimenti')
-    .select('email_benvenuto_oggetto,email_benvenuto_testo,email_invito_oggetto,email_invito_testo,email_credito_accreditato_oggetto,email_credito_accreditato_testo,email_credito_ritirato_oggetto,email_credito_ritirato_testo')
+    .select('email_benvenuto_oggetto,email_benvenuto_testo,email_invito_oggetto,email_invito_testo,email_credito_accreditato_oggetto,email_credito_accreditato_testo,email_credito_ritirato_oggetto,email_credito_ritirato_testo,email_chiusura_stagione_oggetto,email_chiusura_stagione_testo')
     .eq('id', currentStabilimento.id).single();
   if (!stab) return;
-  const fields = ['benvenuto-oggetto','benvenuto-testo','invito-oggetto','invito-testo','credito-accreditato-oggetto','credito-accreditato-testo','credito-ritirato-oggetto','credito-ritirato-testo'];
-  const keys = ['email_benvenuto_oggetto','email_benvenuto_testo','email_invito_oggetto','email_invito_testo','email_credito_accreditato_oggetto','email_credito_accreditato_testo','email_credito_ritirato_oggetto','email_credito_ritirato_testo'];
-  const defaults = ['benvenuto_oggetto','benvenuto_testo','invito_oggetto','invito_testo','credito_accreditato_oggetto','credito_accreditato_testo','credito_ritirato_oggetto','credito_ritirato_testo'];
-  const maxes = [80,500,80,500,80,500,80,500];
+  const fields = ['benvenuto-oggetto','benvenuto-testo','invito-oggetto','invito-testo','credito-accreditato-oggetto','credito-accreditato-testo','credito-ritirato-oggetto','credito-ritirato-testo','chiusura-stagione-oggetto','chiusura-stagione-testo'];
+  const keys = ['email_benvenuto_oggetto','email_benvenuto_testo','email_invito_oggetto','email_invito_testo','email_credito_accreditato_oggetto','email_credito_accreditato_testo','email_credito_ritirato_oggetto','email_credito_ritirato_testo','email_chiusura_stagione_oggetto','email_chiusura_stagione_testo'];
+  const defaults = ['benvenuto_oggetto','benvenuto_testo','invito_oggetto','invito_testo','credito_accreditato_oggetto','credito_accreditato_testo','credito_ritirato_oggetto','credito_ritirato_testo','chiusura_stagione_oggetto','chiusura_stagione_testo'];
+  const maxes = [80,500,80,500,80,500,80,500,80,500];
   fields.forEach((f, i) => {
     const el = document.getElementById('email-' + f);
     if (!el) return;
@@ -62,6 +67,8 @@ async function saveEmailTemplates() {
     email_credito_accreditato_testo: document.getElementById('email-credito-accreditato-testo').value,
     email_credito_ritirato_oggetto: document.getElementById('email-credito-ritirato-oggetto').value,
     email_credito_ritirato_testo: document.getElementById('email-credito-ritirato-testo').value,
+    email_chiusura_stagione_oggetto: document.getElementById('email-chiusura-stagione-oggetto').value,
+    email_chiusura_stagione_testo: document.getElementById('email-chiusura-stagione-testo').value,
   }).eq('id', currentStabilimento.id);
   showAlert('email-save-alert', error ? error.message : 'Template email salvati con successo!', error ? 'error' : 'success');
   if (!error) {
