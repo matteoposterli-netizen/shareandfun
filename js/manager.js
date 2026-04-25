@@ -2299,6 +2299,8 @@ async function confirmEditRow() {
       if (!existing.user_id) update.email = email;
       const { error } = await sb.from('clienti_stagionali').update(update).eq('id', existing.id);
       if (error) { showAlert('edit-row-alert', error.message, 'error'); return; }
+      Object.assign(existing, update);
+      renderGestioneFiltered();
     } else {
       const occupant = findOmbOccupant(ombId, email);
       if (occupant) {
