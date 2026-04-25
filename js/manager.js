@@ -767,20 +767,11 @@ function updateClientiBulkToolbar() {
   }
 }
 
-async function invitaSingolo(id) {
+function invitaSingolo(id) {
   const c = clientiList.find(x => x.id === id);
   if (!c) return;
   if (!c.invito_token) { alert('Token invito mancante, impossibile inviare.'); return; }
-  const omb = c.ombrellone_id ? ombrelloniList.find(o => o.id === c.ombrellone_id) : null;
-  const ombStr = omb ? `Fila ${omb.fila} N°${omb.numero}` : '';
-  const inviteLink = `${window.location.origin}/?invito=${c.invito_token}`;
-  const ok = await retryUntilTrue(
-    () => inviaEmail('invito', { email: c.email, nome: c.nome, cognome: c.cognome, ombrellone: ombStr, invite_link: inviteLink }, currentStabilimento),
-    3, 500
-  );
-  await sb.from('clienti_stagionali').update({ invitato_at: new Date().toISOString() }).eq('id', id);
-  alert(ok ? '✉️ Invito inviato.' : '⚠ Invio email fallito. Riprova più tardi.');
-  await loadManagerData();
+  openBulkInviteModal([id]);
 }
 
 let creditiPeriodoStats = {};

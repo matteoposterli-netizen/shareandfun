@@ -548,10 +548,14 @@ async function coalesceImportAudit(sinceIso, info) {
   } catch (e) { console.error('audit coalesce import failed', e); }
 }
 
-function openBulkInviteModal() {
-  if (!selectedClienteIds.size) return;
-  bulkInviteTargets = clientiList.filter(c => selectedClienteIds.has(c.id) && !c.user_id && c.invito_token);
-  const skipped = selectedClienteIds.size - bulkInviteTargets.length;
+function openBulkInviteModal(forcedIds = null) {
+  const useSelection = !Array.isArray(forcedIds);
+  bulkInviteFromSelection = useSelection;
+  const sourceIds = useSelection ? Array.from(selectedClienteIds) : forcedIds;
+  if (!sourceIds.length) return;
+  const sourceSet = new Set(sourceIds);
+  bulkInviteTargets = clientiList.filter(c => sourceSet.has(c.id) && !c.user_id && c.invito_token);
+  const skipped = sourceIds.length - bulkInviteTargets.length;
 
   const listEl = document.getElementById('bulk-dest-list');
   listEl.innerHTML = bulkInviteTargets.length
@@ -622,7 +626,7 @@ async function confirmBulkInvite() {
   btn.textContent = `Invia a ${bulkInviteTargets.length} clienti`;
   if (!failed) {
     closeModal('modal-bulk-invite');
-    selectedClienteIds.clear();
+    if (bulkInviteFromSelection) selectedClienteIds.clear();
     await loadManagerData();
   } else {
     showAlert('bulk-invite-alert', `⚠ ${sent} inviati, ${failed} falliti. Vedi console.`, 'error');

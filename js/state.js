@@ -24,5 +24,6 @@ let xlsxRows = [];
 let selectedClienteIds = new Set();
 let pendingConflict = null;
 let bulkInviteTargets = [];
+let bulkInviteFromSelection = true;
 let bookingSelection = new Set();
 let cancelBookingGroups = new Map();
