@@ -284,11 +284,15 @@ async function loadManagerData() {
 }
 
 async function loadPanoramicaDefaultIfEmpty() {
-  if (document.getElementById('pano-overview') && typeof panoramicaInit === 'function') {
-    panoramicaInit();
-  } else {
-    if (typeof loadDashboardUpcomingKpis === 'function') await loadDashboardUpcomingKpis(todayStr());
-    if (typeof loadDashboardCreditsKpis === 'function') await loadDashboardCreditsKpis();
+  try {
+    if (document.getElementById('pano-overview') && typeof panoramicaInit === 'function') {
+      panoramicaInit();
+    } else {
+      if (typeof loadDashboardUpcomingKpis === 'function') await loadDashboardUpcomingKpis(todayStr());
+      if (typeof loadDashboardCreditsKpis === 'function') await loadDashboardCreditsKpis();
+    }
+  } catch (e) {
+    console.error('Panoramica init failed:', e);
   }
 }
 
@@ -1208,7 +1212,9 @@ function managerTab(tab, btn) {
   panel.classList.add('active');
   document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  if (tab === 'panoramica' && typeof panoramicaInit === 'function') panoramicaInit();
+  if (tab === 'panoramica' && typeof panoramicaInit === 'function') {
+    try { panoramicaInit(); } catch (e) { console.error('panoramicaInit failed:', e); }
+  }
   if (tab === 'config') {
     loadEmailTemplates();
     if (typeof loadStagione === 'function') loadStagione();
