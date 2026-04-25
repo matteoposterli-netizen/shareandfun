@@ -24,6 +24,18 @@ function enhanceDateInputs(root) {
 
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
+function togglePasswordVisibility(btn) {
+  const wrap = btn.closest('.password-wrap');
+  if (!wrap) return;
+  const input = wrap.querySelector('input');
+  if (!input) return;
+  const showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  btn.classList.toggle('is-visible', !showing);
+  btn.setAttribute('aria-label', showing ? 'Mostra password' : 'Nascondi password');
+  btn.setAttribute('aria-pressed', showing ? 'false' : 'true');
+}
+
 function showAlert(containerId, msg, type) {
   if (!containerId) return;
   const el = document.getElementById(containerId);
