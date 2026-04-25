@@ -23,8 +23,11 @@ function switchConfigSubtab(sub, btn) {
 /* ---------- Stagione: load/save ---------- */
 function loadStagione() {
   if (!currentStabilimento) return;
-  const inizio = currentStabilimento.data_inizio_stagione || '';
-  const fine = currentStabilimento.data_fine_stagione || '';
+  const year = new Date().getFullYear();
+  const rawI = currentStabilimento.data_inizio_stagione;
+  const rawF = currentStabilimento.data_fine_stagione;
+  const inizio = (rawI ? String(rawI).slice(0, 10) : '') || `${year}-04-01`;
+  const fine   = (rawF ? String(rawF).slice(0, 10) : '') || `${year}-09-30`;
   const elI = document.getElementById('stagione-inizio');
   const elF = document.getElementById('stagione-fine');
   if (elI) elI.value = inizio;
