@@ -132,7 +132,8 @@ function renderResetSummary() {
   rows.push({ kind: 'kill', icon: '🗑️', text: 'Cancella tutte le transazioni' });
   if (mantieniCb) {
     rows.push({ kind: 'kill', icon: '🗑️', text: 'Azzera i saldi coin di tutti i clienti' });
-    rows.push({ kind: 'keep', icon: '✓',  text: 'Mantiene clienti stagionali e mappa ombrelloni' });
+    rows.push({ kind: 'kill', icon: '🔄', text: 'Resetta lo stato di registrazione: i clienti tornano "Mai invitato" e dovranno essere reinvitati' });
+    rows.push({ kind: 'keep', icon: '✓',  text: 'Mantiene anagrafiche clienti (nome, cognome, email, telefono, ombrellone) e mappa' });
   } else {
     rows.push({ kind: 'kill', icon: '🗑️', text: 'Cancella tutti i clienti stagionali' });
     rows.push({ kind: 'kill', icon: '🗑️', text: 'Cancella tutti gli ombrelloni della mappa' });
