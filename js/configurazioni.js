@@ -7,10 +7,10 @@
 
 /* ---------- Configurazioni → subtab switcher ---------- */
 function switchConfigSubtab(sub, btn) {
-  document.querySelectorAll('.config-subpanel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#mtab-config > .config-subpanel').forEach(p => p.classList.remove('active'));
   const panel = document.getElementById('config-sub-' + sub);
   if (panel) panel.classList.add('active');
-  document.querySelectorAll('.config-subtab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#mtab-config > .config-subtabs .config-subtab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   if (sub === 'stagione') {
     loadStagione();
