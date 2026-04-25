@@ -2086,9 +2086,42 @@ async function resolveConflict(choice) {
   else if (kind === 'edit') await saveEditedCliente(p);
 }
 
-function openEditRowModal(ombId) {
+let editRowSnapshot = null;
+const EDIT_ROW_FIELDS = ['fila','numero','credito','nome','cognome','email','telefono'];
+
+function getEditRowFormValues() {
+  const v = {};
+  EDIT_ROW_FIELDS.forEach(f => {
+    v[f] = (document.getElementById(`edit-row-${f}`).value || '').trim();
+  });
+  return v;
+}
+
+function isEditRowDirty() {
+  if (!editRowSnapshot) return true;
+  const cur = getEditRowFormValues();
+  return EDIT_ROW_FIELDS.some(f => cur[f] !== editRowSnapshot[f]);
+}
+
+function refreshEditRowConfirmBtn() {
+  const btn = document.getElementById('edit-row-confirm-btn');
+  if (!btn) return;
+  btn.textContent = isEditRowDirty() ? 'Salva modifiche' : 'Chiudi';
+}
+
+function attachEditRowChangeListeners() {
+  EDIT_ROW_FIELDS.forEach(f => {
+    const el = document.getElementById(`edit-row-${f}`);
+    if (el && !el.dataset.listenerAttached) {
+      el.addEventListener('input', refreshEditRowConfirmBtn);
+      el.dataset.listenerAttached = '1';
+    }
+  });
+}
+
+function populateEditRowFromData(ombId) {
   const omb = ombrelloniList.find(o => o.id === ombId);
-  if (!omb) return;
+  if (!omb) return false;
   const cliente = (clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === ombId) || null;
   document.getElementById('edit-row-omb-id').value = omb.id;
   document.getElementById('edit-row-cl-id').value = cliente?.id || '';
@@ -2102,11 +2135,29 @@ function openEditRowModal(ombId) {
   const emailInput = document.getElementById('edit-row-email');
   emailInput.disabled = !!cliente?.user_id;
   emailInput.title = cliente?.user_id ? 'Email non modificabile: il cliente è già attivo.' : '';
+  return true;
+}
+
+async function refreshEditRowAfterSave(ombId, { skipReload = false } = {}) {
+  if (!skipReload) await loadManagerData();
+  if (!populateEditRowFromData(ombId)) { closeModal('modal-edit-row'); return; }
+  editRowSnapshot = getEditRowFormValues();
+  refreshEditRowConfirmBtn();
+  showAlert('edit-row-alert', '✅ Modifiche salvate con successo', 'success');
+}
+
+function openEditRowModal(ombId) {
+  if (!populateEditRowFromData(ombId)) return;
   showAlert('edit-row-alert', '', '');
+  editRowSnapshot = getEditRowFormValues();
+  attachEditRowChangeListeners();
+  refreshEditRowConfirmBtn();
   document.getElementById('modal-edit-row').classList.remove('hidden');
 }
 
 async function confirmEditRow() {
+  if (!isEditRowDirty()) { closeModal('modal-edit-row'); return; }
+
   const ombId = document.getElementById('edit-row-omb-id').value;
   const clId  = document.getElementById('edit-row-cl-id').value || null;
   const omb = ombrelloniList.find(o => o.id === ombId);
@@ -2130,8 +2181,7 @@ async function confirmEditRow() {
   if (!hasCliente && existing) {
     if (existing.user_id) { showAlert('edit-row-alert', 'Impossibile rimuovere un cliente già attivo. Usa 🗑️ per eliminarlo.', 'error'); return; }
     await sb.from('clienti_stagionali').delete().eq('id', existing.id);
-    closeModal('modal-edit-row');
-    await loadManagerData();
+    await refreshEditRowAfterSave(ombId);
     return;
   }
 
@@ -2158,12 +2208,12 @@ async function confirmEditRow() {
         return;
       }
       await saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito: false });
+      await refreshEditRowAfterSave(ombId, { skipReload: true });
       return;
     }
   }
 
-  closeModal('modal-edit-row');
-  await loadManagerData();
+  await refreshEditRowAfterSave(ombId);
 }
 
 async function saveEditedCliente({ id, nome, cognome, email, telefono, ombId }) {
@@ -2173,11 +2223,10 @@ async function saveEditedCliente({ id, nome, cognome, email, telefono, ombId }) 
     if (!c?.user_id) update.email = email;
     const { error } = await sb.from('clienti_stagionali').update(update).eq('id', id);
     if (error) { showAlert('edit-row-alert', error.message, 'error'); return; }
-    closeModal('modal-edit-row');
-    await loadManagerData();
+    await refreshEditRowAfterSave(ombId);
   } else {
     await saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito: false });
-    closeModal('modal-edit-row');
+    await refreshEditRowAfterSave(ombId, { skipReload: true });
   }
 }
 
