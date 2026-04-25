@@ -277,32 +277,118 @@ async function bulkAvanzateRemoveDisponibilita() {
 
 async function applyForceDisponibile(ombIds, dates, alertId) {
   if (!ombIds.length || !dates.length) return;
-  const rows = [];
-  ombIds.forEach(id => dates.forEach(d => rows.push({ ombrellone_id: id, data: d, stato: 'libero' })));
-  const { error } = await sb.from('disponibilita')
-    .upsert(rows, { onConflict: 'ombrellone_id,data', ignoreDuplicates: true });
-  if (error) {
-    showAlert(alertId, 'Errore: ' + error.message, 'error');
+
+  // 1. Leggi le righe esistenti nel range per scartare quelle già presenti
+  //    (libero o sub_affittato): sono trattate come "no-op" e non generano transazione.
+  const sortedDates = [...dates].sort();
+  const fromD = sortedDates[0];
+  const toD = sortedDates[sortedDates.length - 1];
+  const { data: existing, error: readErr } = await sb.from('disponibilita')
+    .select('ombrellone_id, data')
+    .in('ombrellone_id', ombIds)
+    .gte('data', fromD)
+    .lte('data', toD);
+  if (readErr) {
+    showAlert(alertId, 'Errore lettura disponibilità: ' + readErr.message, 'error');
     return false;
   }
-  showAlert(alertId, `✓ Disponibilità impostata su ${rows.length} righ${rows.length === 1 ? 'a' : 'e'}.`, 'info');
+  const existingSet = new Set((existing || []).map(r => `${r.ombrellone_id}|${r.data}`));
+
+  // 2. Costruisci righe da inserire (solo le coppie davvero nuove) + transazioni gemelle
+  const dispRows = [];
+  const txRows = [];
+  const dateSet = new Set(dates);
+  ombIds.forEach(id => {
+    const cliente = (clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === id) || null;
+    sortedDates.forEach(d => {
+      if (!dateSet.has(d)) return;
+      if (existingSet.has(`${id}|${d}`)) return;
+      const row = { ombrellone_id: id, data: d, stato: 'libero' };
+      if (cliente) row.cliente_id = cliente.id;
+      dispRows.push(row);
+      txRows.push({
+        stabilimento_id: currentStabilimento.id,
+        ombrellone_id: id,
+        cliente_id: cliente?.id || null,
+        tipo: 'disponibilita_aggiunta',
+        importo: null,
+        nota: `Disponibilità impostata dal gestore per ${formatDate(d)}`,
+      });
+    });
+  });
+
+  if (!dispRows.length) {
+    showAlert(alertId, 'Tutte le date erano già impostate: nessuna modifica.', 'info');
+    setTimeout(() => showAlert(alertId, '', ''), 3000);
+    return true;
+  }
+
+  const { error: dispErr } = await sb.from('disponibilita').insert(dispRows);
+  if (dispErr) {
+    showAlert(alertId, 'Errore disponibilità: ' + dispErr.message, 'error');
+    return false;
+  }
+  const { error: txErr } = await sb.from('transazioni').insert(txRows);
+  if (txErr) {
+    // Best effort: la disponibilità è in piedi, segnaliamo solo lo storico mancante.
+    showAlert(alertId, `✓ ${dispRows.length} disponibilità impostate (transazioni non registrate: ${txErr.message})`, 'error');
+    return true;
+  }
+  showAlert(alertId, `✓ ${dispRows.length} disponibilità impostate.`, 'info');
   setTimeout(() => showAlert(alertId, '', ''), 3000);
   return true;
 }
 
 async function applyRemoveDisponibilita(ombIds, from, to, alertId) {
   if (!ombIds.length) return;
-  const { error, count } = await sb.from('disponibilita')
-    .delete({ count: 'exact' })
+
+  // 1. Leggi le righe libero che verranno cancellate (per generare le transazioni)
+  const { data: toDelete, error: readErr } = await sb.from('disponibilita')
+    .select('ombrellone_id, data, cliente_id')
     .in('ombrellone_id', ombIds)
     .gte('data', from)
     .lte('data', to)
     .eq('stato', 'libero');
-  if (error) {
-    showAlert(alertId, 'Errore: ' + error.message, 'error');
+  if (readErr) {
+    showAlert(alertId, 'Errore lettura disponibilità: ' + readErr.message, 'error');
     return false;
   }
-  showAlert(alertId, `✓ Rimosse ${count || 0} disponibilità.`, 'info');
+  if (!toDelete || toDelete.length === 0) {
+    showAlert(alertId, 'Nessuna disponibilità da rimuovere nel periodo.', 'info');
+    setTimeout(() => showAlert(alertId, '', ''), 3000);
+    return true;
+  }
+
+  // 2. DELETE
+  const { error: delErr } = await sb.from('disponibilita')
+    .delete()
+    .in('ombrellone_id', ombIds)
+    .gte('data', from)
+    .lte('data', to)
+    .eq('stato', 'libero');
+  if (delErr) {
+    showAlert(alertId, 'Errore: ' + delErr.message, 'error');
+    return false;
+  }
+
+  // 3. Transazioni gemelle (cliente_id risolto da clientiList se non era valorizzato)
+  const txRows = toDelete.map(r => {
+    const cliente = (clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === r.ombrellone_id) || null;
+    return {
+      stabilimento_id: currentStabilimento.id,
+      ombrellone_id: r.ombrellone_id,
+      cliente_id: r.cliente_id || cliente?.id || null,
+      tipo: 'disponibilita_rimossa',
+      importo: null,
+      nota: `Disponibilità rimossa dal gestore per ${formatDate(r.data)}`,
+    };
+  });
+  const { error: txErr } = await sb.from('transazioni').insert(txRows);
+  if (txErr) {
+    showAlert(alertId, `✓ Rimosse ${toDelete.length} disponibilità (transazioni non registrate: ${txErr.message})`, 'error');
+    return true;
+  }
+  showAlert(alertId, `✓ Rimosse ${toDelete.length} disponibilità.`, 'info');
   setTimeout(() => showAlert(alertId, '', ''), 3000);
   return true;
 }
