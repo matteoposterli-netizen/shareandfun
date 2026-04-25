@@ -1,6 +1,10 @@
 function showView(viewId, sub) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + viewId).classList.add('active');
+  // Espone la view attiva come classe sul body così il CSS può adattare layout globali
+  // (es. nascondere la topnav nella vista stagionale che ha un header self-contained).
+  document.body.className = document.body.className.replace(/\bview-[a-z0-9-]+\b/g, '').trim();
+  document.body.classList.add('view-' + viewId);
   if (viewId === 'auth' && sub) toggleAuth(sub);
 }
 

@@ -1219,56 +1219,95 @@
 </div>
 
 <!-- DASHBOARD STAGIONALE -->
-<div id="view-stagionale" class="view">
-  <div class="main-content" style="max-width:880px;margin:0 auto;">
-    <div class="user-hero">
-      <div>
-        <div class="user-greet">Benvenuto,</div>
-        <div class="user-name" id="stag-nome">–</div>
-        <div class="user-ombrellone" id="stag-ombrellone">Caricamento...</div>
+<div id="view-stagionale" class="view stag-view">
+  <div class="stag-app">
+    <div class="stag-header">
+      <div class="stag-header-top">
+        <span class="stag-logo">🌊 SpiaggiaMia</span>
+        <button class="stag-exit-btn" onclick="doLogout()">Esci</button>
       </div>
-      <div class="credit-box">
-        <div class="credit-label">Credito disponibile</div>
-        <div class="credit-amount" id="stag-credito">–</div>
-        <div class="credit-sub">Da usare al bar / ristorante</div>
+      <div class="stag-welcome-sub">Benvenuto/a,</div>
+      <div class="stag-welcome-name" id="stag-nome">–</div>
+      <div class="stag-omb-info" id="stag-ombrellone">Caricamento...</div>
+      <div class="stag-coin-card">
+        <div class="stag-coin-info">
+          <div class="stag-coin-label">Credito disponibile</div>
+          <div class="stag-coin-val" id="stag-credito">–</div>
+          <div class="stag-coin-sub">Da usare al bar / ristorante</div>
+        </div>
+        <div class="stag-coin-badge">C</div>
       </div>
     </div>
-    <div class="stag-grid">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">📅 Segna i giorni in cui sei disponibile</div>
-          <button class="btn btn-green btn-sm" onclick="toggleTodayFree()">+ Oggi sono assente</button>
-        </div>
-        <div class="card-body">
-          <div class="alert alert-info" style="font-size:13px;line-height:1.55;margin-bottom:12px">
-            Clicca sul calendario per <strong>selezionare</strong> i giorni in cui non userai l'ombrellone (o per <strong>rimuovere</strong> giorni già dichiarati liberi). Le modifiche diventano definitive solo quando premi <strong>Salva modifiche</strong>.
-            Quando un giorno viene sub-affittato, il colore della casella <strong>cambia</strong> e ricevi un'<strong>email di conferma</strong> con il credito accreditato.
+
+    <div class="stag-tabs">
+      <button class="stag-tab active" data-stag-tab="cal" onclick="stagSwitchTab('cal', this)">Calendario</button>
+      <button class="stag-tab" data-stag-tab="tx" onclick="stagSwitchTab('tx', this)">Transazioni</button>
+    </div>
+
+    <div class="stag-body">
+      <div class="stag-tab-content" id="stag-tab-cal">
+        <div id="stag-alert"></div>
+        <div id="stag-stagione-banner" class="alert alert-info" style="font-size:12px;margin-bottom:10px;display:none"></div>
+
+        <div class="stag-card">
+          <div class="stag-quick-title">
+            Seleziona i giorni liberi
+            <span class="stag-quick-sub">tocca per aggiungere / rimuovere</span>
           </div>
-          <div id="stag-alert" style="margin-bottom:8px"></div>
-          <div id="stag-stagione-banner" class="alert alert-info" style="font-size:12px;margin-bottom:10px;display:none"></div>
+          <div class="stag-quick-grid" id="stag-quick-grid"></div>
+          <button class="stag-weekend-btn" id="stag-weekend-btn" onclick="stagToggleWeekend()" disabled>
+            <span id="stag-weekend-label">Prossimo weekend</span>
+            <span class="stag-weekend-tag" id="stag-weekend-tag">Libero?</span>
+          </button>
+        </div>
+
+        <button class="stag-howto-btn" id="stag-howto-btn" onclick="stagToggleHowto()">
+          <span class="stag-howto-label">Come funziona il sub-affitto?</span>
+          <span class="stag-howto-arrow" id="stag-howto-arrow">▼</span>
+        </button>
+        <div class="stag-howto-body" id="stag-howto-body" style="display:none">
+          <div class="stag-step"><div class="stag-step-num">1</div><div class="stag-step-txt">Segna i giorni in cui non userai il tuo ombrellone (dal selettore rapido o dal calendario)</div></div>
+          <div class="stag-step"><div class="stag-step-num">2</div><div class="stag-step-txt">Lo stabilimento potrà sub-affittare il tuo posto a un cliente giornaliero</div></div>
+          <div class="stag-step"><div class="stag-step-num">3</div><div class="stag-step-txt">Ricevi Coin nel wallet da spendere al bar o al ristorante</div></div>
+        </div>
+
+        <div class="stag-section-title">Tutto il mese</div>
+        <div class="stag-card stag-card-cal">
           <div class="cal-header">
             <button class="cal-nav" onclick="calNav(-1)">‹</button>
             <div class="cal-month" id="cal-label"></div>
             <button class="cal-nav" onclick="calNav(1)">›</button>
           </div>
           <div class="cal-days-header">
-            <div class="cal-day-name">Lun</div><div class="cal-day-name">Mar</div><div class="cal-day-name">Mer</div>
-            <div class="cal-day-name">Gio</div><div class="cal-day-name">Ven</div><div class="cal-day-name">Sab</div><div class="cal-day-name">Dom</div>
+            <div class="cal-day-name">L</div><div class="cal-day-name">M</div><div class="cal-day-name">M</div>
+            <div class="cal-day-name">G</div><div class="cal-day-name">V</div><div class="cal-day-name">S</div><div class="cal-day-name">D</div>
           </div>
           <div class="cal-days-grid" id="stag-calendar"></div>
-          <div id="stag-pending-bar" class="stag-pending-bar" style="display:none"></div>
           <div class="cal-legend">
-            <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Dichiarato libero</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Libero</div>
             <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
-            <div class="legend-item"><div class="legend-dot" style="background:rgba(150,221,184,0.35);border:1.5px dashed var(--green)"></div>Da salvare (aggiunta)</div>
-            <div class="legend-item"><div class="legend-dot" style="background:rgba(224,123,84,0.15);border:1.5px dashed var(--coral)"></div>Da salvare (rimozione)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:rgba(150,221,184,0.35);border:1.5px dashed var(--green)"></div>Da salvare</div>
             <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,#EEE 0 4px,#DDD 4px 8px);border:1.5px solid #BBB"></div>Non modificabile</div>
           </div>
         </div>
+
+        <div id="stag-pending-bar" class="stag-pending-bar" style="display:none"></div>
+
+        <div class="stag-stats-grid">
+          <div class="stag-stat-card stag-stat-green">
+            <div class="stag-stat-val stag-stat-val-green" id="stag-stat-free">0</div>
+            <div class="stag-stat-lbl">Giorni liberi</div>
+          </div>
+          <div class="stag-stat-card stag-stat-amber">
+            <div class="stag-stat-val stag-stat-val-amber" id="stag-stat-sub">0</div>
+            <div class="stag-stat-lbl">Sub-affittati</div>
+          </div>
+        </div>
+        <div class="stag-hint">Tocca un giorno per dichiararlo libero · Tocca ancora per annullare</div>
       </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">📋 Le mie transazioni</div></div>
-        <div id="stag-tx-list"><div class="tx-empty">Caricamento...</div></div>
+
+      <div class="stag-tab-content" id="stag-tab-tx" style="display:none">
+        <div class="stag-tx-card" id="stag-tx-list"><div class="tx-empty">Caricamento...</div></div>
       </div>
     </div>
   </div>

@@ -1590,3 +1590,208 @@ body {
 }
 .combobox-item-saldo { flex-shrink: 0; font-size: 13px; color: var(--text-mid); font-variant-numeric: tabular-nums; }
 .combobox-empty { padding: 14px 12px; font-size: 13px; color: var(--text-light); text-align: center; }
+
+/* ============================================================
+   STAGIONALE — pagina cliente (mobile-first, redesign)
+   ============================================================ */
+
+/* Hide global topnav when stagionale view is active (mobile-first design has its own header) */
+body.view-stagionale .topnav,
+body:has(#view-stagionale.active) .topnav { display: none; }
+
+.stag-view { background: #f8fafc; }
+.stag-view.active { display: block; min-height: 100vh; min-height: 100dvh; }
+.stag-app {
+  max-width: 480px; margin: 0 auto;
+  background: #f8fafc; min-height: 100vh; min-height: 100dvh;
+  padding-bottom: 40px;
+  font-family: 'DM Sans', 'Segoe UI', sans-serif;
+}
+
+.stag-header { background: #0e7490; padding: 18px 16px 22px; }
+.stag-header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.stag-logo { font-size: 16px; font-weight: 600; color: #cffafe; font-family: 'DM Serif Display', serif; }
+.stag-exit-btn {
+  font-size: 12px; background: none; border: 1px solid #67e8f9; color: #cffafe;
+  padding: 6px 14px; border-radius: 8px; cursor: pointer; font-family: inherit;
+}
+.stag-exit-btn:hover { background: rgba(255,255,255,0.08); }
+.stag-welcome-sub { font-size: 12px; color: #a5f3fc; margin-bottom: 2px; }
+.stag-welcome-name { font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 4px; line-height: 1.15; word-break: break-word; }
+.stag-omb-info { font-size: 13px; color: #cffafe; margin-bottom: 14px; opacity: 0.9; word-break: break-word; }
+.stag-coin-card {
+  background: #fff; border-radius: 12px; padding: 14px 16px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.stag-coin-info { min-width: 0; flex: 1; }
+.stag-coin-label { font-size: 11px; color: #64748b; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.stag-coin-val { font-size: 24px; font-weight: 700; color: #1e293b; line-height: 1.1; word-break: break-word; }
+.stag-coin-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+.stag-coin-badge {
+  width: 40px; height: 40px; border-radius: 50%; background: #fef3c7;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700; color: #d97706; flex-shrink: 0;
+}
+
+.stag-tabs {
+  display: flex; background: #fff; border-bottom: 1px solid #e2e8f0;
+  position: sticky; top: 0; z-index: 10;
+}
+.stag-tab {
+  flex: 1; padding: 13px 0; font-size: 13px; font-weight: 600;
+  background: none; border: none; cursor: pointer;
+  color: #94a3b8; border-bottom: 2px solid transparent;
+  font-family: inherit;
+}
+.stag-tab.active { color: #0e7490; border-bottom-color: #0e7490; }
+
+.stag-body { padding: 14px; }
+
+.stag-section-title {
+  font-size: 11px; font-weight: 700; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px;
+}
+
+.stag-card {
+  background: #fff; border-radius: 16px; padding: 16px 14px;
+  margin-bottom: 12px; border: 1px solid #e2e8f0;
+}
+.stag-card-cal { padding: 14px 12px; }
+
+.stag-quick-title { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 12px; }
+.stag-quick-sub { color: #94a3b8; font-weight: 400; font-size: 12px; margin-left: 6px; }
+.stag-quick-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;
+}
+.stag-qday-btn {
+  padding: 10px 6px; border-radius: 10px; border: 1px solid #e2e8f0;
+  background: #fff; cursor: pointer; text-align: center;
+  font-family: inherit; transition: background .12s, border-color .12s;
+}
+.stag-qday-btn:hover:not(:disabled) { border-color: #0e7490; }
+.stag-qday-btn.free { background: #dcfce7; border-color: #86efac; }
+.stag-qday-btn.sub { background: #fef3c7; border-color: #fcd34d; cursor: default; }
+.stag-qday-btn.pending-add { background: rgba(150, 221, 184, 0.35); border-color: var(--green); border-style: dashed; }
+.stag-qday-btn.pending-remove { background: rgba(224, 123, 84, 0.15); border-color: var(--coral); border-style: dashed; }
+.stag-qday-btn.restricted { background: repeating-linear-gradient(45deg, #f5f5f5 0 4px, #ececec 4px 8px); cursor: not-allowed; opacity: 0.7; }
+.stag-qday-btn:disabled { cursor: default; }
+.stag-qday-name { font-size: 11px; color: #94a3b8; margin-bottom: 3px; }
+.stag-qday-num { font-size: 20px; font-weight: 700; color: #1e293b; }
+.stag-qday-month { font-size: 10px; color: #cbd5e1; }
+.stag-qday-btn.free .stag-qday-num { color: #16a34a; }
+.stag-qday-btn.sub .stag-qday-num { color: #d97706; }
+
+.stag-weekend-btn {
+  width: 100%; padding: 11px; border-radius: 10px; border: 1px solid #e2e8f0;
+  background: #f8fafc; cursor: pointer; font-size: 13px; font-weight: 600;
+  color: #1e293b; display: flex; justify-content: space-between; align-items: center;
+  font-family: inherit; gap: 10px;
+}
+.stag-weekend-btn:hover:not(:disabled) { border-color: #0e7490; }
+.stag-weekend-btn.active { background: #dcfce7; border-color: #86efac; color: #16a34a; }
+.stag-weekend-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.stag-weekend-tag {
+  font-size: 11px; font-weight: 500; color: #94a3b8;
+  background: #f1f5f9; padding: 3px 10px; border-radius: 20px;
+  white-space: nowrap;
+}
+.stag-weekend-btn.active .stag-weekend-tag { background: #fff; color: #16a34a; }
+
+.stag-howto-btn {
+  width: 100%; background: #fef3c7; border: 1px solid #fcd34d;
+  border-radius: 10px; padding: 11px 14px;
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer; margin-bottom: 12px; font-family: inherit;
+}
+.stag-howto-label { font-size: 13px; font-weight: 600; color: #d97706; }
+.stag-howto-arrow { font-size: 11px; color: #d97706; }
+.stag-howto-btn.open { border-radius: 10px 10px 0 0; border-bottom-color: transparent; margin-bottom: 0; }
+.stag-howto-body {
+  background: #fef3c7; border: 1px solid #fcd34d; border-top: none;
+  border-radius: 0 0 10px 10px; padding: 8px 14px 14px; margin-bottom: 12px;
+}
+.stag-step { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; }
+.stag-step:last-child { margin-bottom: 0; }
+.stag-step-num {
+  min-width: 22px; height: 22px; border-radius: 50%;
+  background: #d97706; color: #fff; font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 1px;
+}
+.stag-step-txt { font-size: 12px; color: #92400e; line-height: 1.5; }
+
+.stag-stats-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 12px;
+}
+.stag-stat-card { border-radius: 10px; padding: 12px 14px; }
+.stag-stat-green { background: #dcfce7; }
+.stag-stat-amber { background: #fef3c7; }
+.stag-stat-val { font-size: 22px; font-weight: 700; margin-bottom: 2px; line-height: 1; }
+.stag-stat-val-green { color: #16a34a; }
+.stag-stat-val-amber { color: #d97706; }
+.stag-stat-lbl { font-size: 11px; color: #64748b; }
+.stag-hint { font-size: 11px; color: #94a3b8; text-align: center; padding-bottom: 8px; }
+
+.stag-tx-card {
+  background: #fff; border-radius: 16px; overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+.stag-tx-row {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.stag-tx-row:last-child { border-bottom: none; }
+.stag-tx-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; flex-shrink: 0;
+}
+.stag-tx-icon.earn { background: #dcfce7; color: #16a34a; }
+.stag-tx-icon.spend { background: #fee2e2; color: #dc2626; }
+.stag-tx-icon.info { background: #f1f5f9; color: #64748b; }
+.stag-tx-info { flex: 1; min-width: 0; }
+.stag-tx-label {
+  font-size: 13px; font-weight: 600; color: #1e293b;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.stag-tx-date { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+.stag-tx-amt { font-size: 14px; font-weight: 700; white-space: nowrap; }
+.stag-tx-amt.earn { color: #16a34a; }
+.stag-tx-amt.spend { color: #dc2626; }
+.stag-tx-amt.info { color: #94a3b8; font-weight: 500; font-size: 12px; }
+.stag-tx-card .tx-empty { padding: 36px; text-align: center; color: #94a3b8; font-size: 13px; }
+
+/* Pending bar in new layout */
+.stag-view .stag-pending-bar {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+  margin: 0 0 12px;
+}
+
+/* Calendar overrides inside the new mobile-first stagionale view */
+.stag-view .cal-header { margin-bottom: 12px; }
+.stag-view .cal-month { font-size: 15px; font-weight: 700; color: #1e293b; font-family: 'DM Sans', sans-serif; letter-spacing: 0; }
+.stag-view .cal-nav {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: #f1f5f9; border: 1px solid #e2e8f0;
+  color: #1e293b; font-size: 16px; font-weight: 600;
+}
+.stag-view .cal-day-name { font-size: 10px; color: #94a3b8; font-weight: 600; padding: 3px 0; }
+.stag-view .cal-days-header, .stag-view .cal-days-grid { gap: 3px; }
+.stag-view .cal-day {
+  border-radius: 7px; border-width: 1px; font-size: 12px; font-weight: 600;
+  background: #fff; color: #1e293b; border-color: #e2e8f0;
+}
+.stag-view .cal-day.today { background: #fff; color: #0e7490; border: 1.5px solid #0e7490; font-weight: 700; }
+.stag-view .cal-day.free { background: #dcfce7; color: #16a34a; border-color: #86efac; }
+.stag-view .cal-day.subleased { background: #fef3c7; color: #d97706; border-color: #fcd34d; }
+.stag-view .cal-legend { gap: 10px; padding: 12px 0 4px; margin-top: 12px; border-top: 1px solid #e2e8f0; }
+.stag-view .legend-item { font-size: 10px; color: #94a3b8; }
+.stag-view .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+@media (max-width: 380px) {
+  .stag-header { padding: 14px 12px 18px; }
+  .stag-welcome-name { font-size: 22px; }
+  .stag-coin-val { font-size: 20px; }
+  .stag-body { padding: 12px; }
+  .stag-card { padding: 14px 12px; }
+}

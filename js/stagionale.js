@@ -1,3 +1,5 @@
+let stagCurrentStab = null;
+
 async function loadStagionaleData() {
   const { data: cliente } = await sb.from('clienti_stagionali').select('*, ombrelloni(*, stabilimenti(*))').eq('user_id', currentUser.id).single();
 
@@ -8,6 +10,7 @@ async function loadStagionaleData() {
     document.getElementById('stag-tx-list').innerHTML = '<div class="tx-empty">Nessuna transazione</div>';
     stagStagione = null;
     stagRegole = [];
+    stagCurrentStab = null;
     buildCalendar([],[]);
     return;
   }
@@ -16,13 +19,19 @@ async function loadStagionaleData() {
   stagOmbrelloneId = cliente.ombrellone_id;
   const omb = cliente.ombrelloni;
   const stab = omb?.stabilimenti;
+  stagCurrentStab = stab;
   stagStabilimentoId = stab?.id || cliente.stabilimento_id;
   stagStagione = stab
     ? { inizio: stab.data_inizio_stagione || null, fine: stab.data_fine_stagione || null }
     : null;
-  document.getElementById('stag-nome').textContent = `${currentProfile?.nome || cliente.nome} ${currentProfile?.cognome || cliente.cognome}`;
-  document.getElementById('stag-ombrellone').textContent = omb ? `☂️ Ombrellone ${omb.fila}${omb.numero} · ${stab?.nome || ''} · ${stab?.citta || ''}` : 'Nessun ombrellone';
+  const firstName = currentProfile?.nome || cliente.nome || '';
+  document.getElementById('stag-nome').textContent = firstName;
+  document.getElementById('stag-ombrellone').textContent = omb
+    ? `☂️ Ombrellone ${omb.fila}${omb.numero} · ${stab?.nome || ''}${stab?.citta ? ' · ' + stab.citta : ''}`
+    : 'Nessun ombrellone associato. Contatta il tuo stabilimento.';
   document.getElementById('stag-credito').textContent = formatCoin(cliente.credito_saldo, stab);
+  const badgeEl = document.querySelector('#view-stagionale .stag-coin-badge');
+  if (badgeEl) badgeEl.textContent = (stab?.nome || 'C').trim().charAt(0).toUpperCase();
 
   const { data: disp } = await sb.from('disponibilita').select('*').eq('ombrellone_id', stagOmbrelloneId);
   const dispMap = {};
@@ -41,7 +50,7 @@ async function loadStagionaleData() {
   renderStagioneBanner();
 
   const { data: txs } = await sb.from('transazioni').select('*').eq('cliente_id', stagClienteId).order('created_at', { ascending: false }).limit(20);
-  document.getElementById('stag-tx-list').innerHTML = renderTxList(txs || [], stab);
+  document.getElementById('stag-tx-list').innerHTML = renderStagTxList(txs || [], stab);
 }
 
 function renderStagioneBanner() {
@@ -83,6 +92,223 @@ function buildCalendar(dispMap, dispList) {
   pendingDispChanges = {};
   renderCalendar();
   renderPendingBar();
+}
+
+// Stato effettivo di un giorno tenendo conto delle modifiche pending non ancora salvate.
+// 'free' = il giorno risulterà libero dopo il salvataggio; 'sub' = sub-affittato (immutabile);
+// 'pending-add' / 'pending-remove' = c'è una modifica in attesa.
+// null = giorno senza disponibilità dichiarata.
+function stagEffectiveDayStato(dateStr) {
+  const stato = currentDispMap[dateStr];
+  if (stato === 'sub_affittato') return 'sub';
+  const pending = pendingDispChanges[dateStr];
+  if (pending === 'add') return 'pending-add';
+  if (pending === 'remove') return 'pending-remove';
+  if (stato === 'libero') return 'free';
+  return null;
+}
+
+const STAG_MONTHS_SHORT = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+const STAG_DAYS_SHORT = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+
+function renderQuickSelector() {
+  const grid = document.getElementById('stag-quick-grid');
+  if (!grid) return;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const items = [0, 1, 2].map((offset) => {
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
+    const dateStr = toLocalDateStr(d);
+    return {
+      label: offset === 0 ? 'Oggi' : offset === 1 ? 'Domani' : STAG_DAYS_SHORT[d.getDay()],
+      day: d.getDate(),
+      month: d.getMonth(),
+      dateStr,
+    };
+  });
+  const html = items.map((item) => {
+    const stato = stagEffectiveDayStato(item.dateStr);
+    const restr = regolaStatoPerData(item.dateStr);
+    const cls = ['stag-qday-btn'];
+    let disabled = false;
+    if (stato === 'sub') { cls.push('sub'); disabled = true; }
+    else if (restr) { cls.push('restricted'); disabled = true; }
+    else if (stato === 'free') cls.push('free');
+    else if (stato === 'pending-add') cls.push('pending-add');
+    else if (stato === 'pending-remove') cls.push('pending-remove');
+    const onclick = disabled ? '' : ` onclick="stagToggleQuickDay('${item.dateStr}')"`;
+    const title = restr ? ` title="${restr.label}"` : '';
+    return `<button class="${cls.join(' ')}"${disabled ? ' disabled' : ''}${onclick}${title}>
+      <div class="stag-qday-name">${item.label}</div>
+      <div class="stag-qday-num">${item.day}</div>
+      <div class="stag-qday-month">${STAG_MONTHS_SHORT[item.month]}</div>
+    </button>`;
+  }).join('');
+  grid.innerHTML = html;
+  renderWeekendBtn();
+}
+
+function nextWeekendDates() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dow = today.getDay(); // 0=Sun..6=Sat
+  // distance to next Saturday: if today is Sat (6), use today; otherwise next Saturday
+  const daysToSat = dow === 6 ? 0 : (6 - dow + 7) % 7;
+  const sat = new Date(today.getFullYear(), today.getMonth(), today.getDate() + daysToSat);
+  const sun = new Date(today.getFullYear(), today.getMonth(), today.getDate() + daysToSat + 1);
+  return { sat, sun };
+}
+
+function renderWeekendBtn() {
+  const btn = document.getElementById('stag-weekend-btn');
+  const lblEl = document.getElementById('stag-weekend-label');
+  const tagEl = document.getElementById('stag-weekend-tag');
+  if (!btn || !lblEl || !tagEl) return;
+  const { sat, sun } = nextWeekendDates();
+  const satStr = toLocalDateStr(sat);
+  const sunStr = toLocalDateStr(sun);
+  lblEl.textContent = `Prossimo weekend — sab ${sat.getDate()} & dom ${sun.getDate()} ${STAG_MONTHS_SHORT[sun.getMonth()]}`;
+
+  const satStato = stagEffectiveDayStato(satStr);
+  const sunStato = stagEffectiveDayStato(sunStr);
+  const satRestr = regolaStatoPerData(satStr);
+  const sunRestr = regolaStatoPerData(sunStr);
+  const satEditable = satStato !== 'sub' && !satRestr;
+  const sunEditable = sunStato !== 'sub' && !sunRestr;
+  const noneEditable = !satEditable && !sunEditable;
+
+  // "Active" = entrambi i giorni risulteranno liberi dopo i pending applicati.
+  const satWillBeFree = satStato === 'free' || satStato === 'pending-add';
+  const sunWillBeFree = sunStato === 'free' || sunStato === 'pending-add';
+  const active = satWillBeFree && sunWillBeFree;
+  btn.classList.toggle('active', active);
+  btn.disabled = noneEditable;
+  tagEl.textContent = active ? 'Dichiarato libero' : 'Libero?';
+}
+
+function stagToggleQuickDay(dateStr) {
+  toggleDay(dateStr, currentDispMap[dateStr]);
+}
+
+function stagToggleWeekend() {
+  const { sat, sun } = nextWeekendDates();
+  const satStr = toLocalDateStr(sat);
+  const sunStr = toLocalDateStr(sun);
+  const satStato = stagEffectiveDayStato(satStr);
+  const sunStato = stagEffectiveDayStato(sunStr);
+  const satRestr = regolaStatoPerData(satStr);
+  const sunRestr = regolaStatoPerData(sunStr);
+  const satWillBeFree = satStato === 'free' || satStato === 'pending-add';
+  const sunWillBeFree = sunStato === 'free' || sunStato === 'pending-add';
+  const active = satWillBeFree && sunWillBeFree;
+  if (active) {
+    if (satStato === 'free' || satStato === 'pending-add') toggleDay(satStr, currentDispMap[satStr]);
+    if (sunStato === 'free' || sunStato === 'pending-add') toggleDay(sunStr, currentDispMap[sunStr]);
+  } else {
+    if (satStato !== 'sub' && !satRestr && !satWillBeFree) toggleDay(satStr, currentDispMap[satStr]);
+    if (sunStato !== 'sub' && !sunRestr && !sunWillBeFree) toggleDay(sunStr, currentDispMap[sunStr]);
+  }
+}
+
+function renderStagStats() {
+  const freeEl = document.getElementById('stag-stat-free');
+  const subEl = document.getElementById('stag-stat-sub');
+  if (!freeEl || !subEl) return;
+  // Conteggio sull'intera disponibilità del cliente, con i pending applicati.
+  const dates = new Set([...Object.keys(currentDispMap), ...Object.keys(pendingDispChanges)]);
+  let free = 0, sub = 0;
+  dates.forEach(d => {
+    const stato = stagEffectiveDayStato(d);
+    if (stato === 'free' || stato === 'pending-add') free++;
+    else if (stato === 'sub') sub++;
+  });
+  freeEl.textContent = free;
+  subEl.textContent = sub;
+}
+
+function stagSwitchTab(tab, btn) {
+  document.querySelectorAll('#view-stagionale .stag-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  else {
+    const t = document.querySelector(`#view-stagionale .stag-tab[data-stag-tab="${tab}"]`);
+    if (t) t.classList.add('active');
+  }
+  document.querySelectorAll('#view-stagionale .stag-tab-content').forEach(c => c.style.display = 'none');
+  const target = document.getElementById('stag-tab-' + tab);
+  if (target) target.style.display = '';
+}
+
+function stagToggleHowto() {
+  const body = document.getElementById('stag-howto-body');
+  const btn = document.getElementById('stag-howto-btn');
+  const arrow = document.getElementById('stag-howto-arrow');
+  if (!body || !btn || !arrow) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  btn.classList.toggle('open', !open);
+  arrow.textContent = open ? '▼' : '▲';
+}
+
+// Categorie di transazione per il render mobile-first.
+// 'earn' = coin in entrata (verde), 'spend' = coin in uscita (rosso),
+// 'info' = evento informativo senza impatto sul saldo (grigio, importo nascosto).
+function stagTxCategory(t) {
+  switch (t.tipo) {
+    case 'credito_ricevuto':
+    case 'sub_affitto':
+      return 'earn';
+    case 'credito_usato':
+      return 'spend';
+    case 'credito_revocato':
+    case 'sub_affitto_annullato':
+      return 'spend';
+    default:
+      return 'info';
+  }
+}
+
+function stagTxLabel(t) {
+  const map = {
+    disponibilita_aggiunta: 'Disponibilità dichiarata',
+    disponibilita_rimossa: 'Disponibilità rimossa',
+    sub_affitto: 'Sub-affitto confermato',
+    sub_affitto_annullato: 'Sub-affitto annullato',
+    credito_ricevuto: 'Credito ricevuto',
+    credito_usato: 'Credito utilizzato',
+    credito_revocato: 'Credito revocato',
+    regola_forzata_aggiunta: 'Regola del gestore impostata',
+    regola_forzata_rimossa: 'Regola del gestore revocata',
+  };
+  return map[t.tipo] || t.tipo;
+}
+
+function stagTxDate(t) {
+  if (!t.created_at) return '';
+  const d = new Date(t.created_at);
+  return `${d.getDate()} ${STAG_MONTHS_SHORT[d.getMonth()]}`;
+}
+
+function renderStagTxList(txs, stab) {
+  if (!txs || !txs.length) return '<div class="tx-empty">Nessuna transazione</div>';
+  return txs.map(t => {
+    const cat = stagTxCategory(t);
+    const icon = cat === 'earn' ? '+' : cat === 'spend' ? '−' : '•';
+    const showAmt = t.importo != null && Number(t.importo) !== 0;
+    let amtHtml = '';
+    if (showAmt) {
+      const sign = cat === 'earn' ? '+' : cat === 'spend' ? '−' : '';
+      const abs = Math.abs(Number(t.importo));
+      amtHtml = `<div class="stag-tx-amt ${cat}">${sign}${formatCoin(abs, stab)}</div>`;
+    }
+    return `<div class="stag-tx-row">
+      <div class="stag-tx-icon ${cat}">${icon}</div>
+      <div class="stag-tx-info">
+        <div class="stag-tx-label">${stagTxLabel(t)}</div>
+        <div class="stag-tx-date">${stagTxDate(t)}</div>
+      </div>
+      ${amtHtml}
+    </div>`;
+  }).join('');
 }
 
 function renderCalendar() {
@@ -133,6 +359,8 @@ function renderCalendar() {
     }
     el.appendChild(div);
   }
+  renderQuickSelector();
+  renderStagStats();
 }
 
 function calNav(dir) {
@@ -155,11 +383,6 @@ function toggleDay(dateStr, currentStato) {
   }
   renderCalendar();
   renderPendingBar();
-}
-
-function toggleTodayFree() {
-  const today = todayStr();
-  toggleDay(today, currentDispMap[today]);
 }
 
 function annullaModifichePending() {
