@@ -1436,3 +1436,50 @@ body {
   .pano-toolbar { padding: 12px; gap: 8px; }
   .pano-toolbar-compare { margin-left: 0; width: 100%; }
 }
+
+/* AVANZATE — bulk bar + scheda ombrellone */
+.avanzate-bulk-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 12px;
+  background: var(--sand); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin: 0 4px 16px;
+}
+.avanzate-preset-btn.active {
+  background: var(--ocean); color: #fff; border-color: var(--ocean);
+}
+.avanzate-omb-info {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  margin: 12px 0 18px; padding: 12px;
+  background: var(--sand); border-radius: var(--radius-sm);
+}
+.avanzate-omb-info-cell { min-width: 0; }
+.avanzate-omb-info-label {
+  font-size: 11px; color: var(--text-light);
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px;
+}
+.avanzate-omb-info-value { font-size: 13px; color: var(--ink); font-weight: 600; }
+.avanzate-omb-section {
+  margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border);
+}
+.avanzate-omb-section-title {
+  font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 10px;
+}
+.avanzate-day-list {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 180px; overflow-y: auto;
+  background: #fff; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 6px 8px;
+}
+.avanzate-day-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; padding: 4px 6px; border-radius: 4px;
+}
+.avanzate-day-row + .avanzate-day-row { border-top: 1px dashed var(--border); }
+.avanzate-day-state {
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+}
+.avanzate-day-state.libero { background: var(--green-light); color: var(--green); }
+.avanzate-day-state.sub_affittato { background: var(--yellow-light); color: #9C7A1F; }
+.avanzate-day-state.occupied { background: var(--ocean-light); color: var(--ocean); }

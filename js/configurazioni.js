@@ -13,6 +13,7 @@ function switchConfigSubtab(sub, btn) {
   document.querySelectorAll('.config-subtab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   if (sub === 'stagione') loadStagione();
+  if (sub === 'avanzate' && typeof avanzateInit === 'function') avanzateInit();
 }
 
 /* ---------- Stagione: load/save ---------- */
