@@ -9,7 +9,7 @@ function getDatesInRange(from, to) {
   return dates;
 }
 
-async function renderMapRegoleBanner(from, to, dates) {
+async function renderMapRegoleBanner(from, to, dates, regole) {
   const el = document.getElementById('map-regole-banner');
   if (!el || !currentStabilimento) return;
   const inizio = currentStabilimento.data_inizio_stagione;
@@ -27,12 +27,7 @@ async function renderMapRegoleBanner(from, to, dates) {
     }
   }
 
-  // Regole forzate sovrapposte al range.
-  const { data: regole } = await sb.from('regole_stato_ombrelloni')
-    .select('*')
-    .eq('stabilimento_id', currentStabilimento.id)
-    .gte('data_a', from)
-    .lte('data_da', to);
+  // Regole forzate sovrapposte al range (passate come parametro per evitare doppia query).
   const labelByTipo = {
     chiusura_speciale: { l:'Chiusura speciale', bg:'var(--coral-light)', fg:'var(--coral)', icon:'🚫' },
     sempre_libero:     { l:'Sempre subaffittabile', bg:'var(--green-light)', fg:'var(--green)', icon:'✅' },
@@ -133,19 +128,57 @@ async function refreshMap() {
   const dates = getDatesInRange(from, to);
   if (dates.length === 0) return;
 
-  renderMapRegoleBanner(from, to, dates);
+  const [{ data: disp }, { data: regole }] = await Promise.all([
+    sb.from('disponibilita')
+      .select('*')
+      .gte('data', from)
+      .lte('data', to)
+      .in('ombrellone_id', ombrelloniList.map(o => o.id)),
+    sb.from('regole_stato_ombrelloni')
+      .select('*')
+      .eq('stabilimento_id', currentStabilimento.id)
+      .gte('data_a', from)
+      .lte('data_da', to),
+  ]);
 
-  const { data: disp } = await sb.from('disponibilita')
-    .select('*')
-    .gte('data', from)
-    .lte('data', to)
-    .in('ombrellone_id', ombrelloniList.map(o => o.id));
+  renderMapRegoleBanner(from, to, dates, regole || []);
 
   const dispByOmbDate = {};
   (disp || []).forEach(d => {
     if (!dispByOmbDate[d.ombrellone_id]) dispByOmbDate[d.ombrellone_id] = {};
     dispByOmbDate[d.ombrellone_id][d.data] = d.stato;
   });
+
+  // Applica override delle regole forzate sui giorni del range.
+  // Precedenza per giorno: chiusura_speciale > mai_libero > sempre_libero.
+  // - sempre_libero: tutti gli ombrelloni → 'libero' (eccetto sub_affittato già esistenti)
+  // - chiusura_speciale: tutti gli ombrelloni → non bookable (rimuovo eventuali 'libero')
+  // - mai_libero: nessun override sulla mappa proprietario (lo stagionale è già bloccato)
+  const ruleByDate = {};
+  const rulePri = { sempre_libero: 1, mai_libero: 2, chiusura_speciale: 3 };
+  (regole || []).forEach(r => {
+    for (const d of dates) {
+      if (d < r.data_da || d > r.data_a) continue;
+      if (!ruleByDate[d] || rulePri[r.tipo] > rulePri[ruleByDate[d]]) {
+        ruleByDate[d] = r.tipo;
+      }
+    }
+  });
+  for (const d of dates) {
+    const tipo = ruleByDate[d];
+    if (!tipo) continue;
+    ombrelloniList.forEach(o => {
+      if (!dispByOmbDate[o.id]) dispByOmbDate[o.id] = {};
+      const existing = dispByOmbDate[o.id][d];
+      if (tipo === 'sempre_libero') {
+        if (existing !== 'sub_affittato') dispByOmbDate[o.id][d] = 'libero';
+      } else if (tipo === 'chiusura_speciale') {
+        // Le sub_affittato sono già state annullate dall'RPC. Rimuovo eventuali 'libero'
+        // residui per impedire al gestore di prenotare nei giorni di chiusura.
+        if (existing === 'libero') delete dispByOmbDate[o.id][d];
+      }
+    });
+  }
 
   const isSingleDay = from === to;
 
