@@ -583,6 +583,20 @@ body {
 .cal-day.restricted:hover:not(.empty):not(.past) { border-color: #DDD; }
 .cal-day.restricted.subleased { background: var(--yellow-light); color: #9C7A1F; border-color: var(--yellow); }
 .cal-day.restricted.free { background: var(--green-light); color: var(--green); border-color: #96DDB8; }
+.cal-day.pending-add { background: rgba(150, 221, 184, 0.35); border-color: var(--green); border-style: dashed; color: var(--green); }
+.cal-day.pending-remove { background: rgba(224, 123, 84, 0.15); border-color: var(--coral); border-style: dashed; color: var(--coral); text-decoration: line-through; }
+.cal-day.pending-add:hover, .cal-day.pending-remove:hover { border-color: var(--ink); }
+.stag-pending-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 16px; padding: 12px 14px; border-radius: 10px;
+  background: var(--sand); border: 1px solid var(--border); font-size: 13px;
+}
+.stag-pending-bar .stag-pending-info { color: var(--ink); }
+.stag-pending-bar .stag-pending-actions { display: flex; gap: 8px; flex-shrink: 0; }
+@media (max-width: 540px) {
+  .stag-pending-bar { flex-direction: column; align-items: stretch; }
+  .stag-pending-bar .stag-pending-actions { justify-content: flex-end; }
+}
 .cal-legend { display: flex; gap: 20px; padding: 20px 0 4px; flex-wrap: wrap; border-top: 1px solid var(--border); margin-top: 20px; }
 
 /* MODAL */

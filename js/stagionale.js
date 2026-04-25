@@ -80,7 +80,9 @@ function regolaStatoPerData(dateStr) {
 
 function buildCalendar(dispMap, dispList) {
   currentDispMap = dispMap;
+  pendingDispChanges = {};
   renderCalendar();
+  renderPendingBar();
 }
 
 function renderCalendar() {
@@ -102,12 +104,15 @@ function renderCalendar() {
     const isToday = cellDate.toDateString() === today.toDateString();
     const isPast = cellDate < today && !isToday;
     const stato = currentDispMap[dateStr];
+    const pending = pendingDispChanges[dateStr];
     const restr = regolaStatoPerData(dateStr);
     let cls = 'cal-day';
     if (isPast) cls += ' past';
     else if (isToday) cls += ' today';
     if (stato === 'libero') cls += ' free';
     if (stato === 'sub_affittato') cls += ' subleased';
+    if (pending === 'add') cls += ' pending-add';
+    if (pending === 'remove') cls += ' pending-remove';
     if (!isPast && restr) cls += ' restricted restricted-' + restr.state;
     const div = document.createElement('div');
     div.className = cls;
@@ -115,6 +120,10 @@ function renderCalendar() {
     if (restr) {
       const baseStato = stato === 'sub_affittato' ? ' (sub-affittato)' : '';
       div.title = restr.label + baseStato;
+    } else if (pending === 'add') {
+      div.title = 'Da salvare: aggiunta disponibilità';
+    } else if (pending === 'remove') {
+      div.title = 'Da salvare: rimozione disponibilità';
     }
     // Click consentito solo se non è passato, c'è un ombrellone, e nessuna regola
     // restrittiva è attiva sul giorno. (sempre_libero, mai_libero e chiusura_speciale
@@ -133,9 +142,60 @@ function calNav(dir) {
   renderCalendar();
 }
 
-async function toggleDay(dateStr, currentStato) {
+function toggleDay(dateStr, currentStato) {
   if (!stagOmbrelloneId) return;
   if (currentStato === 'sub_affittato') { showAlert('stag-alert', 'Questo giorno è già sub-affittato, non puoi modificarlo', 'error'); return; }
+  showAlert('stag-alert', '', '');
+  const isFree = currentStato === 'libero';
+  const existing = pendingDispChanges[dateStr];
+  if (existing) {
+    delete pendingDispChanges[dateStr];
+  } else {
+    pendingDispChanges[dateStr] = isFree ? 'remove' : 'add';
+  }
+  renderCalendar();
+  renderPendingBar();
+}
+
+function toggleTodayFree() {
+  const today = todayStr();
+  toggleDay(today, currentDispMap[today]);
+}
+
+function annullaModifichePending() {
+  pendingDispChanges = {};
+  renderCalendar();
+  renderPendingBar();
+  showAlert('stag-alert', '', '');
+}
+
+function renderPendingBar() {
+  const bar = document.getElementById('stag-pending-bar');
+  if (!bar) return;
+  const entries = Object.entries(pendingDispChanges);
+  if (!entries.length) {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    return;
+  }
+  const adds = entries.filter(([, op]) => op === 'add').length;
+  const removes = entries.filter(([, op]) => op === 'remove').length;
+  const parts = [];
+  if (adds) parts.push(`<strong>${adds}</strong> ${adds === 1 ? 'giorno da aggiungere' : 'giorni da aggiungere'}`);
+  if (removes) parts.push(`<strong>${removes}</strong> ${removes === 1 ? 'giorno da rimuovere' : 'giorni da rimuovere'}`);
+  bar.style.display = '';
+  bar.innerHTML = `
+    <div class="stag-pending-info">${parts.join(' · ')}</div>
+    <div class="stag-pending-actions">
+      <button class="btn btn-outline btn-sm" onclick="annullaModifichePending()">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="salvaModifichePending()">Salva modifiche</button>
+    </div>`;
+}
+
+async function salvaModifichePending() {
+  const entries = Object.entries(pendingDispChanges);
+  if (!entries.length) return;
+  if (!stagOmbrelloneId) { showAlert('stag-alert', 'Nessun ombrellone associato', 'error'); return; }
   showAlert('stag-alert', '', '');
   showLoading();
   const { data: cliente, error: clienteErr } = await sb.from('clienti_stagionali').select('stabilimento_id').eq('id', stagClienteId).single();
@@ -144,43 +204,58 @@ async function toggleDay(dateStr, currentStato) {
     showAlert('stag-alert', 'Impossibile leggere i dati cliente: ' + (clienteErr?.message || 'dati mancanti'), 'error');
     return;
   }
-  const isFreeing = currentStato !== 'libero';
-  const dispRes = isFreeing
-    ? await sb.from('disponibilita').upsert({ ombrellone_id: stagOmbrelloneId, cliente_id: stagClienteId, data: dateStr, stato: 'libero' }, { onConflict: 'ombrellone_id,data' })
-    : await sb.from('disponibilita').delete().eq('ombrellone_id', stagOmbrelloneId).eq('data', dateStr);
-  if (dispRes.error) {
-    hideLoading();
-    showAlert('stag-alert', 'Errore salvataggio disponibilità: ' + dispRes.error.message, 'error');
-    return;
-  }
-  const { error: txErr } = await sb.from('transazioni').insert({
-    stabilimento_id: cliente.stabilimento_id,
-    ombrellone_id: stagOmbrelloneId,
-    cliente_id: stagClienteId,
-    tipo: isFreeing ? 'disponibilita_aggiunta' : 'disponibilita_rimossa',
-    importo: null,
-    nota: isFreeing ? `Disponibilità dichiarata per ${formatDate(dateStr)}` : `Disponibilità rimossa per ${formatDate(dateStr)}`,
-  });
-  if (txErr) {
-    // Rollback so the calendar doesn't drift from the ledger.
-    if (isFreeing) {
-      await sb.from('disponibilita').delete().eq('ombrellone_id', stagOmbrelloneId).eq('data', dateStr);
-    } else {
-      await sb.from('disponibilita').upsert({ ombrellone_id: stagOmbrelloneId, cliente_id: stagClienteId, data: dateStr, stato: 'libero' }, { onConflict: 'ombrellone_id,data' });
+  const succeededAdds = [];
+  const succeededRemoves = [];
+  const failed = [];
+  for (const [dateStr, op] of entries) {
+    const isFreeing = op === 'add';
+    const dispRes = isFreeing
+      ? await sb.from('disponibilita').upsert({ ombrellone_id: stagOmbrelloneId, cliente_id: stagClienteId, data: dateStr, stato: 'libero' }, { onConflict: 'ombrellone_id,data' })
+      : await sb.from('disponibilita').delete().eq('ombrellone_id', stagOmbrelloneId).eq('data', dateStr);
+    if (dispRes.error) {
+      failed.push({ dateStr, op, msg: dispRes.error.message });
+      continue;
     }
-    hideLoading();
-    showAlert('stag-alert', 'Impossibile registrare la transazione: ' + txErr.message, 'error');
-    await loadStagionaleData();
-    return;
+    const { error: txErr } = await sb.from('transazioni').insert({
+      stabilimento_id: cliente.stabilimento_id,
+      ombrellone_id: stagOmbrelloneId,
+      cliente_id: stagClienteId,
+      tipo: isFreeing ? 'disponibilita_aggiunta' : 'disponibilita_rimossa',
+      importo: null,
+      nota: isFreeing ? `Disponibilità dichiarata per ${formatDate(dateStr)}` : `Disponibilità rimossa per ${formatDate(dateStr)}`,
+    });
+    if (txErr) {
+      if (isFreeing) {
+        await sb.from('disponibilita').delete().eq('ombrellone_id', stagOmbrelloneId).eq('data', dateStr);
+      } else {
+        await sb.from('disponibilita').upsert({ ombrellone_id: stagOmbrelloneId, cliente_id: stagClienteId, data: dateStr, stato: 'libero' }, { onConflict: 'ombrellone_id,data' });
+      }
+      failed.push({ dateStr, op, msg: txErr.message });
+      continue;
+    }
+    if (isFreeing) succeededAdds.push(dateStr);
+    else succeededRemoves.push(dateStr);
   }
-  if (isFreeing) currentDispMap[dateStr] = 'libero';
-  else delete currentDispMap[dateStr];
+  pendingDispChanges = {};
   hideLoading();
-  renderCalendar();
   await loadStagionaleData();
+  if (failed.length) {
+    const sample = failed.slice(0, 3).map(f => `${formatDate(f.dateStr)}: ${f.msg}`).join(' · ');
+    showAlert('stag-alert', `Alcune modifiche non sono state salvate (${failed.length}). ${sample}`, 'error');
+  }
+  if (succeededAdds.length || succeededRemoves.length) {
+    showSavedConfirmModal(succeededAdds.length, succeededRemoves.length);
+  }
 }
 
-async function toggleTodayFree() {
-  const today = todayStr();
-  await toggleDay(today, currentDispMap[today]);
+function showSavedConfirmModal(adds, removes) {
+  const titleEl = document.getElementById('stag-saved-confirm-title');
+  const bodyEl = document.getElementById('stag-saved-confirm-body');
+  if (!titleEl || !bodyEl) return;
+  titleEl.textContent = 'Modifiche salvate ✓';
+  const lines = [];
+  if (adds) lines.push(`<strong>${adds}</strong> ${adds === 1 ? 'giorno aggiunto' : 'giorni aggiunti'} alla disponibilità.`);
+  if (removes) lines.push(`<strong>${removes}</strong> ${removes === 1 ? 'giorno rimosso' : 'giorni rimossi'} dalla disponibilità.`);
+  bodyEl.innerHTML = lines.join('<br>');
+  document.getElementById('modal-stag-saved').classList.remove('hidden');
 }
