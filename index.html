@@ -976,7 +976,7 @@
               <input type="search" id="pren-filter-nome" class="form-input" placeholder="Nome prenotazione" style="width:200px;padding:6px 10px;font-size:13px" oninput="renderPrenotazioni()">
               <input type="search" id="pren-filter-ombrellone" class="form-input" placeholder="Numero ombrellone (es. 23 oppure A 12)" style="width:240px;padding:6px 10px;font-size:13px" oninput="renderPrenotazioni()">
               <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
-                <span>Periodo</span>
+                <span title="Filtra le prenotazioni per giorno di sub-affitto">Periodo (giorno del sub-affitto)</span>
                 <input type="text" id="pren-range-picker" class="form-input" readonly placeholder="Tutte le date" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
                 <input type="hidden" id="pren-filter-from">
                 <input type="hidden" id="pren-filter-to">
@@ -985,10 +985,11 @@
             </div>
           </div>
           <div id="pren-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px 12px">
+            <button type="button" class="btn btn-outline btn-sm pren-preset-btn" data-preset="last30" onclick="setPrenRange('last30')">Ultimi 30 gg</button>
+            <button type="button" class="btn btn-outline btn-sm pren-preset-btn" data-preset="last7" onclick="setPrenRange('last7')">Ultimi 7 gg</button>
             <button type="button" class="btn btn-outline btn-sm pren-preset-btn" data-preset="today" onclick="setPrenRange('today')">Oggi</button>
-            <button type="button" class="btn btn-outline btn-sm pren-preset-btn" data-preset="next7" onclick="setPrenRange('next7')">Prossimi 7 giorni</button>
-            <button type="button" class="btn btn-outline btn-sm pren-preset-btn" data-preset="last7" onclick="setPrenRange('last7')">Ultimi 7 giorni</button>
-            <button type="button" class="btn btn-outline btn-sm pren-preset-btn" data-preset="last30" onclick="setPrenRange('last30')">Ultimi 30 giorni</button>
+            <button type="button" class="btn btn-outline btn-sm pren-preset-btn" data-preset="next7" onclick="setPrenRange('next7')">Prossimi 7 gg</button>
+            <button type="button" class="btn btn-outline btn-sm pren-preset-btn" data-preset="next30" onclick="setPrenRange('next30')">Prossimi 30 gg</button>
           </div>
           <div class="card-body">
             <div id="pren-count-label" style="font-size:13px;color:var(--text-light);margin-bottom:10px"></div>

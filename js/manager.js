@@ -1644,6 +1644,9 @@ function setPrenRange(preset) {
   } else if (preset === 'next7') {
     const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 6);
     from = today; to = toLocalDateStr(end);
+  } else if (preset === 'next30') {
+    const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 29);
+    from = today; to = toLocalDateStr(end);
   } else if (preset === 'last7') {
     const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 6);
     from = toLocalDateStr(start); to = today;
@@ -1672,6 +1675,7 @@ function updatePrenPresetActive() {
       const endD = new Date(to + 'T00:00:00');
       const diff = Math.round((endD - start) / 86400000) + 1;
       if (diff === 7) active = 'next7';
+      else if (diff === 30) active = 'next30';
     } else if (to === today) {
       const start = new Date(from + 'T00:00:00');
       const endD = new Date(to + 'T00:00:00');
