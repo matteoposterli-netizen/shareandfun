@@ -565,7 +565,6 @@ function openBulkInviteModal(forcedIds = null) {
 
   document.getElementById('bulk-invite-oggetto').value = currentStabilimento?.email_invito_oggetto || DEFAULT_EMAIL_TEMPLATES?.invito_oggetto || '';
   document.getElementById('bulk-invite-testo').value = currentStabilimento?.email_invito_testo || DEFAULT_EMAIL_TEMPLATES?.invito_testo || '';
-  document.getElementById('bulk-invite-save-template').checked = false;
   showAlert('bulk-invite-alert', skipped ? `⚠ ${skipped} clienti saltati (già attivi o senza token)` : '', skipped ? 'error' : '');
 
   const btn = document.getElementById('btn-bulk-invite');
@@ -579,26 +578,10 @@ async function confirmBulkInvite() {
   if (!bulkInviteTargets.length) return;
   const oggetto = document.getElementById('bulk-invite-oggetto').value.trim();
   const testo = document.getElementById('bulk-invite-testo').value.trim();
-  const saveTemplate = document.getElementById('bulk-invite-save-template').checked;
 
   const btn = document.getElementById('btn-bulk-invite');
   btn.disabled = true;
   btn.textContent = 'Invio…';
-
-  if (saveTemplate) {
-    const { error } = await sb.from('stabilimenti').update({
-      email_invito_oggetto: oggetto,
-      email_invito_testo: testo,
-    }).eq('id', currentStabilimento.id);
-    if (error) {
-      showAlert('bulk-invite-alert', `Errore salvataggio template: ${error.message}`, 'error');
-      btn.disabled = false;
-      btn.textContent = `Invia a ${bulkInviteTargets.length} clienti`;
-      return;
-    }
-    currentStabilimento.email_invito_oggetto = oggetto;
-    currentStabilimento.email_invito_testo = testo;
-  }
 
   const ombById = {};
   (ombrelloniList || []).forEach(o => ombById[o.id] = o);
