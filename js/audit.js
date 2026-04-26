@@ -2,9 +2,11 @@
 // - Carica eventi dalla tabella public.audit_log (RLS: proprietario vede solo i
 //   propri eventi).
 // - Filtri: range date, attore (tipo + label), entità, azione, testo libero,
-//   cliente/ombrellone coinvolto (risolto client-side dalle anagrafiche locali
-//   in lista di id passati al server come or() su entity_id + JSONB
-//   before/after).
+//   nome / cognome / email del cliente coinvolto e numero ombrellone
+//   coinvolto (risolti client-side dalle anagrafiche locali in liste di id
+//   passate al server come or() su entity_id + JSONB before/after; i filtri
+//   nome/cognome/email convergono in un unico set di clienteIds AND-ato col
+//   set di ombrelloni — ogni filtro applicato è un AND coi precedenti).
 // - Colonna "Coinvolto" mostra ombrellone + cliente estratti dal payload
 //   before/after di ogni riga.
 // - Paginazione keyset su created_at DESC con size selezionabile (default 30).
@@ -120,23 +122,44 @@ function auditInvolvedText(row) {
   return parts.join(' · ');
 }
 
-// Risolve la stringa di ricerca contro le mappe locali: ritorna gli id che
-// matchano. Usato per costruire l'OR server-side senza bisogno di nuovi
-// indici / colonne sull'audit_log.
-function auditResolveTargetIds(searchText) {
+// Risolve i filtri Nome / Cognome / Email / Numero ombrellone contro le
+// mappe locali: ritornano gli id che matchano. Usati per costruire OR
+// server-side senza bisogno di nuovi indici / colonne sull'audit_log.
+//
+// auditResolveClienteIds combina nome/cognome/email in AND: un cliente
+// matcha solo se passa tutti i campi valorizzati. Se nessuno dei tre è
+// valorizzato ritorna null (filtro disattivato).
+function auditResolveClienteIds({ nome, cognome, email }) {
+  const n = (nome    || '').trim().toLowerCase();
+  const c = (cognome || '').trim().toLowerCase();
+  const e = (email   || '').trim().toLowerCase();
+  if (!n && !c && !e) return null;
+  const ids = [];
+  for (const [id, cli] of auditMaps.clienti) {
+    const cn = (cli.nome    || '').toLowerCase();
+    const cc = (cli.cognome || '').toLowerCase();
+    const ce = (cli.email   || '').toLowerCase();
+    if (n && !cn.includes(n)) continue;
+    if (c && !cc.includes(c)) continue;
+    if (e && !ce.includes(e)) continue;
+    ids.push(id);
+  }
+  return ids;
+}
+
+function auditResolveOmbrelloneIds(searchText) {
   const s = (searchText || '').trim().toLowerCase();
   if (!s) return null;
-  const ombrelloneIds = [];
-  const clienteIds    = [];
+  const ids = [];
   for (const [id, o] of auditMaps.ombrelloni) {
-    const compact = `fila${o.fila}n${o.numero}`.toLowerCase();
-    if (o.label.toLowerCase().includes(s) || compact.includes(s)) ombrelloneIds.push(id);
+    const fila = String(o.fila || '').toLowerCase();
+    const num  = String(o.numero || '').toLowerCase();
+    const compact = `fila${fila}n${num}`;
+    if (num === s || num.includes(s) || o.label.toLowerCase().includes(s) || compact.includes(s)) {
+      ids.push(id);
+    }
   }
-  for (const [id, c] of auditMaps.clienti) {
-    const blob = `${c.label} ${c.email || ''}`.toLowerCase();
-    if (blob.includes(s)) clienteIds.push(id);
-  }
-  return { ombrelloneIds, clienteIds };
+  return ids;
 }
 
 function auditTodayIso() {
@@ -155,8 +178,10 @@ function auditResetFilters() {
   document.getElementById('audit-entity-type').value = '';
   document.getElementById('audit-action').value = '';
   document.getElementById('audit-search').value = '';
-  const tgt = document.getElementById('audit-search-target');
-  if (tgt) tgt.value = '';
+  ['audit-search-nome', 'audit-search-cognome', 'audit-search-email', 'audit-search-ombrellone'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
   document.getElementById('audit-page-size').value = '30';
   auditState.page = 1;
   auditState.pageSize = 30;
@@ -170,8 +195,11 @@ function auditReadFilters() {
   const entityType = document.getElementById('audit-entity-type')?.value || '';
   const action = document.getElementById('audit-action')?.value || '';
   const search = (document.getElementById('audit-search')?.value || '').trim();
-  const searchTarget = (document.getElementById('audit-search-target')?.value || '').trim();
-  return { from, to, actorType, entityType, action, search, searchTarget };
+  const searchNome       = (document.getElementById('audit-search-nome')?.value       || '').trim();
+  const searchCognome    = (document.getElementById('audit-search-cognome')?.value    || '').trim();
+  const searchEmail      = (document.getElementById('audit-search-email')?.value      || '').trim();
+  const searchOmbrellone = (document.getElementById('audit-search-ombrellone')?.value || '').trim();
+  return { from, to, actorType, entityType, action, search, searchNome, searchCognome, searchEmail, searchOmbrellone };
 }
 
 function auditBuildBaseQuery(filters) {
@@ -188,28 +216,35 @@ function auditBuildBaseQuery(filters) {
     const s = filters.search.replace(/[%_]/g, m => '\\' + m);
     q = q.or(`description.ilike.%${s}%,actor_label.ilike.%${s}%`);
   }
-  if (filters.searchTarget) {
-    const resolved = auditResolveTargetIds(filters.searchTarget);
-    const ombIds = resolved?.ombrelloneIds || [];
-    const cliIds = resolved?.clienteIds    || [];
-    if (ombIds.length === 0 && cliIds.length === 0) {
-      // Nessun match nelle anagrafiche: forzo zero risultati senza colpire il DB inutilmente.
+  const cliResolved = auditResolveClienteIds({
+    nome:    filters.searchNome,
+    cognome: filters.searchCognome,
+    email:   filters.searchEmail,
+  });
+  if (cliResolved !== null) {
+    if (cliResolved.length === 0) {
+      // Nessun cliente matcha: forzo zero risultati senza colpire il DB inutilmente.
       q = q.eq('id', '00000000-0000-0000-0000-000000000000');
     } else {
-      const orParts = [];
-      if (ombIds.length) {
-        const list = `(${ombIds.join(',')})`;
-        orParts.push(`and(entity_type.eq.ombrellone,entity_id.in.${list})`);
-        orParts.push(`after->>ombrellone_id.in.${list}`);
-        orParts.push(`before->>ombrellone_id.in.${list}`);
-      }
-      if (cliIds.length) {
-        const list = `(${cliIds.join(',')})`;
-        orParts.push(`and(entity_type.eq.cliente_stagionale,entity_id.in.${list})`);
-        orParts.push(`after->>cliente_id.in.${list}`);
-        orParts.push(`before->>cliente_id.in.${list}`);
-      }
-      q = q.or(orParts.join(','));
+      const list = `(${cliResolved.join(',')})`;
+      q = q.or([
+        `and(entity_type.eq.cliente_stagionale,entity_id.in.${list})`,
+        `after->>cliente_id.in.${list}`,
+        `before->>cliente_id.in.${list}`,
+      ].join(','));
+    }
+  }
+  if (filters.searchOmbrellone) {
+    const ombIds = auditResolveOmbrelloneIds(filters.searchOmbrellone) || [];
+    if (ombIds.length === 0) {
+      q = q.eq('id', '00000000-0000-0000-0000-000000000000');
+    } else {
+      const list = `(${ombIds.join(',')})`;
+      q = q.or([
+        `and(entity_type.eq.ombrellone,entity_id.in.${list})`,
+        `after->>ombrellone_id.in.${list}`,
+        `before->>ombrellone_id.in.${list}`,
+      ].join(','));
     }
   }
   return q.order('created_at', { ascending: false });
