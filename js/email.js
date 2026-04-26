@@ -1,7 +1,6 @@
 const DEFAULT_EMAIL_TEMPLATES = {
   invito_oggetto: "Ciao {{nome}}, la spiaggia ti aspetta! ☀️",
   invito_testo:
-    "Ciao {{nome}}! 🌊\n\n" +
     "Quest'anno gestiamo gli ombrelloni con SpiaggiaMia: una piattaforma semplice per mettere a disposizione il tuo ombrellone nei giorni in cui non vieni in spiaggia, accumulando crediti da spendere al bar o al ristorante.\n\n" +
     "Il tuo posto è l'ombrellone {{ombrellone}} — abbiamo già pre-compilato i tuoi dati, ti basta un clic per confermare la registrazione.\n\n" +
     "Non vediamo l'ora di rivederti sotto il sole! ☂️",
