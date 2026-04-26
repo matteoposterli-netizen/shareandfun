@@ -138,10 +138,10 @@ async function panoramicaLoad() {
     const [dispCur, distrCur, spentCur] = await Promise.all([
       sb.from('disponibilita').select('ombrellone_id,data,stato')
         .in('ombrellone_id', ombIds).gte('data', from).lte('data', to),
-      sb.from('transazioni').select('ombrellone_id,importo,created_at')
+      sb.from('transazioni').select('ombrellone_id,cliente_id,importo,created_at')
         .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_ricevuto')
         .gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59'),
-      sb.from('transazioni').select('ombrellone_id,importo,created_at')
+      sb.from('transazioni').select('ombrellone_id,cliente_id,importo,created_at')
         .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_usato')
         .gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59'),
     ]);
@@ -433,15 +433,20 @@ function renderTopCoin() {
   if (!target) return;
   if (!panoramicaState.data) return;
   const { distrRows, spentRows } = panoramicaState.data;
+  const ombByCliente = new Map();
+  (clientiList || []).forEach(c => { if (c.ombrellone_id) ombByCliente.set(c.id, c.ombrellone_id); });
+  const resolveOmb = (r) => r.ombrellone_id || (r.cliente_id ? ombByCliente.get(r.cliente_id) : null);
   const recByOmb = new Map();
   const speByOmb = new Map();
   distrRows.forEach(r => {
-    if (!r.ombrellone_id) return;
-    recByOmb.set(r.ombrellone_id, (recByOmb.get(r.ombrellone_id) || 0) + parseFloat(r.importo || 0));
+    const ombId = resolveOmb(r);
+    if (!ombId) return;
+    recByOmb.set(ombId, (recByOmb.get(ombId) || 0) + parseFloat(r.importo || 0));
   });
   spentRows.forEach(r => {
-    if (!r.ombrellone_id) return;
-    speByOmb.set(r.ombrellone_id, (speByOmb.get(r.ombrellone_id) || 0) + parseFloat(r.importo || 0));
+    const ombId = resolveOmb(r);
+    if (!ombId) return;
+    speByOmb.set(ombId, (speByOmb.get(ombId) || 0) + parseFloat(r.importo || 0));
   });
   const allIds = new Set([...recByOmb.keys(), ...speByOmb.keys()]);
   const items = [...allIds].map(id => ({
