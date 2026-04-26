@@ -845,6 +845,18 @@ async function loadCreditiPeriodo() {
   renderCreditiTable();
 }
 
+const creditiSortState = { column: 'cliente', dir: 'asc' };
+
+function setCreditiSort(col) {
+  if (creditiSortState.column === col) {
+    creditiSortState.dir = creditiSortState.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    creditiSortState.column = col;
+    creditiSortState.dir = 'asc';
+  }
+  renderCreditiTable();
+}
+
 function renderCreditiTable(clienti, ombs) {
   const tb = document.getElementById('crediti-table');
   if (!tb) return;
@@ -853,13 +865,51 @@ function renderCreditiTable(clienti, ombs) {
   const ombById = {};
   sourceOmbs.forEach(o => ombById[o.id] = o);
 
-  const q = (document.getElementById('crediti-filter')?.value || '').trim().toLowerCase();
+  const qNome = (document.getElementById('crediti-filter-nome')?.value || '').trim().toLowerCase();
+  const qCognome = (document.getElementById('crediti-filter-cognome')?.value || '').trim().toLowerCase();
+  const qOmb = (document.getElementById('crediti-filter-ombrellone')?.value || '').trim().toLowerCase();
+  const hasFilter = qNome || qCognome || qOmb;
+
   const filtrati = sourceClienti.filter(c => {
-    if (!q) return true;
+    if (qNome && !(c.nome || '').toLowerCase().includes(qNome)) return false;
+    if (qCognome && !(c.cognome || '').toLowerCase().includes(qCognome)) return false;
+    if (qOmb) {
+      const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
+      const ombStr = o ? `fila ${o.fila} n°${o.numero} ${o.fila}${o.numero}` : '';
+      if (!ombStr.toLowerCase().includes(qOmb)) return false;
+    }
+    return true;
+  });
+
+  const ombSortKey = (c) => {
     const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
-    const ombStr = o ? `fila ${o.fila} n°${o.numero} ${o.fila}${o.numero}` : '';
-    const hay = `${c.nome || ''} ${c.cognome || ''} ${ombStr}`.toLowerCase();
-    return hay.includes(q);
+    return o ? `${(o.fila || '').toLowerCase()}${String(o.numero || 0).padStart(6, '0')}` : '￿';
+  };
+  const sortKeyFn = {
+    cliente: (c) => `${(c.cognome || '').toLowerCase()} ${(c.nome || '').toLowerCase()}`,
+    ombrellone: ombSortKey,
+    ricevuti: (c) => (creditiPeriodoStats[c.id]?.ricevuti || 0),
+    spesi: (c) => (creditiPeriodoStats[c.id]?.spesi || 0),
+    saldo: (c) => parseFloat(c.credito_saldo || 0),
+  };
+  const keyFn = sortKeyFn[creditiSortState.column] || sortKeyFn.cliente;
+  const dir = creditiSortState.dir === 'desc' ? -1 : 1;
+  filtrati.sort((a, b) => {
+    const ka = keyFn(a), kb = keyFn(b);
+    if (ka < kb) return -1 * dir;
+    if (ka > kb) return 1 * dir;
+    return 0;
+  });
+
+  document.querySelectorAll('[data-sort-arrow]').forEach(el => {
+    const col = el.dataset.sortArrow;
+    if (col === creditiSortState.column) {
+      el.textContent = creditiSortState.dir === 'asc' ? '↑' : '↓';
+      el.style.opacity = '1';
+    } else {
+      el.textContent = '↕';
+      el.style.opacity = '0.4';
+    }
   });
 
   const countLbl = document.getElementById('crediti-count-label');
@@ -879,7 +929,7 @@ function renderCreditiTable(clienti, ombs) {
       <td style="text-align:right;color:var(--coral)">${formatCoin(s.spesi)}</td>
       <td style="text-align:right"><strong>${formatCoin(c.credito_saldo)}</strong></td>
     </tr>`;
-  }).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--text-light);padding:24px">${q ? 'Nessun risultato per la ricerca' : 'Nessun cliente'}</td></tr>`;
+  }).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--text-light);padding:24px">${hasFilter ? 'Nessun risultato per la ricerca' : 'Nessun cliente'}</td></tr>`;
 }
 
 async function refreshCreditoCliente() {

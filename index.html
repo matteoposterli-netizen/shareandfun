@@ -1105,7 +1105,9 @@
           <div class="card-header" style="flex-wrap:wrap;gap:10px">
             <div class="card-title">Saldo crediti per cliente</div>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <input type="search" id="crediti-filter" class="form-input" placeholder="Cerca per nome o numero ombrellone…" style="width:260px;padding:6px 10px;font-size:13px" oninput="renderCreditiTable()">
+              <input type="search" id="crediti-filter-nome" class="form-input" placeholder="Nome" style="width:130px;padding:6px 10px;font-size:13px" oninput="renderCreditiTable()">
+              <input type="search" id="crediti-filter-cognome" class="form-input" placeholder="Cognome" style="width:130px;padding:6px 10px;font-size:13px" oninput="renderCreditiTable()">
+              <input type="search" id="crediti-filter-ombrellone" class="form-input" placeholder="Ombrellone (es. A3)" style="width:150px;padding:6px 10px;font-size:13px" oninput="renderCreditiTable()">
               <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
                 <span>Dal</span>
                 <input type="date" id="crediti-date-from" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="onCreditiRangeChanged()">
@@ -1120,11 +1122,11 @@
           </div>
           <div class="table-wrap"><table class="data-table">
             <thead><tr>
-              <th>Cliente</th>
-              <th>Ombrellone</th>
-              <th style="text-align:right">Crediti distribuiti</th>
-              <th style="text-align:right">Crediti spesi</th>
-              <th style="text-align:right">Credito disponibile</th>
+              <th class="crediti-th-sort" onclick="setCreditiSort('cliente')" style="cursor:pointer;user-select:none">Cliente <span data-sort-arrow="cliente" style="opacity:0.4;font-size:11px">↕</span></th>
+              <th class="crediti-th-sort" onclick="setCreditiSort('ombrellone')" style="cursor:pointer;user-select:none">Ombrellone <span data-sort-arrow="ombrellone" style="opacity:0.4;font-size:11px">↕</span></th>
+              <th class="crediti-th-sort" onclick="setCreditiSort('ricevuti')" style="cursor:pointer;user-select:none;text-align:right">Crediti distribuiti <span data-sort-arrow="ricevuti" style="opacity:0.4;font-size:11px">↕</span></th>
+              <th class="crediti-th-sort" onclick="setCreditiSort('spesi')" style="cursor:pointer;user-select:none;text-align:right">Crediti spesi <span data-sort-arrow="spesi" style="opacity:0.4;font-size:11px">↕</span></th>
+              <th class="crediti-th-sort" onclick="setCreditiSort('saldo')" style="cursor:pointer;user-select:none;text-align:right">Credito disponibile <span data-sort-arrow="saldo" style="opacity:0.4;font-size:11px">↕</span></th>
             </tr></thead>
             <tbody id="crediti-table"></tbody>
           </table></div>
