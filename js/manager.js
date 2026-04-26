@@ -922,7 +922,7 @@ function renderCreditiTable(clienti, ombs) {
   tb.innerHTML = filtrati.map(c => {
     const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
     const s = creditiPeriodoStats[c.id] || { ricevuti: 0, spesi: 0 };
-    return `<tr>
+    return `<tr class="crediti-row-clickable" onclick="openSaldoStoriaModal('${c.id}')" title="Apri storia crediti">
       <td>${c.nome} ${c.cognome}</td>
       <td>${o ? `${o.fila}${o.numero}` : '–'}</td>
       <td style="text-align:right;color:var(--ocean)">${formatCoin(s.ricevuti)}</td>
@@ -930,6 +930,60 @@ function renderCreditiTable(clienti, ombs) {
       <td style="text-align:right"><strong>${formatCoin(c.credito_saldo)}</strong></td>
     </tr>`;
   }).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--text-light);padding:24px">${hasFilter ? 'Nessun risultato per la ricerca' : 'Nessun cliente'}</td></tr>`;
+}
+
+async function openSaldoStoriaModal(clienteId) {
+  const cliente = (clientiList || []).find(c => c.id === clienteId);
+  if (!cliente) return;
+  const ombs = ombById();
+  const o = cliente.ombrellone_id ? ombs[cliente.ombrellone_id] : null;
+  const ombLabel = o ? `Fila ${o.fila} N°${o.numero}` : 'Nessun ombrellone assegnato';
+
+  const titleEl = document.getElementById('saldo-storia-title');
+  const subEl = document.getElementById('saldo-storia-sub');
+  const ricevutiEl = document.getElementById('saldo-storia-ricevuti');
+  const spesiEl = document.getElementById('saldo-storia-spesi');
+  const saldoEl = document.getElementById('saldo-storia-saldo');
+  const listEl = document.getElementById('saldo-storia-tx-list');
+  const countEl = document.getElementById('saldo-storia-tx-count');
+
+  const nomeCliente = `${cliente.nome || ''} ${cliente.cognome || ''}`.trim() || cliente.email || '(senza nome)';
+  titleEl.textContent = `${nomeCliente} — ${ombLabel}`;
+
+  const from = document.getElementById('crediti-date-from')?.value || '';
+  const to = document.getElementById('crediti-date-to')?.value || '';
+  const periodoLabel = (from && to)
+    ? `Periodo: ${formatDate(from)} → ${formatDate(to)}`
+    : 'Periodo: nessun filtro applicato';
+  subEl.textContent = periodoLabel;
+
+  const stats = creditiPeriodoStats[cliente.id] || { ricevuti: 0, spesi: 0 };
+  ricevutiEl.textContent = formatCoin(stats.ricevuti, currentStabilimento);
+  spesiEl.textContent = formatCoin(stats.spesi, currentStabilimento);
+  saldoEl.textContent = formatCoin(cliente.credito_saldo, currentStabilimento);
+
+  document.getElementById('modal-saldo-storia').classList.remove('hidden');
+  listEl.innerHTML = '<div class="tx-empty">Caricamento...</div>';
+  if (countEl) countEl.textContent = '';
+
+  let q = sb.from('transazioni').select('*')
+    .eq('stabilimento_id', currentStabilimento.id)
+    .eq('cliente_id', cliente.id);
+  if (from) q = q.gte('created_at', new Date(from + 'T00:00:00').toISOString());
+  if (to) q = q.lte('created_at', new Date(to + 'T23:59:59.999').toISOString());
+  q = q.order('created_at', { ascending: false });
+
+  const { data, error } = await q;
+  if (error) {
+    console.error(error);
+    listEl.innerHTML = '<div class="tx-empty">Errore nel caricamento</div>';
+    return;
+  }
+  const rows = data || [];
+  if (countEl) {
+    countEl.textContent = `${rows.length} transazion${rows.length === 1 ? 'e' : 'i'}`;
+  }
+  listEl.innerHTML = renderTxList(rows, currentStabilimento, ombs);
 }
 
 async function refreshCreditoCliente() {
