@@ -352,6 +352,10 @@ body {
 .stat-value-unit { font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: var(--text-mid); letter-spacing: normal; }
 .stat-sub { font-size: 12px; color: var(--text-mid); }
 
+.stats-row.compact .stat-card { padding: 14px 16px 12px; }
+.stats-row.compact .stat-label { margin-bottom: 6px; }
+.stats-row.compact .stat-value { font-size: 22px; line-height: 1.15; margin-bottom: 4px; word-break: break-word; }
+
 /* TRANSACTION LOG */
 .tx-list { display: flex; flex-direction: column; }
 .tx-item {
