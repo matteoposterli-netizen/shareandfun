@@ -775,6 +775,7 @@ function invitaSingolo(id) {
 }
 
 let creditiPeriodoStats = {};
+let creditiPeriodoTxs = [];
 
 function setCreditiRange(days) {
   const to = new Date();
@@ -820,28 +821,31 @@ async function loadCreditiPeriodo() {
   const to = document.getElementById('crediti-date-to')?.value;
   if (!from || !to || from > to) {
     creditiPeriodoStats = {};
+    creditiPeriodoTxs = [];
     renderCreditiTable();
     return;
   }
   const fromIso = new Date(from + 'T00:00:00').toISOString();
   const toIso = new Date(to + 'T23:59:59.999').toISOString();
   const { data: txs, error } = await sb.from('transazioni')
-    .select('cliente_id, tipo, importo')
+    .select('id, cliente_id, ombrellone_id, tipo, importo, nota, created_at')
     .eq('stabilimento_id', currentStabilimento.id)
-    .in('tipo', ['credito_ricevuto', 'credito_usato'])
     .gte('created_at', fromIso)
-    .lte('created_at', toIso);
-  if (error) { console.error(error); creditiPeriodoStats = {}; renderCreditiTable(); return; }
+    .lte('created_at', toIso)
+    .order('created_at', { ascending: false });
+  if (error) { console.error(error); creditiPeriodoStats = {}; creditiPeriodoTxs = []; renderCreditiTable(); return; }
 
   const stats = {};
   (txs || []).forEach(t => {
     if (!t.cliente_id) return;
+    if (t.tipo !== 'credito_ricevuto' && t.tipo !== 'credito_usato') return;
     const s = stats[t.cliente_id] || (stats[t.cliente_id] = { ricevuti: 0, spesi: 0 });
     const importo = parseFloat(t.importo || 0);
     if (t.tipo === 'credito_ricevuto') s.ricevuti += importo;
     else if (t.tipo === 'credito_usato') s.spesi += importo;
   });
   creditiPeriodoStats = stats;
+  creditiPeriodoTxs = txs || [];
   renderCreditiTable();
 }
 
@@ -930,6 +934,46 @@ function renderCreditiTable(clienti, ombs) {
       <td style="text-align:right"><strong>${formatCoin(c.credito_saldo)}</strong></td>
     </tr>`;
   }).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--text-light);padding:24px">${hasFilter ? 'Nessun risultato per la ricerca' : 'Nessun cliente'}</td></tr>`;
+
+  renderCreditiTxPanel(filtrati, hasFilter, ombById);
+}
+
+function renderCreditiTxPanel(filtrati, hasFilter, ombByIdMap) {
+  const panel = document.getElementById('crediti-tx-panel');
+  if (!panel) return;
+  const listEl = document.getElementById('crediti-tx-list');
+  const titleEl = document.getElementById('crediti-tx-title');
+  const countEl = document.getElementById('crediti-tx-count');
+  if (!hasFilter || !filtrati.length) {
+    panel.classList.add('hidden');
+    if (listEl) listEl.innerHTML = '';
+    if (countEl) countEl.textContent = '';
+    return;
+  }
+  const matchedIds = new Set(filtrati.map(c => c.id));
+  const txs = (creditiPeriodoTxs || []).filter(t => t.cliente_id && matchedIds.has(t.cliente_id));
+  panel.classList.remove('hidden');
+  if (titleEl) {
+    if (filtrati.length === 1) {
+      const c = filtrati[0];
+      const o = c.ombrellone_id ? ombByIdMap[c.ombrellone_id] : null;
+      const nome = `${c.nome || ''} ${c.cognome || ''}`.trim() || c.email || '(senza nome)';
+      const ombStr = o ? ` — Fila ${o.fila} N°${o.numero}` : '';
+      titleEl.textContent = `Transazioni nel periodo · ${nome}${ombStr}`;
+    } else {
+      titleEl.textContent = `Transazioni nel periodo · ${filtrati.length} clienti filtrati`;
+    }
+  }
+  if (countEl) {
+    countEl.textContent = txs.length
+      ? `${txs.length} transazion${txs.length === 1 ? 'e' : 'i'}`
+      : '';
+  }
+  if (listEl) {
+    listEl.innerHTML = txs.length
+      ? renderTxList(txs, currentStabilimento, ombByIdMap)
+      : '<div class="tx-empty">Nessuna transazione nel periodo selezionato</div>';
+  }
 }
 
 async function openSaldoStoriaModal(clienteId) {
