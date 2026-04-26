@@ -1153,6 +1153,22 @@ function changeAnalyticsPage(dir) {
   renderAnalyticsPage();
 }
 
+const ANALYTICS_TX_LABELS = {
+  sub_affitto: 'Sub-affitto',
+  sub_affitto_annullato: 'Sub-affitto annullato',
+  credito_ricevuto: 'Credito ricevuto',
+  credito_usato: 'Credito utilizzato',
+  credito_revocato: 'Credito revocato',
+};
+
+const ANALYTICS_TX_COLORS = {
+  sub_affitto: 'var(--ocean)',
+  sub_affitto_annullato: 'var(--text-light)',
+  credito_ricevuto: 'var(--ocean)',
+  credito_usato: 'var(--coral)',
+  credito_revocato: 'var(--text-light)',
+};
+
 function renderAnalyticsPage() {
   const tb = document.getElementById('analytics-table');
   const empty = document.getElementById('analytics-empty');
@@ -1173,21 +1189,25 @@ function renderAnalyticsPage() {
   const pageRows = analyticsRows.slice(startIdx, startIdx + ANALYTICS_PAGE_SIZE);
   const { ombById, cliById } = analyticsCtx;
 
-  tb.innerHTML = pageRows.map(s => {
-    const o = s.ombrellone_id ? ombById[s.ombrellone_id] : null;
-    const c = s.cliente_id ? cliById[s.cliente_id] : null;
-    const ombStr = o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">— ombrellone rimosso</span>';
+  tb.innerHTML = pageRows.map(t => {
+    const o = t.ombrellone_id ? ombById[t.ombrellone_id] : null;
+    const c = t.cliente_id ? cliById[t.cliente_id] : null;
+    const ombStr = o
+      ? `Fila ${o.fila} N°${o.numero}`
+      : (t.ombrellone_id ? '<span style="color:var(--text-light)">— ombrellone rimosso</span>' : '<span style="color:var(--text-light)">—</span>');
     const cliStr = c ? `${c.nome} ${c.cognome}` : '<span style="color:var(--text-light)">—</span>';
-    const saldo = s.ricevuti - s.spesi;
-    const saldoColor = saldo > 0 ? 'var(--ocean)' : saldo < 0 ? 'var(--coral)' : 'var(--text-light)';
-    const saldoSign = saldo > 0 ? '+' : '';
+    const tipoLabel = ANALYTICS_TX_LABELS[t.tipo] || t.tipo;
+    const importo = parseFloat(t.importo || 0);
+    const importoColor = ANALYTICS_TX_COLORS[t.tipo] || 'var(--text-mid)';
+    const importoStr = importo > 0 ? formatCoin(importo) : '<span style="color:var(--text-light)">—</span>';
+    const nota = t.nota ? String(t.nota).replace(/[<>&]/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[m])) : '<span style="color:var(--text-light)">—</span>';
     return `<tr>
-      <td><strong>${ombStr}</strong></td>
+      <td>${formatDateShort(t.created_at)}</td>
+      <td><strong>${tipoLabel}</strong></td>
       <td>${cliStr}</td>
-      <td style="text-align:right">${s.subaffitti}</td>
-      <td style="text-align:right;color:var(--ocean)">${formatCoin(s.ricevuti)}</td>
-      <td style="text-align:right;color:var(--coral)">${formatCoin(s.spesi)}</td>
-      <td style="text-align:right;color:${saldoColor};font-weight:600">${saldoSign}${formatCoin(saldo).replace(/^-/, '−')}</td>
+      <td>${ombStr}</td>
+      <td style="text-align:right;color:${importoColor};font-weight:600">${importoStr}</td>
+      <td style="color:var(--text-mid);font-size:13px">${nota}</td>
     </tr>`;
   }).join('');
 
@@ -1205,64 +1225,36 @@ function renderAnalyticsPage() {
 }
 
 async function loadCreditiAnalytics() {
+  if (!currentStabilimento) return;
   const from = document.getElementById('analytics-date-from').value;
   const to = document.getElementById('analytics-date-to').value;
   if (!from || !to) return;
   if (from > to) { showAlert('crediti-alert', 'Periodo non valido: la data iniziale è successiva a quella finale', 'error'); return; }
+  showAlert('crediti-alert', '', null);
 
   const fromIso = new Date(from + 'T00:00:00').toISOString();
   const toIso = new Date(to + 'T23:59:59.999').toISOString();
 
   const { data: txs, error } = await sb.from('transazioni')
-    .select('ombrellone_id, cliente_id, tipo, importo, created_at')
+    .select('id, ombrellone_id, cliente_id, tipo, importo, nota, created_at')
     .eq('stabilimento_id', currentStabilimento.id)
-    .in('tipo', ['sub_affitto', 'credito_ricevuto', 'credito_usato'])
+    .in('tipo', ['sub_affitto', 'sub_affitto_annullato', 'credito_ricevuto', 'credito_usato', 'credito_revocato'])
     .gte('created_at', fromIso)
-    .lte('created_at', toIso);
-  if (error) { console.error(error); return; }
+    .lte('created_at', toIso)
+    .order('created_at', { ascending: false });
+  if (error) { console.error(error); showAlert('crediti-alert', 'Errore nel caricamento delle transazioni', 'error'); return; }
 
   const ombById = {};
   ombrelloniList.forEach(o => { ombById[o.id] = o; });
   const cliById = {};
   clientiList.forEach(c => { cliById[c.id] = c; });
-  const cliByOmb = {};
-  clientiList.forEach(c => { if (c.ombrellone_id) cliByOmb[c.ombrellone_id] = c; });
-
-  const stats = {};
-  const ensure = (key) => stats[key] || (stats[key] = { ombrellone_id: null, cliente_id: null, ricevuti: 0, spesi: 0, subaffitti: 0, latest_at: null });
-  const touch = (s, ts) => { if (ts && (!s.latest_at || ts > s.latest_at)) s.latest_at = ts; };
 
   let totRic = 0, totSpe = 0, totSub = 0;
-
   (txs || []).forEach(t => {
     const importo = parseFloat(t.importo || 0);
-    if (t.tipo === 'sub_affitto') {
-      const key = t.ombrellone_id || `nob:${t.cliente_id || 'unknown'}`;
-      const s = ensure(key);
-      s.ombrellone_id = t.ombrellone_id;
-      if (!s.cliente_id) s.cliente_id = t.cliente_id || (t.ombrellone_id ? (cliByOmb[t.ombrellone_id]?.id || null) : null);
-      s.subaffitti += 1;
-      touch(s, t.created_at);
-      totSub += 1;
-    } else if (t.tipo === 'credito_ricevuto') {
-      const key = t.ombrellone_id || `cli:${t.cliente_id || 'unknown'}`;
-      const s = ensure(key);
-      s.ombrellone_id = t.ombrellone_id;
-      if (!s.cliente_id) s.cliente_id = t.cliente_id;
-      s.ricevuti += importo;
-      touch(s, t.created_at);
-      totRic += importo;
-    } else if (t.tipo === 'credito_usato') {
-      const cliId = t.cliente_id;
-      const ombId = cliId ? (clientiList.find(c => c.id === cliId)?.ombrellone_id || null) : null;
-      const key = ombId || `cli:${cliId || 'unknown'}`;
-      const s = ensure(key);
-      s.ombrellone_id = ombId;
-      if (!s.cliente_id) s.cliente_id = cliId;
-      s.spesi += importo;
-      touch(s, t.created_at);
-      totSpe += importo;
-    }
+    if (t.tipo === 'sub_affitto') totSub += 1;
+    else if (t.tipo === 'credito_ricevuto') totRic += importo;
+    else if (t.tipo === 'credito_usato') totSpe += importo;
   });
 
   document.getElementById('analytics-tot-ricevuti').textContent = formatCoin(totRic);
@@ -1270,25 +1262,7 @@ async function loadCreditiAnalytics() {
   document.getElementById('analytics-tot-subaffitti').textContent = totSub;
   document.getElementById('analytics-tot-subaffitti-sub').textContent = totSub === 1 ? 'giornata sub-affittata' : 'giornate sub-affittate';
 
-  const rows = Object.values(stats);
-  rows.sort((a, b) => {
-    if (a.latest_at && b.latest_at) {
-      if (a.latest_at < b.latest_at) return 1;
-      if (a.latest_at > b.latest_at) return -1;
-    } else if (a.latest_at) return -1;
-    else if (b.latest_at) return 1;
-    const oa = a.ombrellone_id ? ombById[a.ombrellone_id] : null;
-    const ob = b.ombrellone_id ? ombById[b.ombrellone_id] : null;
-    if (oa && ob) {
-      if (oa.fila !== ob.fila) return String(oa.fila).localeCompare(String(ob.fila));
-      return (oa.numero || 0) - (ob.numero || 0);
-    }
-    if (oa) return -1;
-    if (ob) return 1;
-    return 0;
-  });
-
-  analyticsRows = rows;
+  analyticsRows = txs || [];
   analyticsCtx = { ombById, cliById };
   analyticsPage = 1;
   renderAnalyticsPage();
