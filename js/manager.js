@@ -1839,6 +1839,8 @@ function renderPrenotazioni() {
   }
 
   const ombsMap = ombById();
+  const cliById = {};
+  (clientiList || []).forEach(c => { cliById[c.id] = c; });
 
   const rows = (prenotazioniList || []).filter(p => {
     if (from && p.data < from) return false;
