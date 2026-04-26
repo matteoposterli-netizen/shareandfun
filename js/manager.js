@@ -780,8 +780,8 @@ function setCreditiRange(days) {
   const to = new Date();
   const from = new Date();
   from.setDate(from.getDate() - (days - 1));
-  document.getElementById('crediti-date-from').value = toLocalDateStr(from);
-  document.getElementById('crediti-date-to').value = toLocalDateStr(to);
+  setDateInputValue(document.getElementById('crediti-date-from'), from);
+  setDateInputValue(document.getElementById('crediti-date-to'), to);
   updateCreditiPresetActive();
   loadCreditiPeriodo();
 }
@@ -1011,8 +1011,8 @@ function setAnalyticsRange(days) {
   const to = new Date();
   const from = new Date();
   from.setDate(from.getDate() - (days - 1));
-  document.getElementById('analytics-date-from').value = toLocalDateStr(from);
-  document.getElementById('analytics-date-to').value = toLocalDateStr(to);
+  setDateInputValue(document.getElementById('analytics-date-from'), from);
+  setDateInputValue(document.getElementById('analytics-date-to'), to);
   updateAnalyticsPresetActive();
   loadCreditiAnalytics();
 }
