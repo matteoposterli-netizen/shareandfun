@@ -280,9 +280,9 @@
             </div>
           </div>
 
-          <!-- 4 KPI card cliccabili -->
+          <!-- 4 KPI card -->
           <div class="pano-kpi-grid">
-            <button type="button" class="pano-kpi-card" data-accent="ocean" onclick="openDeepDive('disponibilita')" aria-label="Disponibilità dichiarate — apri dettaglio">
+            <div class="pano-kpi-card" data-accent="ocean">
               <div class="pano-kpi-head">
                 <span class="pano-kpi-label">Disponibilità dichiarate</span>
                 <span class="pano-kpi-delta" id="pano-kpi-disp-delta"></span>
@@ -292,9 +292,9 @@
                 <span class="pano-kpi-unit">codice</span>
               </div>
               <svg class="pano-kpi-spark" id="pano-kpi-disp-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
-            </button>
+            </div>
 
-            <button type="button" class="pano-kpi-card" data-accent="ink" onclick="openDeepDive('prenotazioni')" aria-label="Prenotazioni effettuate — apri dettaglio">
+            <div class="pano-kpi-card" data-accent="ink">
               <div class="pano-kpi-head">
                 <span class="pano-kpi-label">Prenotazioni effettuate</span>
                 <span class="pano-kpi-delta" id="pano-kpi-pren-delta"></span>
@@ -304,9 +304,9 @@
                 <span class="pano-kpi-unit">codice</span>
               </div>
               <svg class="pano-kpi-spark" id="pano-kpi-pren-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
-            </button>
+            </div>
 
-            <button type="button" class="pano-kpi-card" data-accent="green" onclick="openDeepDive('coin-distr')" aria-label="Coin distribuiti — apri dettaglio">
+            <div class="pano-kpi-card" data-accent="green">
               <div class="pano-kpi-head">
                 <span class="pano-kpi-label" data-coin-unit-prefix>Coin distribuiti</span>
                 <span class="pano-kpi-delta" id="pano-kpi-distr-delta"></span>
@@ -316,9 +316,9 @@
                 <span class="pano-kpi-unit" data-coin-unit>Coin</span>
               </div>
               <svg class="pano-kpi-spark" id="pano-kpi-distr-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
-            </button>
+            </div>
 
-            <button type="button" class="pano-kpi-card" data-accent="coral" onclick="openDeepDive('coin-spent')" aria-label="Coin spesi — apri dettaglio">
+            <div class="pano-kpi-card" data-accent="coral">
               <div class="pano-kpi-head">
                 <span class="pano-kpi-label">Coin spesi</span>
                 <span class="pano-kpi-delta" id="pano-kpi-spent-delta"></span>
@@ -328,69 +328,90 @@
                 <span class="pano-kpi-unit" data-coin-unit>Coin</span>
               </div>
               <svg class="pano-kpi-spark" id="pano-kpi-spent-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
-            </button>
-          </div>
-
-          <!-- Top 3 ombrelloni del periodo -->
-          <div class="pano-top-card">
-            <div class="pano-top-title-h">Top ombrelloni del periodo</div>
-            <ul class="pano-top-list" id="pano-top-ombrelloni">
-              <li class="pano-top-empty">Caricamento…</li>
-            </ul>
-          </div>
-
-        </div>
-
-        <!-- ============ DEEP DIVE (hidden by default) ============ -->
-        <div id="pano-deepdive" class="hidden">
-
-          <!-- Breadcrumb -->
-          <div class="dd-crumb">
-            <button type="button" class="dd-crumb-back" onclick="ddBack()">← Panoramica</button>
-            <span class="dd-crumb-sep">/</span>
-            <span class="dd-crumb-title" id="dd-crumb-title">Deep dive</span>
-            <button type="button" class="btn btn-outline btn-sm" style="margin-left:auto" onclick="ddExport()">📥 Esporta Excel</button>
-          </div>
-
-          <!-- Toolbar periodo deep dive -->
-          <div class="pano-toolbar">
-            <span class="pano-toolbar-label">📅 <span id="dd-range-label">–</span></span>
-            <div class="pano-toolbar-presets">
-              <button type="button" class="dd-preset-btn" data-preset="7d" onclick="setDdRange('7d')">7 gg</button>
-              <button type="button" class="dd-preset-btn" data-preset="30d" onclick="setDdRange('30d')">30 gg</button>
-              <button type="button" class="dd-preset-btn" data-preset="90d" onclick="setDdRange('90d')">90 gg</button>
-              <button type="button" class="dd-preset-btn" data-preset="season" onclick="setDdRange('season')">Stagione</button>
             </div>
-            <span class="pano-toolbar-custom">
-              <span>Dal</span>
-              <input type="date" id="dd-range-from" onchange="onDdCustomRange()">
-              <span>al</span>
-              <input type="date" id="dd-range-to" onchange="onDdCustomRange()">
-            </span>
-            <label class="pano-toolbar-compare">
-              <input type="checkbox" id="dd-compare" checked onchange="onDdCompareToggle()">
-              Confronta con periodo precedente
-            </label>
           </div>
 
-          <!-- Panel Disponibilità -->
-          <div id="dd-panel-disponibilita" class="dd-panel hidden">
-            <div id="dd-body-disponibilita"></div>
+          <!-- Andamento disponibilità (grouped bar chart) -->
+          <div class="pano-chart-card">
+            <div class="pano-chart-head">
+              <div class="pano-chart-title-block">
+                <div class="pano-chart-title">Andamento disponibilità</div>
+                <div class="pano-chart-legend">
+                  <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:var(--ocean,#1B6CA8)"></span>Dichiarate</span>
+                  <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:var(--coral,#E07B54)"></span>Sub-affittate</span>
+                </div>
+              </div>
+              <div class="pano-chart-granularity" data-chart="disp">
+                <button type="button" class="pano-gran-btn active" data-gran="day" onclick="setChartGranularity('disp','day')">Giornaliera</button>
+                <button type="button" class="pano-gran-btn" data-gran="week" onclick="setChartGranularity('disp','week')">Settimanale</button>
+                <button type="button" class="pano-gran-btn" data-gran="month" onclick="setChartGranularity('disp','month')">Mensile</button>
+              </div>
+            </div>
+            <div class="pano-chart-body" id="pano-chart-disp">
+              <div class="pano-chart-empty">Caricamento…</div>
+            </div>
           </div>
 
-          <!-- Panel Prenotazioni -->
-          <div id="dd-panel-prenotazioni" class="dd-panel hidden">
-            <div id="dd-body-prenotazioni"></div>
+          <!-- Andamento UniversoCoin (grouped bar chart) -->
+          <div class="pano-chart-card">
+            <div class="pano-chart-head">
+              <div class="pano-chart-title-block">
+                <div class="pano-chart-title" data-coin-trend-title>Andamento UniversoCoin</div>
+                <div class="pano-chart-legend">
+                  <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:#0A7C4A"></span><span data-coin-unit-prefix>Coin</span> distribuiti</span>
+                  <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:var(--coral,#E07B54)"></span><span data-coin-unit-prefix>Coin</span> spesi</span>
+                </div>
+              </div>
+              <div class="pano-chart-granularity" data-chart="coin">
+                <button type="button" class="pano-gran-btn active" data-gran="day" onclick="setChartGranularity('coin','day')">Giornaliera</button>
+                <button type="button" class="pano-gran-btn" data-gran="week" onclick="setChartGranularity('coin','week')">Settimanale</button>
+                <button type="button" class="pano-gran-btn" data-gran="month" onclick="setChartGranularity('coin','month')">Mensile</button>
+              </div>
+            </div>
+            <div class="pano-chart-body" id="pano-chart-coin">
+              <div class="pano-chart-empty">Caricamento…</div>
+            </div>
           </div>
 
-          <!-- Panel Coin distribuiti -->
-          <div id="dd-panel-coin-distr" class="dd-panel hidden">
-            <div id="dd-body-coin-distr"></div>
-          </div>
+          <!-- Top 5 ombrelloni: utilizzo + UniversoCoin -->
+          <div class="pano-top5-grid">
+            <div class="pano-chart-card">
+              <div class="pano-chart-head">
+                <div class="pano-chart-title-block">
+                  <div class="pano-chart-title">Top 5 ombrelloni — utilizzo</div>
+                  <div class="pano-chart-legend">
+                    <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:var(--ocean,#1B6CA8)"></span>Dichiarate</span>
+                    <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:var(--coral,#E07B54)"></span>Sub-affittate</span>
+                  </div>
+                </div>
+                <div class="pano-chart-granularity" data-chart="top-usage">
+                  <button type="button" class="pano-gran-btn active" data-sort="dichiarate" onclick="setTopSort('usage','dichiarate')">Per dichiarate</button>
+                  <button type="button" class="pano-gran-btn" data-sort="subaffittate" onclick="setTopSort('usage','subaffittate')">Per sub-affittate</button>
+                </div>
+              </div>
+              <div class="pano-chart-body" id="pano-top-usage">
+                <div class="pano-chart-empty">Caricamento…</div>
+              </div>
+            </div>
 
-          <!-- Panel Coin spesi -->
-          <div id="dd-panel-coin-spent" class="dd-panel hidden">
-            <div id="dd-body-coin-spent"></div>
+            <div class="pano-chart-card">
+              <div class="pano-chart-head">
+                <div class="pano-chart-title-block">
+                  <div class="pano-chart-title" data-coin-top-title>Top 5 ombrelloni — UniversoCoin</div>
+                  <div class="pano-chart-legend">
+                    <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:#0A7C4A"></span>Ricevuti</span>
+                    <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:var(--coral,#E07B54)"></span>Spesi</span>
+                  </div>
+                </div>
+                <div class="pano-chart-granularity" data-chart="top-coin">
+                  <button type="button" class="pano-gran-btn active" data-sort="ricevuti" onclick="setTopSort('coin','ricevuti')">Per ricevuti</button>
+                  <button type="button" class="pano-gran-btn" data-sort="spesi" onclick="setTopSort('coin','spesi')">Per spesi</button>
+                </div>
+              </div>
+              <div class="pano-chart-body" id="pano-top-coin">
+                <div class="pano-chart-empty">Caricamento…</div>
+              </div>
+            </div>
           </div>
 
         </div>

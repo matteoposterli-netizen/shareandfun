@@ -1,16 +1,13 @@
-// js/panoramica.js — Panoramica manager SpiaggiaMia (Consegna 1)
+// js/panoramica.js — Panoramica manager SpiaggiaMia
 //
 // Esporta globals: panoramicaInit, panoramicaLoad, setPanoramicaRange,
-//                  openDeepDive, ddBack, ddLoadDisponibilita,
-//                  ddLoadPrenotazioni, ddLoadCoinDistr, ddLoadCoinSpent
+//                  setChartGranularity, setTopSort
 //
 // Dipendenze globali attese (caricate PRIMA di questo file):
 //   sb (Supabase client), currentStabilimento, ombrelloniList, clientiList,
 //   formatCoin, coinName, toLocalDateStr, todayStr, formatDate, escapeHtml,
-//   showLoading, hideLoading, flatpickr, XLSX,
-//   dd-common.js (dateRangeQS, previousRange, computeDelta, formatDeltaHTML,
-//     renderSparkline, groupByDay, fillSeries, dateRangeDays, exportXlsx,
-//     labelRange)
+//   showLoading, hideLoading, flatpickr,
+//   dd-common.js (renderSparkline, groupByDay, fillSeries, dateRangeDays)
 
 // ============================================================
 // STATO
@@ -20,29 +17,20 @@ const panoramicaState = {
   from: null,
   to: null,
   preset: 'season',  // '7d'|'30d'|'90d'|'season'|'custom'
-  kpiData: null,     // {disp, pren, distr, spent} popolato da panoramicaLoad
+  data: null,        // { dispRows, distrRows, spentRows } cache del fetch corrente
+};
+
+const chartState = {
+  gran: { disp: 'day', coin: 'day' },   // 'day'|'week'|'month'
+  topSort: { usage: 'dichiarate', coin: 'ricevuti' },
 };
 
 let panoramicaRangePickerInstance = null;
 
-const ddState = {
-  current: null,     // 'disponibilita'|'prenotazioni'|'coin-distr'|'coin-spent'|null
-  from: null,
-  to: null,
-  preset: '7d',
-  compare: true,
-  lastRows: [],      // per export Excel della vista attiva
-  lastFilename: 'deep-dive',
-};
-
 // ============================================================
-// TOOLBAR PERIODO (render + interaction)
+// TOOLBAR PERIODO
 // ============================================================
 
-/**
- * Calcola le date {from, to} per un preset di periodo (passato).
- * preset: '7d'|'30d'|'90d'|'season'
- */
 function panoramicaPresetDates(preset) {
   const today = new Date();
   const todayStrV = toLocalDateStr(today);
@@ -56,9 +44,6 @@ function panoramicaPresetDates(preset) {
   return { from: toLocalDateStr(d), to: todayStrV };
 }
 
-/**
- * Setta il range della panoramica su un preset, aggiorna picker + state, ricarica.
- */
 function setPanoramicaRange(preset) {
   const { from, to } = panoramicaPresetDates(preset);
   panoramicaState.from = from;
@@ -77,7 +62,6 @@ function setPanoramicaRange(preset) {
   panoramicaLoad();
 }
 
-/** Inizializza il flatpickr range picker (idempotente). */
 function initPanoramicaRangePicker(from, to) {
   if (typeof flatpickr === 'undefined') return;
   const input = document.getElementById('pano-range-picker');
@@ -112,7 +96,6 @@ function initPanoramicaRangePicker(from, to) {
   });
 }
 
-/** Toggle .btn-primary / .btn-outline sui bottoni preset in base allo state. */
 function updatePanoramicaPresetActive() {
   const preset = panoramicaState.preset;
   document.querySelectorAll('.pano-preset-btn').forEach(btn => {
@@ -123,19 +106,26 @@ function updatePanoramicaPresetActive() {
 }
 
 // ============================================================
-// LOAD KPI
+// LOAD + RENDER
 // ============================================================
 
-/**
- * Calcola i 4 KPI del range corrente + sparkline.
- * Ogni KPI è un oggetto {value, spark[]}.
- */
 async function panoramicaLoad() {
   if (!currentStabilimento || !panoramicaState.from || !panoramicaState.to) return;
+
+  // Coin label dinamico (header + legende)
+  document.querySelectorAll('[data-coin-unit]').forEach(el => { el.textContent = coinName(currentStabilimento); });
+  document.querySelectorAll('[data-coin-unit-prefix]').forEach(el => { el.textContent = coinName(currentStabilimento); });
+  const trendT = document.querySelector('[data-coin-trend-title]');
+  if (trendT) trendT.textContent = `Andamento ${coinName(currentStabilimento)}`;
+  const topT = document.querySelector('[data-coin-top-title]');
+  if (topT) topT.textContent = `Top 5 ombrelloni — ${coinName(currentStabilimento)}`;
+
   if (!ombrelloniList || !ombrelloniList.length) {
-    // Nessun ombrellone → azzera tutto
     ['pano-kpi-disp','pano-kpi-pren','pano-kpi-distr','pano-kpi-spent'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.textContent = '0';
+      const el = document.getElementById(`${id}-val`); if (el) el.textContent = '0';
+    });
+    ['pano-chart-disp','pano-chart-coin','pano-top-usage','pano-top-coin'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.innerHTML = '<div class="pano-chart-empty">Nessun ombrellone configurato.</div>';
     });
     return;
   }
@@ -145,324 +135,366 @@ async function panoramicaLoad() {
     const { from, to } = panoramicaState;
     const ombIds = ombrelloniList.map(o => o.id);
 
-    // === Query in parallelo (solo periodo corrente, niente confronto) ===
     const [dispCur, distrCur, spentCur] = await Promise.all([
       sb.from('disponibilita').select('ombrellone_id,data,stato')
         .in('ombrellone_id', ombIds).gte('data', from).lte('data', to),
-      sb.from('transazioni').select('importo,created_at')
+      sb.from('transazioni').select('ombrellone_id,importo,created_at')
         .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_ricevuto')
         .gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59'),
-      sb.from('transazioni').select('importo,created_at,categoria')
+      sb.from('transazioni').select('ombrellone_id,importo,created_at')
         .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_usato')
         .gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59'),
     ]);
 
-    // === KPI 1+2: Disponibilità dichiarate / Prenotate ===
-    const countDisp = rows => (rows || []).filter(r => r.stato === 'libero' || r.stato === 'sub_affittato').length;
-    const countPren = rows => (rows || []).filter(r => r.stato === 'sub_affittato').length;
-    const dispCurV = countDisp(dispCur.data);
-    const prenCurV = countPren(dispCur.data);
-
-    // === KPI 3+4: Coin distribuiti / spesi ===
-    const sumImporto = rows => (rows || []).reduce((s, r) => s + parseFloat(r.importo || 0), 0);
-    const distrCurV = sumImporto(distrCur.data);
-    const spentCurV = sumImporto(spentCur.data);
-
-    // === Sparkline (serie giornaliera) ===
-    const dispByDay = groupByDay((dispCur.data || []).filter(r => r.stato === 'libero' || r.stato === 'sub_affittato'), 'data');
-    const prenByDay = groupByDay((dispCur.data || []).filter(r => r.stato === 'sub_affittato'), 'data');
-    const distrByDay = groupByDay(distrCur.data, 'created_at', 'importo', true);
-    const spentByDay = groupByDay(spentCur.data, 'created_at', 'importo', true);
-
-    const sparkDisp = fillSeries(dispByDay, from, to);
-    const sparkPren = fillSeries(prenByDay, from, to);
-    const sparkDistr = fillSeries(distrByDay, from, to);
-    const sparkSpent = fillSeries(spentByDay, from, to);
-
-    panoramicaState.kpiData = {
-      disp: { value: dispCurV, spark: sparkDisp },
-      pren: { value: prenCurV, spark: sparkPren },
-      distr: { value: distrCurV, spark: sparkDistr },
-      spent: { value: spentCurV, spark: sparkSpent },
+    panoramicaState.data = {
+      dispRows: dispCur.data || [],
+      distrRows: distrCur.data || [],
+      spentRows: spentCur.data || [],
     };
 
-    renderPanoramicaKpis();
-    renderPanoramicaFlow();
-    await renderPanoramicaTopClienti();
+    renderKpis();
+    updateGranularityEnabled();
+    renderTrendCharts();
+    renderTopCharts();
   } finally {
     hideLoading();
   }
 }
 
-/** Popola le 4 KPI card con valore, delta, sparkline */
-function renderPanoramicaKpis() {
-  const { kpiData } = panoramicaState;
-  if (!kpiData) return;
+function renderKpis() {
+  const { dispRows, distrRows, spentRows } = panoramicaState.data;
+  const dispCount = dispRows.filter(r => r.stato === 'libero' || r.stato === 'sub_affittato').length;
+  const prenCount = dispRows.filter(r => r.stato === 'sub_affittato').length;
+  const distrSum = distrRows.reduce((s, r) => s + parseFloat(r.importo || 0), 0);
+  const spentSum = spentRows.reduce((s, r) => s + parseFloat(r.importo || 0), 0);
 
-  const setKpi = (prefix, data, isCoin) => {
+  const setKpi = (prefix, value, isCoin, sparkValues) => {
     const valEl = document.getElementById(`${prefix}-val`);
-    const delEl = document.getElementById(`${prefix}-delta`);
     const sparkEl = document.getElementById(`${prefix}-spark`);
-    if (valEl) {
-      valEl.textContent = isCoin
-        ? parseFloat(data.value || 0).toFixed(2)
-        : String(data.value || 0);
-    }
-    if (delEl) delEl.innerHTML = '';
-    if (sparkEl) renderSparkline(sparkEl, data.spark, getComputedStyle(sparkEl).color || null);
+    if (valEl) valEl.textContent = isCoin ? parseFloat(value || 0).toFixed(2) : String(value || 0);
+    if (sparkEl) renderSparkline(sparkEl, sparkValues, getComputedStyle(sparkEl).color || null);
   };
 
-  setKpi('pano-kpi-disp', kpiData.disp, false);
-  setKpi('pano-kpi-pren', kpiData.pren, false);
-  setKpi('pano-kpi-distr', kpiData.distr, true);
-  setKpi('pano-kpi-spent', kpiData.spent, true);
-
-  // unità coin dinamica
-  document.querySelectorAll('[data-coin-unit]').forEach(el => {
-    el.textContent = coinName(currentStabilimento);
-  });
-}
-
-/** Flow diagram: disp → pren → distr → spent */
-function renderPanoramicaFlow() {
-  const { kpiData } = panoramicaState;
-  if (!kpiData) return;
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set('flow-disp', kpiData.disp.value);
-  set('flow-pren', kpiData.pren.value);
-  set('flow-distr', parseFloat(kpiData.distr.value || 0).toFixed(2));
-  set('flow-spent', parseFloat(kpiData.spent.value || 0).toFixed(2));
-
-  // Conversion rates
-  const toPct = (num, den) => den > 0 ? Math.round((num / den) * 100) + '%' : '–';
-  set('flow-conv-1', toPct(kpiData.pren.value, kpiData.disp.value));
-  set('flow-conv-2', toPct(kpiData.spent.value, kpiData.distr.value));
-}
-
-/** Top-3 ombrelloni più prenotati del periodo */
-async function renderPanoramicaTopClienti() {
-  const ul = document.getElementById('pano-top-ombrelloni');
-  if (!ul) return;
-  ul.innerHTML = '<li class="pano-top-empty">Caricamento…</li>';
   const { from, to } = panoramicaState;
-  const ombIds = ombrelloniList.map(o => o.id);
-  const { data: rows } = await sb.from('disponibilita')
-    .select('ombrellone_id,stato')
-    .in('ombrellone_id', ombIds)
-    .eq('stato', 'sub_affittato')
-    .gte('data', from).lte('data', to);
-  const byOmb = {};
-  (rows || []).forEach(r => { byOmb[r.ombrellone_id] = (byOmb[r.ombrellone_id] || 0) + 1; });
-  const clienteByOmb = {};
-  (clientiList || []).filter(c => !c.rifiutato).forEach(c => { if (c.ombrellone_id) clienteByOmb[c.ombrellone_id] = c; });
-  const top = Object.entries(byOmb)
-    .map(([id, n]) => {
-      const o = ombrelloniList.find(x => x.id === id);
-      const c = clienteByOmb[id];
-      return {
-        id,
-        label: o ? `Fila ${o.fila} · N°${o.numero}` : 'Ombrellone',
-        cliente: c ? `${c.nome || ''} ${c.cognome || ''}`.trim() : '—',
-        count: n,
-      };
-    })
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 3);
+  const sparkDisp = fillSeries(groupByDay(dispRows.filter(r => r.stato === 'libero' || r.stato === 'sub_affittato'), 'data'), from, to);
+  const sparkPren = fillSeries(groupByDay(dispRows.filter(r => r.stato === 'sub_affittato'), 'data'), from, to);
+  const sparkDistr = fillSeries(groupByDay(distrRows, 'created_at', 'importo', true), from, to);
+  const sparkSpent = fillSeries(groupByDay(spentRows, 'created_at', 'importo', true), from, to);
 
-  if (!top.length) {
-    ul.innerHTML = '<li class="pano-top-empty">Nessun sub-affitto nel periodo.</li>';
-    return;
-  }
-  ul.innerHTML = top.map((t, i) => `
-    <li class="pano-top-item">
-      <span class="pano-top-rank">${i + 1}</span>
-      <span class="pano-top-label">
-        <span class="pano-top-title">${escapeHtml(t.label)}</span>
-        <span class="pano-top-sub">${escapeHtml(t.cliente)}</span>
-      </span>
-      <span class="pano-top-count">${t.count} codice</span>
-    </li>
-  `).join('');
+  setKpi('pano-kpi-disp', dispCount, false, sparkDisp);
+  setKpi('pano-kpi-pren', prenCount, false, sparkPren);
+  setKpi('pano-kpi-distr', distrSum, true, sparkDistr);
+  setKpi('pano-kpi-spent', spentSum, true, sparkSpent);
 }
 
 // ============================================================
-// DEEP DIVE — router + stubs
+// GRANULARITÀ + TREND CHARTS
 // ============================================================
 
-/**
- * Apre il deep dive richiesto nascondendo la Panoramica.
- * kind: 'disponibilita'|'prenotazioni'|'coin-distr'|'coin-spent'
- */
-function openDeepDive(kind) {
-  const pano = document.getElementById('pano-overview');
-  const dd = document.getElementById('pano-deepdive');
-  if (!pano || !dd) return;
-  pano.classList.add('hidden');
-  dd.classList.remove('hidden');
-
-  // eredita range dalla panoramica
-  ddState.current = kind;
-  ddState.from = panoramicaState.from;
-  ddState.to = panoramicaState.to;
-  ddState.preset = panoramicaState.preset;
-
-  // mostra solo il pannello richiesto
-  document.querySelectorAll('.dd-panel').forEach(p => p.classList.add('hidden'));
-  const panel = document.getElementById(`dd-panel-${kind}`);
-  if (panel) panel.classList.remove('hidden');
-
-  // breadcrumb
-  const crumb = document.getElementById('dd-crumb-title');
-  if (crumb) crumb.textContent = deepDiveTitle(kind);
-  syncDdToolbar();
-
-  // load
-  if (kind === 'disponibilita') ddLoadDisponibilita();
-  else if (kind === 'prenotazioni') ddLoadPrenotazioni();
-  else if (kind === 'coin-distr') ddLoadCoinDistr();
-  else if (kind === 'coin-spent') ddLoadCoinSpent();
-
-  // scroll al top
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function deepDiveTitle(kind) {
-  switch (kind) {
-    case 'disponibilita': return 'Disponibilità dichiarate';
-    case 'prenotazioni': return 'Prenotazioni effettuate';
-    case 'coin-distr': return `${coinName(currentStabilimento)} distribuiti`;
-    case 'coin-spent': return `${coinName(currentStabilimento)} spesi`;
-    default: return 'Deep dive';
-  }
-}
-
-/** Torna alla Panoramica dal deep dive */
-function ddBack() {
-  const pano = document.getElementById('pano-overview');
-  const dd = document.getElementById('pano-deepdive');
-  if (!pano || !dd) return;
-  dd.classList.add('hidden');
-  pano.classList.remove('hidden');
-  ddState.current = null;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-/** Cambia range dentro il deep dive (mirror della toolbar panoramica) */
-function setDdRange(preset) {
-  const today = new Date();
-  const todayStrV = toLocalDateStr(today);
-  let from = null, to = todayStrV;
-  if (preset === '7d') { const d = new Date(today); d.setDate(d.getDate() - 6); from = toLocalDateStr(d); }
-  else if (preset === '30d') { const d = new Date(today); d.setDate(d.getDate() - 29); from = toLocalDateStr(d); }
-  else if (preset === '90d') { const d = new Date(today); d.setDate(d.getDate() - 89); from = toLocalDateStr(d); }
-  else if (preset === 'season') {
-    from = currentStabilimento?.data_inizio_stagione || (today.getFullYear() + '-06-01');
-    to = currentStabilimento?.data_fine_stagione || (today.getFullYear() + '-09-15');
-  } else {
-    const fromEl = document.getElementById('dd-range-from');
-    const toEl = document.getElementById('dd-range-to');
-    if (fromEl?.value && toEl?.value) { from = fromEl.value; to = toEl.value; }
-    else { const d = new Date(today); d.setDate(d.getDate() - 6); from = toLocalDateStr(d); }
-  }
-  ddState.from = from;
-  ddState.to = to;
-  ddState.preset = preset;
-  syncDdToolbar();
-  reloadCurrentDd();
-}
-
-function onDdCustomRange() {
-  const from = document.getElementById('dd-range-from').value;
-  const to = document.getElementById('dd-range-to').value;
-  if (!from || !to || from > to) return;
-  ddState.from = from;
-  ddState.to = to;
-  ddState.preset = 'custom';
-  syncDdToolbar();
-  reloadCurrentDd();
-}
-
-function onDdCompareToggle() {
-  ddState.compare = document.getElementById('dd-compare').checked;
-  reloadCurrentDd();
-}
-
-function syncDdToolbar() {
-  document.querySelectorAll('.dd-preset-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.preset === ddState.preset);
+function setChartGranularity(chart, gran) {
+  chartState.gran[chart] = gran;
+  document.querySelectorAll(`[data-chart="${chart}"] .pano-gran-btn`).forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.gran === gran);
   });
-  const ddFromEl = document.getElementById('dd-range-from');
-  const ddToEl = document.getElementById('dd-range-to');
-  if (ddFromEl) {
-    if (ddFromEl._flatpickr && typeof ddFromEl._flatpickr.setDate === 'function') ddFromEl._flatpickr.setDate(ddState.from, false);
-    else if (ddFromEl.value !== ddState.from) ddFromEl.value = ddState.from;
-  }
-  if (ddToEl) {
-    if (ddToEl._flatpickr && typeof ddToEl._flatpickr.setDate === 'function') ddToEl._flatpickr.setDate(ddState.to, false);
-    else if (ddToEl.value !== ddState.to) ddToEl.value = ddState.to;
-  }
-  const label = document.getElementById('dd-range-label');
-  if (label) label.textContent = labelRange(ddState.from, ddState.to);
-  const cmp = document.getElementById('dd-compare');
-  if (cmp) cmp.checked = ddState.compare;
+  if (chart === 'disp') renderTrendChart('disp');
+  else if (chart === 'coin') renderTrendChart('coin');
 }
 
-function reloadCurrentDd() {
-  if (ddState.current === 'disponibilita') ddLoadDisponibilita();
-  else if (ddState.current === 'prenotazioni') ddLoadPrenotazioni();
-  else if (ddState.current === 'coin-distr') ddLoadCoinDistr();
-  else if (ddState.current === 'coin-spent') ddLoadCoinSpent();
+function updateGranularityEnabled() {
+  const days = dateRangeDays(panoramicaState.from, panoramicaState.to).length;
+  ['disp', 'coin'].forEach(chart => {
+    document.querySelectorAll(`[data-chart="${chart}"] .pano-gran-btn`).forEach(btn => {
+      const gran = btn.dataset.gran;
+      let disable = false;
+      if (gran === 'week' && days < 7) disable = true;
+      if (gran === 'month' && days < 28) disable = true;
+      btn.disabled = disable;
+      btn.classList.toggle('disabled', disable);
+    });
+    if (chartState.gran[chart] === 'month' && days < 28) chartState.gran[chart] = 'day';
+    if (chartState.gran[chart] === 'week' && days < 7) chartState.gran[chart] = 'day';
+    document.querySelectorAll(`[data-chart="${chart}"] .pano-gran-btn`).forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.gran === chartState.gran[chart]);
+    });
+  });
 }
 
-function ddExport() {
-  if (!ddState.lastRows || !ddState.lastRows.length) {
-    alert('Nessun dato da esportare in questo periodo.');
+function bucketKeyFor(dateStr, gran) {
+  if (gran === 'day') return dateStr;
+  const d = new Date(dateStr + 'T00:00:00');
+  if (gran === 'month') return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  // week → monday della settimana ISO
+  const dow = d.getDay();                  // 0=Sun..6=Sat
+  const offset = dow === 0 ? -6 : 1 - dow; // distanza da lunedì
+  const monday = new Date(d); monday.setDate(d.getDate() + offset);
+  return toLocalDateStr(monday);
+}
+
+function bucketKeysForRange(from, to, gran) {
+  const out = [];
+  const seen = new Set();
+  dateRangeDays(from, to).forEach(dStr => {
+    const k = bucketKeyFor(dStr, gran);
+    if (!seen.has(k)) { seen.add(k); out.push(k); }
+  });
+  return out;
+}
+
+function bucketLabel(key, gran) {
+  if (gran === 'month') {
+    const [y, m] = key.split('-');
+    const d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+    return d.toLocaleDateString('it-IT', { month: 'short', year: '2-digit' });
+  }
+  const d = new Date(key + 'T00:00:00');
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+}
+
+function aggregateByBucket(rows, dateField, valField, isTimestamp, gran) {
+  const map = new Map();
+  (rows || []).forEach(r => {
+    let dateStr = r[dateField];
+    if (!dateStr) return;
+    if (isTimestamp) dateStr = String(dateStr).slice(0, 10);
+    const key = bucketKeyFor(dateStr, gran);
+    const add = valField ? parseFloat(r[valField] || 0) : 1;
+    map.set(key, (map.get(key) || 0) + add);
+  });
+  return map;
+}
+
+function renderTrendCharts() {
+  renderTrendChart('disp');
+  renderTrendChart('coin');
+}
+
+function renderTrendChart(chart) {
+  const target = document.getElementById(`pano-chart-${chart}`);
+  if (!target) return;
+  if (!panoramicaState.data) return;
+  const { dispRows, distrRows, spentRows } = panoramicaState.data;
+  const { from, to } = panoramicaState;
+  const gran = chartState.gran[chart];
+
+  const buckets = bucketKeysForRange(from, to, gran);
+  let mapA, mapB, colorA, colorB, isCoin;
+  if (chart === 'disp') {
+    mapA = aggregateByBucket(dispRows.filter(r => r.stato === 'libero' || r.stato === 'sub_affittato'), 'data', null, false, gran);
+    mapB = aggregateByBucket(dispRows.filter(r => r.stato === 'sub_affittato'), 'data', null, false, gran);
+    colorA = 'var(--ocean,#1B6CA8)';
+    colorB = 'var(--coral,#E07B54)';
+    isCoin = false;
+  } else {
+    mapA = aggregateByBucket(distrRows, 'created_at', 'importo', true, gran);
+    mapB = aggregateByBucket(spentRows, 'created_at', 'importo', true, gran);
+    colorA = '#0A7C4A';
+    colorB = 'var(--coral,#E07B54)';
+    isCoin = true;
+  }
+  const seriesA = buckets.map(k => mapA.get(k) || 0);
+  const seriesB = buckets.map(k => mapB.get(k) || 0);
+
+  if (!seriesA.some(v => v > 0) && !seriesB.some(v => v > 0)) {
+    target.innerHTML = '<div class="pano-chart-empty">Nessun dato nel periodo.</div>';
     return;
   }
-  exportXlsx(ddState.lastRows, ddState.lastFilename, deepDiveTitle(ddState.current));
+
+  drawGroupedBars(target, buckets.map(k => bucketLabel(k, gran)), seriesA, seriesB, colorA, colorB, isCoin);
+}
+
+function niceCeil(v) {
+  if (v <= 0) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(v)));
+  const n = v / pow;
+  if (n <= 1) return pow;
+  if (n <= 2) return 2 * pow;
+  if (n <= 5) return 5 * pow;
+  return 10 * pow;
+}
+
+function drawGroupedBars(target, labels, seriesA, seriesB, colorA, colorB, isCoin) {
+  const N = labels.length;
+  const W = 800, H = 240;
+  const PL = 48, PR = 16, PT = 12, PB = 56;
+  const innerW = W - PL - PR;
+  const innerH = H - PT - PB;
+  const max = Math.max(1, ...seriesA, ...seriesB);
+  const niceMax = niceCeil(max);
+  const bucketW = innerW / N;
+  const barGap = N > 30 ? 1 : 2;
+  const barW = Math.max(1.5, (bucketW - barGap) / 2 - 1);
+  const yScale = (v) => PT + innerH * (1 - v / niceMax);
+
+  const fmt = isCoin ? (v) => parseFloat(v || 0).toFixed(2) : (v) => String(Math.round(v));
+
+  // Grid + Y ticks (5)
+  const ticks = 4;
+  let grid = '';
+  for (let i = 0; i <= ticks; i++) {
+    const v = (niceMax * i) / ticks;
+    const y = PT + innerH * (1 - i / ticks);
+    grid += `<line x1="${PL}" y1="${y.toFixed(1)}" x2="${W - PR}" y2="${y.toFixed(1)}" stroke="#E8EBEE" stroke-width="1"/>`;
+    grid += `<text x="${PL - 6}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="#5C6570">${fmt(v)}</text>`;
+  }
+
+  // Bars
+  let bars = '';
+  for (let i = 0; i < N; i++) {
+    const xCenter = PL + bucketW * (i + 0.5);
+    const xA = xCenter - barW - barGap / 2;
+    const xB = xCenter + barGap / 2;
+    const yA = yScale(seriesA[i]);
+    const yB = yScale(seriesB[i]);
+    const hA = (PT + innerH) - yA;
+    const hB = (PT + innerH) - yB;
+    const tA = `${labels[i]}: ${fmt(seriesA[i])}`;
+    const tB = `${labels[i]}: ${fmt(seriesB[i])}`;
+    bars += `<rect x="${xA.toFixed(1)}" y="${yA.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, hA).toFixed(1)}" fill="${colorA}"><title>${escapeHtml(tA)}</title></rect>`;
+    bars += `<rect x="${xB.toFixed(1)}" y="${yB.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, hB).toFixed(1)}" fill="${colorB}"><title>${escapeHtml(tB)}</title></rect>`;
+  }
+
+  // X labels (max ~12 visibili per non sovrapporsi)
+  const labelStep = Math.max(1, Math.ceil(N / 12));
+  let xLabels = '';
+  for (let i = 0; i < N; i++) {
+    if (i % labelStep !== 0) continue;
+    const x = PL + bucketW * (i + 0.5);
+    const y = PT + innerH + 16;
+    xLabels += `<text x="${x.toFixed(1)}" y="${y}" text-anchor="middle" font-size="10" fill="#5C6570">${escapeHtml(labels[i])}</text>`;
+  }
+
+  target.innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" class="pano-trend-svg">` +
+    grid + bars + xLabels +
+    `</svg>`;
 }
 
 // ============================================================
-// DEEP DIVE — DISPONIBILITÀ (stub Consegna 2)
+// TOP 5 OMBRELLONI
 // ============================================================
 
-async function ddLoadDisponibilita() {
-  const body = document.getElementById('dd-body-disponibilita');
-  if (!body) return;
-  body.innerHTML = '<div class="dd-placeholder">La versione estesa con grafici, fonti e confronto arriva nella Consegna 2. Per ora usa la tab Ombrelloni per la mappa.</div>';
-  ddState.lastRows = [];
-  ddState.lastFilename = 'disponibilita';
+function setTopSort(chart, sort) {
+  chartState.topSort[chart] = sort;
+  document.querySelectorAll(`[data-chart="top-${chart}"] .pano-gran-btn`).forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.sort === sort);
+  });
+  renderTopCharts(chart);
 }
 
-async function ddLoadPrenotazioni() {
-  const body = document.getElementById('dd-body-prenotazioni');
-  if (!body) return;
-  body.innerHTML = '<div class="dd-placeholder">La versione estesa con funnel, tempo medio di piazzamento e mix multi-giorno arriva nella Consegna 2. Per ora usa la tab Prenotazioni.</div>';
-  ddState.lastRows = [];
-  ddState.lastFilename = 'prenotazioni';
+function clientLabelFor(ombId) {
+  const c = (clientiList || []).find(x => !x.rifiutato && x.ombrellone_id === ombId);
+  if (!c) return '—';
+  return `${c.nome || ''} ${c.cognome || ''}`.trim() || '—';
 }
 
-async function ddLoadCoinDistr() {
-  const body = document.getElementById('dd-body-coin-distr');
-  if (!body) return;
-  body.innerHTML = '<div class="dd-placeholder">La versione estesa con heatmap ora/giorno e top cliente/ombrellone arriva nella Consegna 2. Per ora usa la tab Crediti.</div>';
-  ddState.lastRows = [];
-  ddState.lastFilename = 'coin-distribuiti';
+function ombLabelFor(id) {
+  const o = (ombrelloniList || []).find(x => x.id === id);
+  return o ? `Fila ${o.fila} · N°${o.numero}` : 'Ombrellone';
 }
 
-async function ddLoadCoinSpent() {
-  const body = document.getElementById('dd-body-coin-spent');
-  if (!body) return;
-  body.innerHTML = '<div class="dd-placeholder">La versione estesa con pie chart per categoria (bar/ristorante/altro), top spender e tempo distr→spent arriva nella Consegna 2. Per ora usa la tab Crediti.</div>';
-  ddState.lastRows = [];
-  ddState.lastFilename = 'coin-spesi';
+function renderTopCharts(only) {
+  if (!only || only === 'usage') renderTopUsage();
+  if (!only || only === 'coin') renderTopCoin();
+}
+
+function renderTopUsage() {
+  const target = document.getElementById('pano-top-usage');
+  if (!target) return;
+  if (!panoramicaState.data) return;
+  const { dispRows } = panoramicaState.data;
+  const dichByOmb = new Map();
+  const subByOmb = new Map();
+  dispRows.forEach(r => {
+    if (r.stato === 'libero' || r.stato === 'sub_affittato') {
+      dichByOmb.set(r.ombrellone_id, (dichByOmb.get(r.ombrellone_id) || 0) + 1);
+    }
+    if (r.stato === 'sub_affittato') {
+      subByOmb.set(r.ombrellone_id, (subByOmb.get(r.ombrellone_id) || 0) + 1);
+    }
+  });
+  const allIds = new Set([...dichByOmb.keys(), ...subByOmb.keys()]);
+  const items = [...allIds].map(id => ({
+    id,
+    ombrellone: ombLabelFor(id),
+    cliente: clientLabelFor(id),
+    a: dichByOmb.get(id) || 0,   // dichiarate
+    b: subByOmb.get(id) || 0,    // sub-affittate
+  })).filter(it => it.a > 0 || it.b > 0);
+
+  const sortKey = chartState.topSort.usage === 'subaffittate' ? 'b' : 'a';
+  items.sort((x, y) => y[sortKey] - x[sortKey] || y.a - x.a);
+  const top = items.slice(0, 5);
+
+  drawTopBars(target, top, 'var(--ocean,#1B6CA8)', 'var(--coral,#E07B54)', false, 'Dichiarate', 'Sub-affittate');
+}
+
+function renderTopCoin() {
+  const target = document.getElementById('pano-top-coin');
+  if (!target) return;
+  if (!panoramicaState.data) return;
+  const { distrRows, spentRows } = panoramicaState.data;
+  const recByOmb = new Map();
+  const speByOmb = new Map();
+  distrRows.forEach(r => {
+    if (!r.ombrellone_id) return;
+    recByOmb.set(r.ombrellone_id, (recByOmb.get(r.ombrellone_id) || 0) + parseFloat(r.importo || 0));
+  });
+  spentRows.forEach(r => {
+    if (!r.ombrellone_id) return;
+    speByOmb.set(r.ombrellone_id, (speByOmb.get(r.ombrellone_id) || 0) + parseFloat(r.importo || 0));
+  });
+  const allIds = new Set([...recByOmb.keys(), ...speByOmb.keys()]);
+  const items = [...allIds].map(id => ({
+    id,
+    ombrellone: ombLabelFor(id),
+    cliente: clientLabelFor(id),
+    a: recByOmb.get(id) || 0,
+    b: speByOmb.get(id) || 0,
+  })).filter(it => it.a > 0 || it.b > 0);
+
+  const sortKey = chartState.topSort.coin === 'spesi' ? 'b' : 'a';
+  items.sort((x, y) => y[sortKey] - x[sortKey] || y.a - x.a);
+  const top = items.slice(0, 5);
+
+  drawTopBars(target, top, '#0A7C4A', 'var(--coral,#E07B54)', true, 'Ricevuti', 'Spesi');
+}
+
+function drawTopBars(target, items, colorA, colorB, isCoin, labelA, labelB) {
+  if (!items.length) {
+    target.innerHTML = '<div class="pano-chart-empty">Nessun dato nel periodo.</div>';
+    return;
+  }
+  const max = Math.max(1, ...items.flatMap(it => [it.a, it.b]));
+  const fmt = (v) => isCoin ? parseFloat(v || 0).toFixed(2) : String(Math.round(v));
+
+  target.innerHTML = items.map(it => `
+    <div class="pano-top5-row">
+      <div class="pano-top5-info">
+        <div class="pano-top5-omb">${escapeHtml(it.ombrellone)}</div>
+        <div class="pano-top5-cli">${escapeHtml(it.cliente)}</div>
+      </div>
+      <div class="pano-top5-bars">
+        <div class="pano-top5-bar-row" title="${escapeHtml(labelA)}: ${fmt(it.a)}">
+          <div class="pano-top5-bar-track">
+            <div class="pano-top5-bar" style="width:${(it.a / max * 100).toFixed(1)}%;background:${colorA}"></div>
+          </div>
+          <span class="pano-top5-val">${fmt(it.a)}</span>
+        </div>
+        <div class="pano-top5-bar-row" title="${escapeHtml(labelB)}: ${fmt(it.b)}">
+          <div class="pano-top5-bar-track">
+            <div class="pano-top5-bar" style="width:${(it.b / max * 100).toFixed(1)}%;background:${colorB}"></div>
+          </div>
+          <span class="pano-top5-val">${fmt(it.b)}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
 }
 
 // ============================================================
 // INIT
 // ============================================================
 
-/** Chiamata una volta all'apertura del tab Panoramica. */
 function panoramicaInit() {
   if (!panoramicaState.from) {
     const { from, to } = panoramicaPresetDates('season');
