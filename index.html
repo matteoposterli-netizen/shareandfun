@@ -973,7 +973,8 @@
           <div class="card-header" style="flex-wrap:wrap;gap:10px">
             <div class="card-title">Elenco prenotazioni</div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <input type="search" id="pren-filter-text" class="form-input" placeholder="Cerca per nome, cliente o ombrellone…" style="width:260px;padding:6px 10px;font-size:13px" oninput="renderPrenotazioni()">
+              <input type="search" id="pren-filter-nome" class="form-input" placeholder="Nome prenotazione" style="width:200px;padding:6px 10px;font-size:13px" oninput="renderPrenotazioni()">
+              <input type="search" id="pren-filter-ombrellone" class="form-input" placeholder="Numero ombrellone (es. 23 oppure A 12)" style="width:240px;padding:6px 10px;font-size:13px" oninput="renderPrenotazioni()">
               <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
                 <span>Periodo</span>
                 <input type="text" id="pren-range-picker" class="form-input" readonly placeholder="Tutte le date" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">

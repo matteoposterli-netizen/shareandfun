@@ -1574,14 +1574,24 @@ async function finalizeBookingSelection() {
 }
 
 function clearPrenFilters() {
-  const t = document.getElementById('pren-filter-text');
+  const n = document.getElementById('pren-filter-nome');
+  const o = document.getElementById('pren-filter-ombrellone');
   const f = document.getElementById('pren-filter-from');
   const to = document.getElementById('pren-filter-to');
-  if (t) t.value = '';
+  if (n) n.value = '';
+  if (o) o.value = '';
   if (f) f.value = '';
   if (to) to.value = '';
   if (prenRangePickerInstance) prenRangePickerInstance.clear();
   renderPrenotazioni();
+}
+
+function matchesOmbrelloneQuery(omb, query) {
+  const fila = String(omb.fila || '').toLowerCase();
+  const num  = String(omb.numero || '').toLowerCase();
+  const compact = `${fila}${num}`;
+  const label = `fila ${fila} n°${num}`;
+  return num === query || compact === query || compact.includes(query) || label.includes(query) || num.includes(query);
 }
 
 let prenRangePickerInstance = null;
@@ -1710,7 +1720,8 @@ function renderPrenotazioni() {
 
   updatePrenPresetActive();
 
-  const q = (document.getElementById('pren-filter-text')?.value || '').trim().toLowerCase();
+  const qNome = (document.getElementById('pren-filter-nome')?.value || '').trim().toLowerCase();
+  const qOmb  = (document.getElementById('pren-filter-ombrellone')?.value || '').trim().toLowerCase();
   const from = document.getElementById('pren-filter-from')?.value || '';
   const to = document.getElementById('pren-filter-to')?.value || '';
   if (from && to && from > to) {
@@ -1720,21 +1731,17 @@ function renderPrenotazioni() {
   }
 
   const ombsMap = ombById();
-  const cliById = {};
-  (clientiList || []).forEach(c => { cliById[c.id] = c; });
 
   const rows = (prenotazioniList || []).filter(p => {
     if (from && p.data < from) return false;
     if (to && p.data > to) return false;
-    if (!q) return true;
-    const omb = ombsMap[p.ombrellone_id];
-    const cli = p.cliente_id ? cliById[p.cliente_id] : null;
-    const hay = [
-      p.nome_prenotazione || '',
-      omb ? `fila ${omb.fila} n°${omb.numero} ${omb.fila}${omb.numero}` : '',
-      cli ? `${cli.nome} ${cli.cognome}` : '',
-    ].join(' ').toLowerCase();
-    return hay.includes(q);
+    if (qNome && !(p.nome_prenotazione || '').toLowerCase().includes(qNome)) return false;
+    if (qOmb) {
+      const omb = ombsMap[p.ombrellone_id];
+      if (!omb) return false;
+      if (!matchesOmbrelloneQuery(omb, qOmb)) return false;
+    }
+    return true;
   });
 
   if (!rows.length) {
