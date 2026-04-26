@@ -112,7 +112,13 @@ async function completeInviteRegistration() {
   if (pwd !== pwd2) { showAlert('invito-alert', 'Le password non coincidono', 'error'); return; }
   const btn = document.getElementById('btn-invito');
   btn.disabled = true; btn.textContent = 'Registrazione in corso...';
-  const { data, error } = await sb.auth.signUp({ email: currentInviteData.email, password: pwd });
+  let { data, error } = await sb.auth.signUp({ email: currentInviteData.email, password: pwd });
+  if (error && /already registered/i.test(error.message || '')) {
+    const { data: unblocked } = await sb.rpc('unblock_invito_email', { p_token: currentInviteToken });
+    if (unblocked) {
+      ({ data, error } = await sb.auth.signUp({ email: currentInviteData.email, password: pwd }));
+    }
+  }
   if (error) {
     const msg = /already registered/i.test(error.message || '')
       ? 'Questo indirizzo email risulta già associato a un account precedente che non è stato ripulito. Contatta lo stabilimento per sbloccare la registrazione.'
