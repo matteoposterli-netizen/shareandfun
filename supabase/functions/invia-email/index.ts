@@ -6,6 +6,16 @@ const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "SpiaggiaMia <noreply@spiaggiam
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
+// Domini freemail noti: settare Reply-To su un freemail diverso dal From
+// fa scattare la regola SpamAssassin FREEMAIL_FORGED_REPLYTO (-2.5).
+// In quel caso il Reply-To resta sul From (noreply@spiaggiamia.com) e i
+// contatti del proprietario vengono mostrati nel footer del template.
+const FREEMAIL_DOMAIN_RE = /@(gmail|googlemail|yahoo|ymail|rocketmail|hotmail|outlook|live|msn|libero|virgilio|tin|alice|inwind|tiscali|email|iol|fastwebnet|icloud|me|mac|aol|gmx|protonmail|proton|tutanota|tutamail|yandex|mail|zoho|pec)\.[a-z.]{2,}$/i;
+function isFreemail(addr: string | undefined | null): boolean {
+  if (!addr) return false;
+  return FREEMAIL_DOMAIN_RE.test(addr.trim().toLowerCase());
+}
+
 function buildFromHeader(displayName: string | undefined): string {
   if (!displayName) return FROM_EMAIL;
   const clean = displayName.replace(/["\r\n]/g, "").trim();
@@ -95,7 +105,11 @@ function buildEmailText(opts: EmailContentOpts): string {
   linee.push("", "—", opts.stabilimento_nome);
   if (opts.stabilimento_telefono) linee.push(`Tel: ${opts.stabilimento_telefono}`);
   if (opts.stabilimento_email) linee.push(`Email: ${opts.stabilimento_email}`);
-  linee.push("", "Per qualsiasi necessità contatta direttamente il tuo stabilimento balneare.");
+  linee.push(
+    "",
+    "Questa è un'email automatica inviata da un indirizzo no-reply: le risposte non vengono lette.",
+    `Per qualsiasi necessità contatta direttamente ${opts.stabilimento_nome} ai recapiti qui sopra.`,
+  );
   return linee.join("\n");
 }
 
@@ -106,10 +120,13 @@ function buildEmailHtml(opts: EmailContentOpts): string {
        </div>`
     : "";
 
-  const contatti = [
-    opts.stabilimento_telefono ? `📞 ${opts.stabilimento_telefono}` : "",
-    opts.stabilimento_email ? `✉️ ${opts.stabilimento_email}` : "",
-  ].filter(Boolean).join("&nbsp;&nbsp;·&nbsp;&nbsp;");
+  const telLink = opts.stabilimento_telefono
+    ? `<a href="tel:${opts.stabilimento_telefono.replace(/\s+/g, "")}" style="color:#1B6CA8;text-decoration:none">📞 ${opts.stabilimento_telefono}</a>`
+    : "";
+  const mailLink = opts.stabilimento_email
+    ? `<a href="mailto:${opts.stabilimento_email}" style="color:#1B6CA8;text-decoration:none">✉️ ${opts.stabilimento_email}</a>`
+    : "";
+  const contatti = [telLink, mailLink].filter(Boolean).join("&nbsp;&nbsp;·&nbsp;&nbsp;");
 
   return `<!DOCTYPE html>
 <html lang="it">
@@ -135,9 +152,10 @@ function buildEmailHtml(opts: EmailContentOpts): string {
           ${opts.footer_extra ? `<p style="font-size:13px;color:#5A6A7A;line-height:1.6;margin-bottom:0">${opts.footer_extra}</p>` : ""}
         </td></tr>
         <tr><td style="background:#F5F0E8;padding:20px 40px;text-align:center;border-top:1px solid #E8DDD0">
-          <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#1A2332">🏖️ ${opts.stabilimento_nome}</p>
-          ${contatti ? `<p style="margin:0 0 8px;font-size:12px;color:#9AAABB">${contatti}</p>` : ""}
-          <p style="margin:0;font-size:12px;color:#9AAABB">Per qualsiasi necessità contatta direttamente il tuo stabilimento balneare.</p>
+          <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#1A2332">🏖️ ${opts.stabilimento_nome}</p>
+          ${contatti ? `<p style="margin:0 0 14px;font-size:13px;color:#1A2332;line-height:1.6">${contatti}</p>` : ""}
+          <p style="margin:0 0 6px;font-size:11px;color:#9AAABB;line-height:1.5">Questa è un'email automatica inviata da un indirizzo <strong>no-reply</strong>: le risposte non vengono lette.</p>
+          <p style="margin:0;font-size:11px;color:#9AAABB;line-height:1.5">Per qualsiasi necessità contatta direttamente <strong>${opts.stabilimento_nome}</strong> ai recapiti qui sopra.</p>
         </td></tr>
       </table>
     </td></tr>
@@ -376,7 +394,9 @@ Deno.serve(async (req: Request) => {
       "List-Unsubscribe": `<mailto:${unsubscribeMailto}?subject=Unsubscribe>`,
     },
   };
-  if (stabilimento_email) payload.reply_to = stabilimento_email;
+  if (stabilimento_email && !isFreemail(stabilimento_email)) {
+    payload.reply_to = stabilimento_email;
+  }
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
