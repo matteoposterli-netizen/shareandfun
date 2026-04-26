@@ -1467,7 +1467,8 @@ async function finalizeBookingSelection() {
     return;
   }
   const rawName = document.getElementById('finalize-booking-nome').value.trim();
-  const nomePrenotazione = rawName || generateDefaultBookingName();
+  const defaultName = generateDefaultBookingName();
+  const nomePrenotazione = rawName ? `${defaultName} — ${rawName}` : defaultName;
 
   showLoading();
   try {
