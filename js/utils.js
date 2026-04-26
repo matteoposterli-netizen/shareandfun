@@ -22,6 +22,18 @@ function enhanceDateInputs(root) {
   });
 }
 
+// On flatpickr-enhanced date inputs the original is hidden and a visible alt
+// input tracks the picker; setting .value directly leaves the alt out of sync.
+function setDateInputValue(input, value) {
+  if (!input) return;
+  if (input._flatpickr) {
+    input._flatpickr.setDate(value, false);
+    return;
+  }
+  if (value instanceof Date) input.value = toLocalDateStr(value);
+  else input.value = value || '';
+}
+
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
 function togglePasswordVisibility(btn) {
