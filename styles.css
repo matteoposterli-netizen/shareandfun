@@ -392,17 +392,18 @@ body {
 .map-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
 .legend-item { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-mid); }
 .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
-.map-rows { display: flex; flex-direction: column; gap: 6px; }
-.map-row { display: flex; align-items: center; gap: 5px; }
-.row-label { font-size: 10px; font-weight: 700; color: var(--text-light); width: 20px; text-align: center; }
+.map-rows { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.map-row { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.row-label { font-size: 10px; font-weight: 700; color: var(--text-light); width: 20px; text-align: center; flex-shrink: 0; }
 .map-col-numbers { margin-top: 2px; }
-.col-label { width: 40px; text-align: center; font-size: 10px; font-weight: 700; color: var(--text-light); }
+.col-label { width: 40px; text-align: center; font-size: 10px; font-weight: 700; color: var(--text-light); flex-shrink: 0; }
 .ombrellone {
   width: 40px; height: 40px; border-radius: 9px;
   display: flex; align-items: center; justify-content: center;
   font-size: 10px; font-weight: 700; cursor: pointer;
   border: 1.5px solid transparent; position: relative;
   transition: transform .12s, box-shadow .12s;
+  flex-shrink: 0;
 }
 .ombrellone:hover { transform: scale(1.1); z-index: 1; box-shadow: 0 4px 12px rgba(14,27,38,0.12); }
 .ombrellone.occupied { background: var(--ocean-light); color: var(--ocean); border-color: var(--ocean-mid); }
