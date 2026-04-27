@@ -1781,7 +1781,7 @@ async function usaCredito() {
   const nuovoSaldo = (parseFloat(cliente.credito_saldo) - importo).toFixed(2);
   const notaFinale = nota || 'Utilizzo credito';
   await sb.from('clienti_stagionali').update({ credito_saldo: nuovoSaldo }).eq('id', clienteId);
-  await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, cliente_id: clienteId, tipo: 'credito_usato', importo, nota: notaFinale });
+  await sb.from('transazioni').insert({ stabilimento_id: currentStabilimento.id, cliente_id: clienteId, ombrellone_id: cliente.ombrellone_id || null, tipo: 'credito_usato', importo, nota: notaFinale });
   if (cliente.email) {
     inviaEmail('credito_ritirato', {
       email: cliente.email,
