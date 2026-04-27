@@ -342,7 +342,7 @@ async function loadManagerData() {
   await loadPrenotazioni();
   populateClienteSelect();
   if (!document.getElementById('analytics-date-from').value) {
-    setAnalyticsRange(30);
+    setAnalyticsRange('oggi');
   } else {
     updateAnalyticsPresetActive();
     await loadCreditiAnalytics();
@@ -879,10 +879,16 @@ let analyticsRows = [];
 let analyticsPage = 1;
 let analyticsCtx = { ombById: {}, cliById: {} };
 
-function setAnalyticsRange(days) {
+function setAnalyticsRange(preset) {
   const to = new Date();
   const from = new Date();
-  from.setDate(from.getDate() - (days - 1));
+  if (preset === 'ieri') {
+    from.setDate(from.getDate() - 1);
+    to.setDate(to.getDate() - 1);
+  } else if (preset !== 'oggi') {
+    const days = parseInt(preset, 10);
+    from.setDate(from.getDate() - (days - 1));
+  }
   setDateInputValue(document.getElementById('analytics-date-from'), from);
   setDateInputValue(document.getElementById('analytics-date-to'), to);
   updateAnalyticsPresetActive();
@@ -894,13 +900,19 @@ function updateAnalyticsPresetActive() {
   const to = document.getElementById('analytics-date-to')?.value || '';
   const today = todayStr();
   let active = null;
-  if (from && to === today) {
+  if (from && to) {
     const start = new Date(from + 'T00:00:00');
     const endD = new Date(to + 'T00:00:00');
     const diff = Math.round((endD - start) / 86400000) + 1;
-    if (diff === 7) active = '7';
-    else if (diff === 30) active = '30';
-    else if (diff === 90) active = '90';
+    if (to === today) {
+      if (diff === 1) active = 'oggi';
+      else if (diff === 3) active = '3';
+      else if (diff === 7) active = '7';
+    } else if (diff === 1 && from === to) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      if (from === toLocalDateStr(yesterday)) active = 'ieri';
+    }
   }
   document.querySelectorAll('.analytics-preset-btn').forEach(btn => {
     if (btn.dataset.preset === active) {
