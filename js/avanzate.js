@@ -190,10 +190,13 @@ function renderAvanzateMap(ombs, dispMap) {
         : stato === 'parziale' ? 'partial'
         : stato === 'sub_affittato' ? 'subleased'
         : 'occupied';
+      const hasCliente = (clientiList || []).some(c => !c.rifiutato && c.ombrellone_id === o.id);
+      const noClienteCls = !hasCliente ? ' no-cliente' : '';
       const cell = document.createElement('div');
-      cell.className = 'ombrellone ' + cls;
+      cell.className = 'ombrellone ' + cls + noClienteCls;
       cell.textContent = '☂️';
-      const stateLabel = stato === 'libero' ? 'libero per tutto il periodo'
+      const stateLabel = stato === 'libero' && !hasCliente ? 'subaffittabile (nessun cliente assegnato)'
+        : stato === 'libero' ? 'libero per tutto il periodo'
         : stato === 'parziale' ? 'libero in parte del periodo'
         : stato === 'sub_affittato' ? 'sub-affittato in parte del periodo'
         : 'occupato dal cliente stagionale';
