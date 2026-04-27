@@ -1888,10 +1888,29 @@ function renderPrenotazioni() {
     groups.get(key).items.push(r);
   });
 
+  const today = todayStr();
+  const groupSortKeys = (g) => {
+    const dates = g.items.map(x => x.data);
+    const upcoming = dates.filter(d => d >= today).sort();
+    const nextUpcoming = upcoming[0] || null;
+    const maxDate = dates.reduce((m, d) => d > m ? d : m, '');
+    const minCreated = g.items.reduce((m, x) => {
+      if (!x.created_at) return m;
+      return (m === '' || x.created_at < m) ? x.created_at : m;
+    }, '');
+    return { nextUpcoming, maxDate, minCreated };
+  };
   const ordered = Array.from(groups.values()).sort((a, b) => {
-    const maxA = a.items.reduce((m, x) => x.data > m ? x.data : m, '');
-    const maxB = b.items.reduce((m, x) => x.data > m ? x.data : m, '');
-    if (maxA !== maxB) return maxA < maxB ? 1 : -1;
+    const ka = groupSortKeys(a);
+    const kb = groupSortKeys(b);
+    if (ka.nextUpcoming && !kb.nextUpcoming) return -1;
+    if (!ka.nextUpcoming && kb.nextUpcoming) return 1;
+    if (ka.nextUpcoming && kb.nextUpcoming) {
+      if (ka.nextUpcoming !== kb.nextUpcoming) return ka.nextUpcoming < kb.nextUpcoming ? -1 : 1;
+    } else {
+      if (ka.maxDate !== kb.maxDate) return ka.maxDate < kb.maxDate ? 1 : -1;
+    }
+    if (ka.minCreated !== kb.minCreated) return ka.minCreated < kb.minCreated ? -1 : 1;
     return 0;
   });
 
