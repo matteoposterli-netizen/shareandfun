@@ -1531,6 +1531,7 @@ function managerTab(tab, btn) {
   }
   if (tab === 'prenotazioni') loadPrenotazioni();
   if (tab === 'crediti') refreshCreditoCliente();
+  if (tab === 'transazioni' && typeof txTabInit === 'function') txTabInit();
   if (tab === 'log') {
     // Default: ultimi 7 giorni, size 30.
     if (!document.getElementById('audit-date-from').value) {
