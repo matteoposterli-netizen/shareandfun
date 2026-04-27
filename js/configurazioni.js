@@ -30,8 +30,8 @@ function loadStagione() {
   const fine   = (rawF ? String(rawF).slice(0, 10) : '') || `${year}-09-30`;
   const elI = document.getElementById('stagione-inizio');
   const elF = document.getElementById('stagione-fine');
-  if (elI) elI.value = inizio;
-  if (elF) elF.value = fine;
+  setDateInputValue(elI, inizio);
+  setDateInputValue(elF, fine);
   renderStagioneSummary(inizio, fine);
   const alert = document.getElementById('stagione-save-alert');
   if (alert) alert.innerHTML = '';
