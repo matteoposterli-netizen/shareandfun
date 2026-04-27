@@ -245,6 +245,7 @@
       <button class="sidebar-item active" onclick="managerTab('panoramica',this)"><span class="icon">📊</span> Dashboard</button>
       <button class="sidebar-item" onclick="managerTab('prenotazioni',this)"><span class="icon">📖</span> Prenotazioni</button>
       <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Gestione Credito</button>
+      <button class="sidebar-item" onclick="managerTab('transazioni',this)"><span class="icon">📋</span> Transazioni</button>
       <button class="sidebar-item" onclick="managerTab('gestione',this)"><span class="icon">🗺️</span> Ombrelloni e Clienti</button>
       <button class="sidebar-item" onclick="managerTab('config',this)"><span class="icon">⚙️</span> Configurazioni</button>
       <button class="sidebar-item" onclick="managerTab('log',this)"><span class="icon">🕵️</span> Log attività</button>
@@ -1142,6 +1143,84 @@
         </div>
       </div>
 
+      <!-- TRANSAZIONI TAB -->
+      <div id="mtab-transazioni" class="tab-content">
+        <div class="page-header">
+          <div><div class="page-title">📋 Transazioni</div><div class="page-subtitle">Tutte le transazioni dello stabilimento. Filtra per periodo, cliente o numero ombrellone.</div></div>
+          <button class="btn btn-outline btn-sm" onclick="txTabResetFilters()">Reset filtri</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header" style="flex-wrap:wrap;gap:10px">
+            <div class="card-title">Filtri</div>
+            <span id="tx-tab-count-label" style="font-size:13px;color:var(--text-light)"></span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding:4px 0 8px">
+            <div>
+              <label class="form-label" style="font-size:12px">Dal</label>
+              <input type="date" id="tx-tab-date-from" class="form-input" style="padding:6px 10px;font-size:13px" onchange="loadTxTab()">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Al</label>
+              <input type="date" id="tx-tab-date-to" class="form-input" style="padding:6px 10px;font-size:13px" onchange="loadTxTab()">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Cliente</label>
+              <select id="tx-tab-cliente" class="form-select" style="padding:6px 10px;font-size:13px" onchange="loadTxTab()">
+                <option value="">Tutti i clienti</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Numero ombrellone</label>
+              <input type="search" id="tx-tab-ombrellone" class="form-input" placeholder="Es. 23 oppure A 12" style="padding:6px 10px;font-size:13px" oninput="renderTxTab()">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Tipo</label>
+              <select id="tx-tab-tipo" class="form-select" style="padding:6px 10px;font-size:13px" onchange="loadTxTab()">
+                <option value="">Tutti i tipi</option>
+                <option value="disponibilita_aggiunta">Disponibilità dichiarata</option>
+                <option value="disponibilita_rimossa">Disponibilità rimossa</option>
+                <option value="sub_affitto">Sub-affitto confermato</option>
+                <option value="sub_affitto_annullato">Sub-affitto annullato</option>
+                <option value="credito_ricevuto">Credito ricevuto</option>
+                <option value="credito_usato">Credito utilizzato</option>
+                <option value="credito_revocato">Credito revocato</option>
+                <option value="regola_forzata_aggiunta">Regola gestore: impostata</option>
+                <option value="regola_forzata_rimossa">Regola gestore: revocata</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px 8px">
+            <button type="button" class="btn btn-outline btn-sm tx-tab-preset-btn" data-preset="7" onclick="setTxTabRange(7)">Ultimi 7 gg</button>
+            <button type="button" class="btn btn-outline btn-sm tx-tab-preset-btn" data-preset="30" onclick="setTxTabRange(30)">Ultimi 30 gg</button>
+            <button type="button" class="btn btn-outline btn-sm tx-tab-preset-btn" data-preset="90" onclick="setTxTabRange(90)">Ultimi 90 gg</button>
+            <button type="button" class="btn btn-outline btn-sm tx-tab-preset-btn" data-preset="all" onclick="setTxTabRange('all')">Tutto lo storico</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div class="table-wrap"><table class="data-table">
+            <thead><tr>
+              <th style="width:160px">Data</th>
+              <th style="width:200px">Tipo</th>
+              <th>Cliente</th>
+              <th style="width:160px">Ombrellone</th>
+              <th style="width:120px;text-align:right">Importo</th>
+              <th>Nota</th>
+            </tr></thead>
+            <tbody id="tx-tab-tbody"></tbody>
+          </table></div>
+          <div id="tx-tab-empty" class="hidden" style="text-align:center;color:var(--text-light);padding:24px">Nessuna transazione corrispondente ai filtri</div>
+          <div id="tx-tab-pagination" class="hidden" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--text-mid)">
+            <span id="tx-tab-page-info"></span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <button class="btn btn-outline btn-sm" id="tx-tab-page-prev" onclick="changeTxTabPage(-1)">← Precedente</button>
+              <button class="btn btn-outline btn-sm" id="tx-tab-page-next" onclick="changeTxTabPage(1)">Successiva →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- LOG ATTIVITÀ TAB -->
       <div id="mtab-log" class="tab-content">
         <div class="page-header">
@@ -1844,6 +1923,7 @@
 <script src="js/clienti.js"></script>
 <script src="js/stagionale.js"></script>
 <script src="js/email.js"></script>
+<script src="js/transazioni.js"></script>
 <script src="js/audit.js"></script>
 <script src="js/gestione-transazioni.js"></script>
 <script src="js/admin.js"></script>
