@@ -842,7 +842,6 @@ body {
   .card-header > .btn { align-self: stretch; }
   #map-date-from, #map-date-to,
   #clienti-filter, #pren-filter-nome, #pren-filter-ombrellone, #pren-range-picker,
-  #tx-filter-ombrellone, #tx-filter-tipo, #tx-range-picker,
   #map-range-picker, #crediti-filter,
   #analytics-date-from, #analytics-date-to,
   #admin-search {
