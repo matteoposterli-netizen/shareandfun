@@ -1443,6 +1443,65 @@ body {
 .avanzate-day-state.sub_affittato { background: var(--yellow-light); color: #9C7A1F; }
 .avanzate-day-state.occupied { background: var(--ocean-light); color: var(--ocean); }
 
+/* AVANZATE — inner subtabs (Massiva / Mirata) */
+.avanzate-subtabs {
+  display: flex; gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
+}
+.avanzate-subtab {
+  background: transparent; border: none; cursor: pointer;
+  padding: 10px 16px; font-size: 13px; color: var(--text-mid);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  font-family: inherit;
+  transition: color .15s, border-color .15s;
+}
+.avanzate-subtab:hover { color: var(--text-dark); }
+.avanzate-subtab.active {
+  color: var(--ocean); border-bottom-color: var(--ocean); font-weight: 600;
+}
+.avanzate-pane { display: none; }
+.avanzate-pane.active { display: block; }
+
+/* AVANZATE — Mirata (lista giorni della stagione per un ombrellone) */
+.mirata-day-list {
+  display: flex; flex-direction: column;
+  background: #fff; border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  max-height: 460px; overflow-y: auto;
+}
+.mirata-month-header {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--sand); color: var(--text-mid);
+  padding: 6px 12px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px;
+  border-bottom: 1px solid var(--border);
+}
+.mirata-day-row {
+  display: grid; grid-template-columns: 140px 1fr auto;
+  align-items: center; gap: 12px;
+  padding: 8px 12px; font-size: 13px;
+}
+.mirata-day-row + .mirata-day-row { border-top: 1px solid var(--border); }
+.mirata-day-date { color: var(--text-strong); font-weight: 500; }
+.mirata-day-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.mirata-day-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.mirata-day-note {
+  font-size: 11px; color: var(--text-light); font-style: italic;
+  padding: 4px 8px;
+}
+.mirata-rule-badge {
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+}
+.mirata-rule-badge.mirata-rule-chiusura_speciale { background: var(--coral-light); color: var(--coral); }
+.mirata-rule-badge.mirata-rule-mai_libero { background: var(--yellow-light); color: #9C7A1F; }
+.mirata-rule-badge.mirata-rule-sempre_libero { background: var(--green-light); color: var(--green); }
+
+@media (max-width: 640px) {
+  .mirata-day-row { grid-template-columns: 1fr; gap: 6px; }
+  .mirata-day-actions { justify-content: flex-start; }
+}
+
 /* RESET STAGIONE — card + wizard */
 .reset-card { border: 1px solid var(--coral); background: #FFF8F4; }
 .reset-step { display: block; }

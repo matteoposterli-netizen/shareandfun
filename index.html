@@ -862,7 +862,7 @@
 
         </div><!-- /config-sub-email-sub -->
 
-        <!-- AVANZATE SUBTAB: mappa con azioni gestore -->
+        <!-- AVANZATE SUBTAB: azioni gestore (massiva su mappa / mirata su singolo ombrellone) -->
         <div id="config-sub-avanzate" class="config-subpanel">
           <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
             Da qui puoi forzare lo stato degli ombrelloni indipendentemente da quello che dichiara il cliente stagionale: rendere disponibili per sub-affitto, rimuovere disponibilità, modificare l'anagrafica o cancellare un ombrellone dalla mappa.
@@ -870,6 +870,12 @@
 
           <div id="avanzate-save-alert" style="margin-bottom:16px"></div>
 
+          <div class="avanzate-subtabs">
+            <button class="avanzate-subtab active" data-avanzate-subtab="massiva" onclick="switchAvanzateSubtab('massiva',this)">🗺️ Azione massiva</button>
+            <button class="avanzate-subtab" data-avanzate-subtab="mirata" onclick="switchAvanzateSubtab('mirata',this)">🎯 Azione mirata su ombrellone</button>
+          </div>
+
+          <div id="avanzate-pane-massiva" class="avanzate-pane active">
           <div class="card">
             <div class="card-header" style="flex-wrap:wrap;gap:12px">
               <div>
@@ -919,6 +925,66 @@
               </div>
             </div><!-- /beach-map-wrap -->
           </div>
+          </div><!-- /avanzate-pane-massiva -->
+
+          <div id="avanzate-pane-mirata" class="avanzate-pane">
+            <div id="mirata-alert" style="margin-bottom:12px"></div>
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">🎯 Azione mirata su un ombrellone</div>
+                  <div class="card-subtitle">Seleziona un ombrellone per gestire i singoli giorni della stagione, l'anagrafica o il saldo coin del cliente.</div>
+                </div>
+              </div>
+
+              <div style="padding:18px 22px 6px">
+                <label class="form-label" for="mirata-omb-select" style="display:block;margin-bottom:6px">Ombrellone</label>
+                <select id="mirata-omb-select" class="form-select" onchange="mirataOnSelect()" style="max-width:480px">
+                  <option value="">— Seleziona un ombrellone —</option>
+                </select>
+              </div>
+
+              <div id="mirata-detail" class="hidden" style="padding:8px 22px 22px">
+                <div class="avanzate-omb-info">
+                  <div class="avanzate-omb-info-cell" style="grid-column:1/-1">
+                    <div class="avanzate-omb-info-label">Ombrellone</div>
+                    <div class="avanzate-omb-info-value" id="mirata-omb-title">–</div>
+                  </div>
+                  <div class="avanzate-omb-info-cell" style="grid-column:1/-1">
+                    <div class="avanzate-omb-info-label">Cliente assegnato</div>
+                    <div class="avanzate-omb-info-value" id="mirata-omb-cliente">–</div>
+                  </div>
+                  <div class="avanzate-omb-info-cell">
+                    <div class="avanzate-omb-info-label">Credito giornaliero</div>
+                    <div class="avanzate-omb-info-value" id="mirata-omb-credito">–</div>
+                  </div>
+                  <div class="avanzate-omb-info-cell">
+                    <div class="avanzate-omb-info-label">Saldo coin cliente</div>
+                    <div class="avanzate-omb-info-value" id="mirata-omb-saldo">–</div>
+                  </div>
+                </div>
+
+                <div class="avanzate-omb-section">
+                  <div class="avanzate-omb-section-title">Anagrafica e cliente</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button class="btn btn-outline btn-sm" onclick="mirataOpenEdit()">✏️ Modifica anagrafica</button>
+                    <button class="btn btn-outline btn-sm" id="mirata-saldo-btn" onclick="mirataAdjustSaldo()">💰 Rettifica saldo coin</button>
+                    <button class="btn btn-danger btn-sm" onclick="mirataDelete()">🗑️ Cancella ombrellone</button>
+                  </div>
+                </div>
+
+                <div class="avanzate-omb-section">
+                  <div class="avanzate-omb-section-title">Disponibilità giorno per giorno</div>
+                  <div id="mirata-stagione-info" style="font-size:12px;color:var(--text-light);margin-bottom:10px"></div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+                    <button class="btn btn-outline btn-sm" onclick="mirataBulkForce()">✓ Rendi disponibile tutta la stagione</button>
+                    <button class="btn btn-outline btn-sm" onclick="mirataBulkRemove()">✗ Rimuovi tutte le disponibilità</button>
+                  </div>
+                  <div id="mirata-day-list" class="mirata-day-list"></div>
+                </div>
+              </div>
+            </div>
+          </div><!-- /avanzate-pane-mirata -->
         </div><!-- /config-sub-avanzate -->
       </div>
 
