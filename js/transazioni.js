@@ -154,8 +154,10 @@ function txTabNormalizeTx(t) {
 
 // Normalizza un evento email_sent dell'audit_log. Risolve il cliente via
 // l'email registrata nei metadata e ne eredita l'ombrellone.
+// Nota: `audit_log_write` salva i metadata nella colonna `after` (l'audit_log
+// non ha una colonna `metadata` separata), quindi leggiamo da lì.
 function txTabNormalizeEmail(row, cliByEmail) {
-  const meta = row.metadata || {};
+  const meta = row.after || {};
   const toEmail = String(meta.to || '').trim().toLowerCase();
   const emailTipo = meta.tipo ? (TX_TAB_EMAIL_TIPO_LABELS[meta.tipo] || meta.tipo) : '';
   const cli = toEmail ? cliByEmail[toEmail] : null;
