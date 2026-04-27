@@ -912,6 +912,7 @@
                   <div class="map-legend">
                     <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Occupato dal cliente</div>
                     <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Libero tutto il periodo</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#EAF4FB;border:2px dashed var(--ocean-mid)"></div>Senza cliente (subaffittabile)</div>
                     <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,var(--green-light) 0 6px,var(--ocean-light) 6px 12px);border:1.5px solid #96DDB8"></div>Libero parziale</div>
                     <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
                   </div>
@@ -1019,6 +1020,7 @@
                 <div class="map-legend">
                   <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Stagionale presente</div>
                   <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Libero tutto il periodo</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:#EAF4FB;border:2px dashed var(--ocean-mid)"></div>Senza cliente (subaffittabile)</div>
                   <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,var(--coral) 0 3px,var(--coral-light) 3px 7px);border:2px solid var(--coral)"></div>Parte di una combinazione</div>
                   <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
                 </div>
@@ -1790,6 +1792,18 @@
     <div class="modal-footer" style="flex-direction:column;align-items:stretch;gap:8px">
       <button class="btn btn-outline btn-sm" onclick="resolveConflict('keep')">Tieni il cliente esistente (annulla)</button>
       <button class="btn btn-primary btn-sm" onclick="resolveConflict('replace')">Sostituisci — il cliente precedente resterà senza ombrellone</button>
+    </div>
+  </div>
+</div>
+
+<!-- Conferma assegnazione cliente ↔ ombrellone (mostra coin che verranno accreditati) -->
+<div id="modal-assign-confirm" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Assegnare il cliente all'ombrellone?</div>
+    <div class="modal-sub" id="assign-confirm-msg"></div>
+    <div class="modal-footer" style="flex-direction:column;align-items:stretch;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="resolveAssignConfirm(true)">Sì, procedi</button>
+      <button class="btn btn-outline btn-sm" onclick="resolveAssignConfirm(false)">Annulla</button>
     </div>
   </div>
 </div>

@@ -418,6 +418,12 @@ body {
 }
 .ombrellone.combo:hover { background: var(--coral); color: #fff; }
 .ombrellone.subleased { background: var(--yellow-light); color: #9C7A1F; border-color: var(--yellow); }
+/* Default-libero: ombrellone subaffittabile senza cliente stagionale assegnato. */
+.ombrellone.free.no-cliente {
+  background: #EAF4FB;
+  color: var(--ocean);
+  border: 2px dashed var(--ocean-mid);
+}
 .ombrellone.selected {
   box-shadow: 0 0 0 3px var(--coral), 0 0 0 5px rgba(224, 123, 84, 0.25);
   border-color: var(--coral);

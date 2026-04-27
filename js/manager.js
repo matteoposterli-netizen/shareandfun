@@ -453,7 +453,9 @@ function renderManagerMap(ombs, dispMap) {
         : stato === 'sub_affittato' ? 'subleased'
         : 'occupied';
       const isSelected = bookingSelection.has(o.id);
-      el2.className = 'ombrellone ' + cls + (isSelected ? ' selected' : '');
+      const hasCliente = (clientiList || []).some(c => !c.rifiutato && c.ombrellone_id === o.id);
+      const noClienteCls = !hasCliente ? ' no-cliente' : '';
+      el2.className = 'ombrellone ' + cls + noClienteCls + (isSelected ? ' selected' : '');
       el2.textContent = '☂️';
       let hint = '';
       const fmtDay = d => {
@@ -1872,13 +1874,70 @@ async function confirmAddRow() {
   if (btn) { btn.disabled = false; btn.textContent = 'Salva'; }
 }
 
-async function saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito }) {
+// Calcola gli effetti dell'assegnazione di un cliente a un ombrellone:
+// - sub-affitti futuri (data >= oggi, cliente_id IS NULL) che saranno promossi
+//   al cliente con accredito coin
+// - data del primo sub-affitto futuro
+// Usato per il confirm dialog prima dell'UPDATE.
+async function previewAssignmentEffect(ombId) {
+  if (!ombId) return { count: 0, total: 0, fromDate: null };
+  const today = todayStr();
+  const omb = (ombrelloniList || []).find(o => o.id === ombId);
+  const credito = parseFloat(omb?.credito_giornaliero || 0);
+  const { data, error } = await sb.from('disponibilita')
+    .select('data')
+    .eq('ombrellone_id', ombId)
+    .eq('stato', 'sub_affittato')
+    .is('cliente_id', null)
+    .gte('data', today)
+    .order('data', { ascending: true });
+  if (error || !data) return { count: 0, total: 0, fromDate: null };
+  return {
+    count: data.length,
+    total: data.length * credito,
+    fromDate: data[0]?.data || null,
+  };
+}
+
+let assignConfirmResolver = null;
+function resolveAssignConfirm(yes) {
+  document.getElementById('modal-assign-confirm').classList.add('hidden');
+  if (assignConfirmResolver) {
+    const r = assignConfirmResolver; assignConfirmResolver = null; r(!!yes);
+  }
+}
+async function confirmAssignmentDialog(ombId, clienteLabel) {
+  const omb = (ombrelloniList || []).find(o => o.id === ombId);
+  const ombStr = omb ? `Fila ${omb.fila} N°${omb.numero}` : 'l\'ombrellone';
+  const eff = await previewAssignmentEffect(ombId);
+  const parts = [];
+  parts.push(`Assegnare <strong>${ombStr}</strong> a <strong>${escapeHtml(clienteLabel || 'il cliente')}</strong>?`);
+  if (eff.count > 0) {
+    parts.push(
+      `Verranno accreditati <strong>${eff.count} sub-affitt${eff.count === 1 ? 'o' : 'i'} futur${eff.count === 1 ? 'o' : 'i'}</strong>` +
+      (eff.fromDate ? ` (dal ${formatDate(eff.fromDate)})` : '') +
+      ` al saldo del cliente per un totale di <strong>${formatCoin(eff.total.toFixed(2), currentStabilimento)}</strong>.`
+    );
+  }
+  parts.push('I giorni rimanenti della stagione saranno marcati come non liberi: il cliente potrà dichiararli liberi dalla sua app.');
+  document.getElementById('assign-confirm-msg').innerHTML = parts.map(p => `<p style="margin:8px 0">${p}</p>`).join('');
+  document.getElementById('modal-assign-confirm').classList.remove('hidden');
+  return new Promise(resolve => { assignConfirmResolver = resolve; });
+}
+
+async function saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito, skipAssignConfirm }) {
   const now = new Date().toISOString();
   const { data: existing } = await sb.from('clienti_stagionali')
-    .select('id,invito_token,user_id')
+    .select('id,invito_token,user_id,ombrellone_id')
     .eq('stabilimento_id', currentStabilimento.id)
     .eq('email', email)
     .maybeSingle();
+
+  // Confirm dialog: assegnazione (nuovo ombId, oppure cambio ombrellone su cliente esistente).
+  if (!skipAssignConfirm && ombId && (!existing || existing.ombrellone_id !== ombId)) {
+    const ok = await confirmAssignmentDialog(ombId, `${nome} ${cognome}`.trim() || email);
+    if (!ok) return;
+  }
 
   const baseUpdate = { nome, cognome, telefono, ombrellone_id: ombId };
   if (inviaInvito) baseUpdate.invitato_at = now;
@@ -2037,6 +2096,10 @@ async function confirmEditRow() {
   if (hasCliente) {
     if (!email || !EMAIL_RE.test(email)) { showAlert('edit-row-alert', 'Email cliente non valida', 'error'); return; }
     if (existing) {
+      if (existing.ombrellone_id !== ombId) {
+        const ok = await confirmAssignmentDialog(ombId, `${nome} ${cognome}`.trim() || email);
+        if (!ok) return;
+      }
       const update = { nome, cognome, telefono, ombrellone_id: ombId };
       if (!existing.user_id) update.email = email;
       const { error } = await sb.from('clienti_stagionali').update(update).eq('id', existing.id);
@@ -2070,6 +2133,10 @@ async function confirmEditRow() {
 async function saveEditedCliente({ id, nome, cognome, email, telefono, ombId }) {
   if (id) {
     const c = (clientiList || []).find(x => x.id === id);
+    if (c && c.ombrellone_id !== ombId) {
+      const ok = await confirmAssignmentDialog(ombId, `${nome} ${cognome}`.trim() || email);
+      if (!ok) return;
+    }
     const update = { nome, cognome, telefono, ombrellone_id: ombId };
     if (!c?.user_id) update.email = email;
     const { error } = await sb.from('clienti_stagionali').update(update).eq('id', id);
