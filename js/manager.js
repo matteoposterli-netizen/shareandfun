@@ -1209,7 +1209,7 @@ async function finalizeBookingSelection() {
         ombrellone_id: p.omb.id,
         cliente_id: cliente?.id || null,
         tipo: 'sub_affitto',
-        importo: p.omb.credito_giornaliero,
+        importo: cliente ? p.omb.credito_giornaliero : null,
         nota,
       };
     });
