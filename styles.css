@@ -489,8 +489,6 @@ body {
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tr:hover td { background: var(--sand); }
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; background: #fff; border-radius: var(--radius); border: 1px solid var(--border); }
-.crediti-row-clickable { cursor: pointer; transition: background 0.12s ease; }
-.crediti-row-clickable:hover td { background: var(--ocean-light); }
 
 /* Compact variant: fits many columns in the container without horizontal scroll */
 .data-table-compact th, .data-table-compact td {
