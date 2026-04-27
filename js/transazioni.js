@@ -1,21 +1,26 @@
 // js/transazioni.js — Tab "Transazioni" del menu manager.
 //
-// Mostra l'elenco completo delle transazioni dello stabilimento con filtri:
-// arco temporale (date range), cliente (select), numero ombrellone (text match
-// fila/numero), tipo. Riusa ombrelloniList/clientiList già caricati da
-// loadGestione() in manager.js (i dati restano in memoria fino al cambio
-// stabilimento) — niente fetch aggiuntivi per le anagrafiche.
+// Mostra l'elenco unificato degli eventi dello stabilimento: transazioni
+// (tabella `transazioni`) + email inviate + completamenti di registrazione
+// invito (entrambi letti dall'`audit_log`).
+//
+// Filtri: arco temporale (date range), cliente (select), numero ombrellone
+// (text match fila/numero), tipo. Riusa ombrelloniList/clientiList già
+// caricati da loadGestione() in manager.js per risolvere id → label senza
+// fetch aggiuntivi delle anagrafiche.
 
 const TX_TAB_PAGE_SIZE = 25;
 
 const txTabState = {
-  rows: [],
+  rows: [],     // unified event shape (vedi normalize* sotto)
   page: 1,
   ombById: {},
   cliById: {},
+  cliByEmail: {},
 };
 
 const TX_TAB_LABELS = {
+  // Tipi della tabella `transazioni`.
   disponibilita_aggiunta: 'Disponibilità dichiarata',
   disponibilita_rimossa: 'Disponibilità rimossa',
   sub_affitto: 'Sub-affitto confermato',
@@ -25,6 +30,9 @@ const TX_TAB_LABELS = {
   credito_revocato: 'Credito revocato',
   regola_forzata_aggiunta: 'Regola gestore: impostata',
   regola_forzata_rimossa: 'Regola gestore: revocata',
+  // Eventi sintetici dall'audit_log.
+  email_sent: 'Email inviata',
+  registrazione_completata: 'Registrazione completata',
 };
 
 const TX_TAB_COLORS = {
@@ -33,10 +41,20 @@ const TX_TAB_COLORS = {
   credito_ricevuto: 'var(--ocean)',
   credito_usato: 'var(--coral)',
   credito_revocato: 'var(--text-light)',
-  disponibilita_aggiunta: 'var(--text-mid)',
-  disponibilita_rimossa: 'var(--text-mid)',
-  regola_forzata_aggiunta: 'var(--text-mid)',
-  regola_forzata_rimossa: 'var(--text-mid)',
+  email_sent: 'var(--ocean)',
+  registrazione_completata: 'var(--green)',
+};
+
+// Etichette user-facing del campo `metadata.tipo` delle email (vedi
+// supabase/functions/invia-email/index.ts).
+const TX_TAB_EMAIL_TIPO_LABELS = {
+  invito: 'Invito',
+  benvenuto: 'Benvenuto',
+  credito_accreditato: 'Credito accreditato',
+  credito_ritirato: 'Credito ritirato',
+  chiusura_stagione: 'Chiusura stagione',
+  attesa: 'In attesa di approvazione',
+  approvazione: 'Approvazione',
 };
 
 function txTabPopulateClienteSelect() {
@@ -121,6 +139,67 @@ function changeTxTabPage(dir) {
   renderTxTab();
 }
 
+// Normalizza una riga di public.transazioni nel formato unificato.
+function txTabNormalizeTx(t) {
+  return {
+    id: 't:' + t.id,
+    ts: t.created_at,
+    tipo: t.tipo,
+    cliente_id: t.cliente_id || null,
+    ombrellone_id: t.ombrellone_id || null,
+    importo: parseFloat(t.importo || 0) || 0,
+    nota: t.nota || '',
+  };
+}
+
+// Normalizza un evento email_sent dell'audit_log. Risolve il cliente via
+// l'email registrata nei metadata e ne eredita l'ombrellone.
+function txTabNormalizeEmail(row, cliByEmail) {
+  const meta = row.metadata || {};
+  const toEmail = String(meta.to || '').trim().toLowerCase();
+  const emailTipo = meta.tipo ? (TX_TAB_EMAIL_TIPO_LABELS[meta.tipo] || meta.tipo) : '';
+  const cli = toEmail ? cliByEmail[toEmail] : null;
+  const subject = meta.subject ? ` — "${meta.subject}"` : '';
+  const dest = toEmail ? ` a ${toEmail}` : '';
+  return {
+    id: 'a:' + row.id,
+    ts: row.created_at,
+    tipo: 'email_sent',
+    sottotipo: emailTipo,
+    cliente_id: cli?.id || null,
+    ombrellone_id: cli?.ombrellone_id || null,
+    importo: 0,
+    nota: `${emailTipo ? emailTipo : 'Email'}${dest}${subject}`,
+  };
+}
+
+// Normalizza un evento di completamento registrazione: UPDATE su
+// clienti_stagionali in cui user_id passa da NULL a un uuid.
+function txTabNormalizeRegistrazione(row, cliById) {
+  const cliId = row.entity_id || (row.after && row.after.id) || null;
+  const cli = cliId ? cliById[cliId] : null;
+  return {
+    id: 'a:' + row.id,
+    ts: row.created_at,
+    tipo: 'registrazione_completata',
+    cliente_id: cliId,
+    ombrellone_id: cli?.ombrellone_id || null,
+    importo: 0,
+    nota: cli
+      ? `Cliente ${(cli.nome || '') + ' ' + (cli.cognome || '')}`.trim() + ' ha completato l\'invito'
+      : 'Cliente ha completato l\'invito',
+  };
+}
+
+// True se la riga audit rappresenta una registrazione completata: UPDATE su
+// clienti_stagionali con before.user_id NULL e after.user_id valorizzato.
+function txTabIsRegistrationRow(row) {
+  if (row.entity_type !== 'cliente_stagionale' || row.action !== 'update') return false;
+  const before = row.before || {};
+  const after = row.after || {};
+  return !before.user_id && !!after.user_id;
+}
+
 async function loadTxTab() {
   if (!currentStabilimento) return;
   txTabPopulateClienteSelect();
@@ -143,18 +222,52 @@ async function loadTxTab() {
     if (countEl) countEl.textContent = '';
     return;
   }
-  empty.textContent = 'Nessuna transazione corrispondente ai filtri';
+  empty.textContent = 'Nessun evento corrispondente ai filtri';
 
-  let q = sb.from('transazioni').select('*').eq('stabilimento_id', currentStabilimento.id);
-  if (clienteId) q = q.eq('cliente_id', clienteId);
-  if (tipo) q = q.eq('tipo', tipo);
-  if (from) q = q.gte('created_at', new Date(from + 'T00:00:00').toISOString());
-  if (to) q = q.lte('created_at', new Date(to + 'T23:59:59.999').toISOString());
-  q = q.order('created_at', { ascending: false }).limit(2000);
+  const fromIso = from ? new Date(from + 'T00:00:00').toISOString() : null;
+  const toIso = to ? new Date(to + 'T23:59:59.999').toISOString() : null;
 
-  const { data, error } = await q;
-  if (error) {
-    console.error(error);
+  // Gli array di tipi tx vs eventi audit (i nuovi tipi sintetici stanno
+  // nell'audit_log, non in `transazioni`).
+  const isAuditOnly = tipo === 'email_sent' || tipo === 'registrazione_completata';
+  const isTxOnly = tipo && !isAuditOnly;
+
+  // Query 1 — `transazioni` (skippata se il filtro tipo è solo audit).
+  const txPromise = isAuditOnly
+    ? Promise.resolve({ data: [] })
+    : (() => {
+        let q = sb.from('transazioni').select('*').eq('stabilimento_id', currentStabilimento.id);
+        if (clienteId) q = q.eq('cliente_id', clienteId);
+        if (isTxOnly) q = q.eq('tipo', tipo);
+        if (fromIso) q = q.gte('created_at', fromIso);
+        if (toIso) q = q.lte('created_at', toIso);
+        return q.order('created_at', { ascending: false }).limit(2000);
+      })();
+
+  // Query 2 — `audit_log` per email_sent + completamenti registrazione.
+  // Filtro lato server su entity_type ed action; raffino client-side per
+  // tenere solo le UPDATE che rappresentano davvero una registrazione
+  // (transizione user_id NULL → uuid).
+  const auditPromise = isTxOnly
+    ? Promise.resolve({ data: [] })
+    : (() => {
+        let q = sb.from('audit_log').select('*').eq('stabilimento_id', currentStabilimento.id);
+        if (tipo === 'email_sent') {
+          q = q.eq('entity_type', 'email').eq('action', 'email_sent');
+        } else if (tipo === 'registrazione_completata') {
+          q = q.eq('entity_type', 'cliente_stagionale').eq('action', 'update');
+        } else {
+          q = q.in('entity_type', ['email', 'cliente_stagionale']);
+        }
+        if (fromIso) q = q.gte('created_at', fromIso);
+        if (toIso) q = q.lte('created_at', toIso);
+        return q.order('created_at', { ascending: false }).limit(2000);
+      })();
+
+  const [{ data: txData, error: txErr }, { data: auditData, error: auErr }] =
+    await Promise.all([txPromise, auditPromise]);
+  if (txErr || auErr) {
+    console.error(txErr || auErr);
     tbody.innerHTML = '';
     empty.classList.remove('hidden');
     empty.textContent = 'Errore nel caricamento delle transazioni';
@@ -163,13 +276,41 @@ async function loadTxTab() {
     return;
   }
 
+  // Lookup maps (le anagrafiche restano valide finché non cambia stabilimento).
   const ombById = {};
   (ombrelloniList || []).forEach(o => { ombById[o.id] = o; });
   const cliById = {};
-  (clientiList || []).forEach(c => { cliById[c.id] = c; });
+  const cliByEmail = {};
+  (clientiList || []).forEach(c => {
+    cliById[c.id] = c;
+    if (c.email) cliByEmail[String(c.email).trim().toLowerCase()] = c;
+  });
   txTabState.ombById = ombById;
   txTabState.cliById = cliById;
-  txTabState.rows = data || [];
+  txTabState.cliByEmail = cliByEmail;
+
+  const txEvents = (txData || []).map(txTabNormalizeTx);
+  const auditEvents = (auditData || []).flatMap(row => {
+    if (row.entity_type === 'email' && row.action === 'email_sent') {
+      return [txTabNormalizeEmail(row, cliByEmail)];
+    }
+    if (txTabIsRegistrationRow(row)) {
+      return [txTabNormalizeRegistrazione(row, cliById)];
+    }
+    return [];
+  });
+
+  // Filtro cliente per gli eventi audit (per le tx il filtro è già lato
+  // server). Email senza cliente_id risolto e registrazioni di altri clienti
+  // vengono escluse quando il filtro è attivo.
+  const auditFiltered = clienteId
+    ? auditEvents.filter(e => e.cliente_id === clienteId)
+    : auditEvents;
+
+  const merged = txEvents.concat(auditFiltered)
+    .sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
+
+  txTabState.rows = merged;
   txTabState.page = 1;
   renderTxTab();
 }
@@ -198,7 +339,7 @@ function renderTxTab() {
   if (countEl) {
     const n = filtered.length;
     countEl.textContent = n
-      ? `${n} transazion${n === 1 ? 'e' : 'i'} trovat${n === 1 ? 'a' : 'e'}`
+      ? `${n} event${n === 1 ? 'o' : 'i'} trovat${n === 1 ? 'o' : 'i'}`
       : '';
   }
 
@@ -230,6 +371,7 @@ function renderTxTab() {
         ? '<span style="color:var(--text-light)">— cliente rimosso</span>'
         : '<span style="color:var(--text-light)">—</span>');
     const tipoLabel = TX_TAB_LABELS[t.tipo] || t.tipo;
+    const sottotipo = t.sottotipo ? `<div style="color:var(--text-light);font-size:11px;font-weight:500">${escapeHtml(t.sottotipo)}</div>` : '';
     const importo = parseFloat(t.importo || 0);
     const importoColor = TX_TAB_COLORS[t.tipo] || 'var(--text-mid)';
     const importoStr = importo > 0
@@ -239,8 +381,8 @@ function renderTxTab() {
       ? escapeHtml(String(t.nota))
       : '<span style="color:var(--text-light)">—</span>';
     return `<tr>
-      <td>${formatDateShort(t.created_at)}</td>
-      <td><strong>${escapeHtml(tipoLabel)}</strong></td>
+      <td>${formatDateShort(t.ts)}</td>
+      <td><strong>${escapeHtml(tipoLabel)}</strong>${sottotipo}</td>
       <td>${cliStr}</td>
       <td>${ombStr}</td>
       <td style="text-align:right;color:${importoColor};font-weight:600">${importoStr}</td>
