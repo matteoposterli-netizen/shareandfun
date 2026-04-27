@@ -344,9 +344,6 @@ async function loadManagerData() {
     updateCreditiPresetActive();
     await loadCreditiPeriodo();
   }
-  applyDefaultTxFilter(today);
-  initTxRangePicker();
-  await loadAllTx();
   applyDefaultPrenFilter(today);
   initPrenRangePicker();
   await loadPrenotazioni();
@@ -429,16 +426,6 @@ async function loadDashboardCreditsKpis() {
   setText('dash-crediti-spesi', formatCoin(spesi));
   setText('dash-subaffitti', subaffitti);
   setText('dash-subaffitti-sub', subaffitti === 1 ? 'giornata sub-affittata' : 'giornate sub-affittate');
-}
-
-function applyDefaultTxFilter(today) {
-  const fromEl = document.getElementById('tx-filter-from');
-  const toEl = document.getElementById('tx-filter-to');
-  if (!fromEl || !toEl) return;
-  if (fromEl.value || toEl.value) return;
-  const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 6);
-  fromEl.value = toLocalDateStr(start);
-  toEl.value = today;
 }
 
 function applyDefaultPrenFilter(today) {
@@ -1306,7 +1293,7 @@ async function loadCreditiAnalytics() {
   document.getElementById('analytics-tot-subaffitti').textContent = totSub;
   document.getElementById('analytics-tot-subaffitti-sub').textContent = totSub === 1 ? 'giornata sub-affittata' : 'giornate sub-affittate';
 
-  analyticsRows = txs || [];
+  analyticsRows = (txs || []).filter(t => t.tipo === 'credito_usato');
   analyticsCtx = { ombById, cliById };
   analyticsPage = 1;
   renderAnalyticsPage();
@@ -1316,156 +1303,6 @@ function ombById() {
   const map = {};
   (ombrelloniList || []).forEach(o => { map[o.id] = o; });
   return map;
-}
-
-function populateTxOmbrelloneSelect() {
-  const sel = document.getElementById('tx-filter-ombrellone');
-  if (!sel) return;
-  const current = sel.value;
-  const sorted = (ombrelloniList || []).slice().sort((a, b) => {
-    if (a.fila !== b.fila) return String(a.fila).localeCompare(String(b.fila));
-    return (a.numero || 0) - (b.numero || 0);
-  });
-  sel.innerHTML = '<option value="">Tutti gli ombrelloni</option>' +
-    sorted.map(o => `<option value="${o.id}">Fila ${o.fila} N°${o.numero}</option>`).join('');
-  if (current && sorted.some(o => o.id === current)) sel.value = current;
-}
-
-function updateTxPresetActive() {
-  const from = document.getElementById('tx-filter-from')?.value || '';
-  const to = document.getElementById('tx-filter-to')?.value || '';
-  const today = todayStr();
-  const yDate = new Date(today + 'T00:00:00'); yDate.setDate(yDate.getDate() - 1);
-  const yesterday = toLocalDateStr(yDate);
-  let active = null;
-  if (from && from === to) {
-    if (from === today) active = 'today';
-    else if (from === yesterday) active = 'yesterday';
-  } else if (from && to === today) {
-    const start = new Date(from + 'T00:00:00');
-    const endD = new Date(to + 'T00:00:00');
-    const diff = Math.round((endD - start) / 86400000) + 1;
-    if (diff === 3) active = '3';
-    else if (diff === 7) active = '7';
-  }
-  document.querySelectorAll('.tx-preset-btn').forEach(btn => {
-    if (btn.dataset.preset === active) {
-      btn.classList.remove('btn-outline');
-      btn.classList.add('btn-primary');
-    } else {
-      btn.classList.remove('btn-primary');
-      btn.classList.add('btn-outline');
-    }
-  });
-}
-
-let txRangePickerInstance = null;
-function initTxRangePicker() {
-  if (typeof flatpickr === 'undefined') return;
-  const input = document.getElementById('tx-range-picker');
-  if (!input) return;
-  const fromVal = document.getElementById('tx-filter-from')?.value || '';
-  const toVal = document.getElementById('tx-filter-to')?.value || fromVal;
-  const defaults = [];
-  if (fromVal) defaults.push(new Date(fromVal + 'T00:00:00'));
-  if (toVal && toVal !== fromVal) defaults.push(new Date(toVal + 'T00:00:00'));
-  if (txRangePickerInstance) {
-    if (defaults.length) txRangePickerInstance.setDate(defaults, false);
-    else txRangePickerInstance.clear();
-    return;
-  }
-  txRangePickerInstance = flatpickr(input, {
-    mode: 'range',
-    locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
-    dateFormat: 'd/m/Y',
-    defaultDate: defaults.length ? defaults : null,
-    showMonths: 1,
-    disableMobile: true,
-    onChange: (selectedDates) => {
-      if (selectedDates.length === 2) {
-        const from = toLocalDateStr(selectedDates[0]);
-        const to = toLocalDateStr(selectedDates[1]);
-        document.getElementById('tx-filter-from').value = from;
-        document.getElementById('tx-filter-to').value = to;
-        loadAllTx();
-      } else if (selectedDates.length === 1) {
-        const from = toLocalDateStr(selectedDates[0]);
-        document.getElementById('tx-filter-from').value = from;
-        document.getElementById('tx-filter-to').value = from;
-      } else {
-        document.getElementById('tx-filter-from').value = '';
-        document.getElementById('tx-filter-to').value = '';
-        loadAllTx();
-      }
-    },
-  });
-}
-
-function setTxRange(preset) {
-  const today = todayStr();
-  let from, to;
-  if (preset === 'today') {
-    from = to = today;
-  } else if (preset === 'yesterday') {
-    const d = new Date(today + 'T00:00:00'); d.setDate(d.getDate() - 1);
-    from = to = toLocalDateStr(d);
-  } else {
-    const days = parseInt(preset, 10);
-    const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - (days - 1));
-    from = toLocalDateStr(start);
-    to = today;
-  }
-  document.getElementById('tx-filter-from').value = from;
-  document.getElementById('tx-filter-to').value = to;
-  if (txRangePickerInstance) {
-    txRangePickerInstance.setDate([new Date(from + 'T00:00:00'), new Date(to + 'T00:00:00')], false);
-  }
-  loadAllTx();
-}
-
-function clearTxFilters() {
-  const ombEl = document.getElementById('tx-filter-ombrellone');
-  const tipoEl = document.getElementById('tx-filter-tipo');
-  if (ombEl) ombEl.value = '';
-  if (tipoEl) tipoEl.value = '';
-  document.getElementById('tx-filter-from').value = '';
-  document.getElementById('tx-filter-to').value = '';
-  if (txRangePickerInstance) txRangePickerInstance.clear();
-  loadAllTx();
-}
-
-async function loadAllTx() {
-  populateTxOmbrelloneSelect();
-  updateTxPresetActive();
-  const ombId = document.getElementById('tx-filter-ombrellone')?.value || '';
-  const tipo = document.getElementById('tx-filter-tipo')?.value || '';
-  const from = document.getElementById('tx-filter-from')?.value || '';
-  const to = document.getElementById('tx-filter-to')?.value || '';
-  const countEl = document.getElementById('tx-count-label');
-  const listEl = document.getElementById('all-tx-list');
-  if (from && to && from > to) {
-    if (countEl) countEl.textContent = '';
-    listEl.innerHTML = '<div class="tx-empty">Periodo non valido: la data iniziale è successiva a quella finale</div>';
-    return;
-  }
-  let q = sb.from('transazioni').select('*').eq('stabilimento_id', currentStabilimento.id);
-  if (ombId) q = q.eq('ombrellone_id', ombId);
-  if (tipo) q = q.eq('tipo', tipo);
-  if (from) q = q.gte('created_at', new Date(from + 'T00:00:00').toISOString());
-  if (to) q = q.lte('created_at', new Date(to + 'T23:59:59.999').toISOString());
-  q = q.order('created_at', { ascending: false });
-  if (!from && !to) q = q.limit(50);
-  const { data, error } = await q;
-  if (error) { console.error(error); listEl.innerHTML = '<div class="tx-empty">Errore nel caricamento</div>'; return; }
-  const rows = data || [];
-  if (countEl) {
-    if (!from && !to && !ombId && !tipo) {
-      countEl.textContent = rows.length ? `Ultime ${rows.length} transazioni` : '';
-    } else {
-      countEl.textContent = `${rows.length} transazion${rows.length === 1 ? 'e' : 'i'} trovat${rows.length === 1 ? 'a' : 'e'}`;
-    }
-  }
-  listEl.innerHTML = renderTxList(rows, currentStabilimento, ombById());
 }
 
 function renderTxList(txs, stab, ombsMap) {
