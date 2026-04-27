@@ -696,8 +696,8 @@ function renderGestioneFiltered() {
     const azioniInvito = cliente && !cliente.user_id
       ? `<button class="btn btn-outline btn-sm" onclick="invitaSingolo('${cliente.id}')" title="Invia/reinvia invito" style="margin-right:4px">✉️</button>`
       : '';
-    return `<tr>
-      <td>${checkbox}</td>
+    return `<tr style="cursor:pointer" onclick="openViewOmbrelloneModal('${omb.id}')" title="Vedi dettagli ombrellone">
+      <td onclick="event.stopPropagation()">${checkbox}</td>
       <td><strong>${escapeHtml(omb.fila)}</strong></td>
       <td>${omb.numero}</td>
       <td>${formatCoin(omb.credito_giornaliero)}</td>
@@ -705,8 +705,8 @@ function renderGestioneFiltered() {
       <td>${cliente ? escapeHtml(cliente.email || '') : '<span style="color:var(--text-light)">–</span>'}</td>
       <td>${cliente ? (escapeHtml(cliente.telefono || '') || '–') : '<span style="color:var(--text-light)">–</span>'}</td>
       <td>${pill}</td>
-      <td style="white-space:nowrap">
-        <button class="btn btn-outline btn-sm" onclick="openViewOmbrelloneModal('${omb.id}')" title="Vedi disponibilità" style="margin-right:4px">👁️</button>
+      <td style="white-space:nowrap" onclick="event.stopPropagation()">
+        <button class="btn btn-outline btn-sm" onclick="openViewOmbrelloneModal('${omb.id}')" title="Vedi dettagli" style="margin-right:4px">👁️</button>
         <button class="btn btn-outline btn-sm" onclick="openEditRowModal('${omb.id}')" title="Modifica" style="margin-right:4px">✏️</button>
         ${azioniInvito}
         <button class="btn btn-danger btn-sm" onclick="deleteRow('${omb.id}')" title="Rimuovi riga">🗑️</button>
@@ -2515,13 +2515,42 @@ async function openViewOmbrelloneModal(ombId) {
     : '–';
 
   showLoading();
-  const { data: disp } = await sb.from('disponibilita').select('data, stato').eq('ombrellone_id', ombId);
+  const [{ data: disp }, { data: txs }] = await Promise.all([
+    sb.from('disponibilita').select('data, stato').eq('ombrellone_id', ombId).order('data', { ascending: true }),
+    sb.from('transazioni').select('*').eq('ombrellone_id', ombId).order('created_at', { ascending: false }),
+  ]);
   viewOmbDispMap = {};
   (disp || []).forEach(d => { viewOmbDispMap[d.data] = d.stato; });
   hideLoading();
 
   renderViewOmbrelloneCalendar();
+  renderViewOmbrelloneDaysLists(disp || []);
+  renderViewOmbrelloneTxList(txs || []);
   document.getElementById('modal-view-ombrellone').classList.remove('hidden');
+}
+
+function renderViewOmbrelloneDaysLists(disp) {
+  const liberi = disp.filter(d => d.stato === 'libero').map(d => d.data).sort();
+  const subaff = disp.filter(d => d.stato === 'sub_affittato').map(d => d.data).sort();
+  const liberiEl = document.getElementById('view-omb-liberi-list');
+  const subEl = document.getElementById('view-omb-sub-list');
+  const liberiCount = document.getElementById('view-omb-liberi-count');
+  const subCount = document.getElementById('view-omb-sub-count');
+  if (liberiCount) liberiCount.textContent = liberi.length ? `(${liberi.length})` : '';
+  if (subCount) subCount.textContent = subaff.length ? `(${subaff.length})` : '';
+  const renderDays = arr => arr.length
+    ? arr.map(d => `<div style="font-size:12px;padding:3px 6px;display:inline-block;margin:2px;background:var(--sand);border-radius:4px">${formatDate(d)}</div>`).join('')
+    : '<div style="font-size:12px;color:var(--text-light);padding:4px">Nessun giorno</div>';
+  if (liberiEl) liberiEl.innerHTML = renderDays(liberi);
+  if (subEl) subEl.innerHTML = renderDays(subaff);
+}
+
+function renderViewOmbrelloneTxList(txs) {
+  const listEl = document.getElementById('view-omb-tx-list');
+  const countEl = document.getElementById('view-omb-tx-count');
+  if (countEl) countEl.textContent = txs.length ? `(${txs.length})` : '';
+  if (!listEl) return;
+  listEl.innerHTML = renderTxList(txs, currentStabilimento, ombById());
 }
 
 function viewOmbrelloneCalNav(dir) {
