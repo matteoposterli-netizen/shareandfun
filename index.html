@@ -247,6 +247,7 @@
       <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Gestione Credito</button>
       <button class="sidebar-item" onclick="managerTab('transazioni',this)"><span class="icon">📋</span> Transazioni</button>
       <button class="sidebar-item" onclick="managerTab('gestione',this)"><span class="icon">🗺️</span> Ombrelloni e Clienti</button>
+      <button class="sidebar-item" onclick="managerTab('comunicazioni',this)"><span class="icon">📣</span> Comunicazioni</button>
       <button class="sidebar-item" onclick="managerTab('config',this)"><span class="icon">⚙️</span> Configurazioni</button>
       <button class="sidebar-item" onclick="managerTab('log',this)"><span class="icon">🕵️</span> Log attività</button>
     </div>
@@ -1179,6 +1180,7 @@
                 <option value="credito_revocato">Credito revocato</option>
                 <option value="regola_forzata_aggiunta">Regola gestore: impostata</option>
                 <option value="regola_forzata_rimossa">Regola gestore: revocata</option>
+                <option value="comunicazione_ricevuta">Comunicazione ricevuta</option>
                 <option value="email_sent">Email inviata</option>
                 <option value="registrazione_completata">Registrazione completata</option>
               </select>
@@ -1216,6 +1218,188 @@
       </div>
 
       <!-- LOG ATTIVITÀ TAB -->
+      <!-- COMUNICAZIONI -->
+      <div id="mtab-comunicazioni" class="tab-content">
+        <div class="page-header">
+          <div>
+            <div class="page-title">📣 Comunicazioni</div>
+            <div class="page-subtitle">Invia messaggi alla tua customer base. Email, WhatsApp e SMS.</div>
+          </div>
+        </div>
+
+        <div class="comm-tabs" role="tablist">
+          <button class="comm-tab active" data-comm-tab="email" role="tab" onclick="comunicazioniSwitchTab('email', this)">✉️ Email</button>
+          <button class="comm-tab" data-comm-tab="whatsapp" role="tab" onclick="comunicazioniSwitchTab('whatsapp', this)">💬 WhatsApp</button>
+          <button class="comm-tab" data-comm-tab="sms" role="tab" onclick="comunicazioniSwitchTab('sms', this)">📱 SMS</button>
+        </div>
+
+        <!-- ============ TAB EMAIL ============ -->
+        <div id="comm-pane-email" class="comm-pane active">
+
+          <!-- Bozze -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><div class="card-title">Bozze salvate</div></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+              <div style="flex:1;min-width:220px">
+                <label class="form-label" style="font-size:12px">Carica una bozza</label>
+                <select id="comm-email-bozza-select" class="form-select" onchange="comunicazioniBozzaCambiata()">
+                  <option value="">— Nessuna bozza selezionata —</option>
+                </select>
+              </div>
+              <button class="btn btn-outline btn-sm" type="button" onclick="comunicazioniSalvaBozza()">💾 Salva nuova bozza</button>
+              <button class="btn btn-outline btn-sm" id="comm-btn-sovrascrivi" type="button" onclick="comunicazioniSovrascriviBozza()" disabled>♻️ Sovrascrivi</button>
+            </div>
+            <div id="comm-bozza-info" style="margin-top:8px;font-size:12px;color:var(--text-mid)"></div>
+          </div>
+
+          <!-- Destinatari -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><div class="card-title">Destinatari</div></div>
+            <div class="comm-recipients">
+              <label class="comm-radio">
+                <input type="radio" name="comm-recipients" value="all" checked onchange="comunicazioniRefreshRecipients()">
+                <span>Tutti i clienti con email</span>
+              </label>
+              <label class="comm-radio">
+                <input type="radio" name="comm-recipients" value="filter" onchange="comunicazioniRefreshRecipients()">
+                <span>Filtra per fila / range numero</span>
+              </label>
+              <label class="comm-radio">
+                <input type="radio" name="comm-recipients" value="manual" onchange="comunicazioniRefreshRecipients()">
+                <span>Selezione manuale</span>
+              </label>
+              <label class="comm-radio">
+                <input type="radio" name="comm-recipients" value="single" onchange="comunicazioniRefreshRecipients()">
+                <span>Singolo cliente</span>
+              </label>
+            </div>
+
+            <div id="comm-rec-filter" class="comm-rec-detail" style="display:none">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+                <div>
+                  <label class="form-label" style="font-size:12px">File (vuoto = tutte)</label>
+                  <select id="comm-filter-file" class="form-select" multiple size="5" onchange="comunicazioniRefreshRecipients()"></select>
+                </div>
+                <div>
+                  <label class="form-label" style="font-size:12px">N° ombrellone da</label>
+                  <input type="number" id="comm-filter-num-da" class="form-input" min="0" oninput="comunicazioniRefreshRecipients()">
+                </div>
+                <div>
+                  <label class="form-label" style="font-size:12px">N° ombrellone a</label>
+                  <input type="number" id="comm-filter-num-a" class="form-input" min="0" oninput="comunicazioniRefreshRecipients()">
+                </div>
+              </div>
+            </div>
+
+            <div id="comm-rec-manual" class="comm-rec-detail" style="display:none">
+              <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <input type="search" id="comm-manual-search" class="form-input" placeholder="Cerca per nome / cognome / fila / numero…" style="flex:1;min-width:200px;padding:6px 10px;font-size:13px" oninput="comunicazioniManualRender()">
+                <button class="btn btn-outline btn-sm" type="button" onclick="comunicazioniManualSelectAll(true)">Seleziona tutti</button>
+                <button class="btn btn-outline btn-sm" type="button" onclick="comunicazioniManualSelectAll(false)">Deseleziona tutti</button>
+              </div>
+              <div id="comm-manual-list" class="comm-manual-list"></div>
+            </div>
+
+            <div id="comm-rec-single" class="comm-rec-detail" style="display:none">
+              <label class="form-label" style="font-size:12px">Cliente</label>
+              <select id="comm-single-select" class="form-select" onchange="comunicazioniRefreshRecipients()">
+                <option value="">— Seleziona un cliente —</option>
+              </select>
+            </div>
+
+            <div id="comm-recipients-summary" class="comm-summary"></div>
+          </div>
+
+          <!-- Contenuto -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><div class="card-title">Contenuto della email</div></div>
+            <div style="margin-bottom:12px">
+              <label class="form-label">Oggetto</label>
+              <input type="text" id="comm-email-oggetto" class="form-input" maxlength="200" placeholder="Es. Aggiornamento sull'apertura della stagione" oninput="comunicazioniContentChanged()">
+              <div class="comm-counter"><span id="comm-counter-oggetto">0</span>/200</div>
+            </div>
+            <div>
+              <label class="form-label">Corpo</label>
+              <textarea id="comm-email-corpo" class="form-input" rows="10" maxlength="8000" placeholder="Scrivi qui il messaggio. Andate a capo con Invio." oninput="comunicazioniContentChanged()"></textarea>
+              <div class="comm-counter"><span id="comm-counter-corpo">0</span>/8000</div>
+            </div>
+            <div class="comm-placeholders">
+              <strong>Placeholder disponibili:</strong>
+              <code>{{nome}}</code> <code>{{cognome}}</code> <code>{{ombrellone}}</code> <code>{{stabilimento}}</code>
+              <span style="color:var(--text-mid)">— vengono sostituiti per ogni destinatario al momento dell'invio.</span>
+            </div>
+          </div>
+
+          <!-- Azioni -->
+          <div class="card">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+              <button class="btn btn-outline" type="button" onclick="comunicazioniAnteprima()">👁️ Anteprima</button>
+              <button class="btn btn-primary" id="comm-btn-invia" type="button" onclick="comunicazioniInvia()">📤 Invia email</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ TAB WHATSAPP ============ -->
+        <div id="comm-pane-whatsapp" class="comm-pane">
+          <div class="card comm-wip-banner">
+            <div style="font-size:24px">🚧</div>
+            <div>
+              <div style="font-weight:700;font-size:15px;color:var(--text-dark)">Stiamo lavorando a questa funzionalità</div>
+              <div style="font-size:13px;color:var(--text-mid);margin-top:4px">L'invio di messaggi WhatsApp ai clienti sarà disponibile presto. Sotto vedi un'anteprima del layout.</div>
+            </div>
+          </div>
+          <fieldset class="comm-disabled-preview" disabled>
+            <div class="card" style="margin-bottom:16px">
+              <div class="card-header"><div class="card-title">Destinatari</div></div>
+              <div class="comm-recipients">
+                <label class="comm-radio"><input type="radio" name="comm-wa-rec"><span>Tutti i clienti con telefono</span></label>
+                <label class="comm-radio"><input type="radio" name="comm-wa-rec"><span>Filtra per fila / range numero</span></label>
+                <label class="comm-radio"><input type="radio" name="comm-wa-rec"><span>Singolo cliente</span></label>
+              </div>
+            </div>
+            <div class="card" style="margin-bottom:16px">
+              <div class="card-header"><div class="card-title">Messaggio</div></div>
+              <textarea class="form-input" rows="6" placeholder="Il tuo messaggio WhatsApp…"></textarea>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:flex-end">
+                <button class="btn btn-primary" type="button">📤 Invia WhatsApp</button>
+              </div>
+            </div>
+          </fieldset>
+        </div>
+
+        <!-- ============ TAB SMS ============ -->
+        <div id="comm-pane-sms" class="comm-pane">
+          <div class="card comm-wip-banner">
+            <div style="font-size:24px">🚧</div>
+            <div>
+              <div style="font-weight:700;font-size:15px;color:var(--text-dark)">Stiamo lavorando a questa funzionalità</div>
+              <div style="font-size:13px;color:var(--text-mid);margin-top:4px">L'invio di SMS ai clienti sarà disponibile presto. Sotto vedi un'anteprima del layout.</div>
+            </div>
+          </div>
+          <fieldset class="comm-disabled-preview" disabled>
+            <div class="card" style="margin-bottom:16px">
+              <div class="card-header"><div class="card-title">Destinatari</div></div>
+              <div class="comm-recipients">
+                <label class="comm-radio"><input type="radio" name="comm-sms-rec"><span>Tutti i clienti con telefono</span></label>
+                <label class="comm-radio"><input type="radio" name="comm-sms-rec"><span>Filtra per fila / range numero</span></label>
+                <label class="comm-radio"><input type="radio" name="comm-sms-rec"><span>Singolo cliente</span></label>
+              </div>
+            </div>
+            <div class="card" style="margin-bottom:16px">
+              <div class="card-header"><div class="card-title">Messaggio (max 160 caratteri)</div></div>
+              <textarea class="form-input" rows="3" maxlength="160" placeholder="Il tuo SMS…"></textarea>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:flex-end">
+                <button class="btn btn-primary" type="button">📤 Invia SMS</button>
+              </div>
+            </div>
+          </fieldset>
+        </div>
+      </div>
+
       <div id="mtab-log" class="tab-content">
         <div class="page-header">
           <div><div class="page-title">🕵️ Log attività</div><div class="page-subtitle">Storico completo delle modifiche fatte da te, dai tuoi clienti stagionali e dal sistema. Retention: ultimi 30 giorni.</div></div>
@@ -1897,6 +2081,51 @@
   </div>
 </div>
 
+<!-- COMUNICAZIONI: anteprima email -->
+<div id="modal-comm-anteprima" class="modal-overlay hidden">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-title">Anteprima email</div>
+    <div class="modal-sub" id="comm-anteprima-sub" style="margin-bottom:12px"></div>
+    <div id="comm-anteprima-frame" class="comm-anteprima-frame"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-comm-anteprima')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- COMUNICAZIONI: salva nuova bozza -->
+<div id="modal-comm-bozza" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">Salva bozza</div>
+    <div class="modal-sub">Dai un nome alla bozza per ritrovarla in futuro.</div>
+    <div id="comm-bozza-alert"></div>
+    <div style="margin-top:12px">
+      <label class="form-label">Etichetta</label>
+      <input type="text" id="comm-bozza-etichetta" class="form-input" maxlength="80" placeholder="Es. Apertura stagione 2026">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-comm-bozza')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="comunicazioniBozzaConferma()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- COMUNICAZIONI: progress / risultato invio -->
+<div id="modal-comm-invio" class="modal-overlay hidden">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title" id="comm-invio-title">Invio email in corso…</div>
+    <div class="modal-sub" id="comm-invio-sub"></div>
+    <div class="comm-progress">
+      <div class="comm-progress-bar" id="comm-progress-bar" style="width:0%"></div>
+    </div>
+    <div class="comm-progress-meta" id="comm-progress-meta">0 / 0</div>
+    <div id="comm-invio-summary" class="comm-invio-summary" style="display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-sm" id="comm-invio-close" onclick="closeModal('modal-comm-invio')" disabled>Chiudi</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADMIN ROW EDITOR (add/edit) -->
 <div id="modal-admin-row" class="modal-overlay hidden">
   <div class="modal" style="max-width:640px">
@@ -1930,6 +2159,7 @@
 <script src="js/audit.js"></script>
 <script src="js/gestione-transazioni.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/comunicazioni.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
