@@ -268,6 +268,10 @@ function stagTxCategory(t) {
 }
 
 function stagTxLabel(t) {
+  if (t.tipo === 'comunicazione_ricevuta') {
+    const oggetto = (t.nota || '').split('\n')[0].trim();
+    return oggetto ? `📣 Comunicazione: ${oggetto}` : '📣 Comunicazione ricevuta';
+  }
   const map = {
     disponibilita_aggiunta: 'Disponibilità dichiarata',
     disponibilita_rimossa: 'Disponibilità rimossa',

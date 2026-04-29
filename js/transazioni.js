@@ -30,6 +30,7 @@ const TX_TAB_LABELS = {
   credito_revocato: 'Credito revocato',
   regola_forzata_aggiunta: 'Regola gestore: impostata',
   regola_forzata_rimossa: 'Regola gestore: revocata',
+  comunicazione_ricevuta: 'Comunicazione ricevuta',
   // Eventi sintetici dall'audit_log.
   email_sent: 'Email inviata',
   registrazione_completata: 'Registrazione completata',

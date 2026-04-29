@@ -1129,6 +1129,9 @@ function managerTab(tab, btn) {
     auditState.page = 1;
     loadAuditLog();
   }
+  if (tab === 'comunicazioni' && typeof comunicazioniInit === 'function') {
+    try { comunicazioniInit(); } catch (e) { console.error('comunicazioniInit failed:', e); }
+  }
   enhanceDateInputs(panel);
 }
 

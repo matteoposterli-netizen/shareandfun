@@ -1783,3 +1783,218 @@ body:has(#view-stagionale.active) .topnav { display: none; }
   .stag-body { padding: 12px; }
   .stag-card { padding: 14px 12px; }
 }
+
+
+/* ============================================================
+   COMUNICAZIONI tab (manager)
+   ============================================================ */
+
+.comm-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid var(--border, #E8DDD0);
+  flex-wrap: wrap;
+}
+.comm-tab {
+  background: transparent;
+  border: none;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-mid, #5A6A7A);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  border-radius: 6px 6px 0 0;
+  transition: all 0.15s;
+}
+.comm-tab:hover { background: rgba(27, 108, 168, 0.05); color: var(--ocean, #1B6CA8); }
+.comm-tab.active {
+  color: var(--ocean, #1B6CA8);
+  border-bottom-color: var(--ocean, #1B6CA8);
+}
+.comm-pane { display: none; }
+.comm-pane.active { display: block; }
+
+.comm-recipients {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+.comm-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #E8DDD0);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  background: #fff;
+  transition: border-color 0.15s, background 0.15s;
+}
+.comm-radio:hover { border-color: var(--ocean, #1B6CA8); }
+.comm-radio input[type="radio"] { margin: 0; }
+.comm-radio:has(input:checked) {
+  border-color: var(--ocean, #1B6CA8);
+  background: #E8F4FD;
+}
+.comm-rec-detail {
+  margin-top: 12px;
+  padding: 12px;
+  background: #F8F4EE;
+  border-radius: 8px;
+  border: 1px solid var(--border, #E8DDD0);
+}
+.comm-summary {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px dashed var(--border, #E8DDD0);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.comm-summary-row { margin: 2px 0; }
+.comm-pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+}
+.comm-pill-ok { background: #dcfce7; color: #166534; }
+.comm-pill-warn { background: #fef3c7; color: #92400e; }
+
+.comm-manual-list {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--border, #E8DDD0);
+  border-radius: 8px;
+  background: #fff;
+}
+.comm-manual-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 130px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #F0EBE3;
+  font-size: 13px;
+  cursor: pointer;
+}
+.comm-manual-row:last-child { border-bottom: none; }
+.comm-manual-row:hover { background: #F8F4EE; }
+.comm-manual-name { font-weight: 600; color: var(--text-dark, #1A2332); }
+.comm-manual-omb { color: var(--text-mid, #5A6A7A); font-size: 12px; }
+.comm-manual-email { color: var(--text-mid, #5A6A7A); font-size: 12px; word-break: break-all; }
+.comm-empty { padding: 20px; text-align: center; color: var(--text-mid, #5A6A7A); font-size: 13px; }
+
+.comm-counter {
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-mid, #5A6A7A);
+  margin-top: 4px;
+}
+.comm-placeholders {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #F8F4EE;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.comm-placeholders code {
+  background: #fff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border, #E8DDD0);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--ocean, #1B6CA8);
+  margin: 0 2px;
+}
+
+.comm-wip-banner {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: linear-gradient(135deg, #FDF8E8 0%, #FCEFC1 100%);
+  border: 1px solid #F0B429;
+  margin-bottom: 16px;
+}
+.comm-disabled-preview {
+  border: none;
+  padding: 0;
+  margin: 0;
+  opacity: 0.55;
+  pointer-events: none;
+  filter: grayscale(0.3);
+}
+
+/* Anteprima email dentro al modal */
+.comm-anteprima-frame {
+  max-height: 60vh;
+  overflow-y: auto;
+  border: 1px solid var(--border, #E8DDD0);
+  border-radius: 8px;
+  background: #F5F0E8;
+  padding: 20px;
+}
+.comm-mail { max-width: 560px; margin: 0 auto; font-family: "Segoe UI", Arial, sans-serif; }
+.comm-mail-meta { font-size: 12px; color: var(--text-mid, #5A6A7A); margin-bottom: 10px; }
+.comm-mail-card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(27,108,168,0.1); }
+.comm-mail-header { background: linear-gradient(135deg,#1B6CA8 0%,#2B8DC8 100%); padding: 30px 30px 24px; text-align: center; color: #fff; }
+.comm-mail-emoji { font-size: 32px; margin-bottom: 6px; }
+.comm-mail-brand { font-family: Georgia, serif; font-size: 24px; font-weight: bold; }
+.comm-mail-sub { font-size: 12px; opacity: 0.85; margin-top: 4px; }
+.comm-mail-body { padding: 28px 30px; color: #5A6A7A; font-size: 14px; line-height: 1.6; }
+.comm-mail-greeting { font-size: 12px; color: #9AAABB; margin-bottom: 4px; }
+.comm-mail-name { font-size: 19px; color: #1A2332; font-weight: bold; margin-bottom: 16px; }
+.comm-mail-box { background: #E8F4FD; border: 1px solid #4A9FD4; border-radius: 8px; padding: 16px 18px; margin: 16px 0; }
+.comm-mail-box-title { font-size: 12px; font-weight: 700; color: #1B6CA8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.comm-mail-box-text { font-size: 14px; color: #5A6A7A; line-height: 1.6; }
+.comm-mail-footer { background: #F5F0E8; padding: 16px 30px; text-align: center; border-top: 1px solid #E8DDD0; font-size: 12px; color: #1A2332; }
+
+/* Progress bar invio */
+.comm-progress {
+  width: 100%;
+  height: 10px;
+  background: #F0EBE3;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 16px 0 6px;
+}
+.comm-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #1B6CA8 0%, #2B8DC8 100%);
+  transition: width 0.2s ease-out;
+}
+.comm-progress-meta {
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-mid, #5A6A7A);
+}
+.comm-invio-summary {
+  margin-top: 14px;
+  padding: 12px;
+  background: #F8F4EE;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .comm-manual-row {
+    grid-template-columns: 24px 1fr;
+    grid-template-areas:
+      "chk name"
+      "chk omb"
+      "chk email";
+    gap: 4px 8px;
+  }
+  .comm-manual-row > input { grid-area: chk; }
+  .comm-manual-name { grid-area: name; }
+  .comm-manual-omb { grid-area: omb; }
+  .comm-manual-email { grid-area: email; }
+}
+
