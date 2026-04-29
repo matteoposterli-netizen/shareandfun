@@ -35,7 +35,9 @@ Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono ren
 
 RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select auth.uid())` per performance. In aggiunta, ogni tabella business ha un set di policy `*_admin_*` che concedono accesso totale agli utenti presenti in `public.admins` (controllato via `public.is_admin(uid)` — SECURITY DEFINER). L'intero schema `public` (tabelle, FK, indexes, RLS, policies, RPC) è catturato come baseline in `supabase/migrations/20260420000000_baseline.sql`; migrazioni future vanno come file addizionali con timestamp successivo.
 
-> Tutte le migrazioni in `supabase/migrations/` sono state applicate sul DB di produzione al 2026-04-26. Cumulative su `reset_stagione`: la 500000 rimpiazza la 300000 (reset dello stato di registrazione + cleanup auth.users per user_id), la 20260426000000 rimpiazza la 500000 (estende la cleanup auth.users anche al match per email + introduce la RPC `unblock_invito_email`).
+**Convenzione timestamp**: tutte le colonne `created_at` (e simili) devono essere `timestamptz`. Il baseline le aveva definite come `timestamp` (naive) sulle 6 tabelle business — convertite a `timestamptz` con la migrazione `20260429010000_created_at_to_timestamptz.sql` (USING `AT TIME ZONE 'UTC'`, dato che Supabase scrive `now()` in sessioni UTC). Senza tz PostgREST le serializza senza marker e il browser le interpreta come ora locale, mostrando -2h in CEST. Le tabelle aggiunte dopo il baseline (audit_log, regole_stato_ombrelloni, stagioni_backup, email_bozze, admins) erano già timestamptz.
+
+> Tutte le migrazioni in `supabase/migrations/` sono state applicate sul DB di produzione al 2026-04-29. Cumulative su `reset_stagione`: la 500000 rimpiazza la 300000 (reset dello stato di registrazione + cleanup auth.users per user_id), la 20260426000000 rimpiazza la 500000 (estende la cleanup auth.users anche al match per email + introduce la RPC `unblock_invito_email`).
 >
 > Applicare nuove migrazioni via Supabase dashboard (SQL Editor), `supabase db push` o `psql`.
 >
