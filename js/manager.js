@@ -1410,11 +1410,46 @@ function updatePrenPresetActive() {
 }
 
 let prenotazioniList = [];
+let prenViewMode = 'lista';
+
+function prenViewStorageKey() {
+  return `pren-view-mode:${currentStabilimento?.id || 'default'}`;
+}
+
+function loadPrenViewMode() {
+  try {
+    const v = localStorage.getItem(prenViewStorageKey());
+    prenViewMode = (v === 'tabella') ? 'tabella' : 'lista';
+  } catch (_) { prenViewMode = 'lista'; }
+  syncPrenViewToggleUI();
+}
+
+function syncPrenViewToggleUI() {
+  document.querySelectorAll('.pren-view-btn').forEach(btn => {
+    const active = btn.dataset.view === prenViewMode;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  const listEl = document.getElementById('prenotazioni-list');
+  const tabEl = document.getElementById('prenotazioni-tabella');
+  if (listEl) listEl.classList.toggle('hidden', prenViewMode !== 'lista');
+  if (tabEl) tabEl.classList.toggle('hidden', prenViewMode !== 'tabella');
+}
+
+function setPrenViewMode(mode) {
+  prenViewMode = (mode === 'tabella') ? 'tabella' : 'lista';
+  try { localStorage.setItem(prenViewStorageKey(), prenViewMode); } catch (_) {}
+  syncPrenViewToggleUI();
+  renderPrenotazioni();
+}
 
 async function loadPrenotazioni() {
   const listEl = document.getElementById('prenotazioni-list');
   if (!listEl) return;
+  loadPrenViewMode();
   listEl.innerHTML = '<div class="tx-empty">Caricamento...</div>';
+  const tabEl0 = document.getElementById('prenotazioni-tabella');
+  if (tabEl0) tabEl0.innerHTML = '<div class="tx-empty">Caricamento...</div>';
   const ombIds = (ombrelloniList || []).map(o => o.id);
   if (!ombIds.length) {
     prenotazioniList = [];
@@ -1436,6 +1471,7 @@ function renderPrenotazioni() {
   const countEl = document.getElementById('pren-count-label');
   if (!listEl) return;
 
+  syncPrenViewToggleUI();
   updatePrenPresetActive();
 
   const qNome = (document.getElementById('pren-filter-nome')?.value || '').trim().toLowerCase();
@@ -1444,7 +1480,10 @@ function renderPrenotazioni() {
   const to = document.getElementById('pren-filter-to')?.value || '';
   if (from && to && from > to) {
     if (countEl) countEl.textContent = '';
-    listEl.innerHTML = '<div class="tx-empty">Periodo non valido: la data iniziale è successiva a quella finale</div>';
+    const msg = '<div class="tx-empty">Periodo non valido: la data iniziale è successiva a quella finale</div>';
+    listEl.innerHTML = msg;
+    const tabEl = document.getElementById('prenotazioni-tabella');
+    if (tabEl) tabEl.innerHTML = msg;
     return;
   }
 
@@ -1467,6 +1506,8 @@ function renderPrenotazioni() {
   if (!rows.length) {
     if (countEl) countEl.textContent = '';
     listEl.innerHTML = '<div class="tx-empty">Nessuna prenotazione trovata</div>';
+    const tabEl = document.getElementById('prenotazioni-tabella');
+    if (tabEl) tabEl.innerHTML = '<div class="tx-empty">Nessuna prenotazione trovata</div>';
     return;
   }
 
@@ -1573,6 +1614,239 @@ function renderPrenotazioni() {
       </div>
     </div>`;
   }).join('');
+
+  renderPrenotazioniTabella(ordered, { from, to });
+}
+
+function renderPrenotazioniTabella(ordered, filterRange) {
+  const tabEl = document.getElementById('prenotazioni-tabella');
+  if (!tabEl) return;
+
+  if (!ordered.length) {
+    tabEl.innerHTML = '<div class="tx-empty">Nessuna prenotazione trovata</div>';
+    return;
+  }
+
+  const ombsMap = ombById();
+  const cliById = {};
+  (clientiList || []).forEach(c => { cliById[c.id] = c; });
+
+  let rangeFrom = filterRange.from || '';
+  let rangeTo = filterRange.to || '';
+  if (!rangeFrom || !rangeTo) {
+    let minD = null, maxD = null;
+    ordered.forEach(g => g.items.forEach(i => {
+      if (!minD || i.data < minD) minD = i.data;
+      if (!maxD || i.data > maxD) maxD = i.data;
+    }));
+    if (!rangeFrom) rangeFrom = minD;
+    if (!rangeTo) rangeTo = maxD;
+  }
+  if (!rangeFrom || !rangeTo) {
+    tabEl.innerHTML = '<div class="tx-empty">Nessuna prenotazione trovata</div>';
+    return;
+  }
+
+  const dayList = [];
+  {
+    const start = new Date(rangeFrom + 'T00:00:00');
+    const end = new Date(rangeTo + 'T00:00:00');
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      dayList.push(toLocalDateStr(new Date(d)));
+    }
+  }
+
+  const today = todayStr();
+
+  const groupsWithCells = ordered.map((g, gi) => {
+    const byDay = new Map();
+    g.items.forEach(it => {
+      if (!byDay.has(it.data)) byDay.set(it.data, []);
+      byDay.get(it.data).push(it);
+    });
+    let firstInRange = null;
+    for (const d of dayList) {
+      if (byDay.has(d)) { firstInRange = d; break; }
+    }
+    const minCreated = g.items.reduce((m, x) => {
+      if (!x.created_at) return m;
+      return (m === '' || x.created_at < m) ? x.created_at : m;
+    }, '');
+    return { g, gi, byDay, firstInRange, minCreated };
+  }).filter(x => x.firstInRange);
+
+  groupsWithCells.sort((a, b) => {
+    if (a.firstInRange !== b.firstInRange) return a.firstInRange < b.firstInRange ? -1 : 1;
+    if (a.minCreated !== b.minCreated) return a.minCreated < b.minCreated ? -1 : 1;
+    return 0;
+  });
+
+  if (!groupsWithCells.length) {
+    tabEl.innerHTML = '<div class="tx-empty">Nessuna prenotazione nel periodo selezionato</div>';
+    return;
+  }
+
+  const monthName = (iso) => {
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('it-IT', { month: 'short' });
+  };
+  const dayNum = (iso) => {
+    const d = new Date(iso + 'T00:00:00');
+    return d.getDate();
+  };
+  const dayWeek = (iso) => {
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('it-IT', { weekday: 'narrow' });
+  };
+
+  const headerCells = dayList.map(d => {
+    const isToday = d === today;
+    const cls = ['pren-tab-day-th'];
+    if (isToday) cls.push('today');
+    return `<th class="${cls.join(' ')}" title="${formatDate(d)}">
+      <div class="pren-tab-day-week">${dayWeek(d)}</div>
+      <div class="pren-tab-day-num">${dayNum(d)}</div>
+      <div class="pren-tab-day-mon">${monthName(d)}</div>
+    </th>`;
+  }).join('');
+
+  const rowsHtml = groupsWithCells.map(({ g, gi, byDay }) => {
+    const items = g.items.slice().sort((a, b) => a.data < b.data ? -1 : a.data > b.data ? 1 : 0);
+    const dates = items.map(i => i.data);
+    const fullRangeLabel = dates.length === 1
+      ? formatDate(dates[0])
+      : `${formatDate(dates[0])} → ${formatDate(dates[dates.length - 1])} (${dates.length} gg)`;
+
+    const clientiSet = new Set();
+    items.forEach(i => {
+      if (i.cliente_id && cliById[i.cliente_id]) {
+        const c = cliById[i.cliente_id];
+        clientiSet.add(`${c.nome} ${c.cognome}`);
+      }
+    });
+    const clientiLabel = clientiSet.size
+      ? Array.from(clientiSet).join(', ')
+      : '<span style="color:var(--text-light)">nessun cliente stagionale</span>';
+
+    const totImporto = items.reduce((s, i) => {
+      const o = ombsMap[i.ombrellone_id];
+      return s + (o ? parseFloat(o.credito_giornaliero || 0) : 0);
+    }, 0);
+
+    const title = g.nome
+      ? escapeHtml(g.nome)
+      : '<span style="color:var(--text-light);font-style:italic">Senza nome</span>';
+
+    const summaryCell = `<th class="pren-tab-row-th" onclick="openPrenDettagliModal('g-${gi}')">
+      <div class="pren-tab-row-title">📖 ${title}</div>
+      <div class="pren-tab-row-meta">${clientiLabel}</div>
+      <div class="pren-tab-row-meta"><strong>${fullRangeLabel}</strong></div>
+      <div class="pren-tab-row-meta">Totale: ${formatCoin(totImporto, currentStabilimento)}</div>
+    </th>`;
+
+    const dayCells = dayList.map(d => {
+      const isToday = d === today;
+      const list = byDay.get(d);
+      const baseCls = ['pren-tab-cell'];
+      if (isToday) baseCls.push('today');
+      if (!list || !list.length) {
+        return `<td class="${baseCls.join(' ')}"></td>`;
+      }
+      baseCls.push('booked');
+      const labels = list.map(it => {
+        const o = ombsMap[it.ombrellone_id];
+        const ombStr = o ? `Fila ${o.fila} N°${o.numero}` : 'ombrellone rimosso';
+        const cli = it.cliente_id ? cliById[it.cliente_id] : null;
+        const cliStr = cli ? `${cli.nome} ${cli.cognome}` : '—';
+        return `${ombStr} · Stagionale: ${cliStr}`;
+      });
+      const tooltip = `${formatDate(d)}\n${labels.join('\n')}`;
+      const first = list[0];
+      const o = ombsMap[first.ombrellone_id];
+      const cellLabel = o ? `${o.fila}${o.numero}` : '?';
+      const extra = list.length > 1 ? `<span class="pren-tab-cell-badge">+${list.length - 1}</span>` : '';
+      if (list.length > 1) baseCls.push('multi');
+      return `<td class="${baseCls.join(' ')}" title="${escapeHtmlAttr(tooltip)}" onclick="openPrenDettagliModal('g-${gi}')"><span class="pren-tab-cell-label">${escapeHtml(cellLabel)}</span>${extra}</td>`;
+    }).join('');
+
+    return `<tr>${summaryCell}${dayCells}</tr>`;
+  }).join('');
+
+  tabEl.innerHTML = `<div class="pren-tab-wrap"><table class="pren-tab-table">
+    <thead><tr><th class="pren-tab-corner-th">Prenotazione</th>${headerCells}</tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table></div>`;
+}
+
+function escapeHtmlAttr(s) {
+  return escapeHtml(s);
+}
+
+function openPrenDettagliModal(gid) {
+  const group = cancelBookingGroups.get(gid);
+  if (!group) return;
+  const ombsMap = ombById();
+  const cliById = {};
+  (clientiList || []).forEach(c => { cliById[c.id] = c; });
+
+  const items = group.items.slice().sort((a, b) => a.data < b.data ? -1 : a.data > b.data ? 1 : 0);
+  const dates = items.map(i => i.data);
+  const dateLabel = dates.length === 1
+    ? formatDate(dates[0])
+    : `${formatDate(dates[0])} → ${formatDate(dates[dates.length - 1])} (${dates.length} giorn${dates.length === 1 ? 'o' : 'i'})`;
+
+  const clientiSet = new Set();
+  items.forEach(i => {
+    if (i.cliente_id && cliById[i.cliente_id]) {
+      const c = cliById[i.cliente_id];
+      clientiSet.add(`${c.nome} ${c.cognome}`);
+    }
+  });
+  const clientiLabel = clientiSet.size
+    ? Array.from(clientiSet).join(', ')
+    : '<span style="color:var(--text-light)">nessun cliente stagionale</span>';
+
+  const totImporto = items.reduce((s, i) => {
+    const o = ombsMap[i.ombrellone_id];
+    return s + (o ? parseFloat(o.credito_giornaliero || 0) : 0);
+  }, 0);
+
+  const title = group.nome
+    ? `📖 ${escapeHtml(group.nome)}`
+    : '📖 <span style="color:var(--text-light);font-style:italic">Prenotazione senza nome</span>';
+
+  document.getElementById('pren-dettagli-title').innerHTML = title;
+  document.getElementById('pren-dettagli-sub').innerHTML = `
+    <div><strong>Periodo:</strong> ${dateLabel}</div>
+    <div style="margin-top:4px"><strong>Cliente Stagionale:</strong> ${clientiLabel}</div>
+    <div style="margin-top:4px"><strong>Totale:</strong> ${formatCoin(totImporto, currentStabilimento)}</div>
+  `;
+
+  const rowsHtml = items.map(i => {
+    const o = ombsMap[i.ombrellone_id];
+    const ombStr = o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">ombrellone rimosso</span>';
+    const cli = i.cliente_id ? cliById[i.cliente_id] : null;
+    const cliStr = cli ? `${cli.nome} ${cli.cognome}` : '<span style="color:var(--text-light)">—</span>';
+    const imp = o ? formatCoin(o.credito_giornaliero, currentStabilimento) : '—';
+    return `<tr>
+      <td>${formatDate(i.data)}</td>
+      <td><strong>${ombStr}</strong></td>
+      <td>${cliStr}</td>
+      <td style="text-align:right">${imp}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('pren-dettagli-rows').innerHTML = rowsHtml;
+
+  document.getElementById('pren-dettagli-modifica').onclick = () => {
+    closeModal('modal-pren-dettagli');
+    openModifyBookingModal(gid);
+  };
+  document.getElementById('pren-dettagli-annulla').onclick = () => {
+    closeModal('modal-pren-dettagli');
+    openCancelBookingModal(gid);
+  };
+
+  document.getElementById('modal-pren-dettagli').classList.remove('hidden');
 }
 
 let cancelBookingCurrentId = null;
