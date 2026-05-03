@@ -2121,37 +2121,46 @@ body:has(#view-stagionale.active) .topnav { display: none; }
 .disp-table td.disp-cell.disp-cell-noaction { cursor: default; }
 .disp-table td.disp-cell.disp-cell-noaction:hover { filter: none; }
 
-/* Stati cella — palette coerente con la mappa ombrelloni */
-.disp-cell-libero {
+/* Stati cella — palette coerente con la mappa ombrelloni.
+   Selettore prefissato per battere la specificità di `.disp-table td`. */
+.disp-table td.disp-cell-libero,
+.disp-legend .legend-swatch.disp-cell-libero {
   background: var(--green-light);
   color: var(--green);
 }
-.disp-cell-default-libero {
-  background: #EAF4FB;
+.disp-table td.disp-cell-default-libero,
+.disp-legend .legend-swatch.disp-cell-default-libero {
+  background-color: #EAF4FB;
   color: var(--ocean);
   background-image: repeating-linear-gradient(45deg, transparent 0 5px, rgba(27,108,168,0.10) 5px 7px);
 }
-.disp-cell-subaffittato {
+.disp-table td.disp-cell-subaffittato,
+.disp-legend .legend-swatch.disp-cell-subaffittato {
   background: var(--yellow-light);
   color: #9C7A1F;
 }
-.disp-cell-occupato {
+.disp-table td.disp-cell-occupato,
+.disp-legend .legend-swatch.disp-cell-occupato {
   background: var(--ocean-light);
   color: var(--ocean);
 }
-.disp-cell-chiusura {
+.disp-table td.disp-cell-chiusura,
+.disp-legend .legend-swatch.disp-cell-chiusura {
   background: repeating-linear-gradient(45deg, var(--coral) 0 4px, var(--coral-light) 4px 10px);
   color: var(--coral);
 }
-.disp-cell-sempre-libero {
+.disp-table td.disp-cell-sempre-libero,
+.disp-legend .legend-swatch.disp-cell-sempre-libero {
   background: repeating-linear-gradient(45deg, var(--green-light) 0 5px, #D4F0DD 5px 10px);
   color: var(--green);
 }
-.disp-cell-mai-libero {
+.disp-table td.disp-cell-mai-libero,
+.disp-legend .legend-swatch.disp-cell-mai-libero {
   background: repeating-linear-gradient(45deg, var(--yellow-light) 0 5px, #F7E9C4 5px 10px);
   color: #9C7A1F;
 }
-.disp-cell-fuori-stagione {
+.disp-table td.disp-cell-fuori-stagione,
+.disp-legend .legend-swatch.disp-cell-fuori-stagione {
   background: repeating-linear-gradient(45deg, #f6f5f1 0 5px, #ecebe5 5px 10px);
   color: var(--text-light);
 }
