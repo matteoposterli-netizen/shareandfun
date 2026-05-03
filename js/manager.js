@@ -1429,6 +1429,7 @@ async function loadPrenotazioni() {
   if (error) { console.error(error); listEl.innerHTML = '<div class="tx-empty">Errore nel caricamento</div>'; return; }
   prenotazioniList = data || [];
   renderPrenotazioni();
+  if (typeof dispViewInvalidate === 'function') dispViewInvalidate();
 }
 
 function renderPrenotazioni() {

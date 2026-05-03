@@ -996,6 +996,13 @@
           <div><div class="page-title">Prenotazioni</div><div class="page-subtitle">Crea una nuova prenotazione dalla mappa e consulta le prenotazioni attive.</div></div>
         </div>
 
+        <div class="pren-subtabs" role="tablist">
+          <button type="button" class="pren-subtab active" data-pren-subtab="crea" onclick="switchPrenSubtab('crea',this)">Crea prenotazione</button>
+          <button type="button" class="pren-subtab" data-pren-subtab="vedi" onclick="switchPrenSubtab('vedi',this)">Vedi disponibilità</button>
+        </div>
+
+        <div id="pren-sub-crea" class="pren-subpanel active">
+
         <!-- MAPPA PER CREARE PRENOTAZIONI -->
         <div class="card">
           <div class="card-header">
@@ -1066,6 +1073,58 @@
             <div id="prenotazioni-list"><div class="tx-empty">Caricamento...</div></div>
           </div>
         </div>
+
+        </div><!-- /pren-sub-crea -->
+
+        <div id="pren-sub-vedi" class="pren-subpanel">
+          <div class="card">
+            <div class="card-header" style="flex-wrap:wrap;gap:10px">
+              <div class="card-title">📅 Disponibilità giorno per giorno</div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
+                  <span>Periodo</span>
+                  <input type="text" id="disp-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+                  <input type="hidden" id="disp-date-from">
+                  <input type="hidden" id="disp-date-to">
+                </div>
+              </div>
+            </div>
+            <div id="disp-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px 12px">
+              <button type="button" class="btn btn-outline btn-sm disp-preset-btn" data-days="1" onclick="setDispRangePreset(1)">Oggi</button>
+              <button type="button" class="btn btn-outline btn-sm disp-preset-btn" data-days="3" onclick="setDispRangePreset(3)">Prossimi 3 giorni</button>
+              <button type="button" class="btn btn-outline btn-sm disp-preset-btn" data-days="7" onclick="setDispRangePreset(7)">Prossimi 7 giorni</button>
+              <button type="button" class="btn btn-outline btn-sm disp-preset-btn" data-days="14" onclick="setDispRangePreset(14)">Prossimi 14 giorni</button>
+              <button type="button" class="btn btn-outline btn-sm disp-preset-btn" data-days="31" onclick="setDispRangePreset(31)">Prossimi 31 giorni</button>
+            </div>
+            <div class="card-body" style="padding-top:0">
+              <div class="disp-filters">
+                <div class="disp-filter-group">
+                  <label class="disp-filter-label">File</label>
+                  <div id="disp-filter-file" class="disp-checkbox-row">
+                    <span style="color:var(--text-light);font-size:12px">—</span>
+                  </div>
+                </div>
+                <div class="disp-filter-group">
+                  <label class="disp-filter-label">Stato</label>
+                  <div class="disp-checkbox-row">
+                    <label class="disp-chk"><input type="checkbox" data-stato="libero" onchange="renderDispView()"> Libero</label>
+                    <label class="disp-chk"><input type="checkbox" data-stato="subaffittato" onchange="renderDispView()"> Sub-affittato</label>
+                    <label class="disp-chk"><input type="checkbox" data-stato="regola" onchange="renderDispView()"> Con regole</label>
+                  </div>
+                </div>
+                <div class="disp-filter-group" style="flex:1;min-width:220px">
+                  <label class="disp-filter-label">Cerca</label>
+                  <input type="search" id="disp-search" class="form-input" placeholder="Cliente o nome prenotazione" style="padding:6px 10px;font-size:13px" oninput="renderDispView()">
+                </div>
+              </div>
+              <div id="disp-legend" class="disp-legend"></div>
+              <div id="disp-table-wrap" class="disp-table-wrap">
+                <div class="tx-empty">Seleziona un periodo per vedere la disponibilità.</div>
+              </div>
+            </div>
+          </div>
+        </div><!-- /pren-sub-vedi -->
+
       </div>
 
       <!-- CREDITI TAB -->
@@ -2160,6 +2219,7 @@
 <script src="js/gestione-transazioni.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/comunicazioni.js"></script>
+<script src="js/disponibilita-tab.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

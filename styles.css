@@ -1998,3 +1998,208 @@ body:has(#view-stagionale.active) .topnav { display: none; }
   .comm-manual-email { grid-area: email; }
 }
 
+/* ===========================================================================
+   Prenotazioni: sotto-tab "Crea prenotazione" / "Vedi disponibilità"
+   =========================================================================== */
+.pren-subtabs {
+  display: flex; gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 22px;
+}
+.pren-subtab {
+  background: transparent; border: none; cursor: pointer;
+  padding: 12px 18px; font-size: 14px; color: var(--text-mid);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  font-family: inherit;
+  transition: color .15s, border-color .15s;
+}
+.pren-subtab:hover { color: var(--text-dark); }
+.pren-subtab.active {
+  color: var(--ocean); border-bottom-color: var(--ocean); font-weight: 600;
+}
+.pren-subpanel { display: none; }
+.pren-subpanel.active { display: block; }
+
+/* Filtri vista disponibilità */
+.disp-filters {
+  display: flex; flex-wrap: wrap; gap: 18px;
+  padding: 4px 0 14px;
+  align-items: flex-start;
+}
+.disp-filter-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.disp-filter-label {
+  font-size: 12px; font-weight: 600; color: var(--text-mid);
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+.disp-checkbox-row {
+  display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center;
+}
+.disp-chk {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text-dark); cursor: pointer;
+}
+.disp-chk input { margin: 0; }
+
+.disp-legend {
+  display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center;
+  font-size: 12px; color: var(--text-mid);
+  padding-bottom: 12px;
+}
+.disp-legend .legend-item {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.disp-legend .legend-swatch {
+  width: 16px; height: 16px; border-radius: 4px;
+  border: 1.5px solid var(--border);
+}
+
+/* Tabella disponibilità */
+.disp-table-wrap {
+  position: relative;
+  overflow: auto;
+  max-height: 70vh;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+.disp-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+  table-layout: fixed;
+}
+.disp-table th, .disp-table td {
+  padding: 0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  vertical-align: middle;
+  background: #fff;
+}
+.disp-table thead th {
+  position: sticky; top: 0; z-index: 3;
+  background: var(--sand);
+  color: var(--text-dark);
+  font-weight: 600;
+  height: 42px;
+  min-width: 56px;
+  padding: 4px 6px;
+  white-space: nowrap;
+}
+.disp-table thead th .dh-day {
+  display: block; font-size: 14px; font-weight: 700;
+}
+.disp-table thead th .dh-mese {
+  display: block; font-size: 10px; color: var(--text-mid); text-transform: uppercase; letter-spacing: 0.4px;
+}
+.disp-table thead th.disp-th-row {
+  left: 0; z-index: 4;
+  text-align: left; padding-left: 12px;
+  min-width: 84px;
+}
+.disp-table tbody th.disp-th-row {
+  position: sticky; left: 0; z-index: 2;
+  background: var(--sand);
+  text-align: left; padding: 6px 12px;
+  font-weight: 600; color: var(--text-dark);
+  white-space: nowrap;
+  border-right: 1px solid var(--border);
+}
+.disp-table tbody tr.disp-row-fila-start th.disp-th-row {
+  border-top: 2px solid var(--ocean-mid);
+}
+.disp-table tbody tr.disp-row-fila-start td {
+  border-top: 2px solid var(--ocean-mid);
+}
+.disp-table td.disp-cell {
+  height: 34px;
+  cursor: pointer;
+  position: relative;
+  transition: filter .12s, transform .08s;
+}
+.disp-table td.disp-cell:hover { filter: brightness(0.94); }
+.disp-table td.disp-cell.disp-cell-noaction { cursor: default; }
+.disp-table td.disp-cell.disp-cell-noaction:hover { filter: none; }
+
+/* Stati cella — palette coerente con la mappa ombrelloni */
+.disp-cell-libero {
+  background: var(--green-light);
+  color: var(--green);
+}
+.disp-cell-default-libero {
+  background: #EAF4FB;
+  color: var(--ocean);
+  background-image: repeating-linear-gradient(45deg, transparent 0 5px, rgba(27,108,168,0.10) 5px 7px);
+}
+.disp-cell-subaffittato {
+  background: var(--yellow-light);
+  color: #9C7A1F;
+}
+.disp-cell-occupato {
+  background: var(--ocean-light);
+  color: var(--ocean);
+}
+.disp-cell-chiusura {
+  background: repeating-linear-gradient(45deg, var(--coral) 0 4px, var(--coral-light) 4px 10px);
+  color: var(--coral);
+}
+.disp-cell-sempre-libero {
+  background: repeating-linear-gradient(45deg, var(--green-light) 0 5px, #D4F0DD 5px 10px);
+  color: var(--green);
+}
+.disp-cell-mai-libero {
+  background: repeating-linear-gradient(45deg, var(--yellow-light) 0 5px, #F7E9C4 5px 10px);
+  color: #9C7A1F;
+}
+.disp-cell-fuori-stagione {
+  background: repeating-linear-gradient(45deg, #f6f5f1 0 5px, #ecebe5 5px 10px);
+  color: var(--text-light);
+}
+
+.disp-cell .disp-cell-icon {
+  font-size: 13px; line-height: 1;
+}
+.disp-cell.dimmed { opacity: 0.22; }
+.disp-cell.match {
+  outline: 2px solid var(--coral);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+/* Popover azione cella */
+.disp-popover {
+  position: absolute;
+  z-index: 50;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(14,27,38,0.18);
+  padding: 12px 14px;
+  min-width: 240px;
+  max-width: 320px;
+  font-size: 13px;
+  color: var(--text-dark);
+}
+.disp-popover h4 {
+  margin: 0 0 6px; font-size: 13px; font-weight: 700;
+}
+.disp-popover .disp-pop-meta {
+  font-size: 12px; color: var(--text-mid); margin-bottom: 10px; line-height: 1.5;
+}
+.disp-popover .disp-pop-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.disp-popover .disp-pop-close {
+  position: absolute; top: 6px; right: 8px;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--text-light); font-size: 18px; line-height: 1;
+}
+.disp-popover .disp-pop-close:hover { color: var(--text-dark); }
+
+@media (max-width: 720px) {
+  .disp-table thead th { min-width: 48px; height: 38px; }
+  .disp-table thead th .dh-day { font-size: 13px; }
+  .disp-table tbody th.disp-th-row { min-width: 70px; padding: 6px 8px; font-size: 12px; }
+  .disp-table td.disp-cell { height: 30px; }
+}
+
