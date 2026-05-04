@@ -1145,6 +1145,16 @@ function generateDefaultBookingName() {
   return `${stabNome} — ${dt} · #${code}`;
 }
 
+// Estrae solo la parte user-typed dal `nome_prenotazione` storato.
+// Format: "<stab> — <date> · #<code>" oppure "<stab> — <date> · #<code> — <userName>".
+// Ritorna { name, code }: name = parte digitata dall'utente (null se assente), code = "#XXXXXX".
+function parseBookingName(fullName) {
+  if (!fullName) return { name: null, code: null };
+  const m = fullName.match(/· (#[A-Z0-9]+)(?: — (.+))?$/);
+  if (!m) return { name: fullName, code: null };
+  return { name: m[2] ? m[2].trim() : null, code: m[1] };
+}
+
 function openFinalizeBookingModal() {
   if (!currentMapRange || bookingSelection.size === 0) return;
   const { pairs, missingDays, totalCredit } = computeBookingCoverage();
@@ -1735,9 +1745,12 @@ function renderPrenotazioniTabella(ordered, filterRange) {
       return s + (o ? parseFloat(o.credito_giornaliero || 0) : 0);
     }, 0);
 
-    const title = g.nome
-      ? escapeHtml(g.nome)
-      : '<span style="color:var(--text-light);font-style:italic">Senza nome</span>';
+    const parsed = parseBookingName(g.nome);
+    const title = parsed.name
+      ? escapeHtml(parsed.name)
+      : (parsed.code
+        ? `<span style="color:var(--text-light)">${escapeHtml(parsed.code)}</span>`
+        : '<span style="color:var(--text-light);font-style:italic">Senza nome</span>');
 
     const summaryCell = `<th class="pren-tab-row-th" onclick="openPrenDettagliModal('g-${gi}')">
       <div class="pren-tab-row-title">📖 ${title}</div>
