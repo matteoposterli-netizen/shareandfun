@@ -7,6 +7,7 @@ let dispRangePickerInstance = null;
 let dispViewLoaded = false;       // vista già caricata almeno una volta
 let dispViewStale = false;        // marcata da invalidate dopo create/cancel
 let dispViewData = null;          // { from, to, dates, dispByOmbDate, ruleByDate, prenByDispId, regole }
+let dispStabRegoleTipi = new Set(); // tipi di regole esistenti per lo stabilimento corrente
 
 function switchPrenSubtab(name, btn) {
   document.querySelectorAll('.pren-subtab').forEach(b => b.classList.remove('active'));
@@ -38,12 +39,35 @@ function initDispView() {
   }
   initDispRangePicker(fromEl.value, toEl.value);
   populateDispFilaCheckboxes();
-  renderDispLegend();
+  loadDispStabRegoleTipi().then(() => {
+    renderDispLegend();
+    updateDispRegoleVisibility();
+  });
 
   if (!dispViewLoaded || dispViewStale) {
     loadDispView();
   } else {
     renderDispView();
+  }
+}
+
+async function loadDispStabRegoleTipi() {
+  if (!currentStabilimento) { dispStabRegoleTipi = new Set(); return; }
+  const { data, error } = await sb.from('regole_stato_ombrelloni')
+    .select('tipo')
+    .eq('stabilimento_id', currentStabilimento.id);
+  if (error) { console.error(error); dispStabRegoleTipi = new Set(); return; }
+  dispStabRegoleTipi = new Set((data || []).map(r => r.tipo));
+}
+
+function updateDispRegoleVisibility() {
+  const wrap = document.getElementById('disp-chk-regola-wrap');
+  if (!wrap) return;
+  const has = dispStabRegoleTipi.size > 0;
+  wrap.classList.toggle('hidden', !has);
+  if (!has) {
+    const chk = wrap.querySelector('input[type=checkbox]');
+    if (chk && chk.checked) { chk.checked = false; renderDispView(); }
   }
 }
 
@@ -135,15 +159,15 @@ function renderDispLegend() {
   const el = document.getElementById('disp-legend');
   if (!el) return;
   const items = [
-    { cls: 'disp-cell-libero', label: 'Libero (cliente assegnato)' },
-    { cls: 'disp-cell-default-libero', label: 'Libero (senza cliente)' },
+    { cls: 'disp-cell-libero', label: 'Disponibile - Stagionale Assegnato' },
+    { cls: 'disp-cell-default-libero', label: 'Disponibile - NO Assegnato ad uno Stagionale' },
     { cls: 'disp-cell-subaffittato', label: 'Sub-affittato' },
     { cls: 'disp-cell-occupato', label: 'Non subaffittabile' },
-    { cls: 'disp-cell-chiusura', label: 'Chiusura speciale' },
-    { cls: 'disp-cell-sempre-libero', label: 'Sempre subaffittabile' },
-    { cls: 'disp-cell-mai-libero', label: 'Mai subaffittabile' },
-    { cls: 'disp-cell-fuori-stagione', label: 'Fuori stagione' },
   ];
+  if (dispStabRegoleTipi.has('chiusura_speciale')) items.push({ cls: 'disp-cell-chiusura', label: 'Chiusura speciale' });
+  if (dispStabRegoleTipi.has('sempre_libero')) items.push({ cls: 'disp-cell-sempre-libero', label: 'Sempre subaffittabile' });
+  if (dispStabRegoleTipi.has('mai_libero')) items.push({ cls: 'disp-cell-mai-libero', label: 'Mai subaffittabile' });
+  items.push({ cls: 'disp-cell-fuori-stagione', label: 'Fuori stagione' });
   el.innerHTML = items.map(i =>
     `<span class="legend-item"><span class="legend-swatch ${i.cls}"></span>${i.label}</span>`
   ).join('');
@@ -243,8 +267,8 @@ function getDispCellState(ombId, date) {
     return { kind: 'mai-libero', label: 'Mai subaffittabile', info: '' };
   }
   if (ombDisp && ombDisp.stato === 'libero') {
-    if (ombDisp.cliente_id) return { kind: 'libero', label: 'Libero (cliente assegnato)', info: '' };
-    return { kind: 'default-libero', label: 'Libero (senza cliente)', info: '' };
+    if (ombDisp.cliente_id) return { kind: 'libero', label: 'Disponibile - Stagionale Assegnato', info: '' };
+    return { kind: 'default-libero', label: 'Disponibile - NO Assegnato ad uno Stagionale', info: '' };
   }
   return { kind: 'occupato', label: 'Non subaffittabile', info: '' };
 }
@@ -460,7 +484,7 @@ function showDispPopoverFree(cellEl, omb, date) {
 
 function showDispPopoverSubaffittato(cellEl, omb, date, disp) {
   const cli = disp?.cliente_id ? (clientiList || []).find(c => c.id === disp.cliente_id) : null;
-  const cliLabel = cli ? `${escapeHtml(cli.nome)} ${escapeHtml(cli.cognome)}` : '<span style="color:var(--text-light)">nessun cliente stagionale</span>';
+  const cliLabel = cli ? `${escapeHtml(cli.nome)} ${escapeHtml(cli.cognome)}` : '<span style="color:var(--text-light)">nessuno stagionale</span>';
   const importo = formatCoin(parseFloat(omb.credito_giornaliero || 0).toFixed(2), currentStabilimento);
   const nome = disp?.nome_prenotazione ? `<div><strong>Prenotazione:</strong> ${escapeHtml(disp.nome_prenotazione)}</div>` : '';
   const html = `
@@ -468,7 +492,7 @@ function showDispPopoverSubaffittato(cellEl, omb, date, disp) {
     <h4>Fila ${escapeHtml(omb.fila)} N°${omb.numero} · ${escapeHtml(formatDate(date))}</h4>
     <div class="disp-pop-meta">
       ${nome}
-      <div><strong>Cliente:</strong> ${cliLabel}</div>
+      <div><strong>Stagionale:</strong> ${cliLabel}</div>
       <div><strong>Importo giorno:</strong> ${importo}</div>
     </div>
     <div class="disp-pop-actions">

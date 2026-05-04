@@ -1114,12 +1114,12 @@
                   <div class="disp-checkbox-row">
                     <label class="disp-chk"><input type="checkbox" data-stato="libero" onchange="renderDispView()"> Libero</label>
                     <label class="disp-chk"><input type="checkbox" data-stato="subaffittato" onchange="renderDispView()"> Sub-affittato</label>
-                    <label class="disp-chk"><input type="checkbox" data-stato="regola" onchange="renderDispView()"> Con regole</label>
+                    <label id="disp-chk-regola-wrap" class="disp-chk hidden"><input type="checkbox" data-stato="regola" onchange="renderDispView()"> Con regole</label>
                   </div>
                 </div>
                 <div class="disp-filter-group" style="flex:1;min-width:220px">
                   <label class="disp-filter-label">Cerca</label>
-                  <input type="search" id="disp-search" class="form-input" placeholder="Cliente o nome prenotazione" style="padding:6px 10px;font-size:13px" oninput="renderDispView()">
+                  <input type="search" id="disp-search" class="form-input" placeholder="Stagionale o nome prenotazione" style="padding:6px 10px;font-size:13px" oninput="renderDispView()">
                 </div>
               </div>
               <div id="disp-legend" class="disp-legend"></div>
