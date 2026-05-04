@@ -26,7 +26,7 @@ function buildFromHeader(displayName: string | undefined): string {
 }
 
 interface EmailRequest {
-  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "chiusura_stagione";
+  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "chiusura_stagione" | "comunicazione";
   email: string;
   nome: string;
   cognome?: string;
@@ -363,6 +363,32 @@ Deno.serve(async (req: Request) => {
       stabilimento_telefono,
       stabilimento_email,
       footer_extra: `Ci vediamo alla prossima stagione! 🌊 Per qualsiasi domanda contatta direttamente <strong>${stabilimento_nome}</strong>.`,
+    };
+
+  } else if (tipo === "comunicazione") {
+    if (!oggetto_custom || !testo_custom) {
+      return new Response(JSON.stringify({ error: "Per il tipo 'comunicazione' oggetto_custom e testo_custom sono obbligatori" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+    subject = oggetto_custom;
+    const corpoHtml = testo_custom.replace(/\n/g, "<br>");
+    opts = {
+      headerColor: "linear-gradient(135deg,#1B6CA8 0%,#2B8DC8 100%)",
+      headerEmoji: "📣 ☂️",
+      headerSub: `Comunicazione da ${stabilimento_nome}`,
+      nome,
+      testoPrincipale: `Hai ricevuto un messaggio da <strong>${stabilimento_nome}</strong>:`,
+      boxColor: "#E8F4FD",
+      boxBorderColor: "#4A9FD4",
+      boxTitoloColor: "#1B6CA8",
+      boxTitolo: oggetto_custom,
+      boxTesto: corpoHtml,
+      stabilimento_nome,
+      stabilimento_telefono,
+      stabilimento_email,
+      footer_extra: `Per qualsiasi domanda contatta direttamente <strong>${stabilimento_nome}</strong> ai recapiti qui sopra.`,
     };
 
   } else {
