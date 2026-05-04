@@ -461,11 +461,19 @@ body {
 .booking-missing { font-size: 13px; color: #9C3B1F; background: #fff; border: 1px dashed var(--coral); border-radius: 6px; padding: 8px 10px; margin: 8px 0; }
 .booking-complete { font-size: 13px; color: var(--green); font-weight: 600; margin: 8px 0; }
 .booking-panel-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-.sea-label {
-  text-align: center; font-size: 10px; font-weight: 700; letter-spacing: 5px;
-  text-transform: uppercase; color: var(--ocean-mid);
-  padding: 14px 0 4px; border-top: 1.5px dashed var(--ocean-light); margin-top: 14px;
+.sea-label, .bar-label {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  font-size: 10px; font-weight: 700; letter-spacing: 5px;
+  text-transform: uppercase;
+  padding: 6px 0;
 }
+.sea-label::before, .sea-label::after,
+.bar-label::before, .bar-label::after {
+  content: ''; flex: 1 1 0; min-width: 16px;
+  border-top: 1.5px dashed currentColor;
+}
+.sea-label { color: var(--ocean-mid); margin-top: 14px; }
+.bar-label { color: var(--coral); margin-bottom: 14px; }
 
 /* TWO COL */
 .two-col { display: grid; grid-template-columns: 1fr 360px; gap: 20px; }
@@ -865,7 +873,9 @@ body {
   .map-row { gap: 4px; }
   .ombrellone { width: 32px; height: 32px; font-size: 9px; border-radius: 7px; border-width: 1.5px; }
   .col-label { width: 32px; font-size: 9px; }
-  .sea-label { font-size: 9px; letter-spacing: 3px; padding: 10px 0 2px; }
+  .sea-label, .bar-label { font-size: 9px; letter-spacing: 3px; padding: 6px 0; gap: 8px; }
+  .sea-label { margin-top: 10px; }
+  .bar-label { margin-bottom: 10px; }
   .map-legend { gap: 12px; }
   .legend-item { font-size: 11px; }
 
