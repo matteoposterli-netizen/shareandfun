@@ -2254,11 +2254,10 @@ body:has(#view-stagionale.active) .topnav { display: none; }
 /* PRENOTAZIONI - vista tabellare */
 .pren-tab-wrap {
   width: 100%;
-  overflow: auto;
+  overflow-x: auto;
   border: 1px solid var(--border, #E5E0D7);
   border-radius: 10px;
   background: #fff;
-  max-height: 70vh;
 }
 .pren-tab-table {
   border-collapse: separate;
