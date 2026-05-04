@@ -171,7 +171,7 @@ async function loadDispView() {
   }
 
   const [{ data: disp, error: e1 }, { data: regole, error: e2 }] = await Promise.all([
-    sb.from('disponibilita').select('*').gte('data', from).lte('data', to).in('ombrellone_id', ombIds),
+    fetchAllPaginated(() => sb.from('disponibilita').select('*').gte('data', from).lte('data', to).in('ombrellone_id', ombIds)),
     sb.from('regole_stato_ombrelloni').select('*').eq('stabilimento_id', currentStabilimento.id).gte('data_a', from).lte('data_da', to),
   ]);
   if (e1 || e2) {

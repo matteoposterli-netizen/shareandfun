@@ -1,6 +1,26 @@
 function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
 function showLoading() { document.getElementById('loading-overlay').style.display = 'flex'; }
 
+// PostgREST su Supabase hosted ritorna al massimo 1000 righe per query: oltre
+// quella soglia il payload viene troncato silenziosamente. Le viste che leggono
+// `disponibilita` per tutti gli ombrelloni in un range stagionale sforano
+// facilmente (49 ombrelloni × 183 giorni ≈ 9k righe). Helper che pagina via
+// `.range()` finché non riceve una pagina parziale. `buildQuery` è una factory
+// perché un PostgrestFilterBuilder non si può riassegnare dopo `.range()`.
+async function fetchAllPaginated(buildQuery, pageSize = 1000) {
+  const all = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
+    if (error) return { data: null, error };
+    const rows = data || [];
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    offset += pageSize;
+  }
+  return { data: all, error: null };
+}
+
 // Normalize <input type="date"> UX across browsers via flatpickr (Safari <14.1
 // shipped without a native date picker; even modern Safari diverges from
 // Chrome/Edge/Firefox). Keeps the underlying value as ISO "YYYY-MM-DD" so
