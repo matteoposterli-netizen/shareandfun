@@ -1145,16 +1145,6 @@ function generateDefaultBookingName() {
   return `${stabNome} — ${dt} · #${code}`;
 }
 
-// Estrae solo la parte user-typed dal `nome_prenotazione` storato.
-// Format: "<stab> — <date> · #<code>" oppure "<stab> — <date> · #<code> — <userName>".
-// Ritorna { name, code }: name = parte digitata dall'utente (null se assente), code = "#XXXXXX".
-function parseBookingName(fullName) {
-  if (!fullName) return { name: null, code: null };
-  const m = fullName.match(/· (#[A-Z0-9]+)(?: — (.+))?$/);
-  if (!m) return { name: fullName, code: null };
-  return { name: m[2] ? m[2].trim() : null, code: m[1] };
-}
-
 function openFinalizeBookingModal() {
   if (!currentMapRange || bookingSelection.size === 0) return;
   const { pairs, missingDays, totalCredit } = computeBookingCoverage();
@@ -1723,40 +1713,12 @@ function renderPrenotazioniTabella(ordered, filterRange) {
   }).join('');
 
   const rowsHtml = groupsWithCells.map(({ g, gi, byDay }) => {
-    const items = g.items.slice().sort((a, b) => a.data < b.data ? -1 : a.data > b.data ? 1 : 0);
-    const dates = items.map(i => i.data);
-    const fullRangeLabel = dates.length === 1
-      ? formatDate(dates[0])
-      : `${formatDate(dates[0])} → ${formatDate(dates[dates.length - 1])} (${dates.length} gg)`;
-
-    const clientiSet = new Set();
-    items.forEach(i => {
-      if (i.cliente_id && cliById[i.cliente_id]) {
-        const c = cliById[i.cliente_id];
-        clientiSet.add(`${c.nome} ${c.cognome}`);
-      }
-    });
-    const clientiLabel = clientiSet.size
-      ? Array.from(clientiSet).join(', ')
-      : '<span style="color:var(--text-light)">nessun cliente stagionale</span>';
-
-    const totImporto = items.reduce((s, i) => {
-      const o = ombsMap[i.ombrellone_id];
-      return s + (o ? parseFloat(o.credito_giornaliero || 0) : 0);
-    }, 0);
-
-    const parsed = parseBookingName(g.nome);
-    const title = parsed.name
-      ? escapeHtml(parsed.name)
-      : (parsed.code
-        ? `<span style="color:var(--text-light)">${escapeHtml(parsed.code)}</span>`
-        : '<span style="color:var(--text-light);font-style:italic">Senza nome</span>');
+    const title = g.nome
+      ? escapeHtml(g.nome)
+      : '<span style="color:var(--text-light);font-style:italic">Senza nome</span>';
 
     const summaryCell = `<th class="pren-tab-row-th" onclick="openPrenDettagliModal('g-${gi}')">
       <div class="pren-tab-row-title">📖 ${title}</div>
-      <div class="pren-tab-row-meta">${clientiLabel}</div>
-      <div class="pren-tab-row-meta"><strong>${fullRangeLabel}</strong></div>
-      <div class="pren-tab-row-meta">Totale: ${formatCoin(totImporto, currentStabilimento)}</div>
     </th>`;
 
     const dayCells = dayList.map(d => {
