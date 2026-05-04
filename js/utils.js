@@ -78,6 +78,25 @@ function toLocalDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
+// PostgREST caps responses at 1000 rows by default. For range × N-ombrelloni
+// queries on `disponibilita` we can easily exceed that (es. 150 ombrelloni ×
+// 183 giorni = 27.450 righe). Use this helper, passing a factory that builds
+// a fresh PostgREST query each call, to fetch every matching row.
+async function fetchAllPaginated(buildQuery, pageSize = 1000) {
+  const all = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
+    if (error) return { data: null, error };
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    offset += pageSize;
+    if (all.length > 200000) break;
+  }
+  return { data: all, error: null };
+}
+
 function todayStr() {
   return toLocalDateStr(new Date());
 }

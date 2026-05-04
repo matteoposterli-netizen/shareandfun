@@ -128,11 +128,14 @@ async function refreshAvanzateMap() {
   if (dates.length === 0) return;
 
   const ombIds = ombrelloniList.map(o => o.id);
-  const { data: disp } = await sb.from('disponibilita')
+  // PostgREST cap di 1000 righe per richiesta: range × N ombrelloni può
+  // eccedere (es. 150 omb × 183 gg = 1464 righe), causando display fantasma
+  // di stato "occupato" per gli ombrelloni oltre il limite. Paginazione obbligatoria.
+  const { data: disp } = await fetchAllPaginated(() => sb.from('disponibilita')
     .select('ombrellone_id, data, stato')
     .gte('data', from)
     .lte('data', to)
-    .in('ombrellone_id', ombIds);
+    .in('ombrellone_id', ombIds));
 
   const dispByOmbDate = {};
   (disp || []).forEach(d => {
@@ -309,11 +312,11 @@ async function applyForceDisponibile(ombIds, dates, alertId) {
   const sortedDates = [...dates].sort();
   const fromD = sortedDates[0];
   const toD = sortedDates[sortedDates.length - 1];
-  const { data: existing, error: readErr } = await sb.from('disponibilita')
+  const { data: existing, error: readErr } = await fetchAllPaginated(() => sb.from('disponibilita')
     .select('ombrellone_id, data')
     .in('ombrellone_id', ombIds)
     .gte('data', fromD)
-    .lte('data', toD);
+    .lte('data', toD));
   if (readErr) {
     showAlert(alertId, 'Errore lettura disponibilità: ' + readErr.message, 'error');
     return false;
@@ -369,12 +372,12 @@ async function applyRemoveDisponibilita(ombIds, from, to, alertId) {
   if (!ombIds.length) return;
 
   // 1. Leggi le righe libero che verranno cancellate (per generare le transazioni)
-  const { data: toDelete, error: readErr } = await sb.from('disponibilita')
+  const { data: toDelete, error: readErr } = await fetchAllPaginated(() => sb.from('disponibilita')
     .select('ombrellone_id, data, cliente_id')
     .in('ombrellone_id', ombIds)
     .gte('data', from)
     .lte('data', to)
-    .eq('stato', 'libero');
+    .eq('stato', 'libero'));
   if (readErr) {
     showAlert(alertId, 'Errore lettura disponibilità: ' + readErr.message, 'error');
     return false;

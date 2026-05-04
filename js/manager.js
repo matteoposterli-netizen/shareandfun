@@ -128,12 +128,13 @@ async function refreshMap() {
   const dates = getDatesInRange(from, to);
   if (dates.length === 0) return;
 
+  const ombIdsMap = ombrelloniList.map(o => o.id);
   const [{ data: disp }, { data: regole }] = await Promise.all([
-    sb.from('disponibilita')
+    fetchAllPaginated(() => sb.from('disponibilita')
       .select('*')
       .gte('data', from)
       .lte('data', to)
-      .in('ombrellone_id', ombrelloniList.map(o => o.id)),
+      .in('ombrellone_id', ombIdsMap)),
     sb.from('regole_stato_ombrelloni')
       .select('*')
       .eq('stabilimento_id', currentStabilimento.id)
