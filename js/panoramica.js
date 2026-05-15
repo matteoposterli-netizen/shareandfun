@@ -112,6 +112,9 @@ function updatePanoramicaPresetActive() {
 async function panoramicaLoad() {
   if (!currentStabilimento || !panoramicaState.from || !panoramicaState.to) return;
 
+  const stabNomeEl = document.getElementById('pano-stab-nome');
+  if (stabNomeEl) stabNomeEl.textContent = currentStabilimento.nome || '';
+
   // Coin label dinamico (header + legende)
   document.querySelectorAll('[data-coin-unit]').forEach(el => { el.textContent = coinName(currentStabilimento); });
   document.querySelectorAll('[data-coin-unit-prefix]').forEach(el => { el.textContent = coinName(currentStabilimento); });
