@@ -427,10 +427,8 @@ function applyDefaultPrenFilter(today) {
   const toEl = document.getElementById('pren-filter-to');
   if (!fromEl || !toEl) return;
   if (fromEl.value || toEl.value) return;
-  // Default: recent + upcoming window (last 7 days → next 30 days).
-  const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 7);
-  const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 30);
-  fromEl.value = toLocalDateStr(start);
+  const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 14);
+  fromEl.value = today;
   toEl.value = toLocalDateStr(end);
 }
 
@@ -1295,9 +1293,12 @@ function clearPrenFilters() {
   const to = document.getElementById('pren-filter-to');
   if (n) n.value = '';
   if (o) o.value = '';
-  if (f) f.value = '';
-  if (to) to.value = '';
-  if (prenRangePickerInstance) prenRangePickerInstance.clear();
+  const t = todayStr();
+  const end = new Date(t + 'T00:00:00'); end.setDate(end.getDate() + 14);
+  const endStr = toLocalDateStr(end);
+  if (f) f.value = t;
+  if (to) to.value = endStr;
+  if (prenRangePickerInstance) prenRangePickerInstance.setDate([new Date(t + 'T00:00:00'), end], false);
   renderPrenotazioni();
 }
 
@@ -1316,12 +1317,17 @@ function initPrenRangePicker() {
   if (!input) return;
   const fromVal = document.getElementById('pren-filter-from')?.value || '';
   const toVal = document.getElementById('pren-filter-to')?.value || fromVal;
-  const defaults = [];
-  if (fromVal) defaults.push(new Date(fromVal + 'T00:00:00'));
-  if (toVal && toVal !== fromVal) defaults.push(new Date(toVal + 'T00:00:00'));
+  let defaults = [];
+  if (fromVal) {
+    defaults.push(new Date(fromVal + 'T00:00:00'));
+    if (toVal && toVal !== fromVal) defaults.push(new Date(toVal + 'T00:00:00'));
+  } else {
+    const t = todayStr();
+    const end = new Date(t + 'T00:00:00'); end.setDate(end.getDate() + 14);
+    defaults = [new Date(t + 'T00:00:00'), end];
+  }
   if (prenRangePickerInstance) {
-    if (defaults.length) prenRangePickerInstance.setDate(defaults, false);
-    else prenRangePickerInstance.clear();
+    prenRangePickerInstance.setDate(defaults, false);
     return;
   }
   prenRangePickerInstance = flatpickr(input, {
@@ -1351,64 +1357,6 @@ function initPrenRangePicker() {
   });
 }
 
-function setPrenRange(preset) {
-  const today = todayStr();
-  let from, to;
-  if (preset === 'today') {
-    from = to = today;
-  } else if (preset === 'next7') {
-    const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 6);
-    from = today; to = toLocalDateStr(end);
-  } else if (preset === 'next30') {
-    const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 29);
-    from = today; to = toLocalDateStr(end);
-  } else if (preset === 'last7') {
-    const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 6);
-    from = toLocalDateStr(start); to = today;
-  } else if (preset === 'last30') {
-    const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 29);
-    from = toLocalDateStr(start); to = today;
-  } else return;
-  document.getElementById('pren-filter-from').value = from;
-  document.getElementById('pren-filter-to').value = to;
-  if (prenRangePickerInstance) {
-    prenRangePickerInstance.setDate([new Date(from + 'T00:00:00'), new Date(to + 'T00:00:00')], false);
-  }
-  renderPrenotazioni();
-}
-
-function updatePrenPresetActive() {
-  const from = document.getElementById('pren-filter-from')?.value || '';
-  const to = document.getElementById('pren-filter-to')?.value || '';
-  const today = todayStr();
-  let active = null;
-  if (from && to) {
-    if (from === today && to === today) {
-      active = 'today';
-    } else if (from === today) {
-      const start = new Date(from + 'T00:00:00');
-      const endD = new Date(to + 'T00:00:00');
-      const diff = Math.round((endD - start) / 86400000) + 1;
-      if (diff === 7) active = 'next7';
-      else if (diff === 30) active = 'next30';
-    } else if (to === today) {
-      const start = new Date(from + 'T00:00:00');
-      const endD = new Date(to + 'T00:00:00');
-      const diff = Math.round((endD - start) / 86400000) + 1;
-      if (diff === 7) active = 'last7';
-      else if (diff === 30) active = 'last30';
-    }
-  }
-  document.querySelectorAll('.pren-preset-btn').forEach(btn => {
-    if (btn.dataset.preset === active) {
-      btn.classList.remove('btn-outline');
-      btn.classList.add('btn-primary');
-    } else {
-      btn.classList.remove('btn-primary');
-      btn.classList.add('btn-outline');
-    }
-  });
-}
 
 let prenotazioniList = [];
 let prenViewMode = 'lista';
@@ -1474,7 +1422,6 @@ function renderPrenotazioni() {
   if (!listEl) return;
 
   syncPrenViewToggleUI();
-  updatePrenPresetActive();
 
   const qNome = (document.getElementById('pren-filter-nome')?.value || '').trim().toLowerCase();
   const qOmb  = (document.getElementById('pren-filter-ombrellone')?.value || '').trim().toLowerCase();
