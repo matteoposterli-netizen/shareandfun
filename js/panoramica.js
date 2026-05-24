@@ -180,12 +180,12 @@ function renderKpis() {
 
   // Coin distribuiti = lordo ricevuto MENO revocato (prenotazioni annullate).
   // Il valore non scende sotto 0 per eventuali sfasamenti temporali tra i fetch.
-  const revoSum  = (revoRows  || []).reduce((s, r) => s + parseFloat(r.importo || 0), 0);
+  const revoSum    = (revoRows || []).reduce((s, r) => s + parseFloat(r.importo || 0), 0);
   const grossDistr = distrRows.reduce((s, r) => s + parseFloat(r.importo || 0), 0);
-  const distrSum = Math.max(0, grossDistr - revoSum);
+  const distrSum   = Math.max(0, grossDistr - revoSum);
 
   const setKpi = (prefix, value, isCoin, sparkValues) => {
-    const valEl  = document.getElementById(`${prefix}-val`);
+    const valEl   = document.getElementById(`${prefix}-val`);
     const sparkEl = document.getElementById(`${prefix}-spark`);
     if (valEl)   valEl.textContent = isCoin ? parseFloat(value || 0).toFixed(2) : String(value || 0);
     if (sparkEl) renderSparkline(sparkEl, sparkValues, getComputedStyle(sparkEl).color || null);
@@ -195,14 +195,12 @@ function renderKpis() {
   const sparkDisp  = fillSeries(groupByDay(dispRows.filter(r => r.stato === 'libero' || r.stato === 'sub_affittato'), 'data'), from, to);
   const sparkPren  = fillSeries(groupByDay(dispRows.filter(r => r.stato === 'sub_affittato'), 'data'), from, to);
 
-  // Sparkline coin: netto per giorno (ricevuto - revocato, mai < 0)
-  const distrByDay = groupByDay(distrRows, 'created_at', 'importo', true);
-  const revoByDay  = groupByDay(revoRows,  'created_at', 'importo', true);
-  const netDistrByDay = {};
-  const allDays = new Set([...Object.keys(distrByDay), ...Object.keys(revoByDay)]);
-  allDays.forEach(d => {
-    netDistrByDay[d] = Math.max(0, (distrByDay[d] || 0) - (revoByDay[d] || 0));
-  });
+  // Sparkline coin netta: groupByDay restituisce una Map, quindi usiamo Map.set/get.
+  const distrByDay = groupByDay(distrRows, 'created_at', 'importo', true); // Map<date, number>
+  const revoByDay  = groupByDay(revoRows,  'created_at', 'importo', true); // Map<date, number>
+  const netDistrByDay = new Map();
+  distrByDay.forEach((v, k) => netDistrByDay.set(k, Math.max(0, v - (revoByDay.get(k) || 0))));
+  revoByDay.forEach((_v, k) => { if (!netDistrByDay.has(k)) netDistrByDay.set(k, 0); });
   const sparkDistr = fillSeries(netDistrByDay, from, to);
   const sparkSpent = fillSeries(groupByDay(spentRows, 'created_at', 'importo', true), from, to);
 
@@ -315,10 +313,7 @@ function renderTrendChart(chart) {
     const mapRevo = aggregateByBucket(revoRows || [], 'created_at', 'importo', true, gran);
     mapA = new Map();
     rawMapA.forEach((v, k) => mapA.set(k, Math.max(0, v - (mapRevo.get(k) || 0))));
-    // Aggiungi bucket con solo revocazioni (se il netto finisce a 0, li omettiamo)
-    mapRevo.forEach((v, k) => {
-      if (!mapA.has(k)) mapA.set(k, 0);
-    });
+    mapRevo.forEach((_v, k) => { if (!mapA.has(k)) mapA.set(k, 0); });
     mapB = aggregateByBucket(spentRows, 'created_at', 'importo', true, gran);
     colorA = '#0A7C4A';
     colorB = 'var(--coral,#E07B54)';
@@ -450,8 +445,8 @@ function renderTopUsage() {
     id,
     ombrellone: ombLabelFor(id),
     cliente: clientLabelFor(id),
-    a: dichByOmb.get(id) || 0,   // dichiarate
-    b: subByOmb.get(id) || 0,    // sub-affittate
+    a: dichByOmb.get(id) || 0,
+    b: subByOmb.get(id) || 0,
   })).filter(it => it.a > 0 || it.b > 0);
 
   const sortKey = chartState.topSort.usage === 'subaffittate' ? 'b' : 'a';
@@ -470,15 +465,13 @@ function renderTopCoin() {
   (clientiList || []).forEach(c => { if (c.ombrellone_id) ombByCliente.set(c.id, c.ombrellone_id); });
   const resolveOmb = (r) => r.ombrellone_id || (r.cliente_id ? ombByCliente.get(r.cliente_id) : null);
 
-  // Ricevuti lordi per ombrellone
   const recByOmb = new Map();
   distrRows.forEach(r => {
     const ombId = resolveOmb(r);
     if (!ombId) return;
     recByOmb.set(ombId, (recByOmb.get(ombId) || 0) + parseFloat(r.importo || 0));
   });
-
-  // Revocati per ombrellone → sottraiamo dal ricevuto per avere netto
+  // Sottrai le revocazioni per avere il netto per ombrellone
   (revoRows || []).forEach(r => {
     const ombId = resolveOmb(r);
     if (!ombId) return;
@@ -497,8 +490,8 @@ function renderTopCoin() {
     id,
     ombrellone: ombLabelFor(id),
     cliente: clientLabelFor(id),
-    a: recByOmb.get(id) || 0,   // ricevuti netti
-    b: speByOmb.get(id) || 0,   // spesi
+    a: recByOmb.get(id) || 0,
+    b: speByOmb.get(id) || 0,
   })).filter(it => it.a > 0 || it.b > 0);
 
   const sortKey = chartState.topSort.coin === 'spesi' ? 'b' : 'a';
