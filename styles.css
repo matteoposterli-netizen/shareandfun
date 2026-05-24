@@ -893,9 +893,11 @@ body {
 
   /* BEACH MAP */
   .beach-map-wrap { padding: 16px 18px 12px; }
-  /* Override inline align-items:flex-start: children stretch to full width
-     so .map-rows gets a constrained width and its overflow-x:auto works */
-  .beach-map-wrap > div { flex-direction: column; align-items: stretch !important; }
+  /* Switch flex→block so children are full-width block boxes (flex sizing
+     with flex-wrap:wrap grows the container to max-content, clipping everything) */
+  .beach-map-wrap > div { display: block !important; }
+  .beach-map-wrap > div > div { width: 100%; margin-bottom: 12px; }
+  .beach-map-wrap > div > div:last-child { margin-bottom: 0; }
   .map-rows {
     width: 100%;
     overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch;
