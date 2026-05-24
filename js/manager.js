@@ -2326,8 +2326,10 @@ function checkEditRowDirty() {
     const changes = [];
     if (ombDirty) { const c = getEditRowOmbValues(), s = editRowOmbSnapshot; EDIT_ROW_OMB_FIELDS.forEach(f => { if (c[f] !== s[f]) changes.push(EDIT_ROW_OMB_LABELS[f]); }); }
     if (cltDirty) { const c = getEditRowCltValues(), s = editRowCltSnapshot; EDIT_ROW_CLT_FIELDS.forEach(f => { if (c[f] !== s[f]) changes.push(EDIT_ROW_CLT_LABELS[f]); }); }
-    btn.title = `⚠️ Campi non salvati: ${changes.join(', ')}`;
+    btn.textContent = `⚠️ Chiudi (${changes.length} non salvat${changes.length === 1 ? 'o' : 'i'})`;
+    btn.title = `Campi non salvati: ${changes.join(', ')}`;
   } else {
+    btn.textContent = 'Chiudi';
     btn.title = '';
   }
 }
@@ -2387,22 +2389,25 @@ function openEditRowModal(ombId) {
   if (!populateEditRowFromData(ombId)) return;
   showAlert('edit-row-alert', '', '');
   checkEditRowDirty();
-  // Distruggi e ricrea flatpickr ogni apertura per evitare stato sporco
+  // Ricrea flatpickr ogni apertura — pulisce valore visibile e forza calendario chiuso
   const dispInput = document.getElementById('edit-row-disp-picker');
   if (dispInput && typeof flatpickr !== 'undefined') {
     if (dispInput._flatpickr) dispInput._flatpickr.destroy();
+    dispInput.value = '';
     document.getElementById('edit-row-disp-from').value = '';
     document.getElementById('edit-row-disp-to').value = '';
-    flatpickr(dispInput, {
+    const fp = flatpickr(dispInput, {
       mode: 'range', dateFormat: 'd/m/Y',
       locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
       minDate: currentStabilimento?.data_inizio_stagione,
       maxDate: currentStabilimento?.data_fine_stagione,
+      onReady() { this.close(); },
       onChange(sel) {
         document.getElementById('edit-row-disp-from').value = sel[0] ? sel[0].toISOString().slice(0,10) : '';
         document.getElementById('edit-row-disp-to').value = sel[1] ? sel[1].toISOString().slice(0,10) : '';
       },
     });
+    fp.close();
   }
   document.getElementById('modal-edit-row').classList.remove('hidden');
 }
@@ -2564,6 +2569,16 @@ async function applyEditRowRemoveDisp() {
   await applyRemoveDisponibilita([ombId], from, to, 'edit-row-alert');
   await refreshEditRowAfterSave(ombId, { alertId: 'edit-row-alert' });
 }
+
+// Explicit global exports for HTML inline handlers
+window.checkEditRowDirty    = checkEditRowDirty;
+window.closeEditRowModal    = closeEditRowModal;
+window.openEditRowModal     = openEditRowModal;
+window.saveEditRowOmbrellone = saveEditRowOmbrellone;
+window.saveEditRowCliente   = saveEditRowCliente;
+window.applyEditRowSaldo    = applyEditRowSaldo;
+window.applyEditRowAddDisp  = applyEditRowAddDisp;
+window.applyEditRowRemoveDisp = applyEditRowRemoveDisp;
 
 async function saveEditedCliente({ id, nome, cognome, email, telefono, ombId }) {
   if (id) {
