@@ -17,7 +17,7 @@ const panoramicaState = {
   from: null,
   to: null,
   preset: 'season',  // '7d'|'30d'|'90d'|'season'|'custom'
-  data: null,        // { dispRows, distrRows, spentRows } cache del fetch corrente
+  data: null,        // { dispRows, distrRows, spentRows, revoRows } cache del fetch corrente
 };
 
 const chartState = {
@@ -138,7 +138,11 @@ async function panoramicaLoad() {
     const { from, to } = panoramicaState;
     const ombIds = ombrelloniList.map(o => o.id);
 
-    const [dispCur, distrCur, spentCur] = await Promise.all([
+    // FIX: fetchiamo anche credito_revocato per calcolare il netto distribuito.
+    // "Coin distribuiti" deve essere netto (ricevuto - revocato): se una
+    // prenotazione viene annullata i coin vengono revocati e NON devono
+    // comparire come distribuiti nella panoramica.
+    const [dispCur, distrCur, spentCur, revoCur] = await Promise.all([
       sb.from('disponibilita').select('ombrellone_id,data,stato')
         .in('ombrellone_id', ombIds).gte('data', from).lte('data', to),
       sb.from('transazioni').select('ombrellone_id,cliente_id,importo,created_at')
@@ -147,12 +151,16 @@ async function panoramicaLoad() {
       sb.from('transazioni').select('ombrellone_id,cliente_id,importo,created_at')
         .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_usato')
         .gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59'),
+      sb.from('transazioni').select('ombrellone_id,cliente_id,importo,created_at')
+        .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_revocato')
+        .gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59'),
     ]);
 
     panoramicaState.data = {
-      dispRows: dispCur.data || [],
+      dispRows:  dispCur.data  || [],
       distrRows: distrCur.data || [],
       spentRows: spentCur.data || [],
+      revoRows:  revoCur.data  || [],   // coin revocati per prenotazioni annullate
     };
 
     renderKpis();
@@ -165,29 +173,43 @@ async function panoramicaLoad() {
 }
 
 function renderKpis() {
-  const { dispRows, distrRows, spentRows } = panoramicaState.data;
+  const { dispRows, distrRows, spentRows, revoRows } = panoramicaState.data;
   const dispCount = dispRows.filter(r => r.stato === 'libero' || r.stato === 'sub_affittato').length;
   const prenCount = dispRows.filter(r => r.stato === 'sub_affittato').length;
-  const distrSum = distrRows.reduce((s, r) => s + parseFloat(r.importo || 0), 0);
-  const spentSum = spentRows.reduce((s, r) => s + parseFloat(r.importo || 0), 0);
+  const spentSum  = spentRows.reduce((s, r) => s + parseFloat(r.importo || 0), 0);
+
+  // Coin distribuiti = lordo ricevuto MENO revocato (prenotazioni annullate).
+  // Il valore non scende sotto 0 per eventuali sfasamenti temporali tra i fetch.
+  const revoSum  = (revoRows  || []).reduce((s, r) => s + parseFloat(r.importo || 0), 0);
+  const grossDistr = distrRows.reduce((s, r) => s + parseFloat(r.importo || 0), 0);
+  const distrSum = Math.max(0, grossDistr - revoSum);
 
   const setKpi = (prefix, value, isCoin, sparkValues) => {
-    const valEl = document.getElementById(`${prefix}-val`);
+    const valEl  = document.getElementById(`${prefix}-val`);
     const sparkEl = document.getElementById(`${prefix}-spark`);
-    if (valEl) valEl.textContent = isCoin ? parseFloat(value || 0).toFixed(2) : String(value || 0);
+    if (valEl)   valEl.textContent = isCoin ? parseFloat(value || 0).toFixed(2) : String(value || 0);
     if (sparkEl) renderSparkline(sparkEl, sparkValues, getComputedStyle(sparkEl).color || null);
   };
 
   const { from, to } = panoramicaState;
-  const sparkDisp = fillSeries(groupByDay(dispRows.filter(r => r.stato === 'libero' || r.stato === 'sub_affittato'), 'data'), from, to);
-  const sparkPren = fillSeries(groupByDay(dispRows.filter(r => r.stato === 'sub_affittato'), 'data'), from, to);
-  const sparkDistr = fillSeries(groupByDay(distrRows, 'created_at', 'importo', true), from, to);
+  const sparkDisp  = fillSeries(groupByDay(dispRows.filter(r => r.stato === 'libero' || r.stato === 'sub_affittato'), 'data'), from, to);
+  const sparkPren  = fillSeries(groupByDay(dispRows.filter(r => r.stato === 'sub_affittato'), 'data'), from, to);
+
+  // Sparkline coin: netto per giorno (ricevuto - revocato, mai < 0)
+  const distrByDay = groupByDay(distrRows, 'created_at', 'importo', true);
+  const revoByDay  = groupByDay(revoRows,  'created_at', 'importo', true);
+  const netDistrByDay = {};
+  const allDays = new Set([...Object.keys(distrByDay), ...Object.keys(revoByDay)]);
+  allDays.forEach(d => {
+    netDistrByDay[d] = Math.max(0, (distrByDay[d] || 0) - (revoByDay[d] || 0));
+  });
+  const sparkDistr = fillSeries(netDistrByDay, from, to);
   const sparkSpent = fillSeries(groupByDay(spentRows, 'created_at', 'importo', true), from, to);
 
-  setKpi('pano-kpi-disp', dispCount, false, sparkDisp);
-  setKpi('pano-kpi-pren', prenCount, false, sparkPren);
-  setKpi('pano-kpi-distr', distrSum, true, sparkDistr);
-  setKpi('pano-kpi-spent', spentSum, true, sparkSpent);
+  setKpi('pano-kpi-disp',  dispCount, false, sparkDisp);
+  setKpi('pano-kpi-pren',  prenCount, false, sparkPren);
+  setKpi('pano-kpi-distr', distrSum,  true,  sparkDistr);
+  setKpi('pano-kpi-spent', spentSum,  true,  sparkSpent);
 }
 
 // ============================================================
@@ -275,7 +297,7 @@ function renderTrendChart(chart) {
   const target = document.getElementById(`pano-chart-${chart}`);
   if (!target) return;
   if (!panoramicaState.data) return;
-  const { dispRows, distrRows, spentRows } = panoramicaState.data;
+  const { dispRows, distrRows, spentRows, revoRows } = panoramicaState.data;
   const { from, to } = panoramicaState;
   const gran = chartState.gran[chart];
 
@@ -288,7 +310,15 @@ function renderTrendChart(chart) {
     colorB = 'var(--coral,#E07B54)';
     isCoin = false;
   } else {
-    mapA = aggregateByBucket(distrRows, 'created_at', 'importo', true, gran);
+    // Coin trend: mapA = netto distribuito (ricevuto - revocato, mai < 0)
+    const rawMapA = aggregateByBucket(distrRows, 'created_at', 'importo', true, gran);
+    const mapRevo = aggregateByBucket(revoRows || [], 'created_at', 'importo', true, gran);
+    mapA = new Map();
+    rawMapA.forEach((v, k) => mapA.set(k, Math.max(0, v - (mapRevo.get(k) || 0))));
+    // Aggiungi bucket con solo revocazioni (se il netto finisce a 0, li omettiamo)
+    mapRevo.forEach((v, k) => {
+      if (!mapA.has(k)) mapA.set(k, 0);
+    });
     mapB = aggregateByBucket(spentRows, 'created_at', 'importo', true, gran);
     colorA = '#0A7C4A';
     colorB = 'var(--coral,#E07B54)';
@@ -435,29 +465,40 @@ function renderTopCoin() {
   const target = document.getElementById('pano-top-coin');
   if (!target) return;
   if (!panoramicaState.data) return;
-  const { distrRows, spentRows } = panoramicaState.data;
+  const { distrRows, spentRows, revoRows } = panoramicaState.data;
   const ombByCliente = new Map();
   (clientiList || []).forEach(c => { if (c.ombrellone_id) ombByCliente.set(c.id, c.ombrellone_id); });
   const resolveOmb = (r) => r.ombrellone_id || (r.cliente_id ? ombByCliente.get(r.cliente_id) : null);
+
+  // Ricevuti lordi per ombrellone
   const recByOmb = new Map();
-  const speByOmb = new Map();
   distrRows.forEach(r => {
     const ombId = resolveOmb(r);
     if (!ombId) return;
     recByOmb.set(ombId, (recByOmb.get(ombId) || 0) + parseFloat(r.importo || 0));
   });
+
+  // Revocati per ombrellone → sottraiamo dal ricevuto per avere netto
+  (revoRows || []).forEach(r => {
+    const ombId = resolveOmb(r);
+    if (!ombId) return;
+    recByOmb.set(ombId, Math.max(0, (recByOmb.get(ombId) || 0) - parseFloat(r.importo || 0)));
+  });
+
+  const speByOmb = new Map();
   spentRows.forEach(r => {
     const ombId = resolveOmb(r);
     if (!ombId) return;
     speByOmb.set(ombId, (speByOmb.get(ombId) || 0) + parseFloat(r.importo || 0));
   });
+
   const allIds = new Set([...recByOmb.keys(), ...speByOmb.keys()]);
   const items = [...allIds].map(id => ({
     id,
     ombrellone: ombLabelFor(id),
     cliente: clientLabelFor(id),
-    a: recByOmb.get(id) || 0,
-    b: speByOmb.get(id) || 0,
+    a: recByOmb.get(id) || 0,   // ricevuti netti
+    b: speByOmb.get(id) || 0,   // spesi
   })).filter(it => it.a > 0 || it.b > 0);
 
   const sortKey = chartState.topSort.coin === 'spesi' ? 'b' : 'a';
