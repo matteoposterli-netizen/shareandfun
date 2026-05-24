@@ -2559,3 +2559,225 @@ body:has(#view-stagionale.active) .topnav { display: none; }
     #C95E36 6px 12px);
 }
 
+/* ============================================================
+   Sidebar — sezione "Altro" collassabile
+   ============================================================ */
+.sidebar-altro-items {
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 0;
+  overflow: hidden;
+}
+.sidebar-altro-items.open {
+  display: flex;
+}
+.sidebar-item-sub {
+  padding-left: 28px;
+  font-size: 13px;
+  color: var(--text-light);
+}
+.sidebar-item-sub:hover {
+  color: var(--ink);
+}
+.sidebar-item-sub.active {
+  color: var(--ink);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(14,27,38,0.06), inset 0 0 0 1px var(--border);
+}
+.sidebar-altro-toggle {
+  justify-content: space-between;
+}
+.sidebar-altro-chevron {
+  font-size: 11px;
+  color: var(--text-light);
+  margin-left: auto;
+  transition: transform .15s;
+}
+
+@media (max-width: 768px) {
+  .sidebar-altro-toggle { grid-column: span 1; }
+  .sidebar-altro-items {
+    grid-column: 1 / -1;
+    display: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px 0 0;
+    border-top: 1px solid var(--border);
+  }
+  .sidebar-altro-items.open {
+    display: flex;
+  }
+  .sidebar-item-sub {
+    padding: 8px 4px;
+    flex: 1 1 calc(25% - 4px);
+    font-size: 10px;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .sidebar-item-sub {
+    flex: 1 1 calc(50% - 4px);
+  }
+}
+
+/* ============================================================
+   Gestione Credito — sotto-tab switcher
+   ============================================================ */
+.crediti-subtabs {
+  display: flex; gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 22px;
+}
+.crediti-subtab {
+  background: transparent; border: none; cursor: pointer;
+  padding: 12px 18px; font-size: 14px; color: var(--text-mid);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  font-family: inherit;
+  transition: color .15s, border-color .15s;
+}
+.crediti-subtab:hover { color: var(--text-dark); }
+.crediti-subtab.active {
+  color: var(--ocean); border-bottom-color: var(--ocean); font-weight: 600;
+}
+.crediti-subpanel { display: none; }
+.crediti-subpanel.active { display: block; }
+
+/* ============================================================
+   Crediti Stagionali — filtri + lista card
+   ============================================================ */
+.crediti-stag-filters {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.crediti-stag-filters .form-input {
+  flex: 1 1 180px; min-width: 0;
+  padding: 10px 12px; font-size: 14px;
+}
+
+.crediti-stag-list {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.crediti-stag-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  position: relative;
+  transition: box-shadow .15s, border-color .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.crediti-stag-card:hover,
+.crediti-stag-card:focus {
+  border-color: var(--ocean);
+  box-shadow: 0 2px 8px rgba(27,108,168,0.10);
+  outline: none;
+}
+.crediti-stag-card:active { background: #F8F4EE; }
+
+.crediti-stag-card-header {
+  margin-bottom: 10px;
+}
+.crediti-stag-card-omb {
+  font-size: 12px; font-weight: 700; color: var(--ocean);
+  text-transform: uppercase; letter-spacing: .5px;
+  margin-bottom: 2px;
+}
+.crediti-stag-card-nome {
+  font-size: 15px; font-weight: 600; color: var(--text-dark);
+}
+
+.crediti-stag-card-coins {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.crediti-stag-coin-item {
+  background: var(--sand);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.crediti-stag-coin-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--text-light); font-weight: 600;
+}
+.crediti-stag-coin-val {
+  font-size: 16px; font-weight: 700;
+}
+.crediti-stag-coin-val.disponibili { color: var(--ocean); }
+.crediti-stag-coin-val.acquisiti   { color: #2e7d32; }
+.crediti-stag-coin-val.spesi       { color: var(--coral); }
+
+.crediti-stag-card-arrow {
+  position: absolute; right: 16px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 20px; color: var(--text-light);
+  pointer-events: none;
+}
+
+/* ============================================================
+   Modal dettaglio transazioni stagionale
+   ============================================================ */
+.crediti-stag-modal-sum-row {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px; padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--sand);
+}
+.crediti-stag-modal-sum-item {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.crediti-stag-modal-sum-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--text-light); font-weight: 600;
+}
+.crediti-stag-modal-sum-val {
+  font-size: 20px; font-weight: 700;
+}
+.crediti-stag-modal-sum-val.disponibili { color: var(--ocean); }
+.crediti-stag-modal-sum-val.acquisiti   { color: #2e7d32; }
+.crediti-stag-modal-sum-val.spesi       { color: var(--coral); }
+
+.crediti-stag-modal-tx-list {
+  max-height: 55vh; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.crediti-stag-modal-tx-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.crediti-stag-modal-tx-row:last-child { border-bottom: none; }
+.crediti-stag-modal-tx-info { flex: 1; min-width: 0; }
+.crediti-stag-modal-tx-tipo {
+  font-size: 14px; font-weight: 600; color: var(--text-dark); margin-bottom: 2px;
+}
+.crediti-stag-modal-tx-nota {
+  font-size: 12px; color: var(--text-mid); margin-bottom: 2px;
+  overflow-wrap: break-word;
+}
+.crediti-stag-modal-tx-data {
+  font-size: 11px; color: var(--text-light);
+}
+.crediti-stag-modal-tx-importo {
+  font-size: 16px; font-weight: 700; flex-shrink: 0;
+  white-space: nowrap;
+}
+.crediti-stag-modal-tx-importo.acquisiti { color: #2e7d32; }
+.crediti-stag-modal-tx-importo.spesi     { color: var(--coral); }
+.crediti-stag-modal-tx-importo.revocati  { color: var(--text-mid); }
+
+@media (max-width: 480px) {
+  .crediti-stag-card-coins { grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .crediti-stag-coin-val { font-size: 14px; }
+  .crediti-stag-modal-sum-val { font-size: 17px; }
+  .crediti-stag-modal-tx-importo { font-size: 14px; }
+  .crediti-subtab { padding: 10px 12px; font-size: 13px; }
+}
+
+

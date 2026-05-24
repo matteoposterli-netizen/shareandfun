@@ -245,13 +245,20 @@
     <div class="sidebar">
       <div class="sidebar-title">Principale</div>
       <button class="sidebar-item active" onclick="managerTab('panoramica',this)"><span class="icon">📊</span> Dashboard</button>
-      <button class="sidebar-item" onclick="managerTab('prenotazioni',this)"><span class="icon">📖</span> Prenotazioni</button>
+      <button class="sidebar-item" onclick="managerTab('prenotazioni',this)"><span class="icon">📖</span> Gestisci Prenotazioni</button>
       <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Gestione Credito</button>
-      <button class="sidebar-item" onclick="managerTab('transazioni',this)"><span class="icon">📋</span> Transazioni</button>
       <button class="sidebar-item" onclick="managerTab('gestione',this)"><span class="icon">🗺️</span> Ombrelloni e Clienti</button>
-      <button class="sidebar-item" onclick="managerTab('comunicazioni',this)"><span class="icon">📣</span> Comunicazioni</button>
-      <button class="sidebar-item" onclick="managerTab('config',this)"><span class="icon">⚙️</span> Configurazioni</button>
-      <button class="sidebar-item" onclick="managerTab('log',this)"><span class="icon">🕵️</span> Log attività</button>
+
+      <button class="sidebar-item sidebar-altro-toggle" onclick="toggleSidebarAltro(this)" aria-expanded="false">
+        <span class="icon">⋯</span> Altro
+        <span class="sidebar-altro-chevron">▸</span>
+      </button>
+      <div class="sidebar-altro-items" id="sidebar-altro-items">
+        <button class="sidebar-item sidebar-item-sub" onclick="managerTab('transazioni',this)"><span class="icon">📋</span> Transazioni</button>
+        <button class="sidebar-item sidebar-item-sub" onclick="managerTab('comunicazioni',this)"><span class="icon">📣</span> Comunicazioni</button>
+        <button class="sidebar-item sidebar-item-sub" onclick="managerTab('config',this)"><span class="icon">⚙️</span> Configurazioni</button>
+        <button class="sidebar-item sidebar-item-sub" onclick="managerTab('log',this)"><span class="icon">🕵️</span> Log attività</button>
+      </div>
     </div>
     <div class="main-content">
       <!-- DASHBOARD (KPI overview) -->
@@ -602,7 +609,6 @@
         <div class="config-subtabs">
           <button class="config-subtab active" data-subtab="stagione" onclick="switchConfigSubtab('stagione',this)">🗓️ Stagione</button>
           <button class="config-subtab" data-subtab="email-sub" onclick="switchConfigSubtab('email-sub',this)">✉️ Email</button>
-          <button class="config-subtab" data-subtab="avanzate" onclick="switchConfigSubtab('avanzate',this)">⚙️ Avanzate</button>
         </div>
 
         <!-- STAGIONE SUBTAB -->
@@ -865,142 +871,18 @@
         </div><!-- /config-sub-email-sub -->
 
         <!-- AVANZATE SUBTAB: azioni gestore (massiva su mappa / mirata su singolo ombrellone) -->
-        <div id="config-sub-avanzate" class="config-subpanel">
-          <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
-            Da qui puoi forzare lo stato degli ombrelloni indipendentemente da quello che dichiara il cliente stagionale: rendere disponibili per sub-affitto, rimuovere disponibilità, modificare l'anagrafica o cancellare un ombrellone dalla mappa.
-          </div>
-
-          <div id="avanzate-save-alert" style="margin-bottom:16px"></div>
-
-          <div class="avanzate-subtabs">
-            <button class="avanzate-subtab active" data-avanzate-subtab="massiva" onclick="switchAvanzateSubtab('massiva',this)">🗺️ Azione massiva</button>
-            <button class="avanzate-subtab" data-avanzate-subtab="mirata" onclick="switchAvanzateSubtab('mirata',this)">🎯 Azione mirata su ombrellone</button>
-          </div>
-
-          <div id="avanzate-pane-massiva" class="avanzate-pane active">
-          <div class="card">
-            <div class="card-header" style="flex-wrap:wrap;gap:12px">
-              <div>
-                <div class="card-title">🗺️ Mappa ombrelloni</div>
-                <div class="card-subtitle">Clicca un ombrellone per modificarne lo stato o l'anagrafica</div>
-              </div>
-              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                <span style="font-size:12px;color:var(--text-light)">Periodo:</span>
-                <input type="text" id="avanzate-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
-                <input type="hidden" id="avanzate-date-from">
-                <input type="hidden" id="avanzate-date-to">
-              </div>
-            </div>
-
-            <div id="avanzate-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:14px 4px 12px">
-              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="1" onclick="setAvanzateRangePreset(1)">Oggi</button>
-              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="2" onclick="setAvanzateRangePreset(2)">Prossimi 2 giorni</button>
-              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="3" onclick="setAvanzateRangePreset(3)">Prossimi 3 giorni</button>
-              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="7" onclick="setAvanzateRangePreset(7)">Prossimi 7 giorni</button>
-              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-preset="stagione" onclick="setAvanzateRangeStagione()">Tutta la stagione</button>
-            </div>
-
-            <div class="avanzate-bulk-bar">
-              <div style="font-size:12px;color:var(--text-mid)">Azioni di massa (su tutti gli ombrelloni del periodo selezionato):</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn btn-outline btn-sm" onclick="bulkAvanzateForceDisponibile()">✓ Rendi tutti disponibili</button>
-                <button class="btn btn-outline btn-sm" onclick="bulkAvanzateRemoveDisponibilita()">✗ Rimuovi tutte le disponibilità</button>
-              </div>
-            </div>
-
-            <div class="beach-map-wrap">
-              <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px">
-                <div>
-                  <div class="map-legend">
-                    <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Occupato dal cliente</div>
-                    <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Libero tutto il periodo</div>
-                    <div class="legend-item"><div class="legend-dot" style="background:#EAF4FB;border:2px dashed var(--ocean-mid)"></div>Senza cliente (subaffittabile)</div>
-                    <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,var(--green-light) 0 6px,var(--ocean-light) 6px 12px);border:1.5px solid #96DDB8"></div>Libero parziale</div>
-                    <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
-                  </div>
-                  <div id="avanzate-summary" style="font-size:12px;color:var(--text-light);margin-top:10px"></div>
-                  <div style="font-size:12px;color:var(--text-light);margin-top:8px">Periodo: <strong id="avanzate-range-label">oggi</strong></div>
-                </div>
-                <div>
-                  <div class="bar-label">Bar</div>
-                  <div class="map-rows" id="avanzate-map"></div>
-                  <div class="sea-label">Mare</div>
-                </div>
-              </div>
-            </div><!-- /beach-map-wrap -->
-          </div>
-          </div><!-- /avanzate-pane-massiva -->
-
-          <div id="avanzate-pane-mirata" class="avanzate-pane">
-            <div id="mirata-alert" style="margin-bottom:12px"></div>
-            <div class="card">
-              <div class="card-header">
-                <div>
-                  <div class="card-title">🎯 Azione mirata su un ombrellone</div>
-                  <div class="card-subtitle">Seleziona un ombrellone per gestire i singoli giorni della stagione, l'anagrafica o il saldo coin del cliente.</div>
-                </div>
-              </div>
-
-              <div style="padding:18px 22px 6px">
-                <label class="form-label" for="mirata-omb-select" style="display:block;margin-bottom:6px">Ombrellone</label>
-                <select id="mirata-omb-select" class="form-select" onchange="mirataOnSelect()" style="max-width:480px">
-                  <option value="">— Seleziona un ombrellone —</option>
-                </select>
-              </div>
-
-              <div id="mirata-detail" class="hidden" style="padding:8px 22px 22px">
-                <div class="avanzate-omb-info">
-                  <div class="avanzate-omb-info-cell" style="grid-column:1/-1">
-                    <div class="avanzate-omb-info-label">Ombrellone</div>
-                    <div class="avanzate-omb-info-value" id="mirata-omb-title">–</div>
-                  </div>
-                  <div class="avanzate-omb-info-cell" style="grid-column:1/-1">
-                    <div class="avanzate-omb-info-label">Cliente assegnato</div>
-                    <div class="avanzate-omb-info-value" id="mirata-omb-cliente">–</div>
-                  </div>
-                  <div class="avanzate-omb-info-cell">
-                    <div class="avanzate-omb-info-label">Credito giornaliero</div>
-                    <div class="avanzate-omb-info-value" id="mirata-omb-credito">–</div>
-                  </div>
-                  <div class="avanzate-omb-info-cell">
-                    <div class="avanzate-omb-info-label">Saldo coin cliente</div>
-                    <div class="avanzate-omb-info-value" id="mirata-omb-saldo">–</div>
-                  </div>
-                </div>
-
-                <div class="avanzate-omb-section">
-                  <div class="avanzate-omb-section-title">Anagrafica e cliente</div>
-                  <div style="display:flex;gap:8px;flex-wrap:wrap">
-                    <button class="btn btn-outline btn-sm" onclick="mirataOpenEdit()">✏️ Modifica anagrafica</button>
-                    <button class="btn btn-outline btn-sm" id="mirata-saldo-btn" onclick="mirataAdjustSaldo()">💰 Rettifica saldo coin</button>
-                    <button class="btn btn-danger btn-sm" onclick="mirataDelete()">🗑️ Cancella ombrellone</button>
-                  </div>
-                </div>
-
-                <div class="avanzate-omb-section">
-                  <div class="avanzate-omb-section-title">Disponibilità giorno per giorno</div>
-                  <div id="mirata-stagione-info" style="font-size:12px;color:var(--text-light);margin-bottom:10px"></div>
-                  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-                    <button class="btn btn-outline btn-sm" onclick="mirataBulkForce()">✓ Rendi disponibile tutta la stagione</button>
-                    <button class="btn btn-outline btn-sm" onclick="mirataBulkRemove()">✗ Rimuovi tutte le disponibilità</button>
-                  </div>
-                  <div id="mirata-day-list" class="mirata-day-list"></div>
-                </div>
-              </div>
-            </div>
-          </div><!-- /avanzate-pane-mirata -->
-        </div><!-- /config-sub-avanzate -->
       </div>
 
       <!-- PRENOTAZIONI TAB (mappa + lista) -->
       <div id="mtab-prenotazioni" class="tab-content">
         <div class="page-header">
-          <div><div class="page-title">Prenotazioni</div><div class="page-subtitle">Crea una nuova prenotazione dalla mappa e consulta le prenotazioni attive.</div></div>
+          <div><div class="page-title">Gestisci Prenotazioni</div><div class="page-subtitle">Crea una nuova prenotazione dalla mappa e consulta le prenotazioni attive.</div></div>
         </div>
 
         <div class="pren-subtabs" role="tablist">
           <button type="button" class="pren-subtab active" data-pren-subtab="crea" onclick="switchPrenSubtab('crea',this)">Crea prenotazione</button>
           <button type="button" class="pren-subtab" data-pren-subtab="vedi" onclick="switchPrenSubtab('vedi',this)">Vedi disponibilità</button>
+          <button type="button" class="pren-subtab" data-pren-subtab="disponibilita-omb" onclick="switchPrenSubtab('disponibilita-omb',this)">⚙️ Disponibilità Ombrelloni</button>
         </div>
 
         <div id="pren-sub-crea" class="pren-subpanel active">
@@ -1131,75 +1013,242 @@
           </div>
         </div><!-- /pren-sub-vedi -->
 
+        <div id="pren-sub-disponibilita-omb" class="pren-subpanel">
+          <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
+            Da qui puoi forzare lo stato degli ombrelloni indipendentemente da quello che dichiara il cliente stagionale: rendere disponibili per sub-affitto, rimuovere disponibilità, modificare l'anagrafica o cancellare un ombrellone dalla mappa.
+          </div>
+
+          <div id="avanzate-save-alert" style="margin-bottom:16px"></div>
+
+          <div class="avanzate-subtabs">
+            <button class="avanzate-subtab active" data-avanzate-subtab="massiva" onclick="switchAvanzateSubtab('massiva',this)">🗺️ Azione massiva</button>
+            <button class="avanzate-subtab" data-avanzate-subtab="mirata" onclick="switchAvanzateSubtab('mirata',this)">🎯 Azione mirata su ombrellone</button>
+          </div>
+
+          <div id="avanzate-pane-massiva" class="avanzate-pane active">
+          <div class="card">
+            <div class="card-header" style="flex-wrap:wrap;gap:12px">
+              <div>
+                <div class="card-title">🗺️ Mappa ombrelloni</div>
+                <div class="card-subtitle">Clicca un ombrellone per modificarne lo stato o l'anagrafica</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span style="font-size:12px;color:var(--text-light)">Periodo:</span>
+                <input type="text" id="avanzate-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+                <input type="hidden" id="avanzate-date-from">
+                <input type="hidden" id="avanzate-date-to">
+              </div>
+            </div>
+
+            <div id="avanzate-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:14px 4px 12px">
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="1" onclick="setAvanzateRangePreset(1)">Oggi</button>
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="2" onclick="setAvanzateRangePreset(2)">Prossimi 2 giorni</button>
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="3" onclick="setAvanzateRangePreset(3)">Prossimi 3 giorni</button>
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="7" onclick="setAvanzateRangePreset(7)">Prossimi 7 giorni</button>
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-preset="stagione" onclick="setAvanzateRangeStagione()">Tutta la stagione</button>
+            </div>
+
+            <div class="avanzate-bulk-bar">
+              <div style="font-size:12px;color:var(--text-mid)">Azioni di massa (su tutti gli ombrelloni del periodo selezionato):</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-outline btn-sm" onclick="bulkAvanzateForceDisponibile()">✓ Rendi tutti disponibili</button>
+                <button class="btn btn-outline btn-sm" onclick="bulkAvanzateRemoveDisponibilita()">✗ Rimuovi tutte le disponibilità</button>
+              </div>
+            </div>
+
+            <div class="beach-map-wrap">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                <div>
+                  <div class="map-legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Occupato dal cliente</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Libero tutto il periodo</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#EAF4FB;border:2px dashed var(--ocean-mid)"></div>Senza cliente (subaffittabile)</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,var(--green-light) 0 6px,var(--ocean-light) 6px 12px);border:1.5px solid #96DDB8"></div>Libero parziale</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+                  </div>
+                  <div id="avanzate-summary" style="font-size:12px;color:var(--text-light);margin-top:10px"></div>
+                  <div style="font-size:12px;color:var(--text-light);margin-top:8px">Periodo: <strong id="avanzate-range-label">oggi</strong></div>
+                </div>
+                <div>
+                  <div class="bar-label">Bar</div>
+                  <div class="map-rows" id="avanzate-map"></div>
+                  <div class="sea-label">Mare</div>
+                </div>
+              </div>
+            </div><!-- /beach-map-wrap -->
+          </div>
+          </div><!-- /avanzate-pane-massiva -->
+
+          <div id="avanzate-pane-mirata" class="avanzate-pane">
+            <div id="mirata-alert" style="margin-bottom:12px"></div>
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">🎯 Azione mirata su un ombrellone</div>
+                  <div class="card-subtitle">Seleziona un ombrellone per gestire i singoli giorni della stagione, l'anagrafica o il saldo coin del cliente.</div>
+                </div>
+              </div>
+
+              <div style="padding:18px 22px 6px">
+                <label class="form-label" for="mirata-omb-select" style="display:block;margin-bottom:6px">Ombrellone</label>
+                <select id="mirata-omb-select" class="form-select" onchange="mirataOnSelect()" style="max-width:480px">
+                  <option value="">— Seleziona un ombrellone —</option>
+                </select>
+              </div>
+
+              <div id="mirata-detail" class="hidden" style="padding:8px 22px 22px">
+                <div class="avanzate-omb-info">
+                  <div class="avanzate-omb-info-cell" style="grid-column:1/-1">
+                    <div class="avanzate-omb-info-label">Ombrellone</div>
+                    <div class="avanzate-omb-info-value" id="mirata-omb-title">–</div>
+                  </div>
+                  <div class="avanzate-omb-info-cell" style="grid-column:1/-1">
+                    <div class="avanzate-omb-info-label">Cliente assegnato</div>
+                    <div class="avanzate-omb-info-value" id="mirata-omb-cliente">–</div>
+                  </div>
+                  <div class="avanzate-omb-info-cell">
+                    <div class="avanzate-omb-info-label">Credito giornaliero</div>
+                    <div class="avanzate-omb-info-value" id="mirata-omb-credito">–</div>
+                  </div>
+                  <div class="avanzate-omb-info-cell">
+                    <div class="avanzate-omb-info-label">Saldo coin cliente</div>
+                    <div class="avanzate-omb-info-value" id="mirata-omb-saldo">–</div>
+                  </div>
+                </div>
+
+                <div class="avanzate-omb-section">
+                  <div class="avanzate-omb-section-title">Anagrafica e cliente</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button class="btn btn-outline btn-sm" onclick="mirataOpenEdit()">✏️ Modifica anagrafica</button>
+                    <button class="btn btn-outline btn-sm" id="mirata-saldo-btn" onclick="mirataAdjustSaldo()">💰 Rettifica saldo coin</button>
+                    <button class="btn btn-danger btn-sm" onclick="mirataDelete()">🗑️ Cancella ombrellone</button>
+                  </div>
+                </div>
+
+                <div class="avanzate-omb-section">
+                  <div class="avanzate-omb-section-title">Disponibilità giorno per giorno</div>
+                  <div id="mirata-stagione-info" style="font-size:12px;color:var(--text-light);margin-bottom:10px"></div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+                    <button class="btn btn-outline btn-sm" onclick="mirataBulkForce()">✓ Rendi disponibile tutta la stagione</button>
+                    <button class="btn btn-outline btn-sm" onclick="mirataBulkRemove()">✗ Rimuovi tutte le disponibilità</button>
+                  </div>
+                  <div id="mirata-day-list" class="mirata-day-list"></div>
+                </div>
+              </div>
+            </div>
+          </div><!-- /avanzate-pane-mirata -->
+        </div><!-- /pren-sub-disponibilita-omb -->
+
       </div>
 
       <!-- CREDITI TAB -->
       <div id="mtab-crediti" class="tab-content">
         <div class="page-header">
-          <div><div class="page-title">Gestione Crediti</div><div class="page-subtitle">Registra l'utilizzo dei crediti al bar o ristorante</div></div>
+          <div>
+            <div class="page-title">Gestione Credito</div>
+            <div class="page-subtitle">Registra utilizzi e consulta il saldo coin degli stagionali</div>
+          </div>
         </div>
-        <div class="card">
-          <div class="card-header"><div class="card-title">Registra utilizzo credito</div></div>
-          <div class="card-body">
-            <div id="crediti-alert"></div>
-            <div class="form-row">
-              <div class="form-group"><label class="form-label">Cliente</label>
-                <div class="combobox" data-combobox="credito-cliente">
-                  <input type="text" id="credito-cliente-search" class="form-input combobox-search" placeholder="Cerca per nome cliente o ombrellone (es. A12)…" autocomplete="off">
-                  <input type="hidden" id="credito-cliente">
-                  <div id="credito-cliente-list" class="combobox-list hidden"></div>
+
+        <div class="crediti-subtabs">
+          <button type="button" class="crediti-subtab active" data-crediti-subtab="utilizzo" onclick="switchCreditiSubtab('utilizzo',this)">💳 Utilizzo Crediti</button>
+          <button type="button" class="crediti-subtab" data-crediti-subtab="stagionali" onclick="switchCreditiSubtab('stagionali',this)">🏖️ Crediti degli Stagionali</button>
+        </div>
+
+        <div id="crediti-sub-utilizzo" class="crediti-subpanel active">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Registra utilizzo credito</div></div>
+            <div class="card-body">
+              <div id="crediti-alert"></div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-label">Cliente</label>
+                  <div class="combobox" data-combobox="credito-cliente">
+                    <input type="text" id="credito-cliente-search" class="form-input combobox-search" placeholder="Cerca per nome cliente o ombrellone (es. A12)…" autocomplete="off">
+                    <input type="hidden" id="credito-cliente">
+                    <div id="credito-cliente-list" class="combobox-list hidden"></div>
+                  </div>
+                </div>
+                <div class="form-group"><label class="form-label" data-coin-label="Importo">Importo</label><input type="number" id="credito-importo" class="form-input" placeholder="es. 20.00" min="0.01" step="0.01"></div>
+              </div>
+              <div class="form-group"><label class="form-label">Note (opzionale)</label><input type="text" id="credito-nota" class="form-input" placeholder="es. Pranzo al ristorante"></div>
+              <button class="btn btn-primary" onclick="usaCredito()">Registra utilizzo</button>
+            </div>
+          </div>
+          <div style="margin-top:20px" class="card">
+            <div class="card-header">
+              <div class="card-title">📋 Ultime transazioni</div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
+                  <span>Dal</span>
+                  <input type="date" id="analytics-date-from" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="updateAnalyticsPresetActive(); loadCreditiAnalytics()">
+                  <span>al</span>
+                  <input type="date" id="analytics-date-to" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="updateAnalyticsPresetActive(); loadCreditiAnalytics()">
+                </div>
+                <button class="btn btn-outline btn-sm analytics-preset-btn" data-preset="7" onclick="setAnalyticsRange('7')">Ultimi 7 gg</button>
+                <button class="btn btn-outline btn-sm analytics-preset-btn" data-preset="3" onclick="setAnalyticsRange('3')">Ultimi 3 gg</button>
+                <button class="btn btn-outline btn-sm analytics-preset-btn" data-preset="ieri" onclick="setAnalyticsRange('ieri')">Ieri</button>
+                <button class="btn btn-outline btn-sm analytics-preset-btn" data-preset="oggi" onclick="setAnalyticsRange('oggi')">Oggi</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="stats-row compact" style="margin-bottom:16px">
+                <div class="stat-card"><div class="stat-label">Crediti distribuiti</div><div class="stat-value ocean" id="analytics-tot-ricevuti">–</div><div class="stat-sub">ai clienti stagionali</div></div>
+                <div class="stat-card"><div class="stat-label">Crediti spesi</div><div class="stat-value coral" id="analytics-tot-spesi">–</div><div class="stat-sub">dai clienti stagionali</div></div>
+                <div class="stat-card"><div class="stat-label">Sub-affitti</div><div class="stat-value green" id="analytics-tot-subaffitti">–</div><div class="stat-sub" id="analytics-tot-subaffitti-sub">giornate sub-affittate</div></div>
+              </div>
+              <div class="table-wrap data-table-wrapper"><table class="data-table">
+                <thead><tr>
+                  <th>Data</th>
+                  <th>Tipo</th>
+                  <th>Cliente</th>
+                  <th>Ombrellone</th>
+                  <th style="text-align:right">Importo</th>
+                  <th>Nota</th>
+                </tr></thead>
+                <tbody id="analytics-table"></tbody>
+              </table></div>
+              <div id="analytics-pagination" class="hidden" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--text-mid)">
+                <span id="analytics-page-info"></span>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <button class="btn btn-outline btn-sm" id="analytics-page-prev" onclick="changeAnalyticsPage(-1)">← Precedente</button>
+                  <button class="btn btn-outline btn-sm" id="analytics-page-next" onclick="changeAnalyticsPage(1)">Successiva →</button>
                 </div>
               </div>
-              <div class="form-group"><label class="form-label" data-coin-label="Importo">Importo</label><input type="number" id="credito-importo" class="form-input" placeholder="es. 20.00" min="0.01" step="0.01"></div>
-            </div>
-            <div class="form-group"><label class="form-label">Note (opzionale)</label><input type="text" id="credito-nota" class="form-input" placeholder="es. Pranzo al ristorante"></div>
-            <button class="btn btn-primary" onclick="usaCredito()">Registra utilizzo</button>
-          </div>
-        </div>
-        <div style="margin-top:20px" class="card">
-          <div class="card-header">
-            <div class="card-title">📋 Ultime transazioni</div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
-                <span>Dal</span>
-                <input type="date" id="analytics-date-from" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="updateAnalyticsPresetActive(); loadCreditiAnalytics()">
-                <span>al</span>
-                <input type="date" id="analytics-date-to" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="updateAnalyticsPresetActive(); loadCreditiAnalytics()">
-              </div>
-              <button class="btn btn-outline btn-sm analytics-preset-btn" data-preset="7" onclick="setAnalyticsRange('7')">Ultimi 7 gg</button>
-              <button class="btn btn-outline btn-sm analytics-preset-btn" data-preset="3" onclick="setAnalyticsRange('3')">Ultimi 3 gg</button>
-              <button class="btn btn-outline btn-sm analytics-preset-btn" data-preset="ieri" onclick="setAnalyticsRange('ieri')">Ieri</button>
-              <button class="btn btn-outline btn-sm analytics-preset-btn" data-preset="oggi" onclick="setAnalyticsRange('oggi')">Oggi</button>
+              <div id="analytics-empty" class="hidden" style="text-align:center;color:var(--text-light);padding:24px">Nessuna transazione nel periodo selezionato</div>
             </div>
           </div>
-          <div class="card-body">
-            <div class="stats-row compact" style="margin-bottom:16px">
-              <div class="stat-card"><div class="stat-label">Crediti distribuiti</div><div class="stat-value ocean" id="analytics-tot-ricevuti">–</div><div class="stat-sub">ai clienti stagionali</div></div>
-              <div class="stat-card"><div class="stat-label">Crediti spesi</div><div class="stat-value coral" id="analytics-tot-spesi">–</div><div class="stat-sub">dai clienti stagionali</div></div>
-              <div class="stat-card"><div class="stat-label">Sub-affitti</div><div class="stat-value green" id="analytics-tot-subaffitti">–</div><div class="stat-sub" id="analytics-tot-subaffitti-sub">giornate sub-affittate</div></div>
-            </div>
-            <div class="table-wrap data-table-wrapper"><table class="data-table">
-              <thead><tr>
-                <th>Data</th>
-                <th>Tipo</th>
-                <th>Cliente</th>
-                <th>Ombrellone</th>
-                <th style="text-align:right">Importo</th>
-                <th>Nota</th>
-              </tr></thead>
-              <tbody id="analytics-table"></tbody>
-            </table></div>
-            <div id="analytics-pagination" class="hidden" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--text-mid)">
-              <span id="analytics-page-info"></span>
-              <div style="display:flex;align-items:center;gap:6px">
-                <button class="btn btn-outline btn-sm" id="analytics-page-prev" onclick="changeAnalyticsPage(-1)">← Precedente</button>
-                <button class="btn btn-outline btn-sm" id="analytics-page-next" onclick="changeAnalyticsPage(1)">Successiva →</button>
-              </div>
-            </div>
-            <div id="analytics-empty" class="hidden" style="text-align:center;color:var(--text-light);padding:24px">Nessuna transazione nel periodo selezionato</div>
+        </div><!-- /crediti-sub-utilizzo -->
+
+        <div id="crediti-sub-stagionali" class="crediti-subpanel">
+          <div class="crediti-stag-filters">
+            <input type="search" id="crediti-stag-search-nome" class="form-input" placeholder="🔍 Cerca per nome proprietario…" oninput="renderCreditiStagionali()">
+            <input type="search" id="crediti-stag-search-omb" class="form-input" placeholder="🔍 Cerca per ombrellone (es. A12)…" oninput="renderCreditiStagionali()">
           </div>
-        </div>
+          <div id="crediti-stag-list" class="crediti-stag-list">
+            <div class="tx-empty">Caricamento...</div>
+          </div>
+        </div><!-- /crediti-sub-stagionali -->
+
+      </div><!-- /mtab-crediti -->
+
+<!-- MODAL dettaglio transazioni coin stagionale -->
+<div id="modal-crediti-stag-dettaglio" class="modal-overlay hidden" onclick="if(event.target===this)closeCreditiStagModal()">
+  <div class="modal" style="max-width:520px;width:100%">
+    <div class="modal-header">
+      <div class="modal-title" id="crediti-stag-modal-title">Transazioni Coin</div>
+      <button class="modal-close" onclick="closeCreditiStagModal()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <div class="crediti-stag-modal-summary" id="crediti-stag-modal-summary"></div>
+      <div id="crediti-stag-modal-tx-list" class="crediti-stag-modal-tx-list">
+        <div class="tx-empty">Caricamento...</div>
       </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeCreditiStagModal()">Chiudi</button>
+    </div>
+  </div>
+</div>
 
       <!-- TRANSAZIONI TAB -->
       <div id="mtab-transazioni" class="tab-content">
@@ -2261,6 +2310,7 @@ document.addEventListener('click', function(e) {
 <script src="js/admin.js"></script>
 <script src="js/comunicazioni.js"></script>
 <script src="js/disponibilita-tab.js"></script>
+<script src="js/crediti-stagionali.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
