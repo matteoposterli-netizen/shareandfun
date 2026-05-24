@@ -2334,6 +2334,15 @@ function populateEditRowFromData(ombId) {
   const emailInput = document.getElementById('edit-row-email');
   emailInput.disabled = !!cliente?.user_id;
   emailInput.title = cliente?.user_id ? 'Email non modificabile: il cliente è già attivo.' : '';
+  // Saldo section: visible only when a client exists
+  const hasCl = !!cliente;
+  document.getElementById('edit-row-saldo-section').classList.toggle('hidden', !hasCl);
+  document.getElementById('edit-row-saldo-wrap').classList.toggle('hidden', !hasCl);
+  if (hasCl) {
+    document.getElementById('edit-row-saldo-attuale').textContent = formatCoin(cliente.credito_saldo, currentStabilimento);
+    document.getElementById('edit-row-saldo-nuovo').value = parseFloat(cliente.credito_saldo || 0).toFixed(2);
+    document.getElementById('edit-row-saldo-nota').value = '';
+  }
   return true;
 }
 
@@ -2351,11 +2360,40 @@ function openEditRowModal(ombId) {
   editRowSnapshot = getEditRowFormValues();
   attachEditRowChangeListeners();
   refreshEditRowConfirmBtn();
+  // Init/reset disponibilità flatpickr
+  const dispInput = document.getElementById('edit-row-disp-picker');
+  if (dispInput && typeof flatpickr !== 'undefined') {
+    if (!dispInput._flatpickr) {
+      flatpickr(dispInput, {
+        mode: 'range', dateFormat: 'd/m/Y',
+        locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
+        minDate: currentStabilimento?.data_inizio_stagione,
+        maxDate: currentStabilimento?.data_fine_stagione,
+        onChange(sel) {
+          document.getElementById('edit-row-disp-from').value = sel[0] ? sel[0].toISOString().slice(0,10) : '';
+          document.getElementById('edit-row-disp-to').value = sel[1] ? sel[1].toISOString().slice(0,10) : '';
+        },
+      });
+    } else {
+      dispInput._flatpickr.clear();
+      document.getElementById('edit-row-disp-from').value = '';
+      document.getElementById('edit-row-disp-to').value = '';
+    }
+  }
   document.getElementById('modal-edit-row').classList.remove('hidden');
 }
 
 async function confirmEditRow() {
   if (!isEditRowDirty()) { closeModal('modal-edit-row'); return; }
+  const snap = editRowSnapshot;
+  const cur = getEditRowFormValues();
+  const lines = [];
+  const labels = { fila:'Fila', numero:'Numero', credito:'Credito giornaliero', nome:'Nome', cognome:'Cognome', email:'Email', telefono:'Telefono' };
+  EDIT_ROW_FIELDS.forEach(f => {
+    if (cur[f] !== snap[f]) lines.push(`• ${labels[f]}: "${snap[f] || '—'}" → "${cur[f] || '—'}"`);
+  });
+  const ok = confirm(`Confermi le seguenti modifiche?\n\n${lines.join('\n')}`);
+  if (!ok) return;
 
   const ombId = document.getElementById('edit-row-omb-id').value;
   const clId  = document.getElementById('edit-row-cl-id').value || null;
@@ -2418,6 +2456,81 @@ async function confirmEditRow() {
     }
   }
 
+  await refreshEditRowAfterSave(ombId);
+}
+
+async function applyEditRowSaldo() {
+  const clId = document.getElementById('edit-row-cl-id').value;
+  const ombId = document.getElementById('edit-row-omb-id').value;
+  if (!clId) return;
+  const cliente = (clientiList || []).find(c => c.id === clId);
+  if (!cliente) return;
+  const nuovo = parseFloat(document.getElementById('edit-row-saldo-nuovo').value);
+  if (isNaN(nuovo) || nuovo < 0) { showAlert('edit-row-alert', 'Inserisci un saldo valido (≥ 0).', 'error'); return; }
+  const attuale = parseFloat(cliente.credito_saldo || 0);
+  if (Math.abs(nuovo - attuale) < 0.001) { showAlert('edit-row-alert', 'Il saldo è già pari al valore inserito.', 'error'); return; }
+  const nota = (document.getElementById('edit-row-saldo-nota').value || '').trim() || 'Rettifica manuale gestore';
+  const nome = `${cliente.nome || ''} ${cliente.cognome || ''}`.trim() || cliente.email;
+  const ok = confirm(`Rettificare il saldo di ${nome} da ${formatCoin(attuale, currentStabilimento)} a ${formatCoin(nuovo, currentStabilimento)}?\nNota: ${nota}`);
+  if (!ok) return;
+  const tipo = nuovo > attuale ? 'credito_ricevuto' : 'credito_usato';
+  const delta = Math.abs(nuovo - attuale).toFixed(2);
+  const { error: txErr } = await sb.from('transazioni').insert({
+    stabilimento_id: currentStabilimento.id, cliente_id: clId,
+    ombrellone_id: cliente.ombrellone_id || null, tipo, importo: delta, nota,
+  });
+  if (txErr) { showAlert('edit-row-alert', 'Errore transazione: ' + txErr.message, 'error'); return; }
+  const { error: clErr } = await sb.from('clienti_stagionali').update({ credito_saldo: nuovo.toFixed(2) }).eq('id', clId);
+  if (clErr) { showAlert('edit-row-alert', 'Errore aggiornamento saldo: ' + clErr.message, 'error'); return; }
+  await refreshEditRowAfterSave(ombId);
+}
+
+async function applyEditRowAddDisp() {
+  const from = document.getElementById('edit-row-disp-from').value;
+  const to = document.getElementById('edit-row-disp-to').value;
+  const ombId = document.getElementById('edit-row-omb-id').value;
+  if (!from || !to) { showAlert('edit-row-alert', 'Seleziona prima un periodo.', 'error'); return; }
+  const dates = getDatesInRange(from, to);
+  const ok = confirm(`Aggiungere ${dates.length} giorno${dates.length !== 1 ? 'i' : ''} di disponibilità (${formatDate(from)} → ${formatDate(to)})?`);
+  if (!ok) return;
+  await applyForceDisponibile([ombId], dates, 'edit-row-alert');
+  await refreshEditRowAfterSave(ombId);
+}
+
+async function applyEditRowRemoveDisp() {
+  const from = document.getElementById('edit-row-disp-from').value;
+  const to = document.getElementById('edit-row-disp-to').value;
+  const ombId = document.getElementById('edit-row-omb-id').value;
+  if (!from || !to) { showAlert('edit-row-alert', 'Seleziona prima un periodo.', 'error'); return; }
+  const { data: subAffitti, error: saErr } = await sb.from('disponibilita')
+    .select('id, data, nome_prenotazione')
+    .eq('ombrellone_id', ombId)
+    .gte('data', from).lte('data', to)
+    .eq('stato', 'sub_affittato');
+  if (saErr) { showAlert('edit-row-alert', 'Errore lettura prenotazioni: ' + saErr.message, 'error'); return; }
+  const subAffittiIds = (subAffitti || []).map(r => r.id);
+  let msg = `Rimuovere la disponibilità dal ${formatDate(from)} al ${formatDate(to)}?`;
+  if (subAffittiIds.length > 0) {
+    const byName = {};
+    subAffitti.forEach(r => {
+      const k = r.nome_prenotazione || '(senza nome)';
+      if (!byName[k]) byName[k] = [];
+      byName[k].push(r.data);
+    });
+    const lines = Object.entries(byName).map(([nome, dates]) => {
+      const sorted = dates.sort();
+      const dal = formatDate(sorted[0]), al = formatDate(sorted[sorted.length - 1]);
+      return `• "${nome}": ${dal === al ? dal : dal + ' → ' + al}`;
+    }).join('\n');
+    msg += `\n\nATTENZIONE: le seguenti prenotazioni verranno annullate:\n${lines}\n\nI clienti riceveranno il rimborso dei coin. Procedere?`;
+  }
+  const ok = confirm(msg);
+  if (!ok) return;
+  if (subAffittiIds.length > 0) {
+    const { error: cancelErr } = await sb.rpc('cancel_booking', { p_disp_ids: subAffittiIds });
+    if (cancelErr) { showAlert('edit-row-alert', 'Errore annullamento prenotazioni: ' + cancelErr.message, 'error'); return; }
+  }
+  await applyRemoveDisponibilita([ombId], from, to, 'edit-row-alert');
   await refreshEditRowAfterSave(ombId);
 }
 
