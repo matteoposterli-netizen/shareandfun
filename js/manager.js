@@ -427,8 +427,7 @@ function applyDefaultPrenFilter(today) {
   const toEl = document.getElementById('pren-filter-to');
   if (!fromEl || !toEl) return;
   if (fromEl.value || toEl.value) return;
-  // Default: recent + upcoming window (last 7 days → next 30 days).
-  const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 7);
+  const start = new Date(today + 'T00:00:00');
   const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 30);
   fromEl.value = toLocalDateStr(start);
   toEl.value = toLocalDateStr(end);
