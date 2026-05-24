@@ -55,7 +55,7 @@ async function loadCreditiStagionali() {
     const acquisiti = txs.filter(t => t.tipo === 'credito_ricevuto').reduce((s, t) => s + (t.importo || 0), 0);
     const spesi    = txs.filter(t => t.tipo === 'credito_usato').reduce((s, t) => s + (t.importo || 0), 0);
     const revocati = txs.filter(t => t.tipo === 'credito_revocato').reduce((s, t) => s + (t.importo || 0), 0);
-    const disponibili = cliente ? (cliente.saldo || 0) : 0;
+    const disponibili = cliente ? parseFloat(cliente.credito_saldo || 0) : 0;
     return { ombrellone: o, cliente, txs, acquisiti, spesi, revocati, disponibili };
   });
 
@@ -91,36 +91,24 @@ function renderCreditiStagionali() {
     return;
   }
 
-  const stab = currentStabilimento;
   listEl.innerHTML = rows.map(r => {
     const nomeCliente = r.cliente
       ? escapeHtml(((r.cliente.nome || '') + ' ' + (r.cliente.cognome || '')).trim())
       : '<span style="color:var(--text-light);font-style:italic">Nessun cliente</span>';
     const ombLabel = `Fila ${escapeHtml(String(r.ombrellone.fila || ''))} · N°${r.ombrellone.numero}`;
-    const disp = formatCoin(r.disponibili, stab);
-    const acq  = formatCoin(r.acquisiti, stab);
-    const sp   = formatCoin(r.spesi, stab);
+    const n = v => parseFloat(v || 0).toFixed(2);
     return `
       <div class="crediti-stag-card" onclick="openCreditiStagModal('${r.ombrellone.id}')" role="button" tabindex="0">
-        <div class="crediti-stag-card-header">
+        <div class="crediti-stag-card-left">
           <div class="crediti-stag-card-omb">${ombLabel}</div>
           <div class="crediti-stag-card-nome">${nomeCliente}</div>
         </div>
-        <div class="crediti-stag-card-coins">
-          <div class="crediti-stag-coin-item">
-            <span class="crediti-stag-coin-label">Disponibili</span>
-            <span class="crediti-stag-coin-val disponibili">${disp}</span>
-          </div>
-          <div class="crediti-stag-coin-item">
-            <span class="crediti-stag-coin-label">Acquisiti</span>
-            <span class="crediti-stag-coin-val acquisiti">${acq}</span>
-          </div>
-          <div class="crediti-stag-coin-item">
-            <span class="crediti-stag-coin-label">Spesi</span>
-            <span class="crediti-stag-coin-val spesi">${sp}</span>
-          </div>
+        <div class="crediti-stag-coins-compact">
+          <div class="csc-col disponibili"><span class="csc-lbl">Disp</span><span class="csc-num">${n(r.disponibili)}</span></div>
+          <div class="csc-col acquisiti"><span class="csc-lbl">Acq</span><span class="csc-num">${n(r.acquisiti)}</span></div>
+          <div class="csc-col spesi"><span class="csc-lbl">Spesi</span><span class="csc-num">${n(r.spesi)}</span></div>
         </div>
-        <div class="crediti-stag-card-arrow">›</div>
+        <span class="crediti-stag-card-arrow">›</span>
       </div>`;
   }).join('');
 }
