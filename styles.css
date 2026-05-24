@@ -893,10 +893,13 @@ body {
 
   /* BEACH MAP */
   .beach-map-wrap { padding: 16px 18px 12px; }
-  .beach-map-wrap > div { flex-direction: column; }
+  /* Override inline align-items:flex-start: children stretch to full width
+     so .map-rows gets a constrained width and its overflow-x:auto works */
+  .beach-map-wrap > div { flex-direction: column; align-items: stretch !important; }
   .map-rows {
-    overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin; max-width: 100%;
+    width: 100%;
+    overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y; cursor: grab; scrollbar-width: thin;
   }
   .map-row { gap: 4px; }
   .ombrellone { width: 32px; height: 32px; font-size: 9px; border-radius: 7px; border-width: 1.5px; }
@@ -1003,23 +1006,7 @@ body {
     white-space: nowrap;
   }
 
-  /* FIX 3 — Umbrella map: horizontal scroll */
-  #manager-map,
-  #manager-map .card-body {
-    overflow: visible !important;
-  }
-  #map-grid {
-    overflow-x: auto !important;
-    overflow-y: visible;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pan-y;
-    cursor: grab;
-    padding-bottom: 8px;
-  }
-  #map-grid > .map-rows,
-  #map-grid > div {
-    min-width: max-content;
-  }
+  /* FIX 3 — Umbrella map: horizontal scroll (map card date row) */
   #map-free-label,
   #map-free-count {
     flex-wrap: wrap;
@@ -1033,13 +1020,6 @@ body {
   /* Prenotazioni > Vedi disponibilità table */
   #disp-table-wrapper {
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pan-y;
-  }
-
-  /* Configurazioni > Avanzate map */
-  #avanzate-map-grid {
-    overflow-x: auto !important;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-x pan-y;
   }
