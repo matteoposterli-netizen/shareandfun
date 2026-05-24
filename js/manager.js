@@ -2287,37 +2287,59 @@ async function resolveConflict(choice) {
   else if (kind === 'edit') await saveEditedCliente(p);
 }
 
-let editRowSnapshot = null;
-const EDIT_ROW_FIELDS = ['fila','numero','credito','nome','cognome','email','telefono'];
+let editRowOmbSnapshot = null;
+let editRowCltSnapshot = null;
+const EDIT_ROW_OMB_FIELDS = ['fila','numero','credito'];
+const EDIT_ROW_CLT_FIELDS = ['nome','cognome','email','telefono'];
+const EDIT_ROW_OMB_LABELS = { fila:'Fila', numero:'Numero', credito:'Credito giornaliero' };
+const EDIT_ROW_CLT_LABELS = { nome:'Nome', cognome:'Cognome', email:'Email', telefono:'Telefono' };
 
-function getEditRowFormValues() {
+function getEditRowOmbValues() {
   const v = {};
-  EDIT_ROW_FIELDS.forEach(f => {
-    v[f] = (document.getElementById(`edit-row-${f}`).value || '').trim();
-  });
+  EDIT_ROW_OMB_FIELDS.forEach(f => { v[f] = (document.getElementById(`edit-row-${f}`)?.value || '').trim(); });
   return v;
 }
-
-function isEditRowDirty() {
-  if (!editRowSnapshot) return true;
-  const cur = getEditRowFormValues();
-  return EDIT_ROW_FIELDS.some(f => cur[f] !== editRowSnapshot[f]);
+function getEditRowCltValues() {
+  const v = {};
+  EDIT_ROW_CLT_FIELDS.forEach(f => { v[f] = (document.getElementById(`edit-row-${f}`)?.value || '').trim(); });
+  return v;
+}
+function isEditRowOmbDirty() {
+  if (!editRowOmbSnapshot) return false;
+  const cur = getEditRowOmbValues();
+  return EDIT_ROW_OMB_FIELDS.some(f => cur[f] !== editRowOmbSnapshot[f]);
+}
+function isEditRowCltDirty() {
+  if (!editRowCltSnapshot) return false;
+  const cur = getEditRowCltValues();
+  return EDIT_ROW_CLT_FIELDS.some(f => cur[f] !== editRowCltSnapshot[f]);
 }
 
-function refreshEditRowConfirmBtn() {
-  const btn = document.getElementById('edit-row-confirm-btn');
+function checkEditRowDirty() {
+  const btn = document.getElementById('edit-row-close-btn');
   if (!btn) return;
-  btn.textContent = isEditRowDirty() ? 'Salva modifiche' : 'Chiudi';
+  const ombDirty = isEditRowOmbDirty();
+  const cltDirty = isEditRowCltDirty();
+  const dirty = ombDirty || cltDirty;
+  btn.classList.toggle('btn-unsaved', dirty);
+  if (dirty) {
+    const changes = [];
+    if (ombDirty) { const c = getEditRowOmbValues(), s = editRowOmbSnapshot; EDIT_ROW_OMB_FIELDS.forEach(f => { if (c[f] !== s[f]) changes.push(EDIT_ROW_OMB_LABELS[f]); }); }
+    if (cltDirty) { const c = getEditRowCltValues(), s = editRowCltSnapshot; EDIT_ROW_CLT_FIELDS.forEach(f => { if (c[f] !== s[f]) changes.push(EDIT_ROW_CLT_LABELS[f]); }); }
+    btn.title = `⚠️ Campi non salvati: ${changes.join(', ')}`;
+  } else {
+    btn.title = '';
+  }
 }
 
-function attachEditRowChangeListeners() {
-  EDIT_ROW_FIELDS.forEach(f => {
-    const el = document.getElementById(`edit-row-${f}`);
-    if (el && !el.dataset.listenerAttached) {
-      el.addEventListener('input', refreshEditRowConfirmBtn);
-      el.dataset.listenerAttached = '1';
-    }
-  });
+function closeEditRowModal() {
+  const ombDirty = isEditRowOmbDirty();
+  const cltDirty = isEditRowCltDirty();
+  if (!ombDirty && !cltDirty) { closeModal('modal-edit-row'); return; }
+  const changes = [];
+  if (ombDirty) { const c = getEditRowOmbValues(), s = editRowOmbSnapshot; EDIT_ROW_OMB_FIELDS.forEach(f => { if (c[f] !== s[f]) changes.push(`• ${EDIT_ROW_OMB_LABELS[f]}: "${s[f]||'—'}" → "${c[f]||'—'}"`); }); }
+  if (cltDirty) { const c = getEditRowCltValues(), s = editRowCltSnapshot; EDIT_ROW_CLT_FIELDS.forEach(f => { if (c[f] !== s[f]) changes.push(`• ${EDIT_ROW_CLT_LABELS[f]}: "${s[f]||'—'}" → "${c[f]||'—'}"`); }); }
+  if (confirm(`Hai modifiche non salvate:\n\n${changes.join('\n')}\n\nChiudere senza salvare?`)) closeModal('modal-edit-row');
 }
 
 function populateEditRowFromData(ombId) {
@@ -2336,6 +2358,11 @@ function populateEditRowFromData(ombId) {
   const emailInput = document.getElementById('edit-row-email');
   emailInput.disabled = !!cliente?.user_id;
   emailInput.title = cliente?.user_id ? 'Email non modificabile: il cliente è già attivo.' : '';
+  editRowOmbSnapshot = getEditRowOmbValues();
+  editRowCltSnapshot = getEditRowCltValues();
+  // Clear per-section notes and alerts
+  ['edit-row-omb-note','edit-row-clt-note'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['edit-row-omb-alert','edit-row-clt-alert'].forEach(id => showAlert(id, '', ''));
   // Saldo section: visible only when a client exists
   const hasCl = !!cliente;
   document.getElementById('edit-row-saldo-section').classList.toggle('hidden', !hasCl);
@@ -2348,20 +2375,18 @@ function populateEditRowFromData(ombId) {
   return true;
 }
 
-async function refreshEditRowAfterSave(ombId, { skipReload = false } = {}) {
+async function refreshEditRowAfterSave(ombId, { skipReload = false, alertId = 'edit-row-alert' } = {}) {
   if (!skipReload) await loadManagerData();
   if (!populateEditRowFromData(ombId)) { closeModal('modal-edit-row'); return; }
-  editRowSnapshot = getEditRowFormValues();
-  refreshEditRowConfirmBtn();
-  showAlert('edit-row-alert', '✅ Modifiche salvate con successo', 'success');
+  checkEditRowDirty();
+  showAlert(alertId, '✅ Salvato con successo', 'success');
+  setTimeout(() => showAlert(alertId, '', ''), 3000);
 }
 
 function openEditRowModal(ombId) {
   if (!populateEditRowFromData(ombId)) return;
   showAlert('edit-row-alert', '', '');
-  editRowSnapshot = getEditRowFormValues();
-  attachEditRowChangeListeners();
-  refreshEditRowConfirmBtn();
+  checkEditRowDirty();
   // Distruggi e ricrea flatpickr ogni apertura per evitare stato sporco
   const dispInput = document.getElementById('edit-row-disp-picker');
   if (dispInput && typeof flatpickr !== 'undefined') {
@@ -2382,47 +2407,54 @@ function openEditRowModal(ombId) {
   document.getElementById('modal-edit-row').classList.remove('hidden');
 }
 
-async function confirmEditRow() {
-  if (!isEditRowDirty()) { closeModal('modal-edit-row'); return; }
-  const snap = editRowSnapshot;
-  const cur = getEditRowFormValues();
-  const lines = [];
-  const labels = { fila:'Fila', numero:'Numero', credito:'Credito giornaliero', nome:'Nome', cognome:'Cognome', email:'Email', telefono:'Telefono' };
-  EDIT_ROW_FIELDS.forEach(f => {
-    if (cur[f] !== snap[f]) lines.push(`• ${labels[f]}: "${snap[f] || '—'}" → "${cur[f] || '—'}"`);
-  });
-  const ok = confirm(`Confermi le seguenti modifiche?\n\n${lines.join('\n')}`);
-  if (!ok) return;
-
+async function saveEditRowOmbrellone() {
+  if (!isEditRowOmbDirty()) { showAlert('edit-row-omb-alert', 'Nessuna modifica da salvare.', 'info'); return; }
   const ombId = document.getElementById('edit-row-omb-id').value;
-  const clId  = document.getElementById('edit-row-cl-id').value || null;
   const omb = ombrelloniList.find(o => o.id === ombId);
   if (!omb) return;
   const fila = document.getElementById('edit-row-fila').value.trim().toUpperCase();
   const numero = parseInt(document.getElementById('edit-row-numero').value);
   const credito = parseFloat(document.getElementById('edit-row-credito').value);
+  const nota = (document.getElementById('edit-row-omb-note')?.value || '').trim();
+  if (!fila || !numero) { showAlert('edit-row-omb-alert', 'Fila e numero sono obbligatori.', 'error'); return; }
+  const snap = editRowOmbSnapshot;
+  const cur = getEditRowOmbValues();
+  const lines = EDIT_ROW_OMB_FIELDS.filter(f => cur[f] !== snap[f]).map(f => `• ${EDIT_ROW_OMB_LABELS[f]}: "${snap[f]||'—'}" → "${cur[f]||'—'}"`);
+  if (nota) lines.push(`• Nota: ${nota}`);
+  if (!confirm(`Confermi le modifiche all'ombrellone?\n\n${lines.join('\n')}`)) return;
+  const { error } = await sb.from('ombrelloni').update({ fila, numero, credito_giornaliero: isNaN(credito) ? omb.credito_giornaliero : credito }).eq('id', ombId);
+  if (error) { showAlert('edit-row-omb-alert', error.message, 'error'); return; }
+  await refreshEditRowAfterSave(ombId, { alertId: 'edit-row-omb-alert' });
+}
+
+async function saveEditRowCliente() {
+  const ombId = document.getElementById('edit-row-omb-id').value;
+  const clId  = document.getElementById('edit-row-cl-id').value || null;
+  const omb = ombrelloniList.find(o => o.id === ombId);
+  if (!omb) return;
   const nome = document.getElementById('edit-row-nome').value.trim();
   const cognome = document.getElementById('edit-row-cognome').value.trim();
   const email = document.getElementById('edit-row-email').value.trim();
   const telefono = document.getElementById('edit-row-telefono').value.trim();
-
-  if (!fila || !numero) { showAlert('edit-row-alert', 'Fila e numero sono obbligatori', 'error'); return; }
-  const ombUpdate = { fila, numero, credito_giornaliero: isNaN(credito) ? omb.credito_giornaliero : credito };
-  const { error: ombErr } = await sb.from('ombrelloni').update(ombUpdate).eq('id', ombId);
-  if (ombErr) { showAlert('edit-row-alert', ombErr.message, 'error'); return; }
-
+  const nota = (document.getElementById('edit-row-clt-note')?.value || '').trim();
   const hasCliente = !!(nome || cognome || email || telefono);
   const existing = clId ? (clientiList || []).find(c => c.id === clId) : null;
+  if (!isEditRowCltDirty() && hasCliente) { showAlert('edit-row-clt-alert', 'Nessuna modifica da salvare.', 'info'); return; }
 
   if (!hasCliente && existing) {
-    if (existing.user_id) { showAlert('edit-row-alert', 'Impossibile rimuovere un cliente già attivo. Usa 🗑️ per eliminarlo.', 'error'); return; }
+    if (existing.user_id) { showAlert('edit-row-clt-alert', 'Impossibile rimuovere un cliente già attivo. Usa 🗑️ per eliminarlo.', 'error'); return; }
+    if (!confirm(`Rimuovere il cliente "${existing.nome} ${existing.cognome}" da questo ombrellone?`)) return;
     await sb.from('clienti_stagionali').delete().eq('id', existing.id);
-    await refreshEditRowAfterSave(ombId);
+    await refreshEditRowAfterSave(ombId, { alertId: 'edit-row-clt-alert' });
     return;
   }
-
   if (hasCliente) {
-    if (!email || !EMAIL_RE.test(email)) { showAlert('edit-row-alert', 'Email cliente non valida', 'error'); return; }
+    if (!email || !EMAIL_RE.test(email)) { showAlert('edit-row-clt-alert', 'Email cliente non valida.', 'error'); return; }
+    const snap = editRowCltSnapshot;
+    const cur = getEditRowCltValues();
+    const lines = EDIT_ROW_CLT_FIELDS.filter(f => cur[f] !== snap[f]).map(f => `• ${EDIT_ROW_CLT_LABELS[f]}: "${snap[f]||'—'}" → "${cur[f]||'—'}"`);
+    if (nota) lines.push(`• Nota: ${nota}`);
+    if (lines.length && !confirm(`Confermi le modifiche al cliente?\n\n${lines.join('\n')}`)) return;
     if (existing) {
       if (existing.ombrellone_id !== ombId) {
         const ok = await confirmAssignmentDialog(ombId, `${nome} ${cognome}`.trim() || email);
@@ -2431,9 +2463,7 @@ async function confirmEditRow() {
       const update = { nome, cognome, telefono, ombrellone_id: ombId };
       if (!existing.user_id) update.email = email;
       const { error } = await sb.from('clienti_stagionali').update(update).eq('id', existing.id);
-      if (error) { showAlert('edit-row-alert', error.message, 'error'); return; }
-      Object.assign(existing, update);
-      renderGestioneFiltered();
+      if (error) { showAlert('edit-row-clt-alert', error.message, 'error'); return; }
     } else {
       const occupant = findOmbOccupant(ombId, email);
       if (occupant) {
@@ -2441,7 +2471,7 @@ async function confirmEditRow() {
           kind: 'edit',
           payload: { id: null, nome, cognome, email, telefono, ombId },
           occupantId: occupant.id,
-          ombLabel: `Fila ${fila} N°${numero}`,
+          ombLabel: `Fila ${omb.fila} N°${omb.numero}`,
           occupantName: `${occupant.nome || ''} ${occupant.cognome || ''}`.trim() || occupant.email,
         };
         document.getElementById('conflict-msg').innerHTML =
@@ -2450,12 +2480,11 @@ async function confirmEditRow() {
         return;
       }
       await saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito: false });
-      await refreshEditRowAfterSave(ombId, { skipReload: true });
+      await refreshEditRowAfterSave(ombId, { skipReload: true, alertId: 'edit-row-clt-alert' });
       return;
     }
   }
-
-  await refreshEditRowAfterSave(ombId);
+  await refreshEditRowAfterSave(ombId, { alertId: 'edit-row-clt-alert' });
 }
 
 async function applyEditRowSaldo() {
@@ -2488,18 +2517,21 @@ async function applyEditRowAddDisp() {
   const from = document.getElementById('edit-row-disp-from').value;
   const to = document.getElementById('edit-row-disp-to').value;
   const ombId = document.getElementById('edit-row-omb-id').value;
+  const nota = (document.getElementById('edit-row-disp-note')?.value || '').trim();
   if (!from || !to) { showAlert('edit-row-alert', 'Seleziona prima un periodo.', 'error'); return; }
   const dates = getDatesInRange(from, to);
-  const ok = confirm(`Aggiungere ${dates.length} giorno${dates.length !== 1 ? 'i' : ''} di disponibilità (${formatDate(from)} → ${formatDate(to)})?`);
-  if (!ok) return;
+  let msg = `Aggiungere ${dates.length} giorno${dates.length !== 1 ? 'i' : ''} di disponibilità (${formatDate(from)} → ${formatDate(to)})?`;
+  if (nota) msg += `\nNota: ${nota}`;
+  if (!confirm(msg)) return;
   await applyForceDisponibile([ombId], dates, 'edit-row-alert');
-  await refreshEditRowAfterSave(ombId);
+  await refreshEditRowAfterSave(ombId, { alertId: 'edit-row-alert' });
 }
 
 async function applyEditRowRemoveDisp() {
   const from = document.getElementById('edit-row-disp-from').value;
   const to = document.getElementById('edit-row-disp-to').value;
   const ombId = document.getElementById('edit-row-omb-id').value;
+  const nota = (document.getElementById('edit-row-disp-note')?.value || '').trim();
   if (!from || !to) { showAlert('edit-row-alert', 'Seleziona prima un periodo.', 'error'); return; }
   const { data: subAffitti, error: saErr } = await sb.from('disponibilita')
     .select('id, data, nome_prenotazione')
@@ -2509,6 +2541,7 @@ async function applyEditRowRemoveDisp() {
   if (saErr) { showAlert('edit-row-alert', 'Errore lettura prenotazioni: ' + saErr.message, 'error'); return; }
   const subAffittiIds = (subAffitti || []).map(r => r.id);
   let msg = `Rimuovere la disponibilità dal ${formatDate(from)} al ${formatDate(to)}?`;
+  if (nota) msg += `\nNota: ${nota}`;
   if (subAffittiIds.length > 0) {
     const byName = {};
     subAffitti.forEach(r => {
@@ -2523,14 +2556,13 @@ async function applyEditRowRemoveDisp() {
     }).join('\n');
     msg += `\n\nATTENZIONE: le seguenti prenotazioni verranno annullate:\n${lines}\n\nI clienti riceveranno il rimborso dei coin. Procedere?`;
   }
-  const ok = confirm(msg);
-  if (!ok) return;
+  if (!confirm(msg)) return;
   if (subAffittiIds.length > 0) {
     const { error: cancelErr } = await sb.rpc('cancel_booking', { p_disp_ids: subAffittiIds });
     if (cancelErr) { showAlert('edit-row-alert', 'Errore annullamento prenotazioni: ' + cancelErr.message, 'error'); return; }
   }
   await applyRemoveDisponibilita([ombId], from, to, 'edit-row-alert');
-  await refreshEditRowAfterSave(ombId);
+  await refreshEditRowAfterSave(ombId, { alertId: 'edit-row-alert' });
 }
 
 async function saveEditedCliente({ id, nome, cognome, email, telefono, ombId }) {

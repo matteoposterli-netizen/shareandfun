@@ -1840,51 +1840,61 @@
 <div id="modal-edit-row" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-title">✏️ Modifica riga</div>
-    <div class="modal-sub">Aggiorna ombrellone e cliente associato. L'email non si può modificare se il cliente è già attivo.</div>
     <div id="edit-row-alert"></div>
     <input type="hidden" id="edit-row-omb-id">
     <input type="hidden" id="edit-row-cl-id">
+
+    <!-- SEZIONE OMBRELLONE -->
     <div class="section-divider" style="margin-top:0">☂️ Ombrellone</div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Fila</label><input type="text" id="edit-row-fila" class="form-input" maxlength="3"></div>
-      <div class="form-group"><label class="form-label">Numero</label><input type="number" id="edit-row-numero" class="form-input" min="1"></div>
+      <div class="form-group"><label class="form-label">Fila</label><input type="text" id="edit-row-fila" class="form-input" maxlength="3" oninput="checkEditRowDirty()"></div>
+      <div class="form-group"><label class="form-label">Numero</label><input type="number" id="edit-row-numero" class="form-input" min="1" oninput="checkEditRowDirty()"></div>
     </div>
-    <div class="form-group"><label class="form-label" data-coin-label="Credito giornaliero">Credito giornaliero</label><input type="number" id="edit-row-credito" class="form-input" step="0.50" min="0"></div>
+    <div class="form-group"><label class="form-label" data-coin-label="Credito giornaliero">Credito giornaliero</label><input type="number" id="edit-row-credito" class="form-input" step="0.50" min="0" oninput="checkEditRowDirty()"></div>
+    <div class="form-group"><label class="form-label">Note (opzionale)</label><input type="text" id="edit-row-omb-note" class="form-input" placeholder="es. Cambio posizione ombrellone"></div>
+    <div id="edit-row-omb-alert" style="margin-bottom:6px"></div>
+    <div style="margin-bottom:16px"><button type="button" class="btn btn-primary btn-sm" onclick="saveEditRowOmbrellone()">💾 Salva ombrellone</button></div>
+
+    <!-- SEZIONE CLIENTE -->
     <div class="section-divider">👤 Cliente stagionale <span style="font-size:11px;color:var(--text-light);font-weight:400;text-transform:none;letter-spacing:0">(lascia vuoto per rimuovere)</span></div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Nome</label><input type="text" id="edit-row-nome" class="form-input"></div>
-      <div class="form-group"><label class="form-label">Cognome</label><input type="text" id="edit-row-cognome" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Nome</label><input type="text" id="edit-row-nome" class="form-input" oninput="checkEditRowDirty()"></div>
+      <div class="form-group"><label class="form-label">Cognome</label><input type="text" id="edit-row-cognome" class="form-input" oninput="checkEditRowDirty()"></div>
     </div>
-    <div class="form-group"><label class="form-label">Email</label><input type="email" id="edit-row-email" class="form-input"></div>
-    <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="edit-row-telefono" class="form-input"></div>
+    <div class="form-group"><label class="form-label">Email</label><input type="email" id="edit-row-email" class="form-input" oninput="checkEditRowDirty()"></div>
+    <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="edit-row-telefono" class="form-input" oninput="checkEditRowDirty()"></div>
+    <div class="form-group"><label class="form-label">Note (opzionale)</label><input type="text" id="edit-row-clt-note" class="form-input" placeholder="es. Aggiornamento contatto"></div>
+    <div id="edit-row-clt-alert" style="margin-bottom:6px"></div>
+    <div style="margin-bottom:16px"><button type="button" class="btn btn-primary btn-sm" onclick="saveEditRowCliente()">💾 Salva cliente</button></div>
 
+    <!-- SEZIONE SALDO COIN -->
     <div id="edit-row-saldo-section" class="section-divider hidden">💰 Saldo Coin</div>
     <div id="edit-row-saldo-wrap" class="hidden">
       <div style="margin-bottom:10px">
         <div style="font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Saldo attuale</div>
         <div id="edit-row-saldo-attuale" style="font-size:16px;font-weight:700;color:var(--ocean)">—</div>
       </div>
-      <div class="form-row" style="align-items:flex-end;gap:8px">
-        <div class="form-group" style="flex:1"><label class="form-label">Nuovo saldo</label><input type="number" id="edit-row-saldo-nuovo" class="form-input" step="0.50" min="0" placeholder="0.00"></div>
-        <div class="form-group" style="flex:0;padding-bottom:1px"><button type="button" class="btn btn-outline btn-sm" onclick="applyEditRowSaldo()" style="white-space:nowrap">Applica rettifica</button></div>
-      </div>
-      <div class="form-group"><label class="form-label">Nota rettifica (opzionale)</label><input type="text" id="edit-row-saldo-nota" class="form-input" placeholder="es. Rettifica manuale"></div>
+      <div class="form-group"><label class="form-label">Nuovo saldo</label><input type="number" id="edit-row-saldo-nuovo" class="form-input" step="0.50" min="0" placeholder="0.00"></div>
+      <div class="form-group"><label class="form-label">Nota (opzionale)</label><input type="text" id="edit-row-saldo-nota" class="form-input" placeholder="es. Rettifica manuale"></div>
+      <div style="margin-bottom:16px"><button type="button" class="btn btn-primary btn-sm" onclick="applyEditRowSaldo()">💾 Salva saldo</button></div>
     </div>
 
+    <!-- SEZIONE DISPONIBILITÀ -->
     <div class="section-divider">📅 Disponibilità nel periodo</div>
     <div class="form-group"><label class="form-label">Periodo</label>
       <input type="text" id="edit-row-disp-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="cursor:pointer;background:#fff">
       <input type="hidden" id="edit-row-disp-from">
       <input type="hidden" id="edit-row-disp-to">
     </div>
+    <div class="form-group"><label class="form-label">Note (opzionale)</label><input type="text" id="edit-row-disp-note" class="form-input" placeholder="es. Chiusura per maltempo"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
       <button type="button" class="btn btn-outline btn-sm" onclick="applyEditRowAddDisp()">✓ Aggiungi disponibilità</button>
       <button type="button" class="btn btn-outline btn-sm" onclick="applyEditRowRemoveDisp()">✗ Rimuovi disponibilità</button>
     </div>
 
-    <div class="modal-footer">
-      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-edit-row')">Annulla</button>
-      <button id="edit-row-confirm-btn" class="btn btn-primary btn-sm" onclick="confirmEditRow()">Salva modifiche</button>
+    <!-- FOOTER -->
+    <div class="modal-footer" style="margin-top:8px">
+      <button id="edit-row-close-btn" class="btn btn-primary btn-sm" onclick="closeEditRowModal()">Chiudi</button>
     </div>
   </div>
 </div>

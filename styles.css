@@ -74,6 +74,8 @@ body {
 .btn-primary:hover { background: #1f3240; }
 .btn-coral { background: var(--coral); color: #fff; }
 .btn-coral:hover { background: #c25b3f; }
+.btn-unsaved { background: #E65100 !important; color: #fff !important; animation: pulse-unsaved 1.4s ease-in-out infinite; }
+@keyframes pulse-unsaved { 0%,100%{opacity:1} 50%{opacity:.75} }
 .btn-outline {
   background: transparent; color: var(--ink);
   border: 1px solid var(--border); padding: 11px 21px;
