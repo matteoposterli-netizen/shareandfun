@@ -2362,25 +2362,22 @@ function openEditRowModal(ombId) {
   editRowSnapshot = getEditRowFormValues();
   attachEditRowChangeListeners();
   refreshEditRowConfirmBtn();
-  // Init/reset disponibilità flatpickr
+  // Distruggi e ricrea flatpickr ogni apertura per evitare stato sporco
   const dispInput = document.getElementById('edit-row-disp-picker');
   if (dispInput && typeof flatpickr !== 'undefined') {
-    if (!dispInput._flatpickr) {
-      flatpickr(dispInput, {
-        mode: 'range', dateFormat: 'd/m/Y',
-        locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
-        minDate: currentStabilimento?.data_inizio_stagione,
-        maxDate: currentStabilimento?.data_fine_stagione,
-        onChange(sel) {
-          document.getElementById('edit-row-disp-from').value = sel[0] ? sel[0].toISOString().slice(0,10) : '';
-          document.getElementById('edit-row-disp-to').value = sel[1] ? sel[1].toISOString().slice(0,10) : '';
-        },
-      });
-    } else {
-      dispInput._flatpickr.clear();
-      document.getElementById('edit-row-disp-from').value = '';
-      document.getElementById('edit-row-disp-to').value = '';
-    }
+    if (dispInput._flatpickr) dispInput._flatpickr.destroy();
+    document.getElementById('edit-row-disp-from').value = '';
+    document.getElementById('edit-row-disp-to').value = '';
+    flatpickr(dispInput, {
+      mode: 'range', dateFormat: 'd/m/Y',
+      locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
+      minDate: currentStabilimento?.data_inizio_stagione,
+      maxDate: currentStabilimento?.data_fine_stagione,
+      onChange(sel) {
+        document.getElementById('edit-row-disp-from').value = sel[0] ? sel[0].toISOString().slice(0,10) : '';
+        document.getElementById('edit-row-disp-to').value = sel[1] ? sel[1].toISOString().slice(0,10) : '';
+      },
+    });
   }
   document.getElementById('modal-edit-row').classList.remove('hidden');
 }
