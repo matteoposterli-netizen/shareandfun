@@ -531,10 +531,10 @@ async function reloadAfterMutation() {
 /* ---------- Inner subtabs (massiva / mirata) ---------- */
 
 function switchAvanzateSubtab(sub, btn) {
-  document.querySelectorAll('#config-sub-avanzate .avanzate-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#pren-sub-disponibilita-omb .avanzate-pane').forEach(p => p.classList.remove('active'));
   const pane = document.getElementById('avanzate-pane-' + sub);
   if (pane) pane.classList.add('active');
-  document.querySelectorAll('#config-sub-avanzate .avanzate-subtab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#pren-sub-disponibilita-omb .avanzate-subtab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   if (sub === 'massiva') {
     refreshAvanzateMap();

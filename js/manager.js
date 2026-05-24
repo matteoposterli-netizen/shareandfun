@@ -1103,12 +1103,37 @@ function renderTxList(txs, stab, ombsMap) {
   }).join('');
 }
 
+function toggleSidebarAltro(btn) {
+  const items = document.getElementById('sidebar-altro-items');
+  if (!items) return;
+  const open = items.classList.toggle('open');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  const chevron = btn.querySelector('.sidebar-altro-chevron');
+  if (chevron) chevron.textContent = open ? '▾' : '▸';
+}
+
 function managerTab(tab, btn) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   const panel = document.getElementById('mtab-' + tab);
   panel.classList.add('active');
   document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+
+  const altroTabs = ['transazioni', 'comunicazioni', 'config', 'log'];
+  const altroItems = document.getElementById('sidebar-altro-items');
+  const altroToggle = document.querySelector('.sidebar-altro-toggle');
+  if (altroTabs.includes(tab)) {
+    if (altroItems) altroItems.classList.add('open');
+    if (altroToggle) {
+      altroToggle.setAttribute('aria-expanded', 'true');
+      const chevron = altroToggle.querySelector('.sidebar-altro-chevron');
+      if (chevron) chevron.textContent = '▾';
+      altroToggle.classList.add('active');
+    }
+  } else {
+    if (altroToggle) altroToggle.classList.remove('active');
+  }
+
   if (tab === 'panoramica' && typeof panoramicaInit === 'function') {
     try { panoramicaInit(); } catch (e) { console.error('panoramicaInit failed:', e); }
   }

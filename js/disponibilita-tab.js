@@ -23,6 +23,9 @@ function switchPrenSubtab(name, btn) {
   if (name === 'vedi') {
     initDispView();
   }
+  if (name === 'disponibilita-omb') {
+    if (typeof avanzateInit === 'function') avanzateInit();
+  }
 }
 
 function initDispView() {
