@@ -1019,26 +1019,17 @@
 
           <div id="avanzate-pane-massiva" class="avanzate-pane active">
           <div class="card">
-            <div class="card-header" style="flex-wrap:wrap;gap:12px">
-              <div>
-                <div class="card-title">🗺️ Mappa ombrelloni</div>
-              </div>
-              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                <span style="font-size:12px;color:var(--text-light)">Periodo:</span>
-                <input type="text" id="avanzate-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
-                <input type="hidden" id="avanzate-date-from">
-                <input type="hidden" id="avanzate-date-to">
-              </div>
+            <div class="card-header">
+              <div class="card-title">🗺️ Mappa ombrelloni</div>
             </div>
 
             <div class="avanzate-step-label">Passo 1 — Scegli il periodo e seleziona gli ombrelloni</div>
 
-            <div id="avanzate-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 4px 12px">
-              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="1" onclick="setAvanzateRangePreset(1)">Oggi</button>
-              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="2" onclick="setAvanzateRangePreset(2)">Prossimi 2 giorni</button>
-              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="3" onclick="setAvanzateRangePreset(3)">Prossimi 3 giorni</button>
-              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="7" onclick="setAvanzateRangePreset(7)">Prossimi 7 giorni</button>
-              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-preset="stagione" onclick="setAvanzateRangeStagione()">Tutta la stagione</button>
+            <div style="padding:8px 4px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="font-size:13px;color:var(--text-mid)">Periodo:</span>
+              <input type="text" id="avanzate-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+              <input type="hidden" id="avanzate-date-from">
+              <input type="hidden" id="avanzate-date-to">
             </div>
 
             <div class="beach-map-wrap">

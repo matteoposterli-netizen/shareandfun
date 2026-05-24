@@ -1573,11 +1573,13 @@ body {
 
 /* AVANZATE — bulk bar + scheda ombrellone */
 .avanzate-step-label {
-  font-size: 12px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .6px; color: var(--text-light);
-  padding: 12px 4px 6px;
-  border-top: 1px solid var(--border);
-  margin-top: 4px;
+  font-size: 14px; font-weight: 700;
+  color: var(--ocean);
+  padding: 10px 12px 10px;
+  margin: 4px 0 0;
+  background: rgba(27,108,168,0.07);
+  border-left: 4px solid var(--ocean);
+  border-radius: 0 6px 6px 0;
 }
 .avanzate-selection-bar {
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
