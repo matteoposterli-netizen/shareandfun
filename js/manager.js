@@ -2389,25 +2389,16 @@ function openEditRowModal(ombId) {
   if (!populateEditRowFromData(ombId)) return;
   showAlert('edit-row-alert', '', '');
   checkEditRowDirty();
-  // Ricrea flatpickr ogni apertura — pulisce valore visibile e forza calendario chiuso
-  const dispInput = document.getElementById('edit-row-disp-picker');
-  if (dispInput && typeof flatpickr !== 'undefined') {
-    if (dispInput._flatpickr) dispInput._flatpickr.destroy();
-    dispInput.value = '';
-    document.getElementById('edit-row-disp-from').value = '';
-    document.getElementById('edit-row-disp-to').value = '';
-    const fp = flatpickr(dispInput, {
-      mode: 'range', dateFormat: 'd/m/Y',
-      locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
-      minDate: currentStabilimento?.data_inizio_stagione,
-      maxDate: currentStabilimento?.data_fine_stagione,
-      onReady() { this.close(); },
-      onChange(sel) {
-        document.getElementById('edit-row-disp-from').value = sel[0] ? sel[0].toISOString().slice(0,10) : '';
-        document.getElementById('edit-row-disp-to').value = sel[1] ? sel[1].toISOString().slice(0,10) : '';
-      },
-    });
-    fp.close();
+  // Input date nativi — nessun auto-open, nessun stato sporco tra aperture
+  const dispFrom = document.getElementById('edit-row-disp-from');
+  const dispTo   = document.getElementById('edit-row-disp-to');
+  if (dispFrom && dispTo) {
+    dispFrom.value = '';
+    dispTo.value   = '';
+    const inizio = currentStabilimento?.data_inizio_stagione;
+    const fine   = currentStabilimento?.data_fine_stagione;
+    if (inizio) { dispFrom.min = inizio; dispTo.min = inizio; }
+    if (fine)   { dispFrom.max = fine;   dispTo.max = fine;   }
   }
   document.getElementById('modal-edit-row').classList.remove('hidden');
 }

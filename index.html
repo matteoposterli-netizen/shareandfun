@@ -1877,9 +1877,10 @@
     <!-- SEZIONE DISPONIBILITÀ -->
     <div class="section-divider">📅 Disponibilità nel periodo</div>
     <div class="form-group"><label class="form-label">Periodo</label>
-      <input type="text" id="edit-row-disp-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="cursor:pointer;background:#fff">
-      <input type="hidden" id="edit-row-disp-from">
-      <input type="hidden" id="edit-row-disp-to">
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><label class="form-label" style="font-size:11px;margin-bottom:4px;color:#666">Dal</label><input type="date" id="edit-row-disp-from" class="form-input"></div>
+        <div style="flex:1"><label class="form-label" style="font-size:11px;margin-bottom:4px;color:#666">Al</label><input type="date" id="edit-row-disp-to" class="form-input"></div>
+      </div>
     </div>
     <div class="form-group"><label class="form-label">Note (opzionale)</label><input type="text" id="edit-row-disp-note" class="form-input" placeholder="es. Chiusura per maltempo"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
