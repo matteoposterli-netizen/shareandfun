@@ -795,9 +795,11 @@ function populateClienteSelect() {
     const sel = entries.find(e => e.id === hidden.value);
     if (sel) {
       search.value = formatClienteComboLabel(sel);
+      updateCreditoSaldoBox(sel);
     } else {
       hidden.value = '';
       search.value = '';
+      updateCreditoSaldoBox(null);
     }
   }
   renderClienteComboList(list.classList.contains('hidden') ? '' : search.value);
@@ -828,6 +830,15 @@ function renderClienteComboList(query) {
     </button>`).join('');
 }
 
+function updateCreditoSaldoBox(entry) {
+  const box = document.getElementById('credito-saldo-box');
+  const val = document.getElementById('credito-saldo-value');
+  if (!box || !val) return;
+  if (!entry) { box.classList.add('hidden'); return; }
+  val.textContent = entry.saldoLabel;
+  box.classList.remove('hidden');
+}
+
 function selectClienteCombo(id) {
   const root = document.querySelector('[data-combobox="credito-cliente"]');
   if (!root) return;
@@ -837,6 +848,7 @@ function selectClienteCombo(id) {
   document.getElementById('credito-cliente').value = id;
   document.getElementById('credito-cliente-search').value = formatClienteComboLabel(e);
   document.getElementById('credito-cliente-list').classList.add('hidden');
+  updateCreditoSaldoBox(e);
 }
 
 function initClienteCombobox() {
@@ -847,6 +859,7 @@ function initClienteCombobox() {
 
   search.addEventListener('input', () => {
     document.getElementById('credito-cliente').value = '';
+    updateCreditoSaldoBox(null);
     renderClienteComboList(search.value);
     list.classList.remove('hidden');
   });

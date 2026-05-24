@@ -1763,6 +1763,8 @@ body {
 }
 .combobox-item-saldo { flex-shrink: 0; font-size: 13px; color: var(--text-mid); font-variant-numeric: tabular-nums; }
 .combobox-empty { padding: 14px 12px; font-size: 13px; color: var(--text-light); text-align: center; }
+.credito-saldo-box { margin-top: 8px; padding: 8px 12px; background: rgba(27,108,168,0.07); border: 1px solid rgba(27,108,168,0.18); border-radius: 8px; font-size: 14px; color: var(--ocean); display: flex; align-items: center; gap: 6px; }
+.credito-saldo-box strong { font-weight: 700; }
 
 /* ============================================================
    STAGIONALE — pagina cliente (mobile-first, redesign)
