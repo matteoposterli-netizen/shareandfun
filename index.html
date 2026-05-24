@@ -1007,14 +1007,14 @@
 
         <div id="pren-sub-disponibilita-omb" class="pren-subpanel">
           <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
-            Da qui puoi forzare lo stato degli ombrelloni indipendentemente da quello che dichiara il cliente stagionale: rendere disponibili per sub-affitto, rimuovere disponibilità, modificare l'anagrafica o cancellare un ombrellone dalla mappa.
+            Da qui puoi forzare lo stato degli ombrelloni indipendentemente da quello che dichiara il cliente stagionale: rendere disponibili per sub-affitto o rimuovere disponibilità, sia in modo massivo che giorno per giorno su un singolo ombrellone.
           </div>
 
           <div id="avanzate-save-alert" style="margin-bottom:16px"></div>
 
           <div class="avanzate-subtabs">
             <button class="avanzate-subtab active" data-avanzate-subtab="massiva" onclick="switchAvanzateSubtab('massiva',this)">🗺️ Azione massiva</button>
-            <button class="avanzate-subtab" data-avanzate-subtab="mirata" onclick="switchAvanzateSubtab('mirata',this)">🎯 Azione mirata su ombrellone</button>
+            <button class="avanzate-subtab" data-avanzate-subtab="mirata" onclick="switchAvanzateSubtab('mirata',this)">🎯 Giorno per giorno</button>
           </div>
 
           <div id="avanzate-pane-massiva" class="avanzate-pane active">
@@ -1082,7 +1082,7 @@
               <div class="card-header">
                 <div>
                   <div class="card-title">🎯 Azione mirata su un ombrellone</div>
-                  <div class="card-subtitle">Seleziona un ombrellone per gestire i singoli giorni della stagione, l'anagrafica o il saldo coin del cliente.</div>
+                  <div class="card-subtitle">Seleziona un ombrellone per forzare o rimuovere la disponibilità giorno per giorno</div>
                 </div>
               </div>
 
@@ -1110,15 +1110,6 @@
                   <div class="avanzate-omb-info-cell">
                     <div class="avanzate-omb-info-label">Saldo coin cliente</div>
                     <div class="avanzate-omb-info-value" id="mirata-omb-saldo">–</div>
-                  </div>
-                </div>
-
-                <div class="avanzate-omb-section">
-                  <div class="avanzate-omb-section-title">Anagrafica e cliente</div>
-                  <div style="display:flex;gap:8px;flex-wrap:wrap">
-                    <button class="btn btn-outline btn-sm" onclick="mirataOpenEdit()">✏️ Modifica anagrafica</button>
-                    <button class="btn btn-outline btn-sm" id="mirata-saldo-btn" onclick="mirataAdjustSaldo()">💰 Rettifica saldo coin</button>
-                    <button class="btn btn-danger btn-sm" onclick="mirataDelete()">🗑️ Cancella ombrellone</button>
                   </div>
                 </div>
 
