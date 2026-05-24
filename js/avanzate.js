@@ -743,7 +743,8 @@ async function mirataLoadOmb(ombId) {
   const saldoBtn = document.getElementById('mirata-saldo-btn');
   if (saldoBtn) saldoBtn.disabled = !cliente;
 
-  document.getElementById('mirata-stagione-info').innerHTML =
+  const _infoEl = document.getElementById('mirata-stagione-info');
+  if (_infoEl) _infoEl.innerHTML =
     `Stagione <strong>${formatDate(inizio)} → ${formatDate(fine)}</strong>. I sub-affitti già confermati non sono modificabili da qui (annullali dalla tab "Prenotazioni").`;
 
   mirataRenderDayList();
