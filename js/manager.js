@@ -1057,7 +1057,7 @@ async function loadCreditiAnalytics() {
   document.getElementById('analytics-tot-subaffitti').textContent = totSub;
   document.getElementById('analytics-tot-subaffitti-sub').textContent = totSub === 1 ? 'giornata sub-affittata' : 'giornate sub-affittate';
 
-  analyticsRows = (txs || []).filter(t => t.tipo === 'credito_usato');
+  analyticsRows = txs || [];
   analyticsCtx = { ombById, cliById };
   analyticsPage = 1;
   renderAnalyticsPage();
