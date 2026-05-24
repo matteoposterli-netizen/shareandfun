@@ -736,6 +736,25 @@ body {
    RESPONSIVE
    ======================================================================== */
 
+/* MOBILE DRAWER */
+.hamburger-btn {
+  display: none;
+  align-items: center; justify-content: center;
+  width: 44px; height: 44px;
+  border: none; background: transparent;
+  font-size: 22px; cursor: pointer;
+  color: var(--ink); border-radius: 10px;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.hamburger-btn:hover { background: var(--sand-warm); }
+.drawer-backdrop {
+  position: fixed; inset: 0; z-index: 150;
+  background: rgba(14,27,38,0.45);
+  display: none;
+}
+.drawer-backdrop.open { display: block; }
+
 @media (max-width: 960px) {
   .two-col { grid-template-columns: 1fr; }
   .three-col { grid-template-columns: 1fr 1fr; }
@@ -805,31 +824,40 @@ body {
   /* FORM */
   .form-row { grid-template-columns: 1fr; gap: 0; }
 
-  /* DASHBOARD LAYOUT: sidebar becomes compact top nav-bar */
+  /* DASHBOARD LAYOUT: hamburger drawer on mobile */
   .dash-layout {
-    grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 1fr;
     min-height: calc(100vh - 58px);
     min-height: calc(100dvh - 58px);
   }
+  body.view-manager .hamburger-btn,
+  body.view-admin .hamburger-btn { display: flex; }
   .sidebar {
-    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 4px; padding: 10px 10px;
-    border-right: none; border-bottom: 1px solid var(--border);
-    position: -webkit-sticky; position: sticky; top: 58px; z-index: 90;
-    background: var(--sand); overflow: visible;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 280px; height: 100dvh; z-index: 200;
+    background: var(--sand); border-right: 1px solid var(--border);
+    padding: 20px 12px;
+    display: flex; flex-direction: column; gap: 4px;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 4px 0 24px rgba(14,27,38,0.12);
   }
-  .sidebar-title { display: none; }
+  .sidebar.drawer-open { transform: translateX(0); }
+  .sidebar-title { display: block; }
   .sidebar-item {
-    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-    gap: 4px; width: auto; height: auto; min-width: 0;
-    padding: 8px 4px; border-radius: 10px;
-    font-size: 10.5px; line-height: 1.15; text-align: center;
-    white-space: normal; overflow-wrap: break-word; word-break: break-word;
+    display: flex; flex-direction: row; align-items: center; justify-content: flex-start;
+    gap: 12px; padding: 11px 12px; border-radius: 10px;
+    font-size: 14px; font-weight: 500; text-align: left;
+    white-space: nowrap; overflow-wrap: normal; word-break: normal;
+    width: 100%; height: auto; min-width: 0;
     background: transparent; box-shadow: none;
   }
   .sidebar-item.active { background: #fff; box-shadow: 0 1px 3px rgba(14,27,38,0.06), inset 0 0 0 1px var(--border); }
-  .sidebar-item .icon { font-size: 18px; width: auto; }
-  .sidebar-item .badge { margin: 0 0 0 3px; font-size: 9px; padding: 1px 5px; }
+  .sidebar-item .icon { font-size: 16px; width: 20px; }
+  .sidebar-item .badge { margin-left: auto; font-size: 10px; padding: 2px 7px; }
 
   .main-content { padding: 20px 16px; overflow-x: hidden; overflow-y: visible; min-width: 0; }
 
@@ -951,6 +979,132 @@ body {
     overflow-wrap: anywhere;
     word-break: break-word;
   }
+
+  /* FIX 2 — Data tables: horizontal scroll + nowrap */
+  .data-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+    background:
+      linear-gradient(to right, white 30%, rgba(255,255,255,0)),
+      linear-gradient(to right, rgba(255,255,255,0), white 70%) 0 100%,
+      radial-gradient(farthest-side at 0 50%, rgba(0,0,0,.1), rgba(0,0,0,0)),
+      radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,.1), rgba(0,0,0,0)) 0 100%;
+    background-repeat: no-repeat;
+    background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+    background-attachment: local, local, scroll, scroll;
+  }
+  .data-table {
+    min-width: 600px;
+    width: 100%;
+  }
+  .data-table th,
+  .data-table td {
+    white-space: nowrap;
+  }
+
+  /* FIX 3 — Umbrella map: fix vertical overflow */
+  #manager-map {
+    overflow: visible !important;
+  }
+  #map-grid {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+  #map-free-label,
+  #map-free-count {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .map-date-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* FIX 4 — Stat cards: prevent coin name overflow */
+  .stat-value {
+    font-size: 24px !important;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.2;
+  }
+  .stat-card {
+    min-height: unset;
+  }
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .kpi-card {
+    padding: 16px 14px;
+  }
+
+  /* FIX 5 — General mobile polish */
+
+  /* Config/gestione/prenotazioni/avanzate subtabs: horizontal scroll */
+  .config-subtabs,
+  .pren-subtabs,
+  .avanzate-subtabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding-bottom: 4px;
+  }
+  .config-subtab,
+  .pren-subtab,
+  .avanzate-subtab {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Booking selection panel: stack vertically */
+  .booking-panel-stats {
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13px;
+  }
+
+  /* Range picker: full width on mobile */
+  .flatpickr-input {
+    width: 100% !important;
+    font-size: 16px !important;
+  }
+
+  /* Modal: bottom sheet on small phones */
+  .modal-overlay .modal {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    border-radius: 20px 20px 0 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 90dvh;
+    overflow-y: auto;
+  }
+
+  /* Action grid: single column */
+  .action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Page title: no overflow */
+  .page-title {
+    font-size: 22px;
+    word-break: break-word;
+  }
+
+  /* Buttons in card headers: full width */
+  .card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .card-header .btn {
+    width: 100%;
+  }
 }
 
 /* Medium phones: smoothing fra 768px e 480px */
@@ -969,8 +1123,6 @@ body {
 @media (max-width: 480px) {
   .topnav { padding: 0 12px; }
   .logo { font-size: 16px; }
-  .sidebar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .sidebar-item { font-size: 10.5px; padding: 8px 4px; }
   .hero { padding: 40px 16px 32px; }
   .hero h1 { font-size: 32px; }
   .hero p { font-size: 14px; }
@@ -989,6 +1141,9 @@ body {
   .page-title { font-size: 24px; }
   .user-name { font-size: 28px; }
   .credit-amount { font-size: 34px; }
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ============================================================
