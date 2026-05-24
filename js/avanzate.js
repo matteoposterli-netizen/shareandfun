@@ -356,8 +356,59 @@ async function bulkAvanzateForceDisponibile() {
 async function bulkAvanzateRemoveDisponibilita() {
   if (!avanzateCurrentRange || avanzateSelection.size === 0) return;
   const ids = Array.from(avanzateSelection);
-  const ok = confirm(`Rimuovere lo stato 'libero per sub-affitto' dai ${ids.length} ombrelloni selezionati nel periodo? I sub-affitti già confermati non verranno toccati.`);
+
+  // Cerca sub-affitti nel range per gli ombrelloni selezionati
+  const { data: subAffitti, error: saErr } = await sb.from('disponibilita')
+    .select('id, ombrellone_id, data, nome_prenotazione')
+    .in('ombrellone_id', ids)
+    .gte('data', avanzateCurrentRange.from)
+    .lte('data', avanzateCurrentRange.to)
+    .eq('stato', 'sub_affittato');
+
+  if (saErr) {
+    showAlert('avanzate-save-alert', 'Errore lettura prenotazioni: ' + saErr.message, 'error');
+    return;
+  }
+
+  let confirmMsg = `Rimuovere lo stato 'libero per sub-affitto' dai ${ids.length} ombrelloni selezionati nel periodo?`;
+
+  const subAffittiIds = (subAffitti || []).map(r => r.id);
+
+  if (subAffittiIds.length > 0) {
+    // Raggruppa per nome_prenotazione per mostrare prenotazioni specifiche
+    const byName = {};
+    (subAffitti || []).forEach(r => {
+      const key = r.nome_prenotazione || '(senza nome)';
+      if (!byName[key]) byName[key] = { dates: [], ombIds: new Set() };
+      byName[key].dates.push(r.data);
+      byName[key].ombIds.add(r.ombrellone_id);
+    });
+
+    const bookingLines = Object.entries(byName).map(([nome, info]) => {
+      const sortedDates = info.dates.sort();
+      const dal = formatDate(sortedDates[0]);
+      const al = formatDate(sortedDates[sortedDates.length - 1]);
+      const nOmb = info.ombIds.size;
+      const suffix = nOmb > 1 ? ` (${nOmb} ombrelloni)` : '';
+      const rangeStr = dal === al ? dal : `${dal} → ${al}`;
+      return `• "${nome}": ${rangeStr}${suffix}`;
+    }).join('\n');
+
+    confirmMsg += `\n\nATTENZIONE: le seguenti prenotazioni verranno annullate perché coprono giorni nel periodo selezionato:\n${bookingLines}\n\nI clienti coinvolti riceveranno il rimborso dei coin. Procedere?`;
+  }
+
+  const ok = confirm(confirmMsg);
   if (!ok) return;
+
+  // Annulla sub-affitti prima di rimuovere le disponibilità
+  if (subAffittiIds.length > 0) {
+    const { error: cancelErr } = await sb.rpc('cancel_booking', { p_disp_ids: subAffittiIds });
+    if (cancelErr) {
+      showAlert('avanzate-save-alert', 'Errore annullamento prenotazioni: ' + cancelErr.message, 'error');
+      return;
+    }
+  }
+
   await applyRemoveDisponibilita(ids, avanzateCurrentRange.from, avanzateCurrentRange.to, 'avanzate-save-alert');
   await reloadAfterMutation();
 }
