@@ -256,6 +256,26 @@ function updateAvanzateSelectionBar() {
   const removeBtn = document.getElementById('avanzate-bulk-remove-btn');
   if (forceBtn) forceBtn.disabled = n === 0;
   if (removeBtn) removeBtn.disabled = n === 0;
+
+  // Warning sub-affitti: conta ombrelloni selezionati con almeno un giorno sub-affittato nel range
+  const warnEl = document.getElementById('avanzate-booking-warning');
+  const warnText = document.getElementById('avanzate-booking-warning-text');
+  if (!warnEl || !warnText) return;
+  if (n === 0 || !avanzateCurrentRange?.dispByOmbDate) {
+    warnEl.classList.add('hidden');
+    return;
+  }
+  let countWithBookings = 0;
+  avanzateSelection.forEach(ombId => {
+    const days = avanzateCurrentRange.dispByOmbDate[ombId] || {};
+    if (Object.values(days).some(s => s === 'sub_affittato')) countWithBookings++;
+  });
+  if (countWithBookings > 0) {
+    warnText.textContent = `⚠️ ${countWithBookings} ${countWithBookings === 1 ? 'ombrellone selezionato ha' : 'ombrelloni selezionati hanno'} prenotazioni (sub-affitti) nel periodo — quelle date non verranno toccate.`;
+    warnEl.classList.remove('hidden');
+  } else {
+    warnEl.classList.add('hidden');
+  }
 }
 
 /* ---------- Modal: scheda ombrellone ---------- */

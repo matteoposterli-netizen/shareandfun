@@ -1022,7 +1022,6 @@
             <div class="card-header" style="flex-wrap:wrap;gap:12px">
               <div>
                 <div class="card-title">🗺️ Mappa ombrelloni</div>
-                <div class="card-subtitle">Seleziona gli ombrelloni sulla mappa, poi applica un'azione al gruppo selezionato</div>
               </div>
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                 <span style="font-size:12px;color:var(--text-light)">Periodo:</span>
@@ -1032,25 +1031,14 @@
               </div>
             </div>
 
-            <div id="avanzate-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:14px 4px 12px">
+            <div class="avanzate-step-label">Passo 1 — Scegli il periodo e seleziona gli ombrelloni</div>
+
+            <div id="avanzate-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 4px 12px">
               <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="1" onclick="setAvanzateRangePreset(1)">Oggi</button>
               <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="2" onclick="setAvanzateRangePreset(2)">Prossimi 2 giorni</button>
               <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="3" onclick="setAvanzateRangePreset(3)">Prossimi 3 giorni</button>
               <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="7" onclick="setAvanzateRangePreset(7)">Prossimi 7 giorni</button>
               <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-preset="stagione" onclick="setAvanzateRangeStagione()">Tutta la stagione</button>
-            </div>
-
-            <div class="avanzate-selection-bar" id="avanzate-selection-bar">
-              <span id="avanzate-selection-count" class="avanzate-sel-count">0 selezionati</span>
-              <button type="button" class="btn btn-outline btn-sm" onclick="avanzateSelectAll()">Seleziona tutti</button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="avanzateClearSelection()">Deseleziona tutti</button>
-            </div>
-            <div class="avanzate-bulk-bar">
-              <div style="font-size:12px;color:var(--text-mid)">Azioni sugli ombrelloni selezionati:</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn btn-outline btn-sm" id="avanzate-bulk-force-btn" onclick="bulkAvanzateForceDisponibile()" disabled>✓ Rendi disponibili i selezionati</button>
-                <button class="btn btn-outline btn-sm" id="avanzate-bulk-remove-btn" onclick="bulkAvanzateRemoveDisponibilita()" disabled>✗ Rimuovi disponibilità dai selezionati</button>
-              </div>
             </div>
 
             <div class="beach-map-wrap">
@@ -1073,6 +1061,25 @@
                 </div>
               </div>
             </div><!-- /beach-map-wrap -->
+
+            <div class="avanzate-step-label" style="margin-top:20px">Passo 2 — Applica l'azione agli ombrelloni selezionati</div>
+
+            <div class="avanzate-selection-bar" id="avanzate-selection-bar">
+              <span id="avanzate-selection-count" class="avanzate-sel-count">0 selezionati</span>
+              <button type="button" class="btn btn-outline btn-sm" onclick="avanzateClearSelection()">Deseleziona tutti</button>
+            </div>
+
+            <div id="avanzate-booking-warning" class="hidden" style="margin:0 4px 12px;padding:10px 14px;background:#FFF8E1;border:1px solid #FFD54F;border-radius:var(--radius-sm);font-size:13px;color:#5D4037">
+              <span id="avanzate-booking-warning-text"></span>
+            </div>
+
+            <div class="avanzate-bulk-bar">
+              <div style="font-size:12px;color:var(--text-mid)">Azioni sugli ombrelloni selezionati:</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-outline btn-sm" id="avanzate-bulk-force-btn" onclick="bulkAvanzateForceDisponibile()" disabled>✓ Rendi disponibili i selezionati</button>
+                <button class="btn btn-outline btn-sm" id="avanzate-bulk-remove-btn" onclick="bulkAvanzateRemoveDisponibilita()" disabled>✗ Rimuovi disponibilità dai selezionati</button>
+              </div>
+            </div>
           </div>
           </div><!-- /avanzate-pane-massiva -->
 
