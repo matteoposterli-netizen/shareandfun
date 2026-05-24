@@ -1572,6 +1572,14 @@ body {
 }
 
 /* AVANZATE — bulk bar + scheda ombrellone */
+.avanzate-selection-bar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  padding: 8px 4px 12px;
+}
+.avanzate-sel-count {
+  font-size: 13px; font-weight: 600; color: var(--ocean);
+  min-width: 110px;
+}
 .avanzate-bulk-bar {
   display: flex; justify-content: space-between; align-items: center;
   flex-wrap: wrap; gap: 12px;
@@ -1579,6 +1587,9 @@ body {
   border-radius: var(--radius-sm);
   padding: 10px 14px;
   margin: 0 4px 16px;
+}
+.avanzate-bulk-bar .btn:disabled {
+  opacity: 0.4; cursor: not-allowed;
 }
 .avanzate-preset-btn.active {
   background: var(--ocean); color: #fff; border-color: var(--ocean);

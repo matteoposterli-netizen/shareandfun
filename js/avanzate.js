@@ -15,6 +15,7 @@ let avanzateCurrentRange = null;     // { from, to, dates, dispByOmbDate, rangeD
 let avanzateOmbCurrent = null;       // { id, fila, numero, credito_giornaliero }
 let avanzateClienteCurrent = null;   // { id, nome, ..., credito_saldo } | null
 let avanzateSaldoOrigin = null;      // 'omb' (modal scheda) | 'mirata' (pane mirata)
+let avanzateSelection = new Set();   // ombrellone IDs selezionati per azione massiva
 
 /* ---------- Init / range picker ---------- */
 
@@ -118,6 +119,8 @@ function updateAvanzatePresetActive() {
 /* ---------- Refresh & render ---------- */
 
 async function refreshAvanzateMap() {
+  avanzateSelection.clear();
+  updateAvanzateSelectionBar();
   const from = document.getElementById('avanzate-date-from').value;
   const to = document.getElementById('avanzate-date-to').value || from;
   if (!from || !ombrelloniList || ombrelloniList.length === 0) {
@@ -200,8 +203,9 @@ function renderAvanzateMap(ombs, dispMap) {
         : stato === 'parziale' ? 'libero in parte del periodo'
         : stato === 'sub_affittato' ? 'sub-affittato in parte del periodo'
         : 'occupato dal cliente stagionale';
-      cell.title = `${fila}${o.numero} — ${formatCoin(o.credito_giornaliero)}/gg — ${stateLabel} · clicca per gestire`;
-      cell.onclick = () => openAvanzateOmbModal(o.id);
+      cell.title = `${fila}${o.numero} — ${formatCoin(o.credito_giornaliero)}/gg — ${stateLabel} · clicca per selezionare`;
+      if (avanzateSelection.has(o.id)) cell.classList.add('selected');
+      cell.onclick = () => toggleAvanzateSelection(o.id, cell);
       row.appendChild(cell);
     });
     el.appendChild(row);
@@ -217,6 +221,41 @@ function renderAvanzateMap(ombs, dispMap) {
     });
     el.appendChild(numRow);
   }
+}
+
+/* ---------- Selezione ombrelloni (azione massiva) ---------- */
+
+function toggleAvanzateSelection(ombId, cell) {
+  if (avanzateSelection.has(ombId)) {
+    avanzateSelection.delete(ombId);
+    if (cell) cell.classList.remove('selected');
+  } else {
+    avanzateSelection.add(ombId);
+    if (cell) cell.classList.add('selected');
+  }
+  updateAvanzateSelectionBar();
+}
+
+function avanzateSelectAll() {
+  (ombrelloniList || []).forEach(o => avanzateSelection.add(o.id));
+  document.querySelectorAll('#avanzate-map .ombrellone').forEach(c => c.classList.add('selected'));
+  updateAvanzateSelectionBar();
+}
+
+function avanzateClearSelection() {
+  avanzateSelection.clear();
+  document.querySelectorAll('#avanzate-map .ombrellone').forEach(c => c.classList.remove('selected'));
+  updateAvanzateSelectionBar();
+}
+
+function updateAvanzateSelectionBar() {
+  const n = avanzateSelection.size;
+  const countEl = document.getElementById('avanzate-selection-count');
+  if (countEl) countEl.textContent = n === 0 ? '0 selezionati' : `${n} selezionat${n === 1 ? 'o' : 'i'}`;
+  const forceBtn = document.getElementById('avanzate-bulk-force-btn');
+  const removeBtn = document.getElementById('avanzate-bulk-remove-btn');
+  if (forceBtn) forceBtn.disabled = n === 0;
+  if (removeBtn) removeBtn.disabled = n === 0;
 }
 
 /* ---------- Modal: scheda ombrellone ---------- */
@@ -286,18 +325,20 @@ async function avanzateRemoveCurrentRange() {
 /* ---------- Azioni di massa ---------- */
 
 async function bulkAvanzateForceDisponibile() {
-  if (!avanzateCurrentRange || !ombrelloniList.length) return;
-  const ok = confirm(`Rendere disponibili per sub-affitto TUTTI i ${ombrelloniList.length} ombrelloni nel periodo selezionato? Le date già sub-affittate non verranno toccate.`);
+  if (!avanzateCurrentRange || avanzateSelection.size === 0) return;
+  const ids = Array.from(avanzateSelection);
+  const ok = confirm(`Rendere disponibili per sub-affitto i ${ids.length} ombrelloni selezionati nel periodo indicato? Le date già sub-affittate non verranno toccate.`);
   if (!ok) return;
-  await applyForceDisponibile(ombrelloniList.map(o => o.id), avanzateCurrentRange.dates, 'avanzate-save-alert');
+  await applyForceDisponibile(ids, avanzateCurrentRange.dates, 'avanzate-save-alert');
   await reloadAfterMutation();
 }
 
 async function bulkAvanzateRemoveDisponibilita() {
-  if (!avanzateCurrentRange || !ombrelloniList.length) return;
-  const ok = confirm(`Rimuovere lo stato 'libero per sub-affitto' da TUTTI gli ombrelloni nel periodo? I sub-affitti già confermati non verranno toccati.`);
+  if (!avanzateCurrentRange || avanzateSelection.size === 0) return;
+  const ids = Array.from(avanzateSelection);
+  const ok = confirm(`Rimuovere lo stato 'libero per sub-affitto' dai ${ids.length} ombrelloni selezionati nel periodo? I sub-affitti già confermati non verranno toccati.`);
   if (!ok) return;
-  await applyRemoveDisponibilita(ombrelloniList.map(o => o.id), avanzateCurrentRange.from, avanzateCurrentRange.to, 'avanzate-save-alert');
+  await applyRemoveDisponibilita(ids, avanzateCurrentRange.from, avanzateCurrentRange.to, 'avanzate-save-alert');
   await reloadAfterMutation();
 }
 
@@ -798,6 +839,8 @@ window.avanzateForceCurrentRange = avanzateForceCurrentRange;
 window.avanzateRemoveCurrentRange = avanzateRemoveCurrentRange;
 window.bulkAvanzateForceDisponibile = bulkAvanzateForceDisponibile;
 window.bulkAvanzateRemoveDisponibilita = bulkAvanzateRemoveDisponibilita;
+window.avanzateSelectAll = avanzateSelectAll;
+window.avanzateClearSelection = avanzateClearSelection;
 window.avanzateOpenEdit = avanzateOpenEdit;
 window.avanzateDeleteOmbrellone = avanzateDeleteOmbrellone;
 window.avanzateAdjustSaldo = avanzateAdjustSaldo;
