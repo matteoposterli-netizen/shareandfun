@@ -859,7 +859,7 @@ body {
   .sidebar-item .icon { font-size: 16px; width: 20px; }
   .sidebar-item .badge { margin-left: auto; font-size: 10px; padding: 2px 7px; }
 
-  .main-content { padding: 20px 16px; overflow-x: hidden; overflow-y: visible; min-width: 0; }
+  .main-content { padding: 20px 16px; overflow-x: clip; overflow-y: visible; min-width: 0; }
 
   /* PAGE HEADER */
   .page-header { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 22px; }
@@ -1003,14 +1003,22 @@ body {
     white-space: nowrap;
   }
 
-  /* FIX 3 — Umbrella map: fix vertical overflow */
-  #manager-map {
+  /* FIX 3 — Umbrella map: horizontal scroll */
+  #manager-map,
+  #manager-map .card-body {
     overflow: visible !important;
   }
   #map-grid {
-    overflow-x: auto;
+    overflow-x: auto !important;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
-    max-width: 100%;
+    touch-action: pan-x pan-y;
+    cursor: grab;
+    padding-bottom: 8px;
+  }
+  #map-grid > .map-rows,
+  #map-grid > div {
+    min-width: max-content;
   }
   #map-free-label,
   #map-free-count {
@@ -1020,6 +1028,20 @@ body {
   .map-date-row {
     flex-direction: column;
     gap: 8px;
+  }
+
+  /* Prenotazioni > Vedi disponibilità table */
+  #disp-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+  }
+
+  /* Configurazioni > Avanzate map */
+  #avanzate-map-grid {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
   }
 
   /* FIX 4 — Stat cards: prevent coin name overflow */
