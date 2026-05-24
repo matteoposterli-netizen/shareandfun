@@ -1047,9 +1047,11 @@ async function loadCreditiAnalytics() {
   let totRic = 0, totSpe = 0, totSub = 0;
   (txs || []).forEach(t => {
     const importo = parseFloat(t.importo || 0);
-    if (t.tipo === 'sub_affitto') totSub += 1;
+    if (t.tipo === 'sub_affitto')          totSub += 1;
+    else if (t.tipo === 'sub_affitto_annullato') totSub = Math.max(0, totSub - 1);
     else if (t.tipo === 'credito_ricevuto') totRic += importo;
-    else if (t.tipo === 'credito_usato') totSpe += importo;
+    else if (t.tipo === 'credito_revocato') totRic = Math.max(0, totRic - importo);
+    else if (t.tipo === 'credito_usato')    totSpe += importo;
   });
 
   document.getElementById('analytics-tot-ricevuti').textContent = formatCoin(totRic);
