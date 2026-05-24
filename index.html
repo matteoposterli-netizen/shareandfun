@@ -1871,6 +1871,7 @@
       </div>
       <div class="form-group"><label class="form-label">Nuovo saldo</label><input type="number" id="edit-row-saldo-nuovo" class="form-input" step="0.50" min="0" placeholder="0.00"></div>
       <div class="form-group"><label class="form-label">Nota (opzionale)</label><input type="text" id="edit-row-saldo-nota" class="form-input" placeholder="es. Rettifica manuale"></div>
+      <div id="edit-row-saldo-alert" style="margin-bottom:6px"></div>
       <div style="margin-bottom:16px"><button type="button" class="btn btn-primary btn-sm" onclick="applyEditRowSaldo()">💾 Salva saldo</button></div>
     </div>
 
@@ -1883,8 +1884,9 @@
       </div>
     </div>
     <div class="form-group"><label class="form-label">Note (opzionale)</label><input type="text" id="edit-row-disp-note" class="form-input" placeholder="es. Chiusura per maltempo"></div>
+    <div id="edit-row-disp-alert" style="margin-bottom:6px"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-      <button type="button" class="btn btn-outline btn-sm" onclick="applyEditRowAddDisp()">✓ Aggiungi disponibilità</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="applyEditRowAddDisp()">💾 Aggiungi disponibilità</button>
       <button type="button" class="btn btn-outline btn-sm" onclick="applyEditRowRemoveDisp()">✗ Rimuovi disponibilità</button>
     </div>
 

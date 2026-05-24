@@ -2364,7 +2364,7 @@ function populateEditRowFromData(ombId) {
   editRowCltSnapshot = getEditRowCltValues();
   // Clear per-section notes and alerts
   ['edit-row-omb-note','edit-row-clt-note'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  ['edit-row-omb-alert','edit-row-clt-alert'].forEach(id => showAlert(id, '', ''));
+  ['edit-row-omb-alert','edit-row-clt-alert','edit-row-saldo-alert','edit-row-disp-alert'].forEach(id => showAlert(id, '', ''));
   // Saldo section: visible only when a client exists
   const hasCl = !!cliente;
   document.getElementById('edit-row-saldo-section').classList.toggle('hidden', !hasCl);
@@ -2389,6 +2389,10 @@ function openEditRowModal(ombId) {
   if (!populateEditRowFromData(ombId)) return;
   showAlert('edit-row-alert', '', '');
   checkEditRowDirty();
+  // Event delegation: aggiorna Chiudi su qualsiasi input nel modal
+  const _modal = document.getElementById('modal-edit-row');
+  _modal.removeEventListener('input', checkEditRowDirty);
+  _modal.addEventListener('input', checkEditRowDirty);
   // Input date nativi — nessun auto-open, nessun stato sporco tra aperture
   const dispFrom = document.getElementById('edit-row-disp-from');
   const dispTo   = document.getElementById('edit-row-disp-to');
@@ -2503,10 +2507,10 @@ async function applyEditRowSaldo() {
     stabilimento_id: currentStabilimento.id, cliente_id: clId,
     ombrellone_id: cliente.ombrellone_id || null, tipo, importo: delta, nota,
   });
-  if (txErr) { showAlert('edit-row-alert', 'Errore transazione: ' + txErr.message, 'error'); return; }
+  if (txErr) { showAlert('edit-row-saldo-alert', 'Errore transazione: ' + txErr.message, 'error'); return; }
   const { error: clErr } = await sb.from('clienti_stagionali').update({ credito_saldo: nuovo.toFixed(2) }).eq('id', clId);
-  if (clErr) { showAlert('edit-row-alert', 'Errore aggiornamento saldo: ' + clErr.message, 'error'); return; }
-  await refreshEditRowAfterSave(ombId);
+  if (clErr) { showAlert('edit-row-saldo-alert', 'Errore aggiornamento saldo: ' + clErr.message, 'error'); return; }
+  await refreshEditRowAfterSave(ombId, { alertId: 'edit-row-saldo-alert' });
 }
 
 async function applyEditRowAddDisp() {
@@ -2514,13 +2518,13 @@ async function applyEditRowAddDisp() {
   const to = document.getElementById('edit-row-disp-to').value;
   const ombId = document.getElementById('edit-row-omb-id').value;
   const nota = (document.getElementById('edit-row-disp-note')?.value || '').trim();
-  if (!from || !to) { showAlert('edit-row-alert', 'Seleziona prima un periodo.', 'error'); return; }
+  if (!from || !to) { showAlert('edit-row-disp-alert', 'Seleziona prima un periodo.', 'error'); return; }
   const dates = getDatesInRange(from, to);
   let msg = `Aggiungere ${dates.length} giorno${dates.length !== 1 ? 'i' : ''} di disponibilità (${formatDate(from)} → ${formatDate(to)})?`;
   if (nota) msg += `\nNota: ${nota}`;
   if (!confirm(msg)) return;
-  await applyForceDisponibile([ombId], dates, 'edit-row-alert');
-  await refreshEditRowAfterSave(ombId, { alertId: 'edit-row-alert' });
+  await applyForceDisponibile([ombId], dates, 'edit-row-disp-alert');
+  await refreshEditRowAfterSave(ombId, { alertId: 'edit-row-disp-alert' });
 }
 
 async function applyEditRowRemoveDisp() {
@@ -2528,13 +2532,13 @@ async function applyEditRowRemoveDisp() {
   const to = document.getElementById('edit-row-disp-to').value;
   const ombId = document.getElementById('edit-row-omb-id').value;
   const nota = (document.getElementById('edit-row-disp-note')?.value || '').trim();
-  if (!from || !to) { showAlert('edit-row-alert', 'Seleziona prima un periodo.', 'error'); return; }
+  if (!from || !to) { showAlert('edit-row-disp-alert', 'Seleziona prima un periodo.', 'error'); return; }
   const { data: subAffitti, error: saErr } = await sb.from('disponibilita')
     .select('id, data, nome_prenotazione')
     .eq('ombrellone_id', ombId)
     .gte('data', from).lte('data', to)
     .eq('stato', 'sub_affittato');
-  if (saErr) { showAlert('edit-row-alert', 'Errore lettura prenotazioni: ' + saErr.message, 'error'); return; }
+  if (saErr) { showAlert('edit-row-disp-alert', 'Errore lettura prenotazioni: ' + saErr.message, 'error'); return; }
   const subAffittiIds = (subAffitti || []).map(r => r.id);
   let msg = `Rimuovere la disponibilità dal ${formatDate(from)} al ${formatDate(to)}?`;
   if (nota) msg += `\nNota: ${nota}`;
@@ -2555,10 +2559,10 @@ async function applyEditRowRemoveDisp() {
   if (!confirm(msg)) return;
   if (subAffittiIds.length > 0) {
     const { error: cancelErr } = await sb.rpc('cancel_booking', { p_disp_ids: subAffittiIds });
-    if (cancelErr) { showAlert('edit-row-alert', 'Errore annullamento prenotazioni: ' + cancelErr.message, 'error'); return; }
+    if (cancelErr) { showAlert('edit-row-disp-alert', 'Errore annullamento prenotazioni: ' + cancelErr.message, 'error'); return; }
   }
-  await applyRemoveDisponibilita([ombId], from, to, 'edit-row-alert');
-  await refreshEditRowAfterSave(ombId, { alertId: 'edit-row-alert' });
+  await applyRemoveDisponibilita([ombId], from, to, 'edit-row-disp-alert');
+  await refreshEditRowAfterSave(ombId, { alertId: 'edit-row-disp-alert' });
 }
 
 // Explicit global exports for HTML inline handlers
