@@ -268,6 +268,17 @@
         <!-- ============ OVERVIEW (default) ============ -->
         <div id="pano-overview">
 
+          <div id="pano-empty-state" class="hidden" style="text-align:center;padding:60px 20px">
+            <div style="font-size:48px;margin-bottom:16px">☂️</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:26px;margin-bottom:10px;color:var(--text-dark)">Il tuo stabilimento è pronto</div>
+            <div style="font-size:15px;color:var(--text-mid);max-width:440px;margin:0 auto 24px;line-height:1.6">
+              Aggiungi i tuoi ombrelloni per iniziare a usare SpiaggiaMia. Puoi farlo uno alla volta o importarli in massa con Excel.
+            </div>
+            <button class="btn btn-primary" onclick="managerTab('gestione', document.querySelector('.sidebar-item[onclick*=gestione]'))">
+              ☂️ Vai a Ombrelloni e Clienti →
+            </button>
+          </div>
+
           <div class="page-header">
             <div>
               <div class="page-title">Panoramica Stabilimento <span id="pano-stab-nome"></span></div>
@@ -445,6 +456,20 @@
         </div>
 
         <div id="gestione-sub-anagrafica" class="config-subpanel active">
+
+        <!-- ONBOARDING BANNER — visibile solo se zero ombrelloni -->
+        <div id="onboarding-banner" class="onboarding-banner hidden">
+          <div class="onboarding-banner-inner">
+            <div class="onboarding-banner-icon">🏖️</div>
+            <div class="onboarding-banner-body">
+              <div class="onboarding-banner-title">Inizia aggiungendo i tuoi ombrelloni</div>
+              <div class="onboarding-banner-sub">
+                Usa il pulsante <strong>"+ Aggiungi"</strong> per inserirli uno a uno, oppure carica tutto in una volta con il file Excel.
+                Una volta caricati, potrai invitare i tuoi clienti stagionali via email.
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Azioni: aggiungi singolo + Excel -->
         <div class="action-grid">

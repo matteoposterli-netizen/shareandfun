@@ -2890,3 +2890,34 @@ body:has(#view-stagionale.active) .topnav { display: none; }
 .cancella-btn-danger:hover,
 .danger-zone .btn-danger:hover { background: #b91c1c; color: #fff; }
 .cancella-btn-danger:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── ONBOARDING BANNER ─────────────────────────────────── */
+.onboarding-banner {
+  background: linear-gradient(135deg, #EBF5FF 0%, #F0F8FF 100%);
+  border: 1.5px solid #B8D9F5;
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+.onboarding-banner-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.onboarding-banner-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: 2px;
+}
+.onboarding-banner-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 6px;
+}
+.onboarding-banner-sub {
+  font-size: 13px;
+  color: var(--text-mid);
+  line-height: 1.6;
+}

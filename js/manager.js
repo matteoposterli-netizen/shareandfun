@@ -328,6 +328,9 @@ async function loadManagerData() {
   const linkScarica = document.getElementById('link-scarica-excel');
   if (linkScarica) linkScarica.textContent = ombrelloniList.length ? '📥 Scarica Excel con i dati attuali' : '📥 Scarica template Excel di esempio';
 
+  const onboardingBanner = document.getElementById('onboarding-banner');
+  if (onboardingBanner) onboardingBanner.classList.toggle('hidden', ombrelloniList.length > 0);
+
   const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
   const { data: txWeek } = await sb.from('transazioni').select('importo').eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_ricevuto').gte('created_at', weekAgo.toISOString());
   const totCrediti = (txWeek || []).reduce((s, t) => s + parseFloat(t.importo), 0);

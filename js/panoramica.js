@@ -123,7 +123,11 @@ async function panoramicaLoad() {
   const topT = document.querySelector('[data-coin-top-title]');
   if (topT) topT.textContent = `Top 5 ombrelloni — ${coinName(currentStabilimento)}`;
 
-  if (!ombrelloniList || !ombrelloniList.length) {
+  const emptyState = document.getElementById('pano-empty-state');
+  const hasOmbrelloni = !!(ombrelloniList && ombrelloniList.length);
+  if (emptyState) emptyState.classList.toggle('hidden', hasOmbrelloni);
+
+  if (!hasOmbrelloni) {
     ['pano-kpi-disp','pano-kpi-pren','pano-kpi-distr','pano-kpi-spent'].forEach(id => {
       const el = document.getElementById(`${id}-val`); if (el) el.textContent = '0';
     });
