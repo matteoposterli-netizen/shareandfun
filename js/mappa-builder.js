@@ -38,7 +38,7 @@ function setModalita(tipo) {
 }
 
 function updateCell(r, c) {
-  const el = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+  const el = document.querySelector(`#mappa-grid-step2 [data-r="${r}"][data-c="${c}"], #mappa-grid-step1 [data-r="${r}"][data-c="${c}"]`);
   if (!el) return;
   const tipo = mappaState.grid[r][c];
   el.className = `mappa-cell tipo-${tipo}`;
@@ -69,7 +69,6 @@ function setCellTipo(r, c, tipo) {
 
 let _mappaDragging = false;
 
-// Aggiunge le label BAR (top) e MARE (bottom) intorno a un elemento griglia
 function _addBarMareLabels(gridEl) {
   if (!gridEl || !gridEl.parentElement) return;
   const parent = gridEl.parentElement;
@@ -161,10 +160,20 @@ function renderMappaStep2() {
         input.type = 'text';
         input.className = 'codice-input';
         input.id = `codice-input-${r}-${c}`;
-        input.placeholder = `es. ${String.fromCharCode(65 + Math.floor(idx / 10))}${idx % 10 || 10}`;
-        input.value = mappaState.codici[`${r}_${c}`] || '';
+        input.placeholder = `es. A${idx}`;
+        // IMPORTANTE: leggi il valore corrente dal DOM dell'input se esiste già,
+        // così i valori già digitati dall'utente non vanno persi al re-render
+        const existingInput = document.getElementById(`codice-input-${r}-${c}`);
+        const currentVal = existingInput ? existingInput.value : (mappaState.codici[`${r}_${c}`] || '');
+        input.value = currentVal;
+        // Sincronizza subito codici con il valore attuale (anche se non digitato ora)
+        if (currentVal.trim()) {
+          mappaState.codici[`${r}_${c}`] = currentVal;
+        }
         input.addEventListener('input', () => {
           mappaState.codici[`${r}_${c}`] = input.value;
+          // Aggiorna il banner errore in tempo reale
+          _aggiornaCounterMancanti();
           const cellEl = document.querySelector(`#mappa-grid-step2 [data-r="${r}"][data-c="${c}"]`);
           if (cellEl) {
             const cod = input.value.trim();
@@ -174,11 +183,38 @@ function renderMappaStep2() {
               cellEl.classList.add('selected');
             }
           }
+          // Rimuovi evidenziazione errore dalla riga quando l'utente inizia a digitare
+          row.classList.remove('codice-row-error');
+          input.classList.remove('codice-input-error');
         });
         row.appendChild(pos);
         row.appendChild(input);
         table.appendChild(row);
       }
+    }
+  }
+  _aggiornaCounterMancanti();
+}
+
+// Aggiorna il counter "N ombrelloni senza nome" in tempo reale
+function _aggiornaCounterMancanti() {
+  let missing = 0;
+  for (let r = 0; r < MAPPA_ROWS; r++) {
+    for (let c = 0; c < MAPPA_COLS; c++) {
+      if (mappaState.grid[r][c] === CELL_TIPO.OMBRELLONE) {
+        const val = (mappaState.codici[`${r}_${c}`] || '').trim();
+        if (!val) missing++;
+      }
+    }
+  }
+  const el = document.getElementById('mappa-missing-counter');
+  if (el) {
+    if (missing > 0) {
+      el.textContent = `${missing} ombrelon${missing > 1 ? 'i' : 'e'} ancora senz${missing > 1 ? 'a' : "'"}a nome`;
+      el.style.display = '';
+    } else {
+      el.textContent = '✓ Tutti i nomi compilati';
+      el.style.cssText = 'display:inline-block;color:var(--green);font-weight:600;font-size:12px;padding:4px 10px;background:var(--green-light);border-radius:6px';
     }
   }
 }
@@ -229,13 +265,31 @@ function validateCodici() {
   for (let r = 0; r < MAPPA_ROWS; r++) {
     for (let c = 0; c < MAPPA_COLS; c++) {
       if (mappaState.grid[r][c] === CELL_TIPO.OMBRELLONE) {
-        ombrelloni.push({ r, c, codice: (mappaState.codici[`${r}_${c}`] || '').trim() });
+        // Leggi anche il valore attuale dall'input DOM (se step 2 è attivo)
+        const inputEl = document.getElementById(`codice-input-${r}-${c}`);
+        const val = inputEl ? inputEl.value.trim() : (mappaState.codici[`${r}_${c}`] || '').trim();
+        // Sincronizza codici con il DOM
+        if (val) mappaState.codici[`${r}_${c}`] = val;
+        ombrelloni.push({ r, c, codice: val });
       }
     }
   }
   const errors = [];
   const vuoti = ombrelloni.filter(o => !o.codice);
-  if (vuoti.length) errors.push(`${vuoti.length} ombrelloni senza nome`);
+  if (vuoti.length) {
+    errors.push(`${vuoti.length} ombrelon${vuoti.length > 1 ? 'i' : 'e'} senz${vuoti.length > 1 ? 'a' : "a"} nome`);
+    // Evidenzia e scrolla al primo mancante
+    vuoti.forEach((o, idx) => {
+      const rowEl = document.getElementById(`codice-row-${o.r}-${o.c}`);
+      const inputEl = document.getElementById(`codice-input-${o.r}-${o.c}`);
+      if (rowEl) rowEl.classList.add('codice-row-error');
+      if (inputEl) inputEl.classList.add('codice-input-error');
+      if (idx === 0 && inputEl) {
+        inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => inputEl.focus(), 300);
+      }
+    });
+  }
   const codiciList = ombrelloni.map(o => o.codice).filter(Boolean);
   const duplicati = codiciList.filter((v, i) => codiciList.indexOf(v) !== i);
   if (duplicati.length) errors.push(`Nomi duplicati: ${[...new Set(duplicati)].join(', ')}`);
@@ -248,6 +302,7 @@ async function salvaMappaStabilimento(stabilimentoId) {
 
   const btn = document.getElementById('btn-mappa-salva');
   if (btn) { btn.disabled = true; btn.textContent = 'Salvataggio…'; }
+  showMappaError('');
 
   const ombrelloniData = [];
   const passerelleData = [];
@@ -255,9 +310,12 @@ async function salvaMappaStabilimento(stabilimentoId) {
   for (let r = 0; r < MAPPA_ROWS; r++) {
     for (let c = 0; c < MAPPA_COLS; c++) {
       if (mappaState.grid[r][c] === CELL_TIPO.OMBRELLONE) {
+        // Leggi dal DOM per sicurezza
+        const inputEl = document.getElementById(`codice-input-${r}-${c}`);
+        const codice = inputEl ? inputEl.value.trim() : (mappaState.codici[`${r}_${c}`] || '').trim();
         ombrelloniData.push({
           stabilimento_id: stabilimentoId,
-          codice: mappaState.codici[`${r}_${c}`].trim(),
+          codice,
           pos_x: c,
           pos_y: r,
           credito_giornaliero: 10.00
@@ -293,7 +351,6 @@ async function salvaMappaStabilimento(stabilimentoId) {
 
 function mostraMappaBuilder(stabilimentoId) {
   _mappaStabilimentoId = stabilimentoId;
-  // Rimuovi active da tutti i view + rimuovi inline display:none che prevale sul CSS
   document.querySelectorAll('.view').forEach(v => {
     v.classList.remove('active');
     v.style.display = '';
@@ -330,14 +387,12 @@ async function checkOnboardingMappa(stabilimentoId) {
 
 // ============================================================
 // OVERRIDE renderManagerMap — layout griglia pos_x/pos_y
-// Caricato dopo manager.js, sovrascrive la funzione flat-list.
 // ============================================================
 function renderManagerMap(ombs, dispMap) {
   const el = document.getElementById('manager-map');
   el.innerHTML = '';
   if (!ombs.length) return;
 
-  // Verifica se ci sono posizioni significative (non tutti a 0,0)
   const uniquePos = new Set(ombs.map(o => `${o.pos_x || 0}_${o.pos_y || 0}`));
   const hasGrid = uniquePos.size > 1 || ombs.length === 1;
 
@@ -361,9 +416,8 @@ function renderManagerMap(ombs, dispMap) {
     const selectSuffix = isSelected
       ? ' — selezionato, clicca per rimuoverlo dalla prenotazione'
       : ' — clicca per aggiungerlo alla prenotazione';
-    if (stato === 'libero') {
-      hint = ' — libero per tutto il periodo' + selectSuffix;
-    } else if (stato === 'combinazione') {
+    if (stato === 'libero') hint = ' — libero per tutto il periodo' + selectSuffix;
+    else if (stato === 'combinazione') {
       const covers = (currentMapRange?.combinationCovers || {})[o.id] || [];
       const days = covers.map(fmtDay).join(', ');
       const extra = freeDays.filter(d => !covers.includes(d));
@@ -372,23 +426,19 @@ function renderManagerMap(ombs, dispMap) {
     } else if (stato === 'parziale') {
       const days = freeDays.map(fmtDay).join(', ');
       hint = ` — libero ${freeDays.length} giorn${freeDays.length === 1 ? 'o' : 'i'}: ${days}` + selectSuffix;
-    } else if (stato === 'sub_affittato') {
-      hint = ' — sub-affittato';
-    }
+    } else if (stato === 'sub_affittato') hint = ' — sub-affittato';
     cell.title = `${o.codice} — ${formatCoin(o.credito_giornaliero)}/gg${hint}`;
     cell.onclick = () => toggleMapOmbSelection(o, stato);
     return cell;
   };
 
   if (hasGrid) {
-    // Layout griglia usando pos_x/pos_y
     const byPos = {};
     ombs.forEach(o => { byPos[`${o.pos_x || 0}_${o.pos_y || 0}`] = o; });
     const passerelle = new Set((currentStabilimento?.mappa_passerelle || []).map(p => `${p.x}_${p.y}`));
     const maxX = Math.max(...ombs.map(o => o.pos_x || 0));
     const maxY = Math.max(...ombs.map(o => o.pos_y || 0));
 
-    // Label BAR (top = y=0 = lato bar)
     const barDiv = document.createElement('div');
     barDiv.className = 'bar-label';
     barDiv.textContent = 'BAR';
@@ -419,14 +469,11 @@ function renderManagerMap(ombs, dispMap) {
     }
     el.appendChild(mapRows);
 
-    // Label MARE (bottom = y=maxY = lato mare)
     const mareDiv = document.createElement('div');
     mareDiv.className = 'sea-label';
     mareDiv.textContent = 'MARE';
     el.appendChild(mareDiv);
-
   } else {
-    // Fallback: lista flat per ombrelloni aggiunti manualmente senza layout
     const sorted = ombs.slice().sort((a, b) => (a.codice || '').localeCompare(b.codice || '', 'it', { numeric: true }));
     const mapRows = document.createElement('div');
     mapRows.className = 'map-rows';
