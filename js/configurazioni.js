@@ -17,6 +17,8 @@ function switchConfigSubtab(sub, btn) {
     if (typeof loadRegoleStato === 'function') loadRegoleStato();
     if (typeof loadBackupList === 'function') loadBackupList();
   }
+  if (sub === 'avanzate' && typeof avanzateInit === 'function') avanzateInit();
+  if (sub === 'account' && typeof accountLoad === 'function') accountLoad();
 }
 
 /* ---------- Stagione: load/save ---------- */

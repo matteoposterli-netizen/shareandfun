@@ -629,6 +629,7 @@
         <div class="config-subtabs">
           <button class="config-subtab active" data-subtab="stagione" onclick="switchConfigSubtab('stagione',this)">🗓️ Stagione</button>
           <button class="config-subtab" data-subtab="email-sub" onclick="switchConfigSubtab('email-sub',this)">✉️ Email</button>
+          <button class="config-subtab" data-subtab="account" onclick="switchConfigSubtab('account',this)">👤 Account</button>
         </div>
 
         <!-- STAGIONE SUBTAB -->
@@ -890,6 +891,83 @@
 
         </div><!-- /config-sub-email-sub -->
 
+        <!-- ACCOUNT SUBTAB -->
+        <div id="config-sub-account" class="config-subpanel">
+
+          <!-- Anagrafica -->
+          <div class="card" style="margin-bottom:24px">
+            <div class="card-header">
+              <div>
+                <div class="card-title">👤 Dati del tuo account</div>
+                <div class="card-subtitle">Modifica le informazioni del tuo profilo.</div>
+              </div>
+            </div>
+            <div id="account-save-alert" style="margin-bottom:12px"></div>
+            <div style="padding:0 4px 8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+              <div class="form-group" style="margin:0">
+                <label class="form-label" for="account-nome">Nome *</label>
+                <input type="text" id="account-nome" class="form-input" maxlength="100" placeholder="es. Mario">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label class="form-label" for="account-cognome">Cognome *</label>
+                <input type="text" id="account-cognome" class="form-input" maxlength="100" placeholder="es. Rossi">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label class="form-label" for="account-telefono">Telefono</label>
+                <input type="tel" id="account-telefono" class="form-input" maxlength="30" placeholder="es. +39 333 1234567">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label class="form-label" for="account-email">Email (non modificabile)</label>
+                <input type="email" id="account-email" class="form-input" readonly style="background:var(--sand);color:var(--text-light);cursor:default">
+              </div>
+            </div>
+            <div style="padding:4px 4px 8px">
+              <button class="btn btn-primary btn-sm" id="btn-account-save" onclick="accountSaveProfilo()">Salva modifiche</button>
+            </div>
+          </div>
+
+          <!-- Cambio password -->
+          <div class="card" style="margin-bottom:24px">
+            <div class="card-header">
+              <div>
+                <div class="card-title">🔑 Cambia password</div>
+                <div class="card-subtitle">Imposta una nuova password per il tuo account.</div>
+              </div>
+            </div>
+            <div id="account-pw-alert" style="margin-bottom:12px"></div>
+            <div style="padding:0 4px 8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+              <div class="form-group" style="margin:0">
+                <label class="form-label" for="account-new-password">Nuova password</label>
+                <input type="password" id="account-new-password" class="form-input" minlength="6" autocomplete="new-password" placeholder="Almeno 6 caratteri">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label class="form-label" for="account-new-password2">Conferma nuova password</label>
+                <input type="password" id="account-new-password2" class="form-input" minlength="6" autocomplete="new-password" placeholder="Ripeti la password">
+              </div>
+            </div>
+            <div style="padding:4px 4px 8px">
+              <button class="btn btn-primary btn-sm" id="btn-account-pw" onclick="accountChangePassword()">Aggiorna password</button>
+            </div>
+          </div>
+
+          <!-- Zona pericolosa -->
+          <div class="card reset-card">
+            <div class="card-header">
+              <div>
+                <div class="card-title" style="color:var(--coral)">⚠️ Zona pericolosa</div>
+                <div class="card-subtitle">Operazioni irreversibili sull'account.</div>
+              </div>
+            </div>
+            <div style="padding:0 4px 8px">
+              <div class="alert alert-coral" style="font-size:13px;margin-bottom:16px">
+                La cancellazione elimina definitivamente <strong>tutti i tuoi dati</strong>: stabilimento, ombrelloni, clienti stagionali, prenotazioni, transazioni e backup. <strong>Non è recuperabile.</strong>
+              </div>
+              <button class="btn btn-danger btn-sm" onclick="openCancellaAccountModal()">🗑️ Elimina account definitivamente</button>
+            </div>
+          </div>
+
+        </div><!-- /config-sub-account -->
+
         <!-- AVANZATE SUBTAB: azioni gestore (massiva su mappa / mirata su singolo ombrellone) -->
       </div>
 
@@ -1138,25 +1216,6 @@
               </div>
             </div>
           </div><!-- /avanzate-pane-mirata -->
-
-          <div class="avanzate-section danger-zone" id="avanzate-danger-zone">
-            <div class="section-header danger-header">
-              <h3>⚠️ Zona pericolosa</h3>
-            </div>
-            <div class="danger-zone-body">
-              <p class="danger-desc">
-                Cancella definitivamente il tuo account, lo stabilimento
-                <strong id="danger-stab-nome"></strong> e tutti i dati collegati:
-                ombrelloni, clienti stagionali, disponibilità, transazioni,
-                bozze email e log attività.
-                <br><strong>Questa operazione è irreversibile.</strong>
-              </p>
-              <button class="btn btn-danger" id="btn-apri-cancella-account"
-                      onclick="openCancellaAccountModal()">
-                🗑 Elimina account e tutti i dati
-              </button>
-            </div>
-          </div>
 
         </div><!-- /pren-sub-disponibilita-omb -->
 
@@ -2323,55 +2382,21 @@
   </div>
 </div>
 
-<!-- ===== MODAL CANCELLA ACCOUNT ===== -->
+<!-- CANCELLA ACCOUNT — modal conferma -->
 <div id="modal-cancella-account" class="modal-overlay hidden">
   <div class="modal" style="max-width:480px">
-
-    <!-- STEP 1: Avviso iniziale -->
-    <div id="cancella-step1">
-      <div class="modal-title" style="color:#dc2626">⚠️ Stai per eliminare il tuo account</div>
-      <p style="font-size:14px;color:var(--text-mid);margin:12px 0">
-        Verranno cancellati <strong>definitivamente</strong>:
-      </p>
-      <ul id="cancella-summary" style="font-size:13px;line-height:2;color:var(--text-dark);padding-left:20px"></ul>
-      <p style="font-size:13px;color:#dc2626;font-weight:600;margin-top:12px">
-        Non sarà possibile recuperare i dati dopo la cancellazione.
-      </p>
-      <div class="modal-footer">
-        <button class="btn btn-outline btn-sm" onclick="closeCancellaAccountModal()">Annulla</button>
-        <button class="btn btn-sm cancella-btn-danger" onclick="cancellaStep2()">Continua →</button>
-      </div>
+    <div class="modal-title" style="color:var(--coral)">Conferma finale</div>
+    <div class="modal-sub">Digita <strong>ELIMINA</strong> nel campo sottostante per confermare la cancellazione definitiva di tutti i dati.</div>
+    <div id="cancella-account-alert" style="margin-top:12px"></div>
+    <div class="form-group" style="margin-top:16px">
+      <input type="text" id="cancella-account-input" class="form-input" autocomplete="off"
+             placeholder="ELIMINA" oninput="cancellaAccountCheckMatch()">
     </div>
-
-    <!-- STEP 2: Digita ELIMINA per confermare -->
-    <div id="cancella-step2" style="display:none">
-      <div class="modal-title" style="color:#dc2626">Conferma finale</div>
-      <p style="font-size:14px;color:var(--text-mid);margin:12px 0">
-        Digita <strong>ELIMINA</strong> nel campo sottostante per confermare
-        la cancellazione di tutti i dati.
-      </p>
-      <input type="text" id="cancella-confirm-input" class="form-input"
-             placeholder="Digita ELIMINA"
-             oninput="updateCancellaBtn()"
-             style="width:100%;margin-bottom:12px">
-      <div id="cancella-error" class="alert alert-coral" style="display:none;margin-bottom:12px"></div>
-      <div class="modal-footer">
-        <button class="btn btn-outline btn-sm" onclick="closeCancellaAccountModal()">Annulla</button>
-        <button class="btn btn-sm cancella-btn-danger" id="btn-confirm-cancella"
-                onclick="eseguiCancellaAccount()" disabled>
-          Elimina definitivamente
-        </button>
-      </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-cancella-account')">Annulla</button>
+      <button class="btn btn-danger btn-sm" id="btn-cancella-account-confirm"
+              onclick="cancellaAccountExecute()" disabled>Elimina definitivamente</button>
     </div>
-
-    <!-- STEP 3: Loading -->
-    <div id="cancella-step3" style="display:none;text-align:center;padding:24px 0">
-      <div style="font-size:32px;margin-bottom:12px">⏳</div>
-      <p style="font-size:14px;color:var(--text-mid)">
-        Cancellazione in corso… non chiudere questa finestra.
-      </p>
-    </div>
-
   </div>
 </div>
 
@@ -2457,6 +2482,7 @@ document.addEventListener('click', function(e) {
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>
 <script src="js/avanzate.js"></script>
+<script src="js/account.js"></script>
 <script src="js/reset-stagione.js"></script>
 <script src="js/clienti.js"></script>
 <script src="js/stagionale.js"></script>
