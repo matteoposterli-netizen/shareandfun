@@ -2798,3 +2798,74 @@ body:has(#view-stagionale.active) .topnav { display: none; }
 }
 
 
+
+/* ===== MAPPA BUILDER ===== */
+.mappa-builder-wrap {
+  max-width: 960px; margin: 0 auto; padding: 32px 16px;
+}
+.mappa-builder-header { text-align: center; margin-bottom: 28px; }
+.mappa-builder-logo { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--ocean); margin-bottom: 8px; }
+.mappa-builder-title { font-size: 22px; font-weight: 700; margin: 0 0 6px; }
+.mappa-builder-sub { color: var(--text-mid); margin: 0; }
+
+.mappa-step-bar { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 24px; }
+.mappa-step-label { font-size: 14px; font-weight: 600; color: var(--text-light); padding: 6px 16px; border-radius: 20px; border: 2px solid var(--border); }
+.mappa-step-label.active { color: var(--ocean); border-color: var(--ocean); background: #e8f1fb; }
+.mappa-step-sep { color: var(--text-light); }
+
+.mappa-mode-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.mode-btn { padding: 7px 14px; font-size: 13px; border-radius: 6px; background: var(--bg); border: 2px solid var(--border); color: var(--text-mid); font-weight: 600; cursor: pointer; }
+.mode-btn.active { background: var(--ocean); color: #fff; border-color: var(--ocean); }
+.mappa-counter { margin-left: auto; font-size: 13px; color: var(--text-mid); }
+
+.mappa-grid-wrap { overflow: auto; }
+.mappa-grid {
+  display: grid;
+  grid-template-columns: repeat(20, 28px);
+  grid-template-rows: repeat(20, 28px);
+  gap: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  width: fit-content;
+  cursor: crosshair;
+}
+.mappa-cell {
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-size: 9px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; user-select: none;
+  cursor: pointer;
+  transition: background .1s;
+}
+.tipo-vuoto { background: #f5f5f5; }
+.tipo-ombrellone { background: var(--ocean); color: #fff; border-color: #1557a0; }
+.tipo-passerella { background: #e8d5b7; border-color: #c4a97a; }
+.mappa-cell.has-codice { background: #1a5f9a; }
+.mappa-cell.missing-codice { background: #ef9a9a; border-color: #e53935; }
+.mappa-cell.selected { outline: 2px solid var(--coral); }
+
+.mappa-hint { font-size: 12px; color: var(--text-light); margin: 8px 0 16px; }
+.mappa-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }
+
+/* Step 2 */
+.mappa-step2-layout { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+.mappa-step2-grid-col { flex: 0 0 auto; }
+.mappa-step2-form-col { flex: 1 1 260px; }
+.mappa-step2-hint { font-size: 13px; color: var(--text-mid); margin: 0 0 12px; }
+.mappa-grid-small {
+  grid-template-columns: repeat(20, 16px);
+  grid-template-rows: repeat(20, 16px);
+  gap: 1px;
+  cursor: default;
+}
+.mappa-grid-small .mappa-cell { width: 16px; height: 16px; border-radius: 2px; font-size: 7px; }
+
+.mappa-codici-table { display: flex; flex-direction: column; gap: 4px; max-height: 400px; overflow-y: auto; }
+.codice-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; border: 1px solid transparent; }
+.codice-row.selected-row { background: #e8f1fb; border-color: var(--ocean); }
+.codice-pos { font-size: 12px; color: var(--text-light); min-width: 24px; text-align: right; }
+.codice-input { flex: 1; padding: 5px 8px; font-size: 13px; border: 1px solid var(--border); border-radius: 4px; }

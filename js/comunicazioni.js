@@ -16,7 +16,7 @@ const COMM_THROTTLE_MS = 110;          // ~9 req/sec, sotto al limite 10/sec di 
 
 let commBozze = [];                    // cache delle bozze caricate
 let commBozzaCorrenteId = null;        // id della bozza attualmente caricata (per "Sovrascrivi")
-let commClientiCache = [];             // clienti con email + ombrellone (id, nome, cognome, email, ombrellone_label, fila, numero)
+let commClientiCache = [];             // clienti con email + ombrellone (id, nome, cognome, email, ombrellone_label, codice)
 let commManualSelected = new Set();    // id clienti selezionati nel modo "Selezione manuale"
 let commIsSending = false;
 let commCurrentTab = 'email';
@@ -153,7 +153,7 @@ async function comunicazioniSovrascriviBozza() {
 async function loadCommClienti() {
   if (!currentStabilimento?.id) return;
   const { data, error } = await sb.from('clienti_stagionali')
-    .select('id,nome,cognome,email,ombrellone_id,ombrelloni:ombrellone_id(fila,numero)')
+    .select('id,nome,cognome,email,ombrellone_id,ombrelloni:ombrellone_id(codice)')
     .eq('stabilimento_id', currentStabilimento.id);
   if (error) {
     console.error('loadCommClienti:', error);
@@ -161,30 +161,23 @@ async function loadCommClienti() {
     return;
   }
   commClientiCache = (data || []).map(c => {
-    const fila = c.ombrelloni?.fila ?? null;
-    const numero = c.ombrelloni?.numero ?? null;
+    const codice = c.ombrelloni?.codice ?? null;
     return {
       id: c.id,
       nome: c.nome || '',
       cognome: c.cognome || '',
       email: (c.email || '').trim(),
-      fila,
-      numero,
-      ombrellone_label: (fila != null && numero != null) ? `Fila ${fila} N°${numero}` : '—',
+      codice,
+      ombrellone_label: codice ?? '—',
     };
   }).sort((a, b) => {
-    // Ordina per fila/numero quando disponibile, poi per nome.
-    if (a.fila !== b.fila) return String(a.fila || '').localeCompare(String(b.fila || ''));
-    if ((a.numero || 0) !== (b.numero || 0)) return (a.numero || 0) - (b.numero || 0);
-    return (a.cognome + a.nome).localeCompare(b.cognome + b.nome);
+    // Ordina per codice ombrellone, poi per nome.
+    if (a.codice && b.codice) return a.codice.localeCompare(b.codice, 'it');
+    if (a.codice) return -1;
+    if (b.codice) return 1;
+    return (a.cognome + a.nome).localeCompare(b.cognome + b.nome, 'it');
   });
 
-  // Popola dropdown filtri
-  const fileSel = document.getElementById('comm-filter-file');
-  if (fileSel) {
-    const file = Array.from(new Set(commClientiCache.map(c => c.fila).filter(f => f != null))).sort();
-    fileSel.innerHTML = file.map(f => `<option value="${escapeHtml(String(f))}">Fila ${escapeHtml(String(f))}</option>`).join('');
-  }
   const singleSel = document.getElementById('comm-single-select');
   if (singleSel) {
     const opts = commClientiCache
@@ -203,7 +196,7 @@ function comunicazioniManualRender() {
   const visibili = commClientiCache.filter(c => {
     if (!c.email) return false;
     if (!q) return true;
-    const hay = `${c.nome} ${c.cognome} ${c.email} fila ${c.fila ?? ''} ${c.numero ?? ''} ${c.ombrellone_label}`.toLowerCase();
+    const hay = `${c.nome} ${c.cognome} ${c.email} ${c.codice ?? ''} ${c.ombrellone_label}`.toLowerCase();
     return hay.includes(q);
   });
   if (!visibili.length) {
@@ -232,7 +225,7 @@ function comunicazioniManualSelectAll(value) {
   commClientiCache.forEach(c => {
     if (!c.email) return;
     if (q) {
-      const hay = `${c.nome} ${c.cognome} ${c.email} fila ${c.fila ?? ''} ${c.numero ?? ''} ${c.ombrellone_label}`.toLowerCase();
+      const hay = `${c.nome} ${c.cognome} ${c.email} ${c.codice ?? ''} ${c.ombrellone_label}`.toLowerCase();
       if (!hay.includes(q)) return;
     }
     if (value) commManualSelected.add(c.id);
@@ -272,22 +265,14 @@ function comunicazioniComputeRecipients() {
   let pool = commClientiCache.slice();
   let scope = '';
   if (mode === 'filter') {
-    const fileEl = document.getElementById('comm-filter-file');
-    const file = fileEl ? Array.from(fileEl.selectedOptions).map(o => o.value) : [];
-    const da = parseInt(document.getElementById('comm-filter-num-da').value, 10);
-    const a = parseInt(document.getElementById('comm-filter-num-a').value, 10);
-    pool = pool.filter(c => {
-      if (file.length && !file.includes(String(c.fila))) return false;
-      if (!Number.isNaN(da) && (c.numero == null || c.numero < da)) return false;
-      if (!Number.isNaN(a) && (c.numero == null || c.numero > a)) return false;
-      return true;
-    });
-    const parts = [];
-    if (file.length) parts.push(`File: ${file.join(', ')}`);
-    if (!Number.isNaN(da) || !Number.isNaN(a)) {
-      parts.push(`N° ${Number.isNaN(da) ? '∞' : da} → ${Number.isNaN(a) ? '∞' : a}`);
+    const raw = (document.getElementById('comm-filter-codice')?.value || '').trim();
+    const codici = raw ? raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) : [];
+    if (codici.length) {
+      pool = pool.filter(c => c.codice != null && codici.includes(c.codice.toLowerCase()));
+      scope = `Codici: ${codici.join(', ')}`;
+    } else {
+      scope = 'Tutti gli ombrelloni';
     }
-    scope = parts.length ? parts.join(' · ') : 'Tutti gli ombrelloni';
   } else if (mode === 'manual') {
     pool = pool.filter(c => commManualSelected.has(c.id));
   } else if (mode === 'single') {

@@ -44,7 +44,7 @@ function renderProgressInAlert(alertId, label, done, total) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const XLSX_HEADERS = ['fila', 'numero', 'credito_giornaliero', 'nome', 'cognome', 'telefono', 'email'];
+const XLSX_HEADERS = ['codice', 'credito_giornaliero', 'nome', 'cognome', 'telefono', 'email'];
 
 function slugifyForFilename(s) {
   return String(s || '')
@@ -58,7 +58,7 @@ function slugifyForFilename(s) {
 function buildXlsxAndDownload(rows, filename) {
   const aoa = [XLSX_HEADERS, ...rows];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [{ wch: 8 }, { wch: 8 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 24 }];
+  ws['!cols'] = [{ wch: 14 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 24 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Ombrelloni');
   XLSX.writeFile(wb, filename);
@@ -66,9 +66,9 @@ function buildXlsxAndDownload(rows, filename) {
 
 function scaricaExcelSampleTemplate() {
   const sampleRows = [
-    ['A', 1, 12.00, 'Mario',  'Rossi',   '3331234567', 'mario@example.com'],
-    ['A', 2, 12.00, 'Anna',   'Bianchi', '',           'anna@example.com'],
-    ['B', 1, 10.00, '',       '',        '',           ''],
+    ['A1', 12.00, 'Mario',  'Rossi',   '3331234567', 'mario@example.com'],
+    ['A2', 12.00, 'Anna',   'Bianchi', '',           'anna@example.com'],
+    ['B1', 10.00, '',       '',        '',           ''],
   ];
   buildXlsxAndDownload(sampleRows, 'spiaggiamia-template.xlsx');
 }
@@ -95,15 +95,14 @@ async function scaricaExcel() {
   }
 
   const ombsSorted = [...((typeof ombrelloniList !== 'undefined' && ombrelloniList) || [])]
-    .sort((a, b) => (a.fila || '').localeCompare(b.fila || '') || (a.numero - b.numero));
+    .sort((a, b) => (a.codice || '').localeCompare(b.codice || '', 'it'));
   const clienteByOmb = {};
   ((typeof clientiList !== 'undefined' && clientiList) || []).forEach(c => { if (c.ombrellone_id) clienteByOmb[c.ombrellone_id] = c; });
 
   const rows = ombsSorted.map(o => {
     const c = clienteByOmb[o.id];
     return [
-      o.fila || '',
-      o.numero,
+      o.codice || '',
       parseFloat(o.credito_giornaliero || 0),
       c?.nome || '',
       c?.cognome || '',
@@ -132,20 +131,22 @@ async function readExcelFile(file) {
   const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false });
   if (!raw.length) return [];
   const headerRow = raw[0].map(normalizeHeader);
+  // Detect old format with fila/numero columns and reject it.
+  if (headerRow.includes('fila') || headerRow.includes('numero')) {
+    throw new Error("Formato non supportato. Usa la colonna 'codice' invece di 'fila' e 'numero'.");
+  }
   const colIdx = {};
   XLSX_HEADERS.forEach(k => { colIdx[k] = headerRow.indexOf(k); });
-  if (colIdx.fila === -1 || colIdx.numero === -1) return [];
+  if (colIdx.codice === -1) return [];
   const rows = [];
   for (let i = 1; i < raw.length; i++) {
     const r = raw[i];
-    const fila = String(r[colIdx.fila] ?? '').trim().toUpperCase();
-    const numero = parseInt(r[colIdx.numero], 10);
-    if (!fila || !numero) continue;
+    const codice = String(r[colIdx.codice] ?? '').trim();
+    if (!codice) continue;
     const creditoRaw = colIdx.credito_giornaliero >= 0 ? r[colIdx.credito_giornaliero] : '';
     const credito = parseFloat(String(creditoRaw).replace(',', '.'));
     rows.push({
-      fila,
-      numero,
+      codice,
       credito: isNaN(credito) ? 10 : credito,
       nome:     String(colIdx.nome     >= 0 ? r[colIdx.nome]     : '').trim(),
       cognome:  String(colIdx.cognome  >= 0 ? r[colIdx.cognome]  : '').trim(),

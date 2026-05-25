@@ -97,7 +97,7 @@ async function showInvitoView(token) {
   ];
   if (currentInviteData.telefono) rows.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">📞 <span>${currentInviteData.telefono}</span></div>`);
   rows.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">🏖️ <span>${currentInviteData.stabilimento_nome}</span></div>`);
-  if (currentInviteData.ombrellone_fila) rows.push(`<div style="display:flex;align-items:center;gap:8px">☂️ <span>Ombrellone: Fila ${currentInviteData.ombrellone_fila} N°${currentInviteData.ombrellone_numero}</span></div>`);
+  if (currentInviteData.ombrellone_codice) rows.push(`<div style="display:flex;align-items:center;gap:8px">☂️ <span>Ombrellone: ${currentInviteData.ombrellone_codice}</span></div>`);
   document.getElementById('invito-info').innerHTML = rows.join('');
   document.getElementById('invito-password').value = '';
   document.getElementById('invito-password2').value = '';
@@ -131,7 +131,7 @@ async function completeInviteRegistration() {
   await sb.from('profiles').insert({ id: currentUser.id, nome: currentInviteData.nome, cognome: currentInviteData.cognome, ruolo: 'stagionale' });
   await sb.rpc('completa_registrazione_invito', { p_token: currentInviteToken, p_user_id: currentUser.id });
   const { data: stab } = await sb.from('stabilimenti').select('id,nome,telefono,email,email_benvenuto_oggetto,email_benvenuto_testo').eq('id', currentInviteData.stabilimento_id).single();
-  const ombLabel = currentInviteData.ombrellone_fila ? `Fila ${currentInviteData.ombrellone_fila} N°${currentInviteData.ombrellone_numero}` : null;
+  const ombLabel = currentInviteData.ombrellone_codice || null;
   const loginLink = `${window.location.origin}/?login=${encodeURIComponent(currentInviteData.email)}`;
   await inviaEmail('benvenuto', { email: currentInviteData.email, nome: currentInviteData.nome, cognome: currentInviteData.cognome, ombrellone: ombLabel, login_link: loginLink }, stab);
   const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();

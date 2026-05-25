@@ -80,9 +80,8 @@ function renderCreditiStagionali() {
   }
   if (qOmb) {
     rows = rows.filter(r => {
-      const label = ('fila ' + (r.ombrellone.fila || '') + ' ' + (r.ombrellone.numero || '')).toLowerCase();
-      const short = ((r.ombrellone.fila || '') + (r.ombrellone.numero || '')).toLowerCase().replace(/\s/g, '');
-      return label.includes(qOmb) || short.includes(qOmb.replace(/\s/g, ''));
+      const cod = (r.ombrellone.codice || '').toLowerCase();
+      return cod.includes(qOmb.replace(/\s/g, ''));
     });
   }
 
@@ -95,7 +94,7 @@ function renderCreditiStagionali() {
     const nomeCliente = r.cliente
       ? escapeHtml(((r.cliente.nome || '') + ' ' + (r.cliente.cognome || '')).trim())
       : '<span style="color:var(--text-light);font-style:italic">Nessun cliente</span>';
-    const ombLabel = `Fila ${escapeHtml(String(r.ombrellone.fila || ''))} · N°${r.ombrellone.numero}`;
+    const ombLabel = escapeHtml(r.ombrellone.codice || '');
     const n = v => parseFloat(v || 0).toFixed(2);
     return `
       <div class="crediti-stag-card" onclick="openCreditiStagModal('${r.ombrellone.id}')" role="button" tabindex="0">
@@ -119,7 +118,7 @@ function openCreditiStagModal(ombId) {
   if (!row) return;
 
   const stab = currentStabilimento;
-  const ombLabel = `Fila ${escapeHtml(String(row.ombrellone.fila || ''))} · N°${row.ombrellone.numero}`;
+  const ombLabel = escapeHtml(row.ombrellone.codice || '');
   const nomeCliente = row.cliente
     ? escapeHtml(((row.cliente.nome || '') + ' ' + (row.cliente.cognome || '')).trim())
     : 'Nessun cliente';

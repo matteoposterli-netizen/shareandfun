@@ -417,7 +417,7 @@ function clientLabelFor(ombId) {
 
 function ombLabelFor(id) {
   const o = (ombrelloniList || []).find(x => x.id === id);
-  return o ? `Fila ${o.fila} · N°${o.numero}` : 'Ombrellone';
+  return o ? o.codice : 'Ombrellone';
 }
 
 function renderTopCharts(only) {

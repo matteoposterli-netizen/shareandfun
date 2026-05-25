@@ -39,6 +39,8 @@ async function loadUserAndRoute() {
     const { data: stab } = await sb.from('stabilimenti').select('*').eq('proprietario_id', currentUser.id).single();
     if (!stab) { showView('setup'); return; }
     currentStabilimento = stab;
+    const onboardingAttivo = await checkOnboardingMappa(currentStabilimento.id);
+    if (onboardingAttivo) return;
     await loadManagerData();
     showView('manager');
   } else {

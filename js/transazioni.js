@@ -72,7 +72,7 @@ function txTabPopulateClienteSelect() {
     sorted.map(c => {
       const ombId = c.ombrellone_id;
       const omb = ombId ? (ombrelloniList || []).find(o => o.id === ombId) : null;
-      const ombLabel = omb ? ` · Fila ${omb.fila} N°${omb.numero}` : '';
+      const ombLabel = omb ? ` · ${omb.codice}` : '';
       const nomeFull = `${c.cognome || ''} ${c.nome || ''}`.trim() || '(senza nome)';
       return `<option value="${c.id}">${escapeHtml(nomeFull)}${escapeHtml(ombLabel)}</option>`;
     }).join('');
@@ -364,7 +364,7 @@ function renderTxTab() {
     const o = t.ombrellone_id ? ombById[t.ombrellone_id] : null;
     const c = t.cliente_id ? cliById[t.cliente_id] : null;
     const ombStr = o
-      ? `Fila ${escapeHtml(String(o.fila))} N°${escapeHtml(String(o.numero))}`
+      ? escapeHtml(o.codice || '')
       : (t.ombrellone_id
         ? '<span style="color:var(--text-light)">— ombrellone rimosso</span>'
         : '<span style="color:var(--text-light)">—</span>');

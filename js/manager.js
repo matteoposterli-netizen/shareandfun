@@ -204,7 +204,7 @@ async function refreshMap() {
       .map(o => o.id);
     const sortKey = id => {
       const o = byOmbId[id];
-      return `${o.fila}${String(o.numero).padStart(4, '0')}`;
+      return o.codice || '';
     };
     const uncovered = new Set(dates);
     const remaining = new Set(candidateIds);
@@ -313,7 +313,7 @@ async function loadManagerData() {
   document.getElementById('manager-today-label').textContent = currentStabilimento.citta + ' — ' + formatDate(today);
   refreshCoinLabels(currentStabilimento);
 
-  const { data: ombs } = await sb.from('ombrelloni').select('*').eq('stabilimento_id', currentStabilimento.id).order('fila').order('numero');
+  const { data: ombs } = await sb.from('ombrelloni').select('*').eq('stabilimento_id', currentStabilimento.id).order('codice');
   ombrelloniList = ombs || [];
 
   const { data: clienti } = await sb.from('clienti_stagionali').select('*').eq('stabilimento_id', currentStabilimento.id);
@@ -436,75 +436,52 @@ function applyDefaultPrenFilter(today) {
 function renderManagerMap(ombs, dispMap) {
   const el = document.getElementById('manager-map');
   el.innerHTML = '';
-  const byRow = {};
-  ombs.forEach(o => { if (!byRow[o.fila]) byRow[o.fila] = []; byRow[o.fila].push(o); });
-  const colNumbers = Array.from(new Set(ombs.map(o => o.numero)))
-    .sort((a, b) => a - b);
-  Object.keys(byRow).sort().reverse().forEach(fila => {
-    const row = document.createElement('div'); row.className = 'map-row';
-    const lbl = document.createElement('div'); lbl.className = 'row-label'; lbl.textContent = fila;
-    row.appendChild(lbl);
-    byRow[fila].sort((a,b) => a.numero - b.numero).forEach(o => {
-      const stato = dispMap[o.id] || 'occupied';
-      const el2 = document.createElement('div');
-      const cls = stato === 'libero' ? 'free'
-        : stato === 'combinazione' ? 'combo'
-        : stato === 'parziale' ? 'partial'
-        : stato === 'sub_affittato' ? 'subleased'
-        : 'occupied';
-      const isSelected = bookingSelection.has(o.id);
-      const hasCliente = (clientiList || []).some(c => !c.rifiutato && c.ombrellone_id === o.id);
-      const noClienteCls = !hasCliente ? ' no-cliente' : '';
-      el2.className = 'ombrellone ' + cls + noClienteCls + (isSelected ? ' selected' : '');
-      el2.textContent = '☂️';
-      let hint = '';
-      const fmtDay = d => {
-        const dt = new Date(d + 'T00:00:00');
-        return dt.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
-      };
-      const freeDays = (currentMapRange?.dates || []).filter(d => (currentMapRange?.dispByOmbDate?.[o.id] || {})[d] === 'libero');
-      const selectSuffix = isSelected
-        ? ' — selezionato, clicca per rimuoverlo dalla prenotazione'
-        : ' — clicca per aggiungerlo alla prenotazione';
-      if (stato === 'libero') {
-        hint = ' — libero per tutto il periodo' + selectSuffix;
-      } else if (stato === 'combinazione') {
-        const covers = (currentMapRange?.combinationCovers || {})[o.id] || [];
-        const days = covers.map(fmtDay).join(', ');
-        const extra = freeDays.filter(d => !covers.includes(d));
-        const extraTxt = extra.length ? ` (libero anche ${extra.map(fmtDay).join(', ')})` : '';
-        hint = ` — copre ${covers.length} giorn${covers.length === 1 ? 'o' : 'i'}: ${days}${extraTxt}` + selectSuffix;
-      } else if (stato === 'parziale') {
-        const days = freeDays.map(fmtDay).join(', ');
-        hint = ` — libero ${freeDays.length} giorn${freeDays.length === 1 ? 'o' : 'i'}: ${days}` + selectSuffix;
-      } else if (stato === 'sub_affittato') {
-        hint = ' — sub-affittato';
-      }
-      el2.title = `${fila}${o.numero} — ${formatCoin(o.credito_giornaliero)}/gg${hint}`;
-      el2.onclick = () => toggleMapOmbSelection(o, stato);
-      row.appendChild(el2);
-    });
-    el.appendChild(row);
+  const sorted = ombs.slice().sort((a, b) => (a.codice || '').localeCompare(b.codice || '', 'it', { numeric: true }));
+  sorted.forEach(o => {
+    const stato = dispMap[o.id] || 'occupied';
+    const el2 = document.createElement('div');
+    const cls = stato === 'libero' ? 'free'
+      : stato === 'combinazione' ? 'combo'
+      : stato === 'parziale' ? 'partial'
+      : stato === 'sub_affittato' ? 'subleased'
+      : 'occupied';
+    const isSelected = bookingSelection.has(o.id);
+    const hasCliente = (clientiList || []).some(c => !c.rifiutato && c.ombrellone_id === o.id);
+    const noClienteCls = !hasCliente ? ' no-cliente' : '';
+    el2.className = 'ombrellone ' + cls + noClienteCls + (isSelected ? ' selected' : '');
+    el2.textContent = '☂️';
+    let hint = '';
+    const fmtDay = d => {
+      const dt = new Date(d + 'T00:00:00');
+      return dt.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+    };
+    const freeDays = (currentMapRange?.dates || []).filter(d => (currentMapRange?.dispByOmbDate?.[o.id] || {})[d] === 'libero');
+    const selectSuffix = isSelected
+      ? ' — selezionato, clicca per rimuoverlo dalla prenotazione'
+      : ' — clicca per aggiungerlo alla prenotazione';
+    if (stato === 'libero') {
+      hint = ' — libero per tutto il periodo' + selectSuffix;
+    } else if (stato === 'combinazione') {
+      const covers = (currentMapRange?.combinationCovers || {})[o.id] || [];
+      const days = covers.map(fmtDay).join(', ');
+      const extra = freeDays.filter(d => !covers.includes(d));
+      const extraTxt = extra.length ? ` (libero anche ${extra.map(fmtDay).join(', ')})` : '';
+      hint = ` — copre ${covers.length} giorn${covers.length === 1 ? 'o' : 'i'}: ${days}${extraTxt}` + selectSuffix;
+    } else if (stato === 'parziale') {
+      const days = freeDays.map(fmtDay).join(', ');
+      hint = ` — libero ${freeDays.length} giorn${freeDays.length === 1 ? 'o' : 'i'}: ${days}` + selectSuffix;
+    } else if (stato === 'sub_affittato') {
+      hint = ' — sub-affittato';
+    }
+    el2.title = `${o.codice} — ${formatCoin(o.credito_giornaliero)}/gg${hint}`;
+    el2.onclick = () => toggleMapOmbSelection(o, stato);
+    el.appendChild(el2);
   });
-  if (colNumbers.length) {
-    const numRow = document.createElement('div');
-    numRow.className = 'map-row map-col-numbers';
-    const spacer = document.createElement('div');
-    spacer.className = 'row-label';
-    numRow.appendChild(spacer);
-    colNumbers.forEach(n => {
-      const cell = document.createElement('div');
-      cell.className = 'col-label';
-      cell.textContent = n;
-      numRow.appendChild(cell);
-    });
-    el.appendChild(numRow);
-  }
 }
 
 function toggleMapOmbSelection(omb, stato) {
   if (!currentMapRange) return;
-  const label = `Fila ${omb.fila} N°${omb.numero}`;
+  const label = omb.codice;
   if (stato === 'sub_affittato') {
     alert(`${label} è già sub-affittato in parte del periodo. Annullalo dalla tab Prenotazioni se necessario.`);
     return;
@@ -630,7 +607,7 @@ function getFiltratiGestione() {
   return (ombrelloniList || []).map(o => ({ omb: o, cliente: clienteByOmb[o.id] || null })).filter(({ omb, cliente }) => {
     if (statoF && clienteStato(cliente) !== statoF) return false;
     if (!q) return true;
-    const hay = `${omb.fila} ${omb.numero} ${omb.fila}${omb.numero} ${cliente?.nome || ''} ${cliente?.cognome || ''} ${cliente?.email || ''} ${cliente?.telefono || ''}`.toLowerCase();
+    const hay = `${omb.codice} ${cliente?.nome || ''} ${cliente?.cognome || ''} ${cliente?.email || ''} ${cliente?.telefono || ''}`.toLowerCase();
     return hay.includes(q);
   });
 }
@@ -680,8 +657,7 @@ function renderGestioneFiltered() {
       : '';
     return `<tr style="cursor:pointer" onclick="openViewOmbrelloneModal('${omb.id}')" title="Vedi dettagli ombrellone">
       <td onclick="event.stopPropagation()">${checkbox}</td>
-      <td><strong>${escapeHtml(omb.fila)}</strong></td>
-      <td>${omb.numero}</td>
+      <td colspan="2"><strong>${escapeHtml(omb.codice)}</strong></td>
       <td>${formatCoin(omb.credito_giornaliero)}</td>
       <td>${cliente ? `<strong>${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')}</strong>` : '<span style="color:var(--text-light)">–</span>'}</td>
       <td>${cliente ? escapeHtml(cliente.email || '') : '<span style="color:var(--text-light)">–</span>'}</td>
@@ -760,7 +736,7 @@ async function refreshCreditoCliente() {
   if (!currentStabilimento) return;
   const [{ data: clienti }, { data: ombs }] = await Promise.all([
     sb.from('clienti_stagionali').select('*').eq('stabilimento_id', currentStabilimento.id),
-    sb.from('ombrelloni').select('*').eq('stabilimento_id', currentStabilimento.id).order('fila').order('numero'),
+    sb.from('ombrelloni').select('*').eq('stabilimento_id', currentStabilimento.id).order('codice'),
   ]);
   if (clienti) clientiList = clienti;
   if (ombs) ombrelloniList = ombs;
@@ -782,7 +758,7 @@ function populateClienteSelect() {
     return {
       id: c.id,
       nome,
-      ombrellone: o ? `${o.fila}${o.numero}` : '',
+      ombrellone: o ? o.codice : '',
       saldoLabel: formatCoin(c.credito_saldo, currentStabilimento),
     };
   });
@@ -988,7 +964,7 @@ function renderAnalyticsPage() {
     const o = t.ombrellone_id ? ombById[t.ombrellone_id] : null;
     const c = t.cliente_id ? cliById[t.cliente_id] : null;
     const ombStr = o
-      ? `Fila ${o.fila} N°${o.numero}`
+      ? escapeHtml(o.codice)
       : (t.ombrellone_id ? '<span style="color:var(--text-light)">— ombrellone rimosso</span>' : '<span style="color:var(--text-light)">—</span>');
     const cliStr = c ? `${c.nome} ${c.cognome}` : '<span style="color:var(--text-light)">—</span>';
     const tipoLabel = ANALYTICS_TX_LABELS[t.tipo] || t.tipo;
@@ -1101,7 +1077,7 @@ function renderTxList(txs, stab, ombsMap) {
     if (ombsMap && t.ombrellone_id) {
       const o = ombsMap[t.ombrellone_id];
       ombStr = o
-        ? `<span class="tx-omb">Fila ${o.fila} N°${o.numero}</span>`
+        ? `<span class="tx-omb">${escapeHtml(o.codice)}</span>`
         : `<span class="tx-omb tx-omb-missing">ombrellone rimosso</span>`;
     }
     const bloccatoDalProprietario = t.tipo === 'disponibilita_rimossa' && typeof t.nota === 'string' && t.nota.includes('bloccato dal proprietario');
@@ -1198,7 +1174,7 @@ function openFinalizeBookingModal() {
   const nOmb = bookingSelection.size;
   const ombList = Array.from(bookingSelection).map(id => {
     const o = ombrelloniList.find(x => x.id === id);
-    return o ? `Fila ${o.fila} N°${o.numero}` : '';
+    return o ? o.codice : '';
   }).filter(Boolean).join(', ');
 
   const summary = `
@@ -1245,7 +1221,7 @@ async function finalizeBookingSelection() {
 
     const txRows = pairs.map(p => {
       const cliente = clientiList.find(c => c.ombrellone_id === p.omb.id) || null;
-      const notaBase = `Ombrellone ${p.omb.fila}${p.omb.numero} sub-affittato il ${formatDate(p.date)}`;
+      const notaBase = `Ombrellone ${p.omb.codice} sub-affittato il ${formatDate(p.date)}`;
       const nota = nomePrenotazione ? `${notaBase} — prenotazione "${nomePrenotazione}"` : notaBase;
       return {
         stabilimento_id: currentStabilimento.id,
@@ -1274,7 +1250,7 @@ async function finalizeBookingSelection() {
         cliente_id: cliente.id,
         tipo: 'credito_ricevuto',
         importo: p.omb.credito_giornaliero,
-        nota: `Credito per sub-affitto ${p.omb.fila}${p.omb.numero} (${formatDate(p.date)})`,
+        nota: `Credito per sub-affitto ${p.omb.codice} (${formatDate(p.date)})`,
       });
       entry.delta += parseFloat(p.omb.credito_giornaliero || 0);
     }
@@ -1297,7 +1273,7 @@ async function finalizeBookingSelection() {
         const firstOmb = entry.rows[0];
         const ombLabel = (() => {
           const o = ombrelloniList.find(x => x.id === firstOmb.ombrellone_id);
-          return o ? `Fila ${o.fila} N°${o.numero}` : '';
+          return o ? o.codice : '';
         })();
         const giornate = entry.rows.length;
         const nota = giornate > 1
@@ -1341,11 +1317,8 @@ function clearPrenFilters() {
 }
 
 function matchesOmbrelloneQuery(omb, query) {
-  const fila = String(omb.fila || '').toLowerCase();
-  const num  = String(omb.numero || '').toLowerCase();
-  const compact = `${fila}${num}`;
-  const label = `fila ${fila} n°${num}`;
-  return num === query || compact === query || compact.includes(query) || label.includes(query) || num.includes(query);
+  const codice = String(omb.codice || '').toLowerCase();
+  return codice === query || codice.includes(query);
 }
 
 let prenRangePickerInstance = null;
@@ -1621,7 +1594,7 @@ function renderPrenotazioni() {
 
     const rowsHtml = items.map(i => {
       const o = ombsMap[i.ombrellone_id];
-      const ombStr = o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">ombrellone rimosso</span>';
+      const ombStr = o ? escapeHtml(o.codice) : '<span style="color:var(--text-light)">ombrellone rimosso</span>';
       const cli = i.cliente_id ? cliById[i.cliente_id] : null;
       const cliStr = cli ? `${cli.nome} ${cli.cognome}` : '<span style="color:var(--text-light)">—</span>';
       const imp = o ? formatCoin(o.credito_giornaliero, currentStabilimento) : '—';
@@ -1771,7 +1744,7 @@ function renderPrenotazioniTabella(ordered, filterRange) {
       baseCls.push('booked');
       const labels = list.map(it => {
         const o = ombsMap[it.ombrellone_id];
-        const ombStr = o ? `Fila ${o.fila} N°${o.numero}` : 'ombrellone rimosso';
+        const ombStr = o ? o.codice : 'ombrellone rimosso';
         const cli = it.cliente_id ? cliById[it.cliente_id] : null;
         const cliStr = cli ? `${cli.nome} ${cli.cognome}` : '—';
         return `${ombStr} · Stagionale: ${cliStr}`;
@@ -1779,7 +1752,7 @@ function renderPrenotazioniTabella(ordered, filterRange) {
       const tooltip = `${formatDate(d)}\n${labels.join('\n')}`;
       const first = list[0];
       const o = ombsMap[first.ombrellone_id];
-      const cellLabel = o ? `${o.fila}${o.numero}` : '?';
+      const cellLabel = o ? o.codice : '?';
       const extra = list.length > 1 ? `<span class="pren-tab-cell-badge">+${list.length - 1}</span>` : '';
       if (list.length > 1) baseCls.push('multi');
       return `<td class="${baseCls.join(' ')}" title="${escapeHtmlAttr(tooltip)}" onclick="openPrenDettagliModal('g-${gi}')"><span class="pren-tab-cell-label">${escapeHtml(cellLabel)}</span>${extra}</td>`;
@@ -1840,7 +1813,7 @@ function openPrenDettagliModal(gid) {
 
   const rowsHtml = items.map(i => {
     const o = ombsMap[i.ombrellone_id];
-    const ombStr = o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">ombrellone rimosso</span>';
+    const ombStr = o ? escapeHtml(o.codice) : '<span style="color:var(--text-light)">ombrellone rimosso</span>';
     const cli = i.cliente_id ? cliById[i.cliente_id] : null;
     const cliStr = cli ? `${cli.nome} ${cli.cognome}` : '<span style="color:var(--text-light)">—</span>';
     const imp = o ? formatCoin(o.credito_giornaliero, currentStabilimento) : '—';
@@ -1966,7 +1939,7 @@ function openModifyBookingModal(gid) {
 
   const rowsHtml = items.map(i => {
     const o = ombsMap[i.ombrellone_id];
-    const ombStr = o ? `Fila ${o.fila} N°${o.numero}` : '<span style="color:var(--text-light)">ombrellone rimosso</span>';
+    const ombStr = o ? escapeHtml(o.codice) : '<span style="color:var(--text-light)">ombrellone rimosso</span>';
     const cli = i.cliente_id ? cliById[i.cliente_id] : null;
     const cliStr = cli ? `${cli.nome} ${cli.cognome}` : '<span style="color:var(--text-light)">—</span>';
     const imp = o ? formatCoin(o.credito_giornaliero, currentStabilimento) : '—';
@@ -2100,7 +2073,7 @@ function findOmbOccupant(ombId, excludeEmail) {
 }
 
 function openAddRowModal() {
-  ['row-fila','row-numero','row-credito','row-nome','row-cognome','row-email','row-telefono'].forEach(id => document.getElementById(id).value = '');
+  ['row-codice','row-credito','row-nome','row-cognome','row-email','row-telefono'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const chk = document.getElementById('row-invia-invito');
   if (chk) chk.checked = true;
   showAlert('add-row-alert', '', '');
@@ -2108,8 +2081,7 @@ function openAddRowModal() {
 }
 
 async function confirmAddRow() {
-  const fila = document.getElementById('row-fila').value.trim().toUpperCase();
-  const numero = parseInt(document.getElementById('row-numero').value);
+  const codice = document.getElementById('row-codice').value.trim();
   const credito = parseFloat(document.getElementById('row-credito').value);
   const nome = document.getElementById('row-nome').value.trim();
   const cognome = document.getElementById('row-cognome').value.trim();
@@ -2117,7 +2089,7 @@ async function confirmAddRow() {
   const telefono = document.getElementById('row-telefono').value.trim();
   const inviaInvito = document.getElementById('row-invia-invito')?.checked;
 
-  if (!fila || !numero) { showAlert('add-row-alert', 'Fila e numero sono obbligatori', 'error'); return; }
+  if (!codice) { showAlert('add-row-alert', 'Il codice ombrellone è obbligatorio', 'error'); return; }
   const hasCliente = !!(nome || cognome || email || telefono);
   if (hasCliente && !email) { showAlert('add-row-alert', "Per salvare il cliente serve un'email valida", 'error'); return; }
   if (hasCliente && !EMAIL_RE.test(email)) { showAlert('add-row-alert', 'Email cliente non valida', 'error'); return; }
@@ -2127,14 +2099,14 @@ async function confirmAddRow() {
 
   const creditoVal = isNaN(credito) ? 10 : credito;
   let ombId;
-  const existingOmb = (ombrelloniList || []).find(o => o.fila === fila && o.numero === numero);
+  const existingOmb = (ombrelloniList || []).find(o => o.codice === codice);
   if (existingOmb) {
     const { error } = await sb.from('ombrelloni').update({ credito_giornaliero: creditoVal }).eq('id', existingOmb.id);
     if (error) { showAlert('add-row-alert', error.message, 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Salva'; } return; }
     ombId = existingOmb.id;
   } else {
     const { data: inserted, error } = await sb.from('ombrelloni')
-      .insert({ stabilimento_id: currentStabilimento.id, fila, numero, credito_giornaliero: creditoVal })
+      .insert({ stabilimento_id: currentStabilimento.id, codice, pos_x: 0, pos_y: 0, credito_giornaliero: creditoVal })
       .select('id').single();
     if (error) { showAlert('add-row-alert', error.message, 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Salva'; } return; }
     ombId = inserted.id;
@@ -2153,7 +2125,7 @@ async function confirmAddRow() {
       kind: 'add',
       payload: { nome, cognome, email, telefono, ombId, inviaInvito },
       occupantId: occupant.id,
-      ombLabel: `Fila ${fila} N°${numero}`,
+      ombLabel: codice,
       occupantName: `${occupant.nome || ''} ${occupant.cognome || ''}`.trim() || occupant.email,
     };
     document.getElementById('conflict-msg').innerHTML =
@@ -2201,7 +2173,7 @@ function resolveAssignConfirm(yes) {
 }
 async function confirmAssignmentDialog(ombId, clienteLabel) {
   const omb = (ombrelloniList || []).find(o => o.id === ombId);
-  const ombStr = omb ? `Fila ${omb.fila} N°${omb.numero}` : 'l\'ombrellone';
+  const ombStr = omb ? omb.codice : 'l\'ombrellone';
   const eff = await previewAssignmentEffect(ombId);
   const parts = [];
   parts.push(`Assegnare <strong>${ombStr}</strong> a <strong>${escapeHtml(clienteLabel || 'il cliente')}</strong>?`);
@@ -2254,7 +2226,7 @@ async function saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito,
 
   if (inviaInvito && token) {
     const omb = ombId ? (ombrelloniList.find(o => o.id === ombId) || null) : null;
-    const ombStr = omb ? `Fila ${omb.fila} N°${omb.numero}` : '';
+    const ombStr = omb ? omb.codice : '';
     const inviteLink = `${window.location.origin}/?invito=${token}`;
     const ok = await retryUntilTrue(
       () => inviaEmail('invito', { email, nome, cognome, ombrellone: ombStr, invite_link: inviteLink }, currentStabilimento),
@@ -2289,9 +2261,9 @@ async function resolveConflict(choice) {
 
 let editRowOmbSnapshot = null;
 let editRowCltSnapshot = null;
-const EDIT_ROW_OMB_FIELDS = ['fila','numero','credito'];
+const EDIT_ROW_OMB_FIELDS = ['codice','credito'];
 const EDIT_ROW_CLT_FIELDS = ['nome','cognome','email','telefono'];
-const EDIT_ROW_OMB_LABELS = { fila:'Fila', numero:'Numero', credito:'Credito giornaliero' };
+const EDIT_ROW_OMB_LABELS = { codice:'Codice', credito:'Credito giornaliero' };
 const EDIT_ROW_CLT_LABELS = { nome:'Nome', cognome:'Cognome', email:'Email', telefono:'Telefono' };
 
 function getEditRowOmbValues() {
@@ -2350,8 +2322,7 @@ function populateEditRowFromData(ombId) {
   const cliente = (clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === ombId) || null;
   document.getElementById('edit-row-omb-id').value = omb.id;
   document.getElementById('edit-row-cl-id').value = cliente?.id || '';
-  document.getElementById('edit-row-fila').value = omb.fila;
-  document.getElementById('edit-row-numero').value = omb.numero;
+  document.getElementById('edit-row-codice').value = omb.codice;
   document.getElementById('edit-row-credito').value = omb.credito_giornaliero;
   document.getElementById('edit-row-nome').value = cliente?.nome || '';
   document.getElementById('edit-row-cognome').value = cliente?.cognome || '';
@@ -2412,17 +2383,16 @@ async function saveEditRowOmbrellone() {
   const ombId = document.getElementById('edit-row-omb-id').value;
   const omb = ombrelloniList.find(o => o.id === ombId);
   if (!omb) return;
-  const fila = document.getElementById('edit-row-fila').value.trim().toUpperCase();
-  const numero = parseInt(document.getElementById('edit-row-numero').value);
+  const codice = document.getElementById('edit-row-codice').value.trim();
   const credito = parseFloat(document.getElementById('edit-row-credito').value);
   const nota = (document.getElementById('edit-row-omb-note')?.value || '').trim();
-  if (!fila || !numero) { showAlert('edit-row-omb-alert', 'Fila e numero sono obbligatori.', 'error'); return; }
+  if (!codice) { showAlert('edit-row-omb-alert', 'Il codice è obbligatorio.', 'error'); return; }
   const snap = editRowOmbSnapshot;
   const cur = getEditRowOmbValues();
   const lines = EDIT_ROW_OMB_FIELDS.filter(f => cur[f] !== snap[f]).map(f => `• ${EDIT_ROW_OMB_LABELS[f]}: "${snap[f]||'—'}" → "${cur[f]||'—'}"`);
   if (nota) lines.push(`• Nota: ${nota}`);
   if (!confirm(`Confermi le modifiche all'ombrellone?\n\n${lines.join('\n')}`)) return;
-  const { error } = await sb.from('ombrelloni').update({ fila, numero, credito_giornaliero: isNaN(credito) ? omb.credito_giornaliero : credito }).eq('id', ombId);
+  const { error } = await sb.from('ombrelloni').update({ codice, credito_giornaliero: isNaN(credito) ? omb.credito_giornaliero : credito }).eq('id', ombId);
   if (error) { showAlert('edit-row-omb-alert', error.message, 'error'); return; }
   await refreshEditRowAfterSave(ombId, { alertId: 'edit-row-omb-alert' });
 }
@@ -2471,7 +2441,7 @@ async function saveEditRowCliente() {
           kind: 'edit',
           payload: { id: null, nome, cognome, email, telefono, ombId },
           occupantId: occupant.id,
-          ombLabel: `Fila ${omb.fila} N°${omb.numero}`,
+          ombLabel: omb.codice,
           occupantName: `${occupant.nome || ''} ${occupant.cognome || ''}`.trim() || occupant.email,
         };
         document.getElementById('conflict-msg').innerHTML =
@@ -2598,8 +2568,8 @@ async function deleteRow(ombId) {
   if (!omb) return;
   const cliente = (clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === ombId) || null;
   const msg = cliente
-    ? `Rimuovere l'ombrellone Fila ${omb.fila} N°${omb.numero} e il cliente associato (${cliente.nome || ''} ${cliente.cognome || ''})?`
-    : `Rimuovere l'ombrellone Fila ${omb.fila} N°${omb.numero}?`;
+    ? `Rimuovere l'ombrellone ${omb.codice} e il cliente associato (${cliente.nome || ''} ${cliente.cognome || ''})?`
+    : `Rimuovere l'ombrellone ${omb.codice}?`;
   if (!confirm(msg)) return;
   if (cliente) await sb.from('clienti_stagionali').delete().eq('id', cliente.id);
   await sb.from('ombrelloni').delete().eq('id', ombId);
@@ -2621,7 +2591,7 @@ async function openViewOmbrelloneModal(ombId) {
   viewOmbCalYear = now.getFullYear();
   viewOmbCalMonth = now.getMonth();
 
-  document.getElementById('view-omb-title').textContent = `☂️ Ombrellone Fila ${omb.fila} · N°${omb.numero}`;
+  document.getElementById('view-omb-title').textContent = `☂️ Ombrellone ${omb.codice}`;
   document.getElementById('view-omb-credito').textContent = formatCoin(omb.credito_giornaliero);
   const clienteInfo = cliente
     ? `${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')}${cliente.email ? ' · ' + escapeHtml(cliente.email) : ''}`
