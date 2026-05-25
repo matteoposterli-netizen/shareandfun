@@ -474,10 +474,10 @@
         <!-- Azioni: aggiungi singolo + Excel -->
         <div class="action-grid">
           <div class="action-card">
-            <div class="action-icon">➕</div>
-            <div class="action-title">Aggiungi una riga</div>
-            <div class="action-desc">Inserisci l'ombrellone (codice, credito) e, se vuoi, il cliente stagionale associato.</div>
-            <button class="btn btn-primary btn-sm btn-full" onclick="openAddRowModal()">+ Aggiungi</button>
+            <div class="action-icon">🗺️</div>
+            <div class="action-title" id="gestisci-mappa-title">Crea mappa spiaggia</div>
+            <div class="action-desc" id="gestisci-mappa-desc">Disegna visivamente la mappa degli ombrelloni e delle passerelle.</div>
+            <button class="btn btn-primary btn-sm btn-full" onclick="apriMappaBuilderOverlay()">🔧 Gestisci mappa</button>
           </div>
           <div class="action-card highlight">
             <div class="action-icon">📊</div>
@@ -2529,5 +2529,17 @@ document.addEventListener('click', function(e) {
 <script src="js/crediti-stagionali.js"></script>
 <script src="js/main.js"></script>
 <script src="js/mappa-builder.js"></script>
+
+<div id="modal-mappa-builder" class="modal-overlay hidden" style="align-items:flex-start;padding:0">
+  <div class="modal" style="max-width:100%;width:100%;min-height:100vh;border-radius:0;padding:0;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid var(--border);background:#fff;position:sticky;top:0;z-index:10">
+      <div style="font-family:'DM Serif Display',serif;font-size:22px" id="builder-overlay-title">🗺️ Mappa spiaggia</div>
+      <button class="btn btn-outline btn-sm" onclick="chiudiMappaBuilderOverlay()">✕ Chiudi</button>
+    </div>
+    <div id="builder-overlay-body" style="flex:1;overflow-y:auto;padding:0">
+      <!-- contenuto iniettato da JS -->
+    </div>
+  </div>
+</div>
 </body>
 </html>

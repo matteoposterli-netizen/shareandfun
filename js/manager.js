@@ -316,6 +316,14 @@ async function loadManagerData() {
   const { data: ombs } = await sb.from('ombrelloni').select('*').eq('stabilimento_id', currentStabilimento.id).order('codice');
   ombrelloniList = ombs || [];
 
+  const hasMappa = ombrelloniList.length > 0;
+  const _mappaCardTitle = document.getElementById('gestisci-mappa-title');
+  const _mappaCardDesc = document.getElementById('gestisci-mappa-desc');
+  if (_mappaCardTitle) _mappaCardTitle.textContent = hasMappa ? 'Modifica mappa spiaggia' : 'Crea mappa spiaggia';
+  if (_mappaCardDesc) _mappaCardDesc.textContent = hasMappa
+    ? 'Modifica posizioni, aggiungi o rimuovi ombrelloni e passerelle.'
+    : 'Disegna visivamente la mappa degli ombrelloni e delle passerelle.';
+
   const { data: clienti } = await sb.from('clienti_stagionali').select('*').eq('stabilimento_id', currentStabilimento.id);
   clientiList = clienti || [];
 
