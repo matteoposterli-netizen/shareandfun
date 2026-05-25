@@ -452,27 +452,24 @@ function renderManagerMap(ombs, dispMap) {
   if (hasGrid) {
     const byPos = {};
     ombs.forEach(o => { byPos[`${o.pos_x || 0}_${o.pos_y || 0}`] = o; });
-    const passerelle = new Set((currentStabilimento?.mappa_passerelle || []).map(p => `${p.x}_${p.y}`));
-    const maxX = Math.max(...ombs.map(o => o.pos_x || 0));
-    const maxY = Math.max(...ombs.map(o => o.pos_y || 0));
+    const passerelle = (currentStabilimento?.mappa_passerelle || []);
+    const passerelleSet = new Set(passerelle.map(p => `${p.x}_${p.y}`));
+    const xs = ombs.map(o => o.pos_x || 0).concat(passerelle.map(p => p.x || 0));
+    const ys = ombs.map(o => o.pos_y || 0).concat(passerelle.map(p => p.y || 0));
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
 
-    const barDiv = document.createElement('div');
-    barDiv.className = 'bar-label';
-    barDiv.textContent = 'BAR';
-    el.appendChild(barDiv);
-
-    const mapRows = document.createElement('div');
-    mapRows.className = 'map-rows';
-
-    for (let y = 0; y <= maxY; y++) {
+    for (let y = minY; y <= maxY; y++) {
       const row = document.createElement('div');
       row.className = 'map-row';
-      for (let x = 0; x <= maxX; x++) {
+      for (let x = minX; x <= maxX; x++) {
         const key = `${x}_${y}`;
         const o = byPos[key];
         if (o) {
           row.appendChild(buildOmbrelloneCell(o));
-        } else if (passerelle.has(key)) {
+        } else if (passerelleSet.has(key)) {
           const cell = document.createElement('div');
           cell.className = 'map-passerella';
           row.appendChild(cell);
@@ -482,14 +479,8 @@ function renderManagerMap(ombs, dispMap) {
           row.appendChild(cell);
         }
       }
-      mapRows.appendChild(row);
+      el.appendChild(row);
     }
-    el.appendChild(mapRows);
-
-    const mareDiv = document.createElement('div');
-    mareDiv.className = 'sea-label';
-    mareDiv.textContent = 'MARE';
-    el.appendChild(mareDiv);
   } else {
     const sorted = ombs.slice().sort((a, b) => (a.codice || '').localeCompare(b.codice || '', 'it', { numeric: true }));
     const mapRows = document.createElement('div');
