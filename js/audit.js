@@ -65,13 +65,13 @@ async function auditLoadLookups(force = false) {
   auditMaps.ombrelloni.clear();
   auditMaps.clienti.clear();
   const [ombRes, cliRes] = await Promise.all([
-    sb.from('ombrelloni').select('id, fila, numero').eq('stabilimento_id', currentStabilimento.id),
+    sb.from('ombrelloni').select('id, codice').eq('stabilimento_id', currentStabilimento.id),
     sb.from('clienti_stagionali').select('id, nome, cognome, email').eq('stabilimento_id', currentStabilimento.id),
   ]);
   (ombRes.data || []).forEach(o => {
     auditMaps.ombrelloni.set(o.id, {
-      fila: o.fila, numero: o.numero,
-      label: `Fila ${o.fila} N°${o.numero}`,
+      codice: o.codice,
+      label: o.codice,
     });
   });
   (cliRes.data || []).forEach(c => {
@@ -152,10 +152,8 @@ function auditResolveOmbrelloneIds(searchText) {
   if (!s) return null;
   const ids = [];
   for (const [id, o] of auditMaps.ombrelloni) {
-    const fila = String(o.fila || '').toLowerCase();
-    const num  = String(o.numero || '').toLowerCase();
-    const compact = `fila${fila}n${num}`;
-    if (num === s || num.includes(s) || o.label.toLowerCase().includes(s) || compact.includes(s)) {
+    const codice = String(o.codice || '').toLowerCase();
+    if (codice === s || codice.includes(s) || o.label.toLowerCase().includes(s)) {
       ids.push(id);
     }
   }

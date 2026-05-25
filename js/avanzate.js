@@ -180,47 +180,31 @@ async function refreshAvanzateMap() {
 function renderAvanzateMap(ombs, dispMap) {
   const el = document.getElementById('avanzate-map');
   el.innerHTML = '';
-  const byRow = {};
-  ombs.forEach(o => { if (!byRow[o.fila]) byRow[o.fila] = []; byRow[o.fila].push(o); });
-  const colNumbers = Array.from(new Set(ombs.map(o => o.numero))).sort((a, b) => a - b);
-  Object.keys(byRow).sort().reverse().forEach(fila => {
-    const row = document.createElement('div'); row.className = 'map-row';
-    const lbl = document.createElement('div'); lbl.className = 'row-label'; lbl.textContent = fila;
-    row.appendChild(lbl);
-    byRow[fila].sort((a, b) => a.numero - b.numero).forEach(o => {
-      const stato = dispMap[o.id] || 'occupied';
-      const cls = stato === 'libero' ? 'free'
-        : stato === 'parziale' ? 'partial'
-        : stato === 'sub_affittato' ? 'subleased'
-        : 'occupied';
-      const hasCliente = (clientiList || []).some(c => !c.rifiutato && c.ombrellone_id === o.id);
-      const noClienteCls = !hasCliente ? ' no-cliente' : '';
-      const cell = document.createElement('div');
-      cell.className = 'ombrellone ' + cls + noClienteCls;
-      cell.textContent = '☂️';
-      const stateLabel = stato === 'libero' && !hasCliente ? 'subaffittabile (nessun cliente assegnato)'
-        : stato === 'libero' ? 'libero per tutto il periodo'
-        : stato === 'parziale' ? 'libero in parte del periodo'
-        : stato === 'sub_affittato' ? 'sub-affittato in parte del periodo'
-        : 'occupato dal cliente stagionale';
-      cell.title = `${fila}${o.numero} — ${formatCoin(o.credito_giornaliero)}/gg — ${stateLabel} · clicca per selezionare`;
-      if (avanzateSelection.has(o.id)) cell.classList.add('selected');
-      cell.onclick = () => toggleAvanzateSelection(o.id, cell);
-      row.appendChild(cell);
-    });
-    el.appendChild(row);
+  const sorted = ombs.slice().sort((a, b) => (a.codice || '').localeCompare(b.codice || '', 'it'));
+  const mapRow = document.createElement('div'); mapRow.className = 'map-row';
+  sorted.forEach(o => {
+    const stato = dispMap[o.id] || 'occupied';
+    const cls = stato === 'libero' ? 'free'
+      : stato === 'parziale' ? 'partial'
+      : stato === 'sub_affittato' ? 'subleased'
+      : 'occupied';
+    const hasCliente = (clientiList || []).some(c => !c.rifiutato && c.ombrellone_id === o.id);
+    const noClienteCls = !hasCliente ? ' no-cliente' : '';
+    const cell = document.createElement('div');
+    cell.className = 'ombrellone ' + cls + noClienteCls;
+    cell.title = `${o.codice} — ${formatCoin(o.credito_giornaliero)}/gg — `;
+    const stateLabel = stato === 'libero' && !hasCliente ? 'subaffittabile (nessun cliente assegnato)'
+      : stato === 'libero' ? 'libero per tutto il periodo'
+      : stato === 'parziale' ? 'libero in parte del periodo'
+      : stato === 'sub_affittato' ? 'sub-affittato in parte del periodo'
+      : 'occupato dal cliente stagionale';
+    cell.title = `${o.codice} — ${formatCoin(o.credito_giornaliero)}/gg — ${stateLabel} · clicca per selezionare`;
+    cell.textContent = o.codice || '☂️';
+    if (avanzateSelection.has(o.id)) cell.classList.add('selected');
+    cell.onclick = () => toggleAvanzateSelection(o.id, cell);
+    mapRow.appendChild(cell);
   });
-  if (colNumbers.length) {
-    const numRow = document.createElement('div');
-    numRow.className = 'map-row map-col-numbers';
-    const spacer = document.createElement('div'); spacer.className = 'row-label';
-    numRow.appendChild(spacer);
-    colNumbers.forEach(n => {
-      const c = document.createElement('div'); c.className = 'col-label'; c.textContent = n;
-      numRow.appendChild(c);
-    });
-    el.appendChild(numRow);
-  }
+  el.appendChild(mapRow);
 }
 
 /* ---------- Selezione ombrelloni (azione massiva) ---------- */
@@ -287,7 +271,7 @@ function openAvanzateOmbModal(ombId) {
   avanzateOmbCurrent = omb;
   avanzateClienteCurrent = cliente;
 
-  document.getElementById('avanzate-omb-title').textContent = `☂️ Ombrellone Fila ${omb.fila} · N°${omb.numero}`;
+  document.getElementById('avanzate-omb-title').textContent = `☂️ Ombrellone ${omb.codice}`;
   document.getElementById('avanzate-omb-credito').textContent = formatCoin(omb.credito_giornaliero);
   document.getElementById('avanzate-omb-cliente').innerHTML = cliente
     ? `${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')}${cliente.email ? ' · ' + escapeHtml(cliente.email) : ''}`
@@ -679,11 +663,11 @@ function populateMirataSelector() {
   if (!sel) return;
   const prev = sel.value;
   const opts = (ombrelloniList || []).slice().sort((a, b) =>
-    String(a.fila || '').localeCompare(String(b.fila || '')) || (a.numero - b.numero));
+    (a.codice || '').localeCompare(b.codice || '', 'it'));
   sel.innerHTML = '<option value="">— Seleziona un ombrellone —</option>' + opts.map(o => {
     const cl = (clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === o.id);
     const lbl = cl ? ` · ${(cl.nome || '').trim()} ${(cl.cognome || '').trim()}`.replace(/\s+$/,'') : '';
-    return `<option value="${o.id}">Fila ${escapeHtml(String(o.fila || ''))} · N°${o.numero}${escapeHtml(lbl)}</option>`;
+    return `<option value="${o.id}">${escapeHtml(o.codice || '')}${escapeHtml(lbl)}</option>`;
   }).join('');
   if (prev && opts.find(o => o.id === prev)) sel.value = prev;
 }
@@ -734,7 +718,7 @@ async function mirataLoadOmb(ombId) {
   mirataRules = rules || [];
 
   detail.classList.remove('hidden');
-  document.getElementById('mirata-omb-title').textContent = `Fila ${omb.fila} · N°${omb.numero}`;
+  document.getElementById('mirata-omb-title').textContent = omb.codice;
   document.getElementById('mirata-omb-credito').textContent = formatCoin(omb.credito_giornaliero);
   document.getElementById('mirata-omb-cliente').innerHTML = cliente
     ? `${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')}${cliente.email ? ' · ' + escapeHtml(cliente.email) : ''}`

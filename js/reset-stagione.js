@@ -232,8 +232,8 @@ async function sendChiusuraStagioneEmails() {
   const ombIds = Array.from(new Set(targets.map(c => c.ombrellone_id).filter(Boolean)));
   let ombMap = {};
   if (ombIds.length > 0) {
-    const { data: omb } = await sb.from('ombrelloni').select('id, fila, numero').in('id', ombIds);
-    (omb || []).forEach(o => { ombMap[o.id] = `Fila ${o.fila} N°${o.numero}`; });
+    const { data: omb } = await sb.from('ombrelloni').select('id, codice').in('id', ombIds);
+    (omb || []).forEach(o => { ombMap[o.id] = o.codice; });
   }
 
   // 3. Disponibilità raggruppate per cliente
@@ -346,8 +346,7 @@ function scaricaClientiAttualiExcel() {
     .map(c => {
       const o = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
       return {
-        fila: o?.fila || '',
-        numero: o?.numero || '',
+        codice: o?.codice || '',
         credito_giornaliero: o?.credito_giornaliero || '',
         nome: c.nome || '',
         cognome: c.cognome || '',

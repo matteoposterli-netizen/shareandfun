@@ -140,22 +140,7 @@ function initDispRangePicker(fromStr, toStr) {
 }
 
 function populateDispFilaCheckboxes() {
-  const wrap = document.getElementById('disp-filter-file');
-  if (!wrap) return;
-  const file = Array.from(new Set((ombrelloniList || []).map(o => o.fila))).sort();
-  if (!file.length) {
-    wrap.innerHTML = '<span style="color:var(--text-light);font-size:12px">Nessuna fila</span>';
-    return;
-  }
-  // Conserva spunte già presenti.
-  const prev = new Set(
-    Array.from(wrap.querySelectorAll('input[type=checkbox]:checked')).map(i => i.value)
-  );
-  const allChecked = prev.size === 0; // default: tutte attive
-  wrap.innerHTML = file.map(f => {
-    const checked = allChecked || prev.has(f) ? 'checked' : '';
-    return `<label class="disp-chk"><input type="checkbox" value="${escapeHtml(f)}" ${checked} onchange="renderDispView()"> ${escapeHtml(f)}</label>`;
-  }).join('');
+  // Filter is now a text input on codice — nothing to populate dynamically.
 }
 
 function renderDispLegend() {
@@ -284,9 +269,7 @@ function renderDispView() {
   const ombs = (ombrelloniList || []).slice();
 
   // Filtri
-  const checkedFile = new Set(
-    Array.from(document.querySelectorAll('#disp-filter-file input[type=checkbox]:checked')).map(i => i.value)
-  );
+  const filterCodice = (document.getElementById('disp-filter-codice')?.value || '').trim().toLowerCase();
   const stati = new Set(
     Array.from(document.querySelectorAll('.disp-chk input[type=checkbox][data-stato]:checked')).map(i => i.getAttribute('data-stato'))
   );
@@ -295,8 +278,10 @@ function renderDispView() {
   const cliById = {};
   (clientiList || []).forEach(c => { cliById[c.id] = c; });
 
-  // Filtro file: nasconde righe non spuntate.
-  const filtered = ombs.filter(o => checkedFile.has(o.fila));
+  // Filtro per codice: se vuoto, mostra tutto.
+  const filtered = filterCodice
+    ? ombs.filter(o => (o.codice || '').toLowerCase().includes(filterCodice))
+    : ombs.slice();
 
   // Filtro ricerca: filtra le righe (ombrelloni con cliente assegnato matchante OPPURE
   // con almeno una prenotazione nel range con cliente o nome_prenotazione matchante).
@@ -337,11 +322,8 @@ function renderDispView() {
     return;
   }
 
-  // Ordine: fila desc, poi numero asc (come la mappa).
-  visibleOmbs.sort((a, b) => {
-    if (a.fila !== b.fila) return a.fila < b.fila ? 1 : -1;
-    return a.numero - b.numero;
-  });
+  // Ordine per codice.
+  visibleOmbs.sort((a, b) => (a.codice || '').localeCompare(b.codice || '', 'it'));
 
   // Header giorni
   const fmtDay = d => {
@@ -370,10 +352,7 @@ function renderDispView() {
     </thead>`;
 
   // Body
-  let prevFila = null;
   const bodyHtml = `<tbody>${visibleOmbs.map(o => {
-    const isFirstOfFila = o.fila !== prevFila;
-    prevFila = o.fila;
     const cells = dates.map(d => {
       const st = getDispCellState(o.id, d);
       const cellKey = `${o.id}|${d}`;
@@ -392,12 +371,11 @@ function renderDispView() {
       }
       const noAction = (st.kind === 'occupato' || st.kind === 'fuori-stagione' || st.kind === 'chiusura' || st.kind === 'mai-libero');
       if (noAction) cls += ' disp-cell-noaction';
-      const tooltipBase = `${o.fila}${o.numero} · ${formatDate(d)} — ${st.label}`;
+      const tooltipBase = `${o.codice} · ${formatDate(d)} — ${st.label}`;
       const onclick = `onDispCellClick('${o.id}','${d}',event)`;
       return `<td class="${cls}" data-omb="${o.id}" data-date="${d}" data-kind="${st.kind}" title="${escapeHtml(tooltipBase)}" onclick="${onclick}"></td>`;
     }).join('');
-    const rowCls = isFirstOfFila && prevFila !== null ? 'disp-row-fila-start' : '';
-    return `<tr class="${rowCls}"><th class="disp-th-row" scope="row">Fila ${escapeHtml(o.fila)} N°${o.numero}</th>${cells}</tr>`;
+    return `<tr><th class="disp-th-row" scope="row">${escapeHtml(o.codice || '')}</th>${cells}</tr>`;
   }).join('')}</tbody>`;
 
   wrap.innerHTML = `<table class="disp-table">${headHtml}${bodyHtml}</table>`;
@@ -476,7 +454,7 @@ function closeDispPopover() {
 function showDispPopoverFree(cellEl, omb, date) {
   const html = `
     <button class="disp-pop-close" onclick="closeDispPopover()" aria-label="Chiudi">×</button>
-    <h4>Fila ${escapeHtml(omb.fila)} N°${omb.numero} · ${escapeHtml(formatDate(date))}</h4>
+    <h4>${escapeHtml(omb.codice)} · ${escapeHtml(formatDate(date))}</h4>
     <div class="disp-pop-meta">Ombrellone subaffittabile in questo giorno.</div>
     <div class="disp-pop-actions">
       <button class="btn btn-primary btn-sm" onclick="dispGoToCreate('${omb.id}','${date}')">Crea prenotazione</button>
@@ -492,7 +470,7 @@ function showDispPopoverSubaffittato(cellEl, omb, date, disp) {
   const nome = disp?.nome_prenotazione ? `<div><strong>Prenotazione:</strong> ${escapeHtml(disp.nome_prenotazione)}</div>` : '';
   const html = `
     <button class="disp-pop-close" onclick="closeDispPopover()" aria-label="Chiudi">×</button>
-    <h4>Fila ${escapeHtml(omb.fila)} N°${omb.numero} · ${escapeHtml(formatDate(date))}</h4>
+    <h4>${escapeHtml(omb.codice)} · ${escapeHtml(formatDate(date))}</h4>
     <div class="disp-pop-meta">
       ${nome}
       <div><strong>Stagionale:</strong> ${cliLabel}</div>
@@ -508,7 +486,7 @@ function showDispPopoverSubaffittato(cellEl, omb, date, disp) {
 function showDispPopoverInfo(cellEl, omb, date, st) {
   const html = `
     <button class="disp-pop-close" onclick="closeDispPopover()" aria-label="Chiudi">×</button>
-    <h4>Fila ${escapeHtml(omb.fila)} N°${omb.numero} · ${escapeHtml(formatDate(date))}</h4>
+    <h4>${escapeHtml(omb.codice)} · ${escapeHtml(formatDate(date))}</h4>
     <div class="disp-pop-meta">${escapeHtml(st.label)}.</div>
   `;
   _dispPopoverEl = buildPopover(html, cellEl);

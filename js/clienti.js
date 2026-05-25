@@ -7,7 +7,7 @@ async function loadExcelFile(e) {
     rows = await readExcelFile(file);
   } catch (err) {
     console.error(err);
-    showAlert('xlsx-alert', '❌ Impossibile leggere il file Excel. Verifica il formato e riprova.', 'error');
+    showAlert('xlsx-alert', `❌ ${err.message || 'Impossibile leggere il file Excel. Verifica il formato e riprova.'}`, 'error');
     e.target.value = '';
     return;
   }
@@ -40,24 +40,24 @@ function renderExcelAnteprima(rows) {
   const wrap = document.getElementById('xlsx-preview');
   const actions = document.getElementById('xlsx-actions');
   const ombByKey = {};
-  (ombrelloniList || []).forEach(o => { ombByKey[`${o.fila}|${o.numero}`] = o; });
+  (ombrelloniList || []).forEach(o => { ombByKey[o.codice] = o; });
   const clienteByOmb = {};
   (clientiList || []).forEach(c => { if (c.ombrellone_id) clienteByOmb[c.ombrellone_id] = c; });
 
   const seenEmails = new Set();
   const seenOmbInFile = new Map();
   rows.forEach((r, i) => {
-    const k = `${r.fila}|${r.numero}`;
+    const k = r.codice;
     if (!seenOmbInFile.has(k)) seenOmbInFile.set(k, []);
     seenOmbInFile.get(k).push(i);
   });
 
   const statuses = rows.map((r, idx) => {
-    const dupOmb = seenOmbInFile.get(`${r.fila}|${r.numero}`);
+    const dupOmb = seenOmbInFile.get(r.codice);
     if (dupOmb.length > 1 && dupOmb[0] !== idx) {
       return { kind: 'block', label: `ombrellone duplicato (riga ${dupOmb[0] + 2})`, diffs: [], requiresExplicit: false };
     }
-    const omb = ombByKey[`${r.fila}|${r.numero}`];
+    const omb = ombByKey[r.codice];
     const ombExists = !!omb;
     const email = (r.email || '').trim().toLowerCase();
     const hasClienteFields = !!(r.nome || r.cognome || r.email || r.telefono);
@@ -122,8 +122,8 @@ function renderExcelAnteprima(rows) {
   const explicits = statuses.filter(s => s.requiresExplicit).length;
 
   // DB rows missing from file: candidate deletions
-  const fileKeys = new Set(rows.map(r => `${r.fila}|${r.numero}`));
-  const missing = (ombrelloniList || []).filter(o => !fileKeys.has(`${o.fila}|${o.numero}`));
+  const fileKeys = new Set(rows.map(r => r.codice));
+  const missing = (ombrelloniList || []).filter(o => !fileKeys.has(o.codice));
 
   wrap.innerHTML = `
     <div class="csv-preview-wrap">
@@ -136,7 +136,7 @@ function renderExcelAnteprima(rows) {
           ${explicits ? `<span style="color:var(--red);font-size:12px;font-weight:600">${explicits} clienti attivi (conferma esplicita)</span>` : ''}
         </span>
       </div>
-      <div class="csv-row header" style="grid-template-columns:32px 60px 60px 1fr 1fr 1fr 160px"><div></div><div>Fila</div><div>N°</div><div>Cliente</div><div>Email</div><div>Modifiche</div><div>Stato</div></div>
+      <div class="csv-row header" style="grid-template-columns:32px 100px 1fr 1fr 1fr 160px"><div></div><div>Codice</div><div>Cliente</div><div>Email</div><div>Modifiche</div><div>Stato</div></div>
       ${rows.map((r, i) => {
         const s = statuses[i];
         const badgeColor = s.kind === 'ok' || s.kind === 'new' ? 'var(--green)'
@@ -148,10 +148,9 @@ function renderExcelAnteprima(rows) {
         const nomeStr = `${r.nome || ''} ${r.cognome || ''}`.trim() || '<span style="color:var(--text-light)">–</span>';
         const diffStr = s.diffs.length ? s.diffs.join('') : '<span style="color:var(--text-light);font-size:11px">–</span>';
         return `
-        <div class="csv-row" style="grid-template-columns:32px 60px 60px 1fr 1fr 1fr 160px;align-items:start">
+        <div class="csv-row" style="grid-template-columns:32px 100px 1fr 1fr 1fr 160px;align-items:start">
           <input type="checkbox" class="xlsx-check" data-idx="${i}" ${attrs} onchange="updateExcelCount()">
-          <div>${escapeHtml(r.fila)}</div>
-          <div>${r.numero}</div>
+          <div>${escapeHtml(r.codice)}</div>
           <div>${nomeStr}</div>
           <div>${escapeHtml(r.email) || '<span style="color:var(--text-light)">–</span>'}</div>
           <div>${diffStr}</div>
@@ -163,15 +162,14 @@ function renderExcelAnteprima(rows) {
         <div style="font-size:12px;color:var(--text-mid);margin:0 0 8px">
           Spunta gli ombrelloni che vuoi <strong>cancellare</strong>. La cancellazione rimuove anche cliente assegnato, disponibilità e transazioni storiche collegate. Default: nessuna cancellazione.
         </div>
-        <div class="csv-row header" style="grid-template-columns:32px 60px 60px 1fr 1fr 160px"><div></div><div>Fila</div><div>N°</div><div>Cliente attuale</div><div>Storico</div><div>Azione</div></div>
+        <div class="csv-row header" style="grid-template-columns:32px 100px 1fr 1fr 160px"><div></div><div>Codice</div><div>Cliente attuale</div><div>Storico</div><div>Azione</div></div>
         ${missing.map(o => {
           const cl = clienteByOmb[o.id];
           const cliStr = cl ? `${cl.nome || ''} ${cl.cognome || ''}`.trim() + (cl.email ? ` <span style="color:var(--text-light);font-size:11px">${escapeHtml(cl.email)}</span>` : '') + (cl.user_id ? ' <span style="color:var(--red);font-size:10px;font-weight:700">[ATTIVO]</span>' : '') : '<span style="color:var(--text-light)">–</span>';
           return `
-          <div class="csv-row" style="grid-template-columns:32px 60px 60px 1fr 1fr 160px;align-items:start">
+          <div class="csv-row" style="grid-template-columns:32px 100px 1fr 1fr 160px;align-items:start">
             <input type="checkbox" class="xlsx-delete" data-omb-id="${o.id}" data-cli-id="${cl?.id || ''}" data-cli-active="${cl?.user_id ? '1' : '0'}" onchange="updateExcelCount()">
-            <div>${escapeHtml(o.fila)}</div>
-            <div>${o.numero}</div>
+            <div>${escapeHtml(o.codice || '')}</div>
             <div>${cliStr}</div>
             <div style="font-size:11px;color:var(--text-light)">credito ${formatCoin(o.credito_giornaliero)}</div>
             <div style="color:var(--red);font-size:11px;font-weight:600">candidato cancellazione</div>
@@ -236,7 +234,7 @@ async function importaExcel() {
 
   // Compute counts for the summary
   const ombByKey = {};
-  (ombrelloniList || []).forEach(o => { ombByKey[`${o.fila}|${o.numero}`] = o; });
+  (ombrelloniList || []).forEach(o => { ombByKey[o.codice] = o; });
   const clienteByOmb = {};
   (clientiList || []).forEach(c => { if (c.ombrellone_id) clienteByOmb[c.ombrellone_id] = c; });
   const clienteByEmail = {};
@@ -245,7 +243,7 @@ async function importaExcel() {
   let ombNew = 0, ombCreditUpdate = 0;
   let cliNew = 0, cliUpdate = 0, cliReplace = 0, cliActiveTouched = 0;
   for (const r of selected) {
-    const existing = ombByKey[`${r.fila}|${r.numero}`];
+    const existing = ombByKey[r.codice];
     if (!existing) ombNew++;
     else if (parseFloat(existing.credito_giornaliero) !== r.credito) ombCreditUpdate++;
 
@@ -377,23 +375,23 @@ async function confirmImportaExcelExecute() {
   renderProgressInAlert('xlsx-alert', 'Preparazione ombrelloni…', 0, selected.length);
 
   const ombByKey = {};
-  (ombrelloniList || []).forEach(o => { ombByKey[`${o.fila}|${o.numero}`] = o; });
+  (ombrelloniList || []).forEach(o => { ombByKey[o.codice] = o; });
 
   const ombToUpdate = [];
   const ombToInsert = [];
   for (const r of selected) {
-    const existing = ombByKey[`${r.fila}|${r.numero}`];
+    const existing = ombByKey[r.codice];
     if (existing) {
       if (parseFloat(existing.credito_giornaliero) !== r.credito) ombToUpdate.push({ id: existing.id, credito_giornaliero: r.credito });
     } else {
-      ombToInsert.push({ stabilimento_id: currentStabilimento.id, fila: r.fila, numero: r.numero, credito_giornaliero: r.credito });
+      ombToInsert.push({ stabilimento_id: currentStabilimento.id, codice: r.codice, pos_x: 0, pos_y: 0, credito_giornaliero: r.credito });
     }
   }
 
   if (ombToInsert.length) {
-    const { data: insertedOmb, error } = await sb.from('ombrelloni').insert(ombToInsert).select('id,fila,numero');
+    const { data: insertedOmb, error } = await sb.from('ombrelloni').insert(ombToInsert).select('id,codice');
     if (error) { if (btn) btn.disabled = false; showAlert('xlsx-alert', `Errore inserimento ombrelloni: ${error.message}`, 'error'); return; }
-    (insertedOmb || []).forEach(o => { ombByKey[`${o.fila}|${o.numero}`] = o; });
+    (insertedOmb || []).forEach(o => { ombByKey[o.codice] = o; });
   }
   await runWithConcurrency(ombToUpdate, 5, async (u) => {
     await sb.from('ombrelloni').update({ credito_giornaliero: u.credito_giornaliero }).eq('id', u.id);
@@ -434,7 +432,7 @@ async function confirmImportaExcelExecute() {
 
   const displacedIds = new Set();
   for (const [k, row] of byEmail) {
-    const omb = ombByKey[`${row.fila}|${row.numero}`];
+    const omb = ombByKey[row.codice];
     if (!omb) continue;
     const existing = clienteByOmb[omb.id];
     if (existing && (existing.email || '').toLowerCase() !== k) displacedIds.add(existing.id);
@@ -456,14 +454,14 @@ async function confirmImportaExcelExecute() {
   const now = new Date().toISOString();
   const toUpdate = [], toInsert = [];
   for (const [k, row] of byEmail) {
-    const omb = ombByKey[`${row.fila}|${row.numero}`];
+    const omb = ombByKey[row.codice];
     const base = {
       nome: row.nome, cognome: row.cognome, telefono: row.telefono,
       ombrellone_id: omb?.id || null,
     };
     if (inviaInviti) base.invitato_at = now;
     const existing = existingByEmail.get(k);
-    const ombStr = omb ? `Fila ${omb.fila} N°${omb.numero}` : '';
+    const ombStr = omb ? omb.codice : '';
     if (existing) toUpdate.push({ id: existing.id, token: existing.invito_token, row, update: base, ombStr });
     else toInsert.push({ stabilimento_id: currentStabilimento.id, email: row.email, fonte: 'csv', approvato: false, ...base, _row: row, _ombStr: ombStr });
   }
@@ -591,7 +589,7 @@ async function confirmBulkInvite() {
   const now = new Date().toISOString();
   await runWithConcurrency(bulkInviteTargets, 5, async (c) => {
     const omb = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
-    const ombStr = omb ? `Fila ${omb.fila} N°${omb.numero}` : '';
+    const ombStr = omb ? omb.codice : '';
     const inviteLink = `${window.location.origin}/?invito=${c.invito_token}`;
     const ok = await retryUntilTrue(
       () => inviaEmail('invito',

@@ -75,3 +75,32 @@ $$;
 ALTER TABLE public.ombrelloni
   DROP COLUMN IF EXISTS fila,
   DROP COLUMN IF EXISTS numero;
+
+-- 9. Aggiorna get_cliente_by_invito_token per usare codice al posto di fila/numero
+CREATE OR REPLACE FUNCTION public.get_cliente_by_invito_token(p_token uuid)
+RETURNS TABLE(
+  id uuid, nome text, cognome text, email text, telefono text,
+  stabilimento_id uuid, stabilimento_nome text,
+  ombrellone_id uuid, ombrellone_codice text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+BEGIN
+  RETURN QUERY
+  SELECT
+    cs.id, cs.nome, cs.cognome, cs.email, cs.telefono,
+    cs.stabilimento_id,
+    s.nome  AS stabilimento_nome,
+    cs.ombrellone_id,
+    o.codice AS ombrellone_codice
+  FROM clienti_stagionali cs
+  LEFT JOIN stabilimenti s ON s.id = cs.stabilimento_id
+  LEFT JOIN ombrelloni   o ON o.id = cs.ombrellone_id
+  WHERE cs.invito_token = p_token
+    AND cs.user_id IS NULL
+    AND cs.rifiutato = false
+  LIMIT 1;
+END;
+$function$;

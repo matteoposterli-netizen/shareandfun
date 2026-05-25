@@ -974,9 +974,9 @@
             <div class="card-body" style="padding-top:0">
               <div class="disp-filters">
                 <div class="disp-filter-group">
-                  <label class="disp-filter-label">File</label>
+                  <label class="disp-filter-label">Codice ombrellone</label>
                   <div id="disp-filter-file" class="disp-checkbox-row">
-                    <span style="color:var(--text-light);font-size:12px">—</span>
+                    <input type="text" id="disp-filter-codice" class="form-input" style="font-size:12px;padding:4px 8px" placeholder="es. A1, Gazebo" oninput="renderDispView()">
                   </div>
                 </div>
                 <div class="disp-filter-group">
@@ -1369,25 +1369,15 @@
             </div>
 
             <div id="comm-rec-filter" class="comm-rec-detail" style="display:none">
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
-                <div>
-                  <label class="form-label" style="font-size:12px">File (vuoto = tutte)</label>
-                  <select id="comm-filter-file" class="form-select" multiple size="5" onchange="comunicazioniRefreshRecipients()"></select>
-                </div>
-                <div>
-                  <label class="form-label" style="font-size:12px">N° ombrellone da</label>
-                  <input type="number" id="comm-filter-num-da" class="form-input" min="0" oninput="comunicazioniRefreshRecipients()">
-                </div>
-                <div>
-                  <label class="form-label" style="font-size:12px">N° ombrellone a</label>
-                  <input type="number" id="comm-filter-num-a" class="form-input" min="0" oninput="comunicazioniRefreshRecipients()">
-                </div>
+              <div>
+                <label class="form-label" style="font-size:12px">Filtra per codice ombrellone (separa con virgola, vuoto = tutti)</label>
+                <input type="text" id="comm-filter-codice" class="form-input" placeholder="es. A1, B3, Gazebo" oninput="comunicazioniRefreshRecipients()">
               </div>
             </div>
 
             <div id="comm-rec-manual" class="comm-rec-detail" style="display:none">
               <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                <input type="search" id="comm-manual-search" class="form-input" placeholder="Cerca per nome / cognome / fila / numero…" style="flex:1;min-width:200px;padding:6px 10px;font-size:13px" oninput="comunicazioniManualRender()">
+                <input type="search" id="comm-manual-search" class="form-input" placeholder="Cerca per nome / cognome / codice ombrellone…" style="flex:1;min-width:200px;padding:6px 10px;font-size:13px" oninput="comunicazioniManualRender()">
                 <button class="btn btn-outline btn-sm" type="button" onclick="comunicazioniManualSelectAll(true)">Seleziona tutti</button>
                 <button class="btn btn-outline btn-sm" type="button" onclick="comunicazioniManualSelectAll(false)">Deseleziona tutti</button>
               </div>
@@ -2288,6 +2278,58 @@
   </div>
 </div>
 
+<!-- ===== VIEW: MAPPA BUILDER (onboarding) ===== -->
+<div id="view-mappa-builder" class="view" style="display:none">
+  <div class="mappa-builder-wrap">
+    <div class="mappa-builder-header">
+      <div class="mappa-builder-logo">SpiaggiaMia</div>
+      <h2 class="mappa-builder-title">Disegna la mappa del tuo stabilimento</h2>
+      <p class="mappa-builder-sub">Indica dove sono gli ombrelloni e i passaggi. Potrai modificarla in seguito.</p>
+    </div>
+
+    <div class="mappa-step-bar">
+      <span class="mappa-step-label active" id="mappa-step-1-label">1 · Disegna</span>
+      <span class="mappa-step-sep">→</span>
+      <span class="mappa-step-label" id="mappa-step-2-label">2 · Nomina</span>
+    </div>
+
+    <!-- Step 1: layout -->
+    <div id="mappa-step1-content">
+      <div class="mappa-mode-bar">
+        <button class="btn mode-btn active" id="btn-mode-ombrellone" onclick="setModalita('ombrellone')">☂ Ombrellone</button>
+        <button class="btn mode-btn" id="btn-mode-passerella" onclick="setModalita('passerella')">— Passaggio</button>
+        <button class="btn mode-btn" id="btn-mode-vuoto" onclick="setModalita('vuoto')">✕ Cancella</button>
+        <span class="mappa-counter" id="mappa-counter">0 ombrelloni</span>
+      </div>
+      <div class="mappa-grid-wrap">
+        <div class="mappa-grid" id="mappa-grid-step1"></div>
+      </div>
+      <div class="mappa-hint">Clicca le celle per disegnare. Clicca e trascina per disegnare in serie.</div>
+      <div class="mappa-actions">
+        <button class="btn btn-primary" id="btn-mappa-avanti" onclick="goToStep2()" disabled>Avanti →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: nomi -->
+    <div id="mappa-step2-content" style="display:none">
+      <div class="mappa-step2-layout">
+        <div class="mappa-step2-grid-col">
+          <div class="mappa-grid mappa-grid-small" id="mappa-grid-step2"></div>
+        </div>
+        <div class="mappa-step2-form-col">
+          <p class="mappa-step2-hint">Assegna un nome/codice a ogni ombrellone (es. A1, 23, Gazebo).</p>
+          <div class="mappa-codici-table" id="mappa-codici-table"></div>
+        </div>
+      </div>
+      <div id="mappa-error" class="alert alert-error" style="display:none;margin-top:12px"></div>
+      <div class="mappa-actions">
+        <button class="btn btn-outline" onclick="goToStep1()">← Indietro</button>
+        <button class="btn btn-primary" id="btn-mappa-salva" onclick="salvaMappaStabilimento(_mappaStabilimentoId)">Salva mappa</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // Mobile drawer
 function openDrawer() {
@@ -2330,5 +2372,6 @@ document.addEventListener('click', function(e) {
 <script src="js/disponibilita-tab.js"></script>
 <script src="js/crediti-stagionali.js"></script>
 <script src="js/main.js"></script>
+<script src="js/mappa-builder.js"></script>
 </body>
 </html>
