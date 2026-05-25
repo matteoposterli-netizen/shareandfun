@@ -144,6 +144,10 @@ async function refreshMap() {
 
   renderMapRegoleBanner(from, to, dates, regole || []);
 
+  const inizio = currentStabilimento?.data_inizio_stagione;
+  const fine = currentStabilimento?.data_fine_stagione;
+  const allOutOfSeason = !!(inizio && fine && dates.length && dates.every(d => d < inizio || d > fine));
+
   const dispByOmbDate = {};
   (disp || []).forEach(d => {
     if (!dispByOmbDate[d.ombrellone_id]) dispByOmbDate[d.ombrellone_id] = {};
@@ -271,7 +275,11 @@ async function refreshMap() {
   }
 
   pruneBookingSelection();
-  renderManagerMap(ombrelloniList, rangeDispMap);
+  renderManagerMap(ombrelloniList, rangeDispMap, {
+    allOutOfSeason,
+    stagioneDa: inizio || '',
+    staginoA: fine || '',
+  });
   renderBookingSelectionPanel();
 
   const freeEl = document.getElementById('map-free-count');
@@ -444,13 +452,42 @@ function applyDefaultPrenFilter(today) {
   toEl.value = toLocalDateStr(end);
 }
 
-function renderManagerMap(ombs, dispMap) {
+function renderManagerMap(ombs, dispMap, opts = {}) {
   const el = document.getElementById('manager-map');
   el.innerHTML = '';
+
+  const { allOutOfSeason = false, stagioneDa = '', staginoA = '' } = opts;
+
+  // Overlay fuori stagione (mostrato sopra la mappa)
+  const existingOverlay = document.getElementById('map-fuori-stagione-overlay');
+  if (existingOverlay) existingOverlay.remove();
+  if (allOutOfSeason && stagioneDa && staginoA) {
+    const overlay = document.createElement('div');
+    overlay.id = 'map-fuori-stagione-overlay';
+    overlay.className = 'map-fuori-stagione-overlay';
+    overlay.innerHTML = `
+      <div class="fst-icon">🌙</div>
+      <div class="fst-title">Periodo fuori stagione</div>
+      <div class="fst-sub">La stagione attiva va dal <strong>${formatDate(stagioneDa)}</strong> al <strong>${formatDate(staginoA)}</strong>.<br>Non è possibile creare prenotazioni fuori stagione.</div>
+    `;
+    el.parentElement.insertBefore(overlay, el);
+  }
+
   const sorted = ombs.slice().sort((a, b) => (a.codice || '').localeCompare(b.codice || '', 'it', { numeric: true }));
   sorted.forEach(o => {
-    const stato = dispMap[o.id] || 'occupied';
     const el2 = document.createElement('div');
+
+    // Fuori stagione: tutti grigi, non selezionabili
+    if (allOutOfSeason) {
+      el2.className = 'ombrellone fuori-stagione';
+      el2.textContent = '☂️';
+      el2.title = `${o.codice} — fuori stagione`;
+      el2.onclick = null;
+      el.appendChild(el2);
+      return;
+    }
+
+    const stato = dispMap[o.id] || 'occupied';
     const cls = stato === 'libero' ? 'free'
       : stato === 'combinazione' ? 'combo'
       : stato === 'parziale' ? 'partial'
@@ -492,6 +529,11 @@ function renderManagerMap(ombs, dispMap) {
 
 function toggleMapOmbSelection(omb, stato) {
   if (!currentMapRange) return;
+  // Blocca selezione se fuori stagione
+  const _inizio = currentStabilimento?.data_inizio_stagione;
+  const _fine = currentStabilimento?.data_fine_stagione;
+  const _allOut = _inizio && _fine && currentMapRange.dates.every(d => d < _inizio || d > _fine);
+  if (_allOut) return;
   const label = omb.codice;
   if (stato === 'sub_affittato') {
     alert(`${label} è già sub-affittato in parte del periodo. Annullalo dalla tab Prenotazioni se necessario.`);
@@ -585,6 +627,13 @@ function clearBookingSelection() {
 
 function pruneBookingSelection() {
   if (!currentMapRange || bookingSelection.size === 0) return;
+  // Se tutto il range è fuori stagione, svuota la selezione
+  const _inizio = currentStabilimento?.data_inizio_stagione;
+  const _fine = currentStabilimento?.data_fine_stagione;
+  if (_inizio && _fine && currentMapRange.dates.every(d => d < _inizio || d > _fine)) {
+    bookingSelection.clear();
+    return;
+  }
   const { dispByOmbDate, dates } = currentMapRange;
   for (const id of Array.from(bookingSelection)) {
     const ombDisp = dispByOmbDate[id] || {};
