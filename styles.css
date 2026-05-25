@@ -193,6 +193,41 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .ombrellone.combo { background: repeating-linear-gradient(45deg, var(--coral) 0 4px, var(--coral-light) 4px 10px); color: var(--coral); border-color: var(--coral); border-width: 2px; }
 .ombrellone.combo:hover { background: var(--coral); color: #fff; }
 .ombrellone.subleased { background: var(--yellow-light); color: #9C7A1F; border-color: var(--yellow); }
+
+/* Fuori stagione: ombrellone non prenotabile */
+.ombrellone.fuori-stagione {
+  background: #EFEFEF;
+  color: #BDBDBD;
+  border-color: #DCDCDC;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.ombrellone.fuori-stagione:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Overlay fuori stagione sulla mappa */
+.map-fuori-stagione-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 20px;
+  background: rgba(248, 246, 242, 0.85);
+  border: 2px dashed #BDBDBD;
+  border-radius: var(--radius);
+  text-align: center;
+  margin-bottom: 16px;
+}
+.map-fuori-stagione-overlay .fst-icon { font-size: 32px; }
+.map-fuori-stagione-overlay .fst-title {
+  font-size: 15px; font-weight: 700; color: var(--text-strong);
+}
+.map-fuori-stagione-overlay .fst-sub {
+  font-size: 13px; color: var(--text-mid);
+}
 .ombrellone.free.no-cliente { background: var(--green-light); color: var(--green); border: 2px dashed #96DDB8; }
 .ombrellone.selected { box-shadow: 0 0 0 3px var(--coral), 0 0 0 5px rgba(224, 123, 84, 0.25); border-color: var(--coral); transform: scale(1.04); }
 .ombrellone.selected::after { content: '✓'; position: absolute; top: -4px; right: -4px; background: var(--coral); color: #fff; font-size: 11px; font-weight: 700; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; line-height: 1; }
