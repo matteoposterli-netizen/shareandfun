@@ -10,6 +10,9 @@ async function saveStabilimento() {
   if (error) { hideLoading(); showAlert('setup1-alert', error.message, 'error'); return; }
   currentStabilimento = data;
   refreshCoinLabels(currentStabilimento);
+  // Controlla se il proprietario deve configurare la mappa ombrelloni (0 ombrelloni)
+  const onboardingAttivo = await checkOnboardingMappa(currentStabilimento.id);
+  if (onboardingAttivo) { hideLoading(); return; }
   await loadManagerData();
   hideLoading();
   showView('manager');
