@@ -69,6 +69,21 @@ function setCellTipo(r, c, tipo) {
 
 let _mappaDragging = false;
 
+// Aggiunge le label BAR (top) e MARE (bottom) intorno a un elemento griglia
+function _addBarMareLabels(gridEl) {
+  if (!gridEl || !gridEl.parentElement) return;
+  const parent = gridEl.parentElement;
+  parent.querySelectorAll('.mappa-bar-label, .mappa-mare-label').forEach(el => el.remove());
+  const bar = document.createElement('div');
+  bar.className = 'mappa-bar-label';
+  bar.textContent = '— BAR —';
+  parent.insertBefore(bar, gridEl);
+  const mare = document.createElement('div');
+  mare.className = 'mappa-mare-label';
+  mare.textContent = '— MARE —';
+  gridEl.insertAdjacentElement('afterend', mare);
+}
+
 function renderMappaStep1() {
   const grid = document.getElementById('mappa-grid-step1');
   if (!grid) return;
@@ -98,6 +113,7 @@ function renderMappaStep1() {
   grid.addEventListener('mouseup', () => { _mappaDragging = false; });
   document.addEventListener('mouseup', () => { _mappaDragging = false; }, { once: false });
   updateCounter();
+  _addBarMareLabels(grid);
 }
 
 function renderMappaStep2() {
@@ -123,6 +139,7 @@ function renderMappaStep2() {
         gridEl.appendChild(cell);
       }
     }
+    _addBarMareLabels(gridEl);
   }
 
   const table = document.getElementById('mappa-codici-table');
@@ -276,8 +293,7 @@ async function salvaMappaStabilimento(stabilimentoId) {
 
 function mostraMappaBuilder(stabilimentoId) {
   _mappaStabilimentoId = stabilimentoId;
-  // Rimuovi active da tutti i view, poi mostra il mappa-builder
-  // IMPORTANTE: rimuovere anche l'inline style="display:none" che ha priorità sul CSS
+  // Rimuovi active da tutti i view + rimuovi inline display:none che prevale sul CSS
   document.querySelectorAll('.view').forEach(v => {
     v.classList.remove('active');
     v.style.display = '';
@@ -310,4 +326,114 @@ async function checkOnboardingMappa(stabilimentoId) {
     return true;
   }
   return false;
+}
+
+// ============================================================
+// OVERRIDE renderManagerMap — layout griglia pos_x/pos_y
+// Caricato dopo manager.js, sovrascrive la funzione flat-list.
+// ============================================================
+function renderManagerMap(ombs, dispMap) {
+  const el = document.getElementById('manager-map');
+  el.innerHTML = '';
+  if (!ombs.length) return;
+
+  // Verifica se ci sono posizioni significative (non tutti a 0,0)
+  const uniquePos = new Set(ombs.map(o => `${o.pos_x || 0}_${o.pos_y || 0}`));
+  const hasGrid = uniquePos.size > 1 || ombs.length === 1;
+
+  const fmtDay = d => new Date(d + 'T00:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+
+  const buildOmbrelloneCell = (o) => {
+    const stato = dispMap[o.id] || 'occupied';
+    const cell = document.createElement('div');
+    const cls = stato === 'libero' ? 'free'
+      : stato === 'combinazione' ? 'combo'
+      : stato === 'parziale' ? 'partial'
+      : stato === 'sub_affittato' ? 'subleased'
+      : 'occupied';
+    const isSelected = bookingSelection.has(o.id);
+    const hasCliente = (clientiList || []).some(c => !c.rifiutato && c.ombrellone_id === o.id);
+    const noClienteCls = !hasCliente ? ' no-cliente' : '';
+    cell.className = 'ombrellone ' + cls + noClienteCls + (isSelected ? ' selected' : '');
+    cell.textContent = '☂️';
+    let hint = '';
+    const freeDays = (currentMapRange?.dates || []).filter(d => (currentMapRange?.dispByOmbDate?.[o.id] || {})[d] === 'libero');
+    const selectSuffix = isSelected
+      ? ' — selezionato, clicca per rimuoverlo dalla prenotazione'
+      : ' — clicca per aggiungerlo alla prenotazione';
+    if (stato === 'libero') {
+      hint = ' — libero per tutto il periodo' + selectSuffix;
+    } else if (stato === 'combinazione') {
+      const covers = (currentMapRange?.combinationCovers || {})[o.id] || [];
+      const days = covers.map(fmtDay).join(', ');
+      const extra = freeDays.filter(d => !covers.includes(d));
+      const extraTxt = extra.length ? ` (libero anche ${extra.map(fmtDay).join(', ')})` : '';
+      hint = ` — copre ${covers.length} giorn${covers.length === 1 ? 'o' : 'i'}: ${days}${extraTxt}` + selectSuffix;
+    } else if (stato === 'parziale') {
+      const days = freeDays.map(fmtDay).join(', ');
+      hint = ` — libero ${freeDays.length} giorn${freeDays.length === 1 ? 'o' : 'i'}: ${days}` + selectSuffix;
+    } else if (stato === 'sub_affittato') {
+      hint = ' — sub-affittato';
+    }
+    cell.title = `${o.codice} — ${formatCoin(o.credito_giornaliero)}/gg${hint}`;
+    cell.onclick = () => toggleMapOmbSelection(o, stato);
+    return cell;
+  };
+
+  if (hasGrid) {
+    // Layout griglia usando pos_x/pos_y
+    const byPos = {};
+    ombs.forEach(o => { byPos[`${o.pos_x || 0}_${o.pos_y || 0}`] = o; });
+    const passerelle = new Set((currentStabilimento?.mappa_passerelle || []).map(p => `${p.x}_${p.y}`));
+    const maxX = Math.max(...ombs.map(o => o.pos_x || 0));
+    const maxY = Math.max(...ombs.map(o => o.pos_y || 0));
+
+    // Label BAR (top = y=0 = lato bar)
+    const barDiv = document.createElement('div');
+    barDiv.className = 'bar-label';
+    barDiv.textContent = 'BAR';
+    el.appendChild(barDiv);
+
+    const mapRows = document.createElement('div');
+    mapRows.className = 'map-rows';
+
+    for (let y = 0; y <= maxY; y++) {
+      const row = document.createElement('div');
+      row.className = 'map-row';
+      for (let x = 0; x <= maxX; x++) {
+        const key = `${x}_${y}`;
+        const o = byPos[key];
+        if (o) {
+          row.appendChild(buildOmbrelloneCell(o));
+        } else if (passerelle.has(key)) {
+          const cell = document.createElement('div');
+          cell.className = 'map-passerella';
+          row.appendChild(cell);
+        } else {
+          const cell = document.createElement('div');
+          cell.className = 'map-empty';
+          row.appendChild(cell);
+        }
+      }
+      mapRows.appendChild(row);
+    }
+    el.appendChild(mapRows);
+
+    // Label MARE (bottom = y=maxY = lato mare)
+    const mareDiv = document.createElement('div');
+    mareDiv.className = 'sea-label';
+    mareDiv.textContent = 'MARE';
+    el.appendChild(mareDiv);
+
+  } else {
+    // Fallback: lista flat per ombrelloni aggiunti manualmente senza layout
+    const sorted = ombs.slice().sort((a, b) => (a.codice || '').localeCompare(b.codice || '', 'it', { numeric: true }));
+    const mapRows = document.createElement('div');
+    mapRows.className = 'map-rows';
+    const row = document.createElement('div');
+    row.className = 'map-row';
+    sorted.forEach(o => row.appendChild(buildOmbrelloneCell(o)));
+    mapRows.appendChild(row);
+    el.appendChild(mapRows);
+  }
 }
