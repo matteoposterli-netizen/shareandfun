@@ -26,6 +26,9 @@ function avanzateInit() {
   // Default: oggi → +6gg, così l'input mostra subito un range e non una data singola.
   // setAvanzateRangePreset triggera il refresh della mappa.
   setAvanzateRangePreset(7);
+  // Popola il nome stabilimento nella sezione Zona pericolosa
+  const dangerNome = document.getElementById('danger-stab-nome');
+  if (dangerNome) dangerNome.textContent = currentStabilimento.nome;
 }
 
 function initAvanzateRangePicker(fromDate) {
@@ -884,6 +887,83 @@ async function mirataDelete() {
   }
 }
 
+/* ---------- CANCELLA ACCOUNT ---------- */
+
+async function openCancellaAccountModal() {
+  const stabId = currentStabilimento.id;
+
+  const [
+    { count: nOmb },
+    { count: nCli },
+    { count: nDisp },
+    { count: nTx },
+  ] = await Promise.all([
+    sb.from('ombrelloni').select('id', { count: 'exact', head: true }).eq('stabilimento_id', stabId),
+    sb.from('clienti_stagionali').select('id', { count: 'exact', head: true }).eq('stabilimento_id', stabId),
+    sb.from('disponibilita').select('id', { count: 'exact', head: true })
+      .in('ombrellone_id',
+        (await sb.from('ombrelloni').select('id').eq('stabilimento_id', stabId)).data?.map(o => o.id) || []
+      ),
+    sb.from('transazioni').select('id', { count: 'exact', head: true }).eq('stabilimento_id', stabId),
+  ]);
+
+  document.getElementById('cancella-summary').innerHTML = [
+    `<li>Stabilimento: <strong>${escapeHtml(currentStabilimento.nome)}</strong></li>`,
+    `<li>${nOmb || 0} ombrelloni</li>`,
+    `<li>${nCli || 0} clienti stagionali</li>`,
+    `<li>${nDisp || 0} disponibilità</li>`,
+    `<li>${nTx || 0} transazioni</li>`,
+    `<li>Bozze email, log attività, regole calendario</li>`,
+    `<li>Il tuo account proprietario</li>`,
+  ].join('');
+
+  document.getElementById('cancella-step1').style.display = '';
+  document.getElementById('cancella-step2').style.display = 'none';
+  document.getElementById('cancella-step3').style.display = 'none';
+  document.getElementById('cancella-confirm-input').value = '';
+  document.getElementById('btn-confirm-cancella').disabled = true;
+  document.getElementById('cancella-error').style.display = 'none';
+
+  document.getElementById('modal-cancella-account').classList.remove('hidden');
+}
+
+function closeCancellaAccountModal() {
+  document.getElementById('modal-cancella-account').classList.add('hidden');
+}
+
+function cancellaStep2() {
+  document.getElementById('cancella-step1').style.display = 'none';
+  document.getElementById('cancella-step2').style.display = '';
+  document.getElementById('cancella-confirm-input').focus();
+}
+
+function updateCancellaBtn() {
+  const val = document.getElementById('cancella-confirm-input').value.trim();
+  document.getElementById('btn-confirm-cancella').disabled = val !== 'ELIMINA';
+}
+
+async function eseguiCancellaAccount() {
+  const val = document.getElementById('cancella-confirm-input').value.trim();
+  if (val !== 'ELIMINA') return;
+
+  document.getElementById('cancella-step2').style.display = 'none';
+  document.getElementById('cancella-step3').style.display = '';
+
+  const { error } = await sb.rpc('cancella_account_proprietario');
+
+  if (error) {
+    document.getElementById('cancella-step3').style.display = 'none';
+    document.getElementById('cancella-step2').style.display = '';
+    const errEl = document.getElementById('cancella-error');
+    errEl.textContent = `Errore: ${error.message}`;
+    errEl.style.display = '';
+    return;
+  }
+
+  await sb.auth.signOut();
+  window.location.href = '/';
+}
+
 /* ---------- Esposizione globale ---------- */
 
 window.avanzateInit = avanzateInit;
@@ -911,3 +991,8 @@ window.mirataBulkRemove = mirataBulkRemove;
 window.mirataAdjustSaldo = mirataAdjustSaldo;
 window.mirataOpenEdit = mirataOpenEdit;
 window.mirataDelete = mirataDelete;
+window.openCancellaAccountModal = openCancellaAccountModal;
+window.closeCancellaAccountModal = closeCancellaAccountModal;
+window.cancellaStep2 = cancellaStep2;
+window.updateCancellaBtn = updateCancellaBtn;
+window.eseguiCancellaAccount = eseguiCancellaAccount;
