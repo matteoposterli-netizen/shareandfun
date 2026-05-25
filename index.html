@@ -1113,6 +1113,26 @@
               </div>
             </div>
           </div><!-- /avanzate-pane-mirata -->
+
+          <div class="avanzate-section danger-zone" id="avanzate-danger-zone">
+            <div class="section-header danger-header">
+              <h3>⚠️ Zona pericolosa</h3>
+            </div>
+            <div class="danger-zone-body">
+              <p class="danger-desc">
+                Cancella definitivamente il tuo account, lo stabilimento
+                <strong id="danger-stab-nome"></strong> e tutti i dati collegati:
+                ombrelloni, clienti stagionali, disponibilità, transazioni,
+                bozze email e log attività.
+                <br><strong>Questa operazione è irreversibile.</strong>
+              </p>
+              <button class="btn btn-danger" id="btn-apri-cancella-account"
+                      onclick="openCancellaAccountModal()">
+                🗑 Elimina account e tutti i dati
+              </button>
+            </div>
+          </div>
+
         </div><!-- /pren-sub-disponibilita-omb -->
 
       </div>
@@ -2275,6 +2295,58 @@
       <button class="btn btn-outline btn-sm" onclick="closeModal('modal-admin-row')">Annulla</button>
       <button class="btn btn-primary btn-sm" onclick="saveAdminRow()" id="btn-admin-row-save">Salva</button>
     </div>
+  </div>
+</div>
+
+<!-- ===== MODAL CANCELLA ACCOUNT ===== -->
+<div id="modal-cancella-account" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px">
+
+    <!-- STEP 1: Avviso iniziale -->
+    <div id="cancella-step1">
+      <div class="modal-title" style="color:#dc2626">⚠️ Stai per eliminare il tuo account</div>
+      <p style="font-size:14px;color:var(--text-mid);margin:12px 0">
+        Verranno cancellati <strong>definitivamente</strong>:
+      </p>
+      <ul id="cancella-summary" style="font-size:13px;line-height:2;color:var(--text-dark);padding-left:20px"></ul>
+      <p style="font-size:13px;color:#dc2626;font-weight:600;margin-top:12px">
+        Non sarà possibile recuperare i dati dopo la cancellazione.
+      </p>
+      <div class="modal-footer">
+        <button class="btn btn-outline btn-sm" onclick="closeCancellaAccountModal()">Annulla</button>
+        <button class="btn btn-sm cancella-btn-danger" onclick="cancellaStep2()">Continua →</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: Digita ELIMINA per confermare -->
+    <div id="cancella-step2" style="display:none">
+      <div class="modal-title" style="color:#dc2626">Conferma finale</div>
+      <p style="font-size:14px;color:var(--text-mid);margin:12px 0">
+        Digita <strong>ELIMINA</strong> nel campo sottostante per confermare
+        la cancellazione di tutti i dati.
+      </p>
+      <input type="text" id="cancella-confirm-input" class="form-input"
+             placeholder="Digita ELIMINA"
+             oninput="updateCancellaBtn()"
+             style="width:100%;margin-bottom:12px">
+      <div id="cancella-error" class="alert alert-coral" style="display:none;margin-bottom:12px"></div>
+      <div class="modal-footer">
+        <button class="btn btn-outline btn-sm" onclick="closeCancellaAccountModal()">Annulla</button>
+        <button class="btn btn-sm cancella-btn-danger" id="btn-confirm-cancella"
+                onclick="eseguiCancellaAccount()" disabled>
+          Elimina definitivamente
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 3: Loading -->
+    <div id="cancella-step3" style="display:none;text-align:center;padding:24px 0">
+      <div style="font-size:32px;margin-bottom:12px">⏳</div>
+      <p style="font-size:14px;color:var(--text-mid)">
+        Cancellazione in corso… non chiudere questa finestra.
+      </p>
+    </div>
+
   </div>
 </div>
 

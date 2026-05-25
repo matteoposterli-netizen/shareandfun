@@ -2869,3 +2869,24 @@ body:has(#view-stagionale.active) .topnav { display: none; }
 .codice-row.selected-row { background: #e8f1fb; border-color: var(--ocean); }
 .codice-pos { font-size: 12px; color: var(--text-light); min-width: 24px; text-align: right; }
 .codice-input { flex: 1; padding: 5px 8px; font-size: 13px; border: 1px solid var(--border); border-radius: 4px; }
+
+/* DANGER ZONE (Avanzate tab) */
+.danger-zone {
+  border: 1.5px solid #fca5a5;
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 32px;
+  background: #fff5f5;
+}
+.danger-header h3 { color: #dc2626; margin: 0 0 12px; }
+.danger-desc { font-size: 14px; color: var(--text-mid); margin: 0 0 16px; line-height: 1.6; }
+/* Solid-red button variant for destructive account deletion (scoped to avoid overriding existing btn-danger) */
+.cancella-btn-danger,
+.danger-zone .btn-danger {
+  background: #dc2626; color: #fff; border: none;
+  padding: 9px 20px; border-radius: 6px; font-size: 14px;
+  font-weight: 600; cursor: pointer;
+}
+.cancella-btn-danger:hover,
+.danger-zone .btn-danger:hover { background: #b91c1c; color: #fff; }
+.cancella-btn-danger:disabled { opacity: 0.45; cursor: not-allowed; }
