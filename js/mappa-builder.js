@@ -95,14 +95,12 @@ function renderMappaStep1() {
       grid.appendChild(cell);
     }
   }
-  // Stop dragging on mouseup anywhere
   grid.addEventListener('mouseup', () => { _mappaDragging = false; });
   document.addEventListener('mouseup', () => { _mappaDragging = false; }, { once: false });
   updateCounter();
 }
 
 function renderMappaStep2() {
-  // Left: small grid
   const gridEl = document.getElementById('mappa-grid-step2');
   if (gridEl) {
     gridEl.innerHTML = '';
@@ -127,7 +125,6 @@ function renderMappaStep2() {
     }
   }
 
-  // Right: table of inputs
   const table = document.getElementById('mappa-codici-table');
   if (table) {
     table.innerHTML = '';
@@ -151,7 +148,6 @@ function renderMappaStep2() {
         input.value = mappaState.codici[`${r}_${c}`] || '';
         input.addEventListener('input', () => {
           mappaState.codici[`${r}_${c}`] = input.value;
-          // Update cell in left grid
           const cellEl = document.querySelector(`#mappa-grid-step2 [data-r="${r}"][data-c="${c}"]`);
           if (cellEl) {
             const cod = input.value.trim();
@@ -172,15 +168,12 @@ function renderMappaStep2() {
 
 function selectCellStep2(r, c) {
   mappaState.selectedCell = { r, c };
-  // Update highlights in grid
   document.querySelectorAll('#mappa-grid-step2 .mappa-cell').forEach(el => el.classList.remove('selected'));
   const cellEl = document.querySelector(`#mappa-grid-step2 [data-r="${r}"][data-c="${c}"]`);
   if (cellEl) cellEl.classList.add('selected');
-  // Update row highlights in table
   document.querySelectorAll('.codice-row').forEach(el => el.classList.remove('selected-row'));
   const rowEl = document.getElementById(`codice-row-${r}-${c}`);
   if (rowEl) rowEl.classList.add('selected-row');
-  // Focus input
   const input = document.getElementById(`codice-input-${r}-${c}`);
   if (input) {
     input.focus();
@@ -276,20 +269,25 @@ async function salvaMappaStabilimento(stabilimentoId) {
     return;
   }
 
+  // Chiudi il builder e vai alla dashboard
   chiudiMappaBuilder();
   await loadManagerData();
+  showView('manager');
 }
 
 function mostraMappaBuilder(stabilimentoId) {
   _mappaStabilimentoId = stabilimentoId;
-  // Hide all views
-  document.querySelectorAll('[id^="view-"]').forEach(v => v.style.display = 'none');
-  document.getElementById('view-mappa-builder').style.display = '';
+  // Usa lo stesso sistema di showView: toglie active da tutti, aggiunge active al mappa-builder
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.body.className = document.body.className.replace(/\bview-[a-z0-9-]+\b/g, '').trim();
+  document.body.classList.add('view-mappa-builder');
+  document.getElementById('view-mappa-builder').classList.add('active');
   goToStep1();
 }
 
 function chiudiMappaBuilder() {
-  document.getElementById('view-mappa-builder').style.display = 'none';
+  document.getElementById('view-mappa-builder').classList.remove('active');
+  document.body.classList.remove('view-mappa-builder');
   _mappaStabilimentoId = null;
 }
 
