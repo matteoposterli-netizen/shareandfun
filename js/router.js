@@ -30,6 +30,29 @@ async function loadUserAndRoute() {
   currentProfile = profile;
   updateNav();
   if (!profile) {
+    // Controlla se c'è una registrazione proprietario in attesa (post email-confirmation)
+    const pendingRaw = sessionStorage.getItem('sm_pending_reg');
+    if (pendingRaw) {
+      try {
+        const { nome, cognome, telefono } = JSON.parse(pendingRaw);
+        const { error: pe } = await sb.from('profiles').insert({
+          id: currentUser.id, nome, cognome, telefono, ruolo: 'proprietario'
+        });
+        if (!pe) {
+          sessionStorage.removeItem('sm_pending_reg');
+          const { data: newProfile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+          currentProfile = newProfile;
+          updateNav();
+          showView('setup');
+          return;
+        }
+        // Se l'insert fallisce (es. race condition) rimuovi comunque e continua
+        sessionStorage.removeItem('sm_pending_reg');
+      } catch (e) {
+        sessionStorage.removeItem('sm_pending_reg');
+      }
+    }
+
     // Admin session (no business profile) → bounce to admin area.
     const { data: adminRow } = await sb.from('admins').select('user_id').eq('user_id', currentUser.id).maybeSingle();
     if (adminRow) { window.location.href = '/?admin=1'; return; }

@@ -30,14 +30,42 @@ async function doRegister() {
   const telefono = document.getElementById('reg-telefono').value.trim();
   const password = document.getElementById('reg-password').value;
   const btn = document.getElementById('btn-register');
-  if (!nome || !cognome || !email || !password) { showAlert('register-alert', 'Compila tutti i campi obbligatori', 'error'); return; }
-  if (password.length < 6) { showAlert('register-alert', 'La password deve avere almeno 6 caratteri', 'error'); return; }
+
+  if (!nome || !cognome || !email || !password) {
+    showAlert('register-alert', 'Compila tutti i campi obbligatori', 'error'); return;
+  }
+  if (password.length < 6) {
+    showAlert('register-alert', 'La password deve avere almeno 6 caratteri', 'error'); return;
+  }
+
   btn.disabled = true; btn.textContent = 'Registrazione...';
   const { data, error } = await sb.auth.signUp({ email, password });
-  if (error) { showAlert('register-alert', error.message, 'error'); btn.disabled = false; btn.textContent = 'Crea account'; return; }
+  if (error) {
+    showAlert('register-alert', error.message, 'error');
+    btn.disabled = false; btn.textContent = 'Crea account'; return;
+  }
+
+  // Caso A: email confirmation attiva → sessione non ancora disponibile
+  if (!data.session) {
+    // Salva i dati del form per completare la registrazione dopo la conferma email
+    sessionStorage.setItem('sm_pending_reg', JSON.stringify({ nome, cognome, telefono }));
+    showAlert(
+      'register-alert',
+      '✉️ Ti abbiamo inviato un\'email di conferma. Clicca il link per attivare il tuo account e verrai guidato alla configurazione del tuo stabilimento.',
+      'success'
+    );
+    btn.disabled = false; btn.textContent = 'Crea account'; return;
+  }
+
+  // Caso B: email confirmation disabilitata → sessione disponibile subito
   currentUser = data.user;
-  const { error: pe } = await sb.from('profiles').insert({ id: currentUser.id, nome, cognome, telefono, ruolo: 'proprietario' });
-  if (pe) { showAlert('register-alert', pe.message, 'error'); btn.disabled = false; btn.textContent = 'Crea account'; return; }
+  const { error: pe } = await sb.from('profiles').insert({
+    id: currentUser.id, nome, cognome, telefono, ruolo: 'proprietario'
+  });
+  if (pe) {
+    showAlert('register-alert', pe.message, 'error');
+    btn.disabled = false; btn.textContent = 'Crea account'; return;
+  }
   const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
   currentProfile = profile;
   updateNav();
