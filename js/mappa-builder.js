@@ -269,7 +269,6 @@ async function salvaMappaStabilimento(stabilimentoId) {
     return;
   }
 
-  // Chiudi il builder e vai alla dashboard
   chiudiMappaBuilder();
   await loadManagerData();
   showView('manager');
@@ -277,16 +276,24 @@ async function salvaMappaStabilimento(stabilimentoId) {
 
 function mostraMappaBuilder(stabilimentoId) {
   _mappaStabilimentoId = stabilimentoId;
-  // Usa lo stesso sistema di showView: toglie active da tutti, aggiunge active al mappa-builder
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  // Rimuovi active da tutti i view, poi mostra il mappa-builder
+  // IMPORTANTE: rimuovere anche l'inline style="display:none" che ha priorità sul CSS
+  document.querySelectorAll('.view').forEach(v => {
+    v.classList.remove('active');
+    v.style.display = '';
+  });
   document.body.className = document.body.className.replace(/\bview-[a-z0-9-]+\b/g, '').trim();
   document.body.classList.add('view-mappa-builder');
-  document.getElementById('view-mappa-builder').classList.add('active');
+  const el = document.getElementById('view-mappa-builder');
+  el.style.display = 'block';
+  el.classList.add('active');
   goToStep1();
 }
 
 function chiudiMappaBuilder() {
-  document.getElementById('view-mappa-builder').classList.remove('active');
+  const el = document.getElementById('view-mappa-builder');
+  el.classList.remove('active');
+  el.style.display = 'none';
   document.body.classList.remove('view-mappa-builder');
   _mappaStabilimentoId = null;
 }
