@@ -15,6 +15,24 @@ let mappaState = {
 
 let _mappaStabilimentoId = null;
 
+// Inietta CSS per stati errore e counter (evita modifica a styles.css e index.html)
+(function _injectMappaStyles() {
+  if (document.getElementById('mappa-builder-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'mappa-builder-styles';
+  s.textContent = `
+    .codice-row-error { background: #FDEBEA !important; border-color: #D9534F !important; }
+    .codice-input-error { border-color: #D9534F !important; box-shadow: 0 0 0 2px rgba(217,83,79,0.2) !important; }
+    .mappa-missing-counter {
+      font-size: 12px; font-weight: 600; padding: 4px 10px;
+      border-radius: 6px; display: inline-block; margin-right: 8px;
+    }
+    .mappa-missing-counter.has-missing { color: var(--red); background: var(--red-light); }
+    .mappa-missing-counter.all-done { color: var(--green); background: var(--green-light); }
+  `;
+  document.head.appendChild(s);
+})();
+
 function initGrid() {
   mappaState.grid = Array.from({ length: MAPPA_ROWS }, () =>
     Array(MAPPA_COLS).fill(CELL_TIPO.VUOTO)
@@ -38,7 +56,8 @@ function setModalita(tipo) {
 }
 
 function updateCell(r, c) {
-  const el = document.querySelector(`#mappa-grid-step2 [data-r="${r}"][data-c="${c}"], #mappa-grid-step1 [data-r="${r}"][data-c="${c}"]`);
+  const stepEl = mappaState.step === 2 ? document.getElementById('mappa-grid-step2') : document.getElementById('mappa-grid-step1');
+  const el = stepEl ? stepEl.querySelector(`[data-r="${r}"][data-c="${c}"]`) : null;
   if (!el) return;
   const tipo = mappaState.grid[r][c];
   el.className = `mappa-cell tipo-${tipo}`;
@@ -81,6 +100,39 @@ function _addBarMareLabels(gridEl) {
   mare.className = 'mappa-mare-label';
   mare.textContent = '— MARE —';
   gridEl.insertAdjacentElement('afterend', mare);
+}
+
+// Assicura che il counter "N senza nome" esista accanto al bottone Salva
+function _ensureMissingCounter() {
+  if (document.getElementById('mappa-missing-counter')) return;
+  const btn = document.getElementById('btn-mappa-salva');
+  if (!btn || !btn.parentElement) return;
+  const span = document.createElement('span');
+  span.id = 'mappa-missing-counter';
+  span.className = 'mappa-missing-counter';
+  btn.parentElement.insertBefore(span, btn);
+}
+
+function _aggiornaCounterMancanti() {
+  _ensureMissingCounter();
+  let missing = 0;
+  for (let r = 0; r < MAPPA_ROWS; r++) {
+    for (let c = 0; c < MAPPA_COLS; c++) {
+      if (mappaState.grid[r][c] === CELL_TIPO.OMBRELLONE) {
+        const val = (mappaState.codici[`${r}_${c}`] || '').trim();
+        if (!val) missing++;
+      }
+    }
+  }
+  const el = document.getElementById('mappa-missing-counter');
+  if (!el) return;
+  if (missing > 0) {
+    el.className = 'mappa-missing-counter has-missing';
+    el.textContent = `${missing} ombrelon${missing > 1 ? 'i' : 'e'} senza nome`;
+  } else {
+    el.className = 'mappa-missing-counter all-done';
+    el.textContent = '✓ Tutti compilati';
+  }
 }
 
 function renderMappaStep1() {
@@ -161,19 +213,12 @@ function renderMappaStep2() {
         input.className = 'codice-input';
         input.id = `codice-input-${r}-${c}`;
         input.placeholder = `es. A${idx}`;
-        // IMPORTANTE: leggi il valore corrente dal DOM dell'input se esiste già,
-        // così i valori già digitati dall'utente non vanno persi al re-render
-        const existingInput = document.getElementById(`codice-input-${r}-${c}`);
-        const currentVal = existingInput ? existingInput.value : (mappaState.codici[`${r}_${c}`] || '');
-        input.value = currentVal;
-        // Sincronizza subito codici con il valore attuale (anche se non digitato ora)
-        if (currentVal.trim()) {
-          mappaState.codici[`${r}_${c}`] = currentVal;
-        }
+        input.value = mappaState.codici[`${r}_${c}`] || '';
         input.addEventListener('input', () => {
           mappaState.codici[`${r}_${c}`] = input.value;
-          // Aggiorna il banner errore in tempo reale
           _aggiornaCounterMancanti();
+          row.classList.remove('codice-row-error');
+          input.classList.remove('codice-input-error');
           const cellEl = document.querySelector(`#mappa-grid-step2 [data-r="${r}"][data-c="${c}"]`);
           if (cellEl) {
             const cod = input.value.trim();
@@ -183,9 +228,6 @@ function renderMappaStep2() {
               cellEl.classList.add('selected');
             }
           }
-          // Rimuovi evidenziazione errore dalla riga quando l'utente inizia a digitare
-          row.classList.remove('codice-row-error');
-          input.classList.remove('codice-input-error');
         });
         row.appendChild(pos);
         row.appendChild(input);
@@ -194,29 +236,6 @@ function renderMappaStep2() {
     }
   }
   _aggiornaCounterMancanti();
-}
-
-// Aggiorna il counter "N ombrelloni senza nome" in tempo reale
-function _aggiornaCounterMancanti() {
-  let missing = 0;
-  for (let r = 0; r < MAPPA_ROWS; r++) {
-    for (let c = 0; c < MAPPA_COLS; c++) {
-      if (mappaState.grid[r][c] === CELL_TIPO.OMBRELLONE) {
-        const val = (mappaState.codici[`${r}_${c}`] || '').trim();
-        if (!val) missing++;
-      }
-    }
-  }
-  const el = document.getElementById('mappa-missing-counter');
-  if (el) {
-    if (missing > 0) {
-      el.textContent = `${missing} ombrelon${missing > 1 ? 'i' : 'e'} ancora senz${missing > 1 ? 'a' : "'"}a nome`;
-      el.style.display = '';
-    } else {
-      el.textContent = '✓ Tutti i nomi compilati';
-      el.style.cssText = 'display:inline-block;color:var(--green);font-weight:600;font-size:12px;padding:4px 10px;background:var(--green-light);border-radius:6px';
-    }
-  }
 }
 
 function selectCellStep2(r, c) {
@@ -265,11 +284,10 @@ function validateCodici() {
   for (let r = 0; r < MAPPA_ROWS; r++) {
     for (let c = 0; c < MAPPA_COLS; c++) {
       if (mappaState.grid[r][c] === CELL_TIPO.OMBRELLONE) {
-        // Leggi anche il valore attuale dall'input DOM (se step 2 è attivo)
+        // Leggi dal DOM se disponibile (fonte più affidabile del valore attuale)
         const inputEl = document.getElementById(`codice-input-${r}-${c}`);
         const val = inputEl ? inputEl.value.trim() : (mappaState.codici[`${r}_${c}`] || '').trim();
-        // Sincronizza codici con il DOM
-        if (val) mappaState.codici[`${r}_${c}`] = val;
+        if (val) mappaState.codici[`${r}_${c}`] = val; // sincronizza
         ombrelloni.push({ r, c, codice: val });
       }
     }
@@ -277,8 +295,8 @@ function validateCodici() {
   const errors = [];
   const vuoti = ombrelloni.filter(o => !o.codice);
   if (vuoti.length) {
-    errors.push(`${vuoti.length} ombrelon${vuoti.length > 1 ? 'i' : 'e'} senz${vuoti.length > 1 ? 'a' : "a"} nome`);
-    // Evidenzia e scrolla al primo mancante
+    errors.push(`${vuoti.length} ombrelon${vuoti.length > 1 ? 'i' : 'e'} senza nome`);
+    // Evidenzia in rosso + scrolla al primo mancante
     vuoti.forEach((o, idx) => {
       const rowEl = document.getElementById(`codice-row-${o.r}-${o.c}`);
       const inputEl = document.getElementById(`codice-input-${o.r}-${o.c}`);
@@ -310,7 +328,6 @@ async function salvaMappaStabilimento(stabilimentoId) {
   for (let r = 0; r < MAPPA_ROWS; r++) {
     for (let c = 0; c < MAPPA_COLS; c++) {
       if (mappaState.grid[r][c] === CELL_TIPO.OMBRELLONE) {
-        // Leggi dal DOM per sicurezza
         const inputEl = document.getElementById(`codice-input-${r}-${c}`);
         const codice = inputEl ? inputEl.value.trim() : (mappaState.codici[`${r}_${c}`] || '').trim();
         ombrelloniData.push({
