@@ -953,7 +953,7 @@ body.view-stagionale .topnav, body:has(#view-stagionale.active) .topnav { displa
 .mode-btn { padding: 7px 14px; font-size: 13px; border-radius: 6px; background: var(--bg); border: 2px solid var(--border); color: var(--text-mid); font-weight: 600; cursor: pointer; }
 .mode-btn.active { background: var(--ocean); color: #fff; border-color: var(--ocean); }
 .mappa-counter { margin-left: auto; font-size: 13px; color: var(--text-mid); }
-.mappa-grid-wrap { overflow: auto; }
+.mappa-grid-wrap { overflow: auto; width: fit-content; max-width: 100%; }
 .mappa-grid { display: grid; grid-template-columns: repeat(20, 28px); grid-template-rows: repeat(20, 28px); gap: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px; width: fit-content; cursor: crosshair; }
 .mappa-cell { width: 28px; height: 28px; border-radius: 4px; border: 1px solid var(--border); font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; user-select: none; cursor: pointer; transition: background .1s; }
 .tipo-vuoto { background: #f5f5f5; }
@@ -977,7 +977,7 @@ body.view-stagionale .topnav, body:has(#view-stagionale.active) .topnav { displa
 .codice-input { flex: 1; padding: 5px 8px; font-size: 13px; border: 1px solid var(--border); border-radius: 4px; }
 
 /* BAR / MARE labels in mappa builder */
-.mappa-bar-label, .mappa-mare-label { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; padding: 5px 0; display: flex; align-items: center; gap: 10px; width: fit-content; }
+.mappa-bar-label, .mappa-mare-label { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; padding: 5px 0; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; box-sizing: border-box; }
 .mappa-bar-label::before, .mappa-bar-label::after, .mappa-mare-label::before, .mappa-mare-label::after { content: ''; flex: 1; min-width: 20px; border-top: 1.5px dashed currentColor; }
 .mappa-bar-label  { color: var(--coral); }
 .mappa-mare-label { color: var(--ocean-mid); }
