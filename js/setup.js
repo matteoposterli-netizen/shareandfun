@@ -13,4 +13,6 @@ async function saveStabilimento() {
   await loadManagerData();
   hideLoading();
   showView('manager');
+  const gestioneBtn = document.querySelector('.sidebar-item[onclick*="gestione"]');
+  managerTab('gestione', gestioneBtn);
 }
