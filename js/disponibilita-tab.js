@@ -24,7 +24,7 @@ function switchPrenSubtab(name, btn) {
     initDispView();
   }
   if (name === 'disponibilita-omb') {
-    if (typeof avanzateInit === 'function') avanzateInit();
+    if (typeof prenOmbInit === 'function') prenOmbInit();
   }
 }
 

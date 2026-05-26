@@ -17,7 +17,7 @@ function switchConfigSubtab(sub, btn) {
     if (typeof loadRegoleStato === 'function') loadRegoleStato();
     if (typeof loadBackupList === 'function') loadBackupList();
   }
-  if (sub === 'avanzate' && typeof avanzateInit === 'function') avanzateInit();
+  if (sub === 'avanzate' && typeof avanzateInit === 'function') avanzateInit('avanzate');
   if (sub === 'account' && typeof accountLoad === 'function') accountLoad();
 }
 

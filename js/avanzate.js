@@ -1,48 +1,62 @@
-// js/avanzate.js — Configurazioni → Avanzate
+// js/avanzate.js — Configurazioni → Avanzate + Prenotazioni → Disponibilità Ombrelloni
 //
-// Mappa interattiva degli ombrelloni con azioni gestore:
-//   • forza disponibile per sub-affitto (per ombrellone o massa)
-//   • rimuovi disponibilità (per ombrellone o massa)
-//   • modifica anagrafica (riusa #modal-edit-row di manager.js)
-//   • cancella ombrellone (riusa deleteRow() di manager.js)
-//   • rettifica saldo coin (insert transazione + update clienti_stagionali)
-//
-// Opera direttamente via PostgREST con le RLS esistenti del proprietario.
-// Niente RPC nuove. Audit log degli INSERT/DELETE è coperto dai trigger esistenti.
+// Context-aware: avanzateCtx='avanzate' per config-sub-avanzate,
+//                avanzateCtx='prenomb' per pren-sub-disponibilita-omb.
+// avId(suffix)  → getElementById(ctx + '-' + suffix)
+// avIds(suffix) → querySelectorAll('.' + suffix) dentro il container di contesto
 
-let avanzateRangePickerInstance = null;
-let avanzateCurrentRange = null;     // { from, to, dates, dispByOmbDate, rangeDispMap }
-let avanzateOmbCurrent = null;       // { id, fila, numero, credito_giornaliero }
+let avanzateCtx = 'avanzate'; // 'avanzate' | 'prenomb'
 let avanzateClienteCurrent = null;   // { id, nome, ..., credito_saldo } | null
-let avanzateSaldoOrigin = null;      // 'omb' (modal scheda) | 'mirata' (pane mirata)
+let avanzateSaldoOrigin = null;      // 'omb' | 'mirata'
 let avanzateSelection = new Set();   // ombrellone IDs selezionati per azione massiva
+
+// Stato per contesto
+const avanzateRangePickerInstances = {};
+const avanzateCurrentRangeByCtx = {};
+const avanzateOmbCurrentByCtx = {};
+
+function avId(suffix) {
+  return document.getElementById(avanzateCtx + '-' + suffix);
+}
+function avIds(suffix) {
+  const container = document.getElementById(avanzateCtx + '-container');
+  if (!container) return document.querySelectorAll('.' + suffix);
+  return container.querySelectorAll('.' + suffix);
+}
+function getAvanzatePickerInstance() { return avanzateRangePickerInstances[avanzateCtx] || null; }
+function setAvanzatePickerInstance(inst) { avanzateRangePickerInstances[avanzateCtx] = inst; }
+function getAvanzateCurrentRange() { return avanzateCurrentRangeByCtx[avanzateCtx] || null; }
+function setAvanzateCurrentRange(v) { avanzateCurrentRangeByCtx[avanzateCtx] = v; }
+function getAvanzateOmbCurrent() { return avanzateOmbCurrentByCtx[avanzateCtx] || null; }
+function setAvanzateOmbCurrent(v) { avanzateOmbCurrentByCtx[avanzateCtx] = v; }
 
 /* ---------- Init / range picker ---------- */
 
-function avanzateInit() {
+function avanzateInit(ctx) {
+  if (ctx) avanzateCtx = ctx;
   if (!currentStabilimento) return;
-  // First-time init of flatpickr (no-op if already instantiated)
-  if (!avanzateRangePickerInstance) initAvanzateRangePicker(todayStr());
-  // Default: oggi → +6gg, così l'input mostra subito un range e non una data singola.
-  // setAvanzateRangePreset triggera il refresh della mappa.
+  if (!getAvanzatePickerInstance()) initAvanzateRangePicker(todayStr());
   setAvanzateRangePreset(7);
-  // Popola il nome stabilimento nella sezione Zona pericolosa
   const dangerNome = document.getElementById('danger-stab-nome');
   if (dangerNome) dangerNome.textContent = currentStabilimento.nome;
 }
 
+function prenOmbInit() {
+  avanzateInit('prenomb');
+}
+
 function initAvanzateRangePicker(fromDate) {
   if (typeof flatpickr === 'undefined') return;
-  const input = document.getElementById('avanzate-range-picker');
+  const input = avId('range-picker');
   if (!input) return;
   const startDate = new Date(fromDate + 'T00:00:00');
   const endDefault = new Date(fromDate + 'T00:00:00');
   endDefault.setDate(endDefault.getDate() + 6);
-  if (avanzateRangePickerInstance) {
-    avanzateRangePickerInstance.setDate([startDate, endDefault], false);
+  if (getAvanzatePickerInstance()) {
+    getAvanzatePickerInstance().setDate([startDate, endDefault], false);
     return;
   }
-  avanzateRangePickerInstance = flatpickr(input, {
+  setAvanzatePickerInstance(flatpickr(input, {
     mode: 'range',
     locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
     dateFormat: 'd/m/Y',
@@ -51,16 +65,16 @@ function initAvanzateRangePicker(fromDate) {
     disableMobile: true,
     onChange: (selectedDates) => {
       if (selectedDates.length === 2) {
-        document.getElementById('avanzate-date-from').value = toLocalDateStr(selectedDates[0]);
-        document.getElementById('avanzate-date-to').value = toLocalDateStr(selectedDates[1]);
+        avId('date-from').value = toLocalDateStr(selectedDates[0]);
+        avId('date-to').value = toLocalDateStr(selectedDates[1]);
         refreshAvanzateMap();
       } else if (selectedDates.length === 1) {
         const from = toLocalDateStr(selectedDates[0]);
-        document.getElementById('avanzate-date-from').value = from;
-        document.getElementById('avanzate-date-to').value = from;
+        avId('date-from').value = from;
+        avId('date-to').value = from;
       }
     },
-  });
+  }));
 }
 
 function setAvanzateRangePreset(days) {
@@ -68,9 +82,9 @@ function setAvanzateRangePreset(days) {
   const startDate = new Date(today + 'T00:00:00');
   const endDate = new Date(today + 'T00:00:00');
   endDate.setDate(endDate.getDate() + days - 1);
-  document.getElementById('avanzate-date-from').value = today;
-  document.getElementById('avanzate-date-to').value = toLocalDateStr(endDate);
-  if (avanzateRangePickerInstance) avanzateRangePickerInstance.setDate([startDate, endDate], false);
+  avId('date-from').value = today;
+  avId('date-to').value = toLocalDateStr(endDate);
+  if (getAvanzatePickerInstance()) getAvanzatePickerInstance().setDate([startDate, endDate], false);
   refreshAvanzateMap();
 }
 
@@ -79,21 +93,24 @@ function setAvanzateRangeStagione() {
   const inizio = currentStabilimento.data_inizio_stagione;
   const fine = currentStabilimento.data_fine_stagione;
   if (!inizio || !fine) {
-    showAlert('avanzate-save-alert', 'Date di stagione non impostate. Vai in Configurazioni → Stagione.', 'error');
-    setTimeout(() => showAlert('avanzate-save-alert', '', ''), 4000);
+    showAlert(avanzateCtx + '-save-alert', 'Date di stagione non impostate. Vai in Configurazioni → Stagione.', 'error');
+    setTimeout(() => showAlert(avanzateCtx + '-save-alert', '', ''), 4000);
     return;
   }
   const startDate = new Date(inizio + 'T00:00:00');
   const endDate = new Date(fine + 'T00:00:00');
-  document.getElementById('avanzate-date-from').value = inizio;
-  document.getElementById('avanzate-date-to').value = fine;
-  if (avanzateRangePickerInstance) avanzateRangePickerInstance.setDate([startDate, endDate], false);
+  avId('date-from').value = inizio;
+  avId('date-to').value = fine;
+  if (getAvanzatePickerInstance()) getAvanzatePickerInstance().setDate([startDate, endDate], false);
   refreshAvanzateMap();
 }
 
 function updateAvanzatePresetActive() {
-  const from = document.getElementById('avanzate-date-from').value;
-  const to = document.getElementById('avanzate-date-to').value || from;
+  const fromEl = avId('date-from');
+  const toEl = avId('date-to');
+  if (!fromEl) return;
+  const from = fromEl.value;
+  const to = (toEl ? toEl.value : '') || from;
   const today = todayStr();
   let activeDays = null;
   let isStagione = false;
@@ -105,7 +122,7 @@ function updateAvanzatePresetActive() {
     const diff = Math.round((endD - start) / 86400000) + 1;
     if ([1, 2, 3, 7].includes(diff)) activeDays = diff;
   }
-  document.querySelectorAll('.avanzate-preset-btn').forEach(btn => {
+  avIds('avanzate-preset-btn').forEach(btn => {
     const days = parseInt(btn.dataset.days, 10);
     const preset = btn.dataset.preset;
     const active = (preset === 'stagione' && isStagione) || (!isNaN(days) && days === activeDays);
@@ -124,10 +141,14 @@ function updateAvanzatePresetActive() {
 async function refreshAvanzateMap() {
   avanzateSelection.clear();
   updateAvanzateSelectionBar();
-  const from = document.getElementById('avanzate-date-from').value;
-  const to = document.getElementById('avanzate-date-to').value || from;
+  const fromEl = avId('date-from');
+  const toEl = avId('date-to');
+  if (!fromEl) return;
+  const from = fromEl.value;
+  const to = (toEl ? toEl.value : '') || from;
   if (!from || !ombrelloniList || ombrelloniList.length === 0) {
-    document.getElementById('avanzate-map').innerHTML = '<div style="color:var(--text-light);font-size:13px;padding:8px">Nessun ombrellone configurato.</div>';
+    const mapEl = avId('map');
+    if (mapEl) mapEl.innerHTML = '<div style="color:var(--text-light);font-size:13px;padding:8px">Nessun ombrellone configurato.</div>';
     return;
   }
   const dates = getDatesInRange(from, to);
@@ -160,28 +181,32 @@ async function refreshAvanzateMap() {
     rangeDispMap[o.id] = stato;
   });
 
-  avanzateCurrentRange = { from, to, dates, dispByOmbDate, rangeDispMap };
+  setAvanzateCurrentRange({ from, to, dates, dispByOmbDate, rangeDispMap });
 
   const isSingleDay = from === to;
   const isToday = isSingleDay && from === todayStr();
-  document.getElementById('avanzate-range-label').textContent = isSingleDay
+  const rangeLabelEl = avId('range-label');
+  if (rangeLabelEl) rangeLabelEl.textContent = isSingleDay
     ? (isToday ? 'oggi' : formatDate(from))
     : `${formatDate(from)} → ${formatDate(to)}`;
 
-  const summaryEl = document.getElementById('avanzate-summary');
-  const parts = [];
-  if (countLibero) parts.push(`<strong>${countLibero}</strong> liberi`);
-  if (countParziale) parts.push(`<strong>${countParziale}</strong> parzial${countParziale === 1 ? 'e' : 'i'}`);
-  if (countSub) parts.push(`<strong>${countSub}</strong> sub-affittat${countSub === 1 ? 'o' : 'i'}`);
-  if (countOccupied) parts.push(`<strong>${countOccupied}</strong> occupat${countOccupied === 1 ? 'o' : 'i'}`);
-  summaryEl.innerHTML = parts.join(' · ');
+  const summaryEl = avId('summary');
+  if (summaryEl) {
+    const parts = [];
+    if (countLibero) parts.push(`<strong>${countLibero}</strong> liberi`);
+    if (countParziale) parts.push(`<strong>${countParziale}</strong> parzial${countParziale === 1 ? 'e' : 'i'}`);
+    if (countSub) parts.push(`<strong>${countSub}</strong> sub-affittat${countSub === 1 ? 'o' : 'i'}`);
+    if (countOccupied) parts.push(`<strong>${countOccupied}</strong> occupat${countOccupied === 1 ? 'o' : 'i'}`);
+    summaryEl.innerHTML = parts.join(' · ');
+  }
 
   renderAvanzateMap(ombrelloniList, rangeDispMap);
   updateAvanzatePresetActive();
 }
 
 function renderAvanzateMap(ombs, dispMap) {
-  const el = document.getElementById('avanzate-map');
+  const el = avId('map');
+  if (!el) return;
   el.innerHTML = '';
   const sorted = ombs.slice().sort((a, b) => (a.codice || '').localeCompare(b.codice || '', 'it'));
   const mapRow = document.createElement('div'); mapRow.className = 'map-row';
@@ -195,7 +220,6 @@ function renderAvanzateMap(ombs, dispMap) {
     const noClienteCls = !hasCliente ? ' no-cliente' : '';
     const cell = document.createElement('div');
     cell.className = 'ombrellone ' + cls + noClienteCls;
-    cell.title = `${o.codice} — ${formatCoin(o.credito_giornaliero)}/gg — `;
     const stateLabel = stato === 'libero' && !hasCliente ? 'subaffittabile (nessun cliente assegnato)'
       : stato === 'libero' ? 'libero per tutto il periodo'
       : stato === 'parziale' ? 'libero in parte del periodo'
@@ -225,36 +249,38 @@ function toggleAvanzateSelection(ombId, cell) {
 
 function avanzateSelectAll() {
   (ombrelloniList || []).forEach(o => avanzateSelection.add(o.id));
-  document.querySelectorAll('#avanzate-map .ombrellone').forEach(c => c.classList.add('selected'));
+  const mapEl = avId('map');
+  if (mapEl) mapEl.querySelectorAll('.ombrellone').forEach(c => c.classList.add('selected'));
   updateAvanzateSelectionBar();
 }
 
 function avanzateClearSelection() {
   avanzateSelection.clear();
-  document.querySelectorAll('#avanzate-map .ombrellone').forEach(c => c.classList.remove('selected'));
+  const mapEl = avId('map');
+  if (mapEl) mapEl.querySelectorAll('.ombrellone').forEach(c => c.classList.remove('selected'));
   updateAvanzateSelectionBar();
 }
 
 function updateAvanzateSelectionBar() {
   const n = avanzateSelection.size;
-  const countEl = document.getElementById('avanzate-selection-count');
+  const countEl = avId('selection-count');
   if (countEl) countEl.textContent = n === 0 ? '0 selezionati' : `${n} selezionat${n === 1 ? 'o' : 'i'}`;
-  const forceBtn = document.getElementById('avanzate-bulk-force-btn');
-  const removeBtn = document.getElementById('avanzate-bulk-remove-btn');
+  const forceBtn = avId('bulk-force-btn');
+  const removeBtn = avId('bulk-remove-btn');
   if (forceBtn) forceBtn.disabled = n === 0;
   if (removeBtn) removeBtn.disabled = n === 0;
 
-  // Warning sub-affitti: conta ombrelloni selezionati con almeno un giorno sub-affittato nel range
-  const warnEl = document.getElementById('avanzate-booking-warning');
-  const warnText = document.getElementById('avanzate-booking-warning-text');
+  const warnEl = avId('booking-warning');
+  const warnText = avId('booking-warning-text');
   if (!warnEl || !warnText) return;
-  if (n === 0 || !avanzateCurrentRange?.dispByOmbDate) {
+  const range = getAvanzateCurrentRange();
+  if (n === 0 || !range?.dispByOmbDate) {
     warnEl.classList.add('hidden');
     return;
   }
   let countWithBookings = 0;
   avanzateSelection.forEach(ombId => {
-    const days = avanzateCurrentRange.dispByOmbDate[ombId] || {};
+    const days = range.dispByOmbDate[ombId] || {};
     if (Object.values(days).some(s => s === 'sub_affittato')) countWithBookings++;
   });
   if (countWithBookings > 0) {
@@ -271,7 +297,7 @@ function openAvanzateOmbModal(ombId) {
   const omb = ombrelloniList.find(o => o.id === ombId);
   if (!omb) return;
   const cliente = (clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === ombId) || null;
-  avanzateOmbCurrent = omb;
+  setAvanzateOmbCurrent(omb);
   avanzateClienteCurrent = cliente;
 
   document.getElementById('avanzate-omb-title').textContent = `☂️ Ombrellone ${omb.codice}`;
@@ -284,7 +310,7 @@ function openAvanzateOmbModal(ombId) {
   const saldoBtn = document.getElementById('avanzate-saldo-btn');
   if (saldoBtn) saldoBtn.disabled = !cliente;
 
-  const range = avanzateCurrentRange;
+  const range = getAvanzateCurrentRange();
   const rangeLabel = document.getElementById('avanzate-omb-range-label');
   if (range) {
     rangeLabel.textContent = range.from === range.to
@@ -316,44 +342,45 @@ function openAvanzateOmbModal(ombId) {
 /* ---------- Azioni: forza / rimuovi disponibilità (singolo) ---------- */
 
 async function avanzateForceCurrentRange() {
-  if (!avanzateOmbCurrent || !avanzateCurrentRange) return;
-  await applyForceDisponibile([avanzateOmbCurrent.id], avanzateCurrentRange.dates, 'avanzate-omb-alert');
+  if (!getAvanzateOmbCurrent() || !getAvanzateCurrentRange()) return;
+  await applyForceDisponibile([getAvanzateOmbCurrent().id], getAvanzateCurrentRange().dates, 'avanzate-omb-alert');
   await reloadAfterMutation();
-  openAvanzateOmbModal(avanzateOmbCurrent.id);
+  openAvanzateOmbModal(getAvanzateOmbCurrent().id);
 }
 
 async function avanzateRemoveCurrentRange() {
-  if (!avanzateOmbCurrent || !avanzateCurrentRange) return;
-  await applyRemoveDisponibilita([avanzateOmbCurrent.id], avanzateCurrentRange.from, avanzateCurrentRange.to, 'avanzate-omb-alert');
+  if (!getAvanzateOmbCurrent() || !getAvanzateCurrentRange()) return;
+  await applyRemoveDisponibilita([getAvanzateOmbCurrent().id], getAvanzateCurrentRange().from, getAvanzateCurrentRange().to, 'avanzate-omb-alert');
   await reloadAfterMutation();
-  openAvanzateOmbModal(avanzateOmbCurrent.id);
+  openAvanzateOmbModal(getAvanzateOmbCurrent().id);
 }
 
 /* ---------- Azioni di massa ---------- */
 
 async function bulkAvanzateForceDisponibile() {
-  if (!avanzateCurrentRange || avanzateSelection.size === 0) return;
+  const range = getAvanzateCurrentRange();
+  if (!range || avanzateSelection.size === 0) return;
   const ids = Array.from(avanzateSelection);
   const ok = confirm(`Rendere disponibili per sub-affitto i ${ids.length} ombrelloni selezionati nel periodo indicato? Le date già sub-affittate non verranno toccate.`);
   if (!ok) return;
-  await applyForceDisponibile(ids, avanzateCurrentRange.dates, 'avanzate-save-alert');
+  await applyForceDisponibile(ids, range.dates, avanzateCtx + '-save-alert');
   await reloadAfterMutation();
 }
 
 async function bulkAvanzateRemoveDisponibilita() {
-  if (!avanzateCurrentRange || avanzateSelection.size === 0) return;
+  const range = getAvanzateCurrentRange();
+  if (!range || avanzateSelection.size === 0) return;
   const ids = Array.from(avanzateSelection);
 
-  // Cerca sub-affitti nel range per gli ombrelloni selezionati
   const { data: subAffitti, error: saErr } = await sb.from('disponibilita')
     .select('id, ombrellone_id, data, nome_prenotazione')
     .in('ombrellone_id', ids)
-    .gte('data', avanzateCurrentRange.from)
-    .lte('data', avanzateCurrentRange.to)
+    .gte('data', range.from)
+    .lte('data', range.to)
     .eq('stato', 'sub_affittato');
 
   if (saErr) {
-    showAlert('avanzate-save-alert', 'Errore lettura prenotazioni: ' + saErr.message, 'error');
+    showAlert(avanzateCtx + '-save-alert', 'Errore lettura prenotazioni: ' + saErr.message, 'error');
     return;
   }
 
@@ -362,7 +389,6 @@ async function bulkAvanzateRemoveDisponibilita() {
   const subAffittiIds = (subAffitti || []).map(r => r.id);
 
   if (subAffittiIds.length > 0) {
-    // Raggruppa per nome_prenotazione per mostrare prenotazioni specifiche
     const byName = {};
     (subAffitti || []).forEach(r => {
       const key = r.nome_prenotazione || '(senza nome)';
@@ -387,24 +413,21 @@ async function bulkAvanzateRemoveDisponibilita() {
   const ok = confirm(confirmMsg);
   if (!ok) return;
 
-  // Annulla sub-affitti prima di rimuovere le disponibilità
   if (subAffittiIds.length > 0) {
     const { error: cancelErr } = await sb.rpc('cancel_booking', { p_disp_ids: subAffittiIds });
     if (cancelErr) {
-      showAlert('avanzate-save-alert', 'Errore annullamento prenotazioni: ' + cancelErr.message, 'error');
+      showAlert(avanzateCtx + '-save-alert', 'Errore annullamento prenotazioni: ' + cancelErr.message, 'error');
       return;
     }
   }
 
-  await applyRemoveDisponibilita(ids, avanzateCurrentRange.from, avanzateCurrentRange.to, 'avanzate-save-alert');
+  await applyRemoveDisponibilita(ids, range.from, range.to, avanzateCtx + '-save-alert');
   await reloadAfterMutation();
 }
 
 async function applyForceDisponibile(ombIds, dates, alertId) {
   if (!ombIds.length || !dates.length) return;
 
-  // 1. Leggi le righe esistenti nel range per scartare quelle già presenti
-  //    (libero o sub_affittato): sono trattate come "no-op" e non generano transazione.
   const sortedDates = [...dates].sort();
   const fromD = sortedDates[0];
   const toD = sortedDates[sortedDates.length - 1];
@@ -419,7 +442,6 @@ async function applyForceDisponibile(ombIds, dates, alertId) {
   }
   const existingSet = new Set((existing || []).map(r => `${r.ombrellone_id}|${r.data}`));
 
-  // 2. Costruisci righe da inserire (solo le coppie davvero nuove) + transazioni gemelle
   const dispRows = [];
   const txRows = [];
   const dateSet = new Set(dates);
@@ -455,7 +477,6 @@ async function applyForceDisponibile(ombIds, dates, alertId) {
   }
   const { error: txErr } = await sb.from('transazioni').insert(txRows);
   if (txErr) {
-    // Best effort: la disponibilità è in piedi, segnaliamo solo lo storico mancante.
     showAlert(alertId, `✓ ${dispRows.length} disponibilità impostate (transazioni non registrate: ${txErr.message})`, 'error');
     return true;
   }
@@ -467,7 +488,6 @@ async function applyForceDisponibile(ombIds, dates, alertId) {
 async function applyRemoveDisponibilita(ombIds, from, to, alertId) {
   if (!ombIds.length) return;
 
-  // 1. Leggi le righe libero che verranno cancellate (per generare le transazioni)
   const { data: toDelete, error: readErr } = await fetchAllPaginated(() => sb.from('disponibilita')
     .select('ombrellone_id, data, cliente_id')
     .in('ombrellone_id', ombIds)
@@ -484,7 +504,6 @@ async function applyRemoveDisponibilita(ombIds, from, to, alertId) {
     return true;
   }
 
-  // 2. DELETE
   const { error: delErr } = await sb.from('disponibilita')
     .delete()
     .in('ombrellone_id', ombIds)
@@ -496,7 +515,6 @@ async function applyRemoveDisponibilita(ombIds, from, to, alertId) {
     return false;
   }
 
-  // 3. Transazioni gemelle (cliente_id risolto da clientiList se non era valorizzato)
   const txRows = toDelete.map(r => {
     const cliente = (clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === r.ombrellone_id) || null;
     return {
@@ -521,11 +539,10 @@ async function applyRemoveDisponibilita(ombIds, from, to, alertId) {
 /* ---------- Anagrafica + cancellazione ---------- */
 
 function avanzateOpenEdit() {
-  if (!avanzateOmbCurrent) return;
+  if (!getAvanzateOmbCurrent()) return;
   closeModal('modal-avanzate-omb');
   if (typeof openEditRowModal !== 'function') return;
-  openEditRowModal(avanzateOmbCurrent.id);
-  // Quando il modal edit si chiude, rinfresco la mappa avanzata
+  openEditRowModal(getAvanzateOmbCurrent().id);
   const editModal = document.getElementById('modal-edit-row');
   if (!editModal) return;
   const observer = new MutationObserver(() => {
@@ -538,8 +555,8 @@ function avanzateOpenEdit() {
 }
 
 async function avanzateDeleteOmbrellone() {
-  if (!avanzateOmbCurrent) return;
-  const id = avanzateOmbCurrent.id;
+  if (!getAvanzateOmbCurrent()) return;
+  const id = getAvanzateOmbCurrent().id;
   closeModal('modal-avanzate-omb');
   if (typeof deleteRow === 'function') {
     await deleteRow(id);
@@ -604,8 +621,8 @@ async function confirmAvanzateSaldo() {
   await reloadAfterMutation();
   if (origin === 'mirata' && mirataOmbId) {
     await mirataLoadOmb(mirataOmbId);
-  } else if (avanzateOmbCurrent) {
-    openAvanzateOmbModal(avanzateOmbCurrent.id);
+  } else if (getAvanzateOmbCurrent()) {
+    openAvanzateOmbModal(getAvanzateOmbCurrent().id);
   }
 }
 
@@ -613,15 +630,12 @@ async function confirmAvanzateSaldo() {
 
 async function reloadAfterMutation() {
   if (!currentStabilimento) return;
-  const ombIds = ombrelloniList.map(o => o.id);
   const { data: clienti } = await sb.from('clienti_stagionali').select('*').eq('stabilimento_id', currentStabilimento.id);
   if (clienti) clientiList = clienti;
   await refreshAvanzateMap();
-  // Mantieni allineata anche la mappa di Prenotazioni se la function è disponibile
   if (typeof refreshMap === 'function') {
     try { await refreshMap(); } catch (_) {}
   }
-  // Tieni allineato anche il selettore della tab "Gestione Credito"
   if (typeof populateClienteSelect === 'function') {
     try { populateClienteSelect(); } catch (_) {}
   }
@@ -629,40 +643,43 @@ async function reloadAfterMutation() {
 
 /* ---------- Inner subtabs (massiva / mirata) ---------- */
 
-function switchAvanzateSubtab(sub, btn) {
-  document.querySelectorAll('#pren-sub-disponibilita-omb .avanzate-pane').forEach(p => p.classList.remove('active'));
-  const pane = document.getElementById('avanzate-pane-' + sub);
-  if (pane) pane.classList.add('active');
-  document.querySelectorAll('#pren-sub-disponibilita-omb .avanzate-subtab').forEach(b => b.classList.remove('active'));
+function switchAvanzateSubtab(name, btn) {
+  avIds('avanzate-pane').forEach(p => p.classList.remove('active'));
+  avIds('avanzate-subtab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  if (sub === 'massiva') {
-    refreshAvanzateMap();
-  } else if (sub === 'mirata') {
-    mirataInit();
+  else {
+    const el = (document.getElementById(avanzateCtx + '-container') || document)
+      .querySelector(`.avanzate-subtab[data-avanzate-subtab="${name}"]`);
+    if (el) el.classList.add('active');
   }
+  const pane = avId('pane-' + name);
+  if (pane) pane.classList.add('active');
+  if (name === 'mirata') mirataInit();
+  else if (name === 'massiva') refreshAvanzateMap();
 }
 
 /* ---------- MIRATA — azione su un singolo ombrellone ---------- */
 
 let mirataOmbId = null;
-let mirataDayMap = {};   // dateStr -> { id, data, stato, cliente_id }
-let mirataRules = [];    // regole_stato_ombrelloni del periodo
+let mirataDayMap = {};
+let mirataRules = [];
 
 function mirataInit() {
   populateMirataSelector();
-  const sel = document.getElementById('mirata-omb-select');
+  const sel = avId('mirata-omb-select');
   if (mirataOmbId && ombrelloniList.find(o => o.id === mirataOmbId)) {
     if (sel) sel.value = mirataOmbId;
     mirataLoadOmb(mirataOmbId);
   } else {
     mirataOmbId = null;
     if (sel) sel.value = '';
-    document.getElementById('mirata-detail').classList.add('hidden');
+    const detail = avId('mirata-detail');
+    if (detail) detail.classList.add('hidden');
   }
 }
 
 function populateMirataSelector() {
-  const sel = document.getElementById('mirata-omb-select');
+  const sel = avId('mirata-omb-select');
   if (!sel) return;
   const prev = sel.value;
   const opts = (ombrelloniList || []).slice().sort((a, b) =>
@@ -676,11 +693,12 @@ function populateMirataSelector() {
 }
 
 async function mirataOnSelect() {
-  const sel = document.getElementById('mirata-omb-select');
+  const sel = avId('mirata-omb-select');
   const id = sel ? sel.value : '';
   if (!id) {
     mirataOmbId = null;
-    document.getElementById('mirata-detail').classList.add('hidden');
+    const detail = avId('mirata-detail');
+    if (detail) detail.classList.add('hidden');
     return;
   }
   await mirataLoadOmb(id);
@@ -695,11 +713,12 @@ async function mirataLoadOmb(ombId) {
 
   const inizio = currentStabilimento.data_inizio_stagione;
   const fine   = currentStabilimento.data_fine_stagione;
-  const detail = document.getElementById('mirata-detail');
+  const detail = avId('mirata-detail');
   if (!inizio || !fine) {
-    detail.classList.remove('hidden');
-    showAlert('mirata-alert', 'Date di stagione non impostate. Vai in Configurazioni → Stagione.', 'error');
-    document.getElementById('mirata-day-list').innerHTML = '';
+    if (detail) detail.classList.remove('hidden');
+    showAlert(avanzateCtx + '-mirata-alert', 'Date di stagione non impostate. Vai in Configurazioni → Stagione.', 'error');
+    const dayList = avId('mirata-day-list');
+    if (dayList) dayList.innerHTML = '';
     return;
   }
 
@@ -713,32 +732,35 @@ async function mirataLoadOmb(ombId) {
       .gte('data_a', inizio).lte('data_da', fine),
   ]);
   if (dispErr || rulesErr) {
-    showAlert('mirata-alert', 'Errore caricamento dati: ' + ((dispErr || rulesErr).message), 'error');
+    showAlert(avanzateCtx + '-mirata-alert', 'Errore caricamento dati: ' + ((dispErr || rulesErr).message), 'error');
   }
 
   mirataDayMap = {};
   (disp || []).forEach(d => { mirataDayMap[d.data] = d; });
   mirataRules = rules || [];
 
-  detail.classList.remove('hidden');
-  document.getElementById('mirata-omb-title').textContent = omb.codice;
-  document.getElementById('mirata-omb-credito').textContent = formatCoin(omb.credito_giornaliero);
-  document.getElementById('mirata-omb-cliente').innerHTML = cliente
+  if (detail) detail.classList.remove('hidden');
+  const titleEl = avId('mirata-omb-title');
+  if (titleEl) titleEl.textContent = omb.codice;
+  const creditoEl = avId('mirata-omb-credito');
+  if (creditoEl) creditoEl.textContent = formatCoin(omb.credito_giornaliero);
+  const clienteEl = avId('mirata-omb-cliente');
+  if (clienteEl) clienteEl.innerHTML = cliente
     ? `${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')}${cliente.email ? ' · ' + escapeHtml(cliente.email) : ''}`
     : '<span style="color:var(--text-light)">Nessun cliente associato</span>';
-  document.getElementById('mirata-omb-saldo').textContent = cliente ? formatCoin(cliente.credito_saldo) : '–';
-  const saldoBtn = document.getElementById('mirata-saldo-btn');
+  const saldoEl = avId('mirata-omb-saldo');
+  if (saldoEl) saldoEl.textContent = cliente ? formatCoin(cliente.credito_saldo) : '–';
+  const saldoBtn = avId('mirata-saldo-btn');
   if (saldoBtn) saldoBtn.disabled = !cliente;
 
-  const _infoEl = document.getElementById('mirata-stagione-info');
-  if (_infoEl) _infoEl.innerHTML =
+  const infoEl = avId('mirata-stagione-info');
+  if (infoEl) infoEl.innerHTML =
     `Stagione <strong>${formatDate(inizio)} → ${formatDate(fine)}</strong>. I sub-affitti già confermati non sono modificabili da qui (annullali dalla tab "Prenotazioni").`;
 
   mirataRenderDayList();
 }
 
 function mirataRuleForDate(dateStr) {
-  // Precedenza: chiusura_speciale > mai_libero > sempre_libero
   const matching = (mirataRules || []).filter(r => dateStr >= r.data_da && dateStr <= r.data_a);
   if (matching.some(r => r.tipo === 'chiusura_speciale')) return { type: 'chiusura_speciale', label: 'Bagno chiuso' };
   if (matching.some(r => r.tipo === 'mai_libero'))        return { type: 'mai_libero',        label: 'Mai subaffittabile' };
@@ -747,7 +769,7 @@ function mirataRuleForDate(dateStr) {
 }
 
 function mirataRenderDayList() {
-  const el = document.getElementById('mirata-day-list');
+  const el = avId('mirata-day-list');
   if (!el || !currentStabilimento) return;
   const inizio = currentStabilimento.data_inizio_stagione;
   const fine   = currentStabilimento.data_fine_stagione;
@@ -804,9 +826,9 @@ function mirataRenderDayList() {
 async function mirataToggleDay(date, action) {
   if (!mirataOmbId) return;
   if (action === 'force') {
-    await applyForceDisponibile([mirataOmbId], [date], 'mirata-alert');
+    await applyForceDisponibile([mirataOmbId], [date], avanzateCtx + '-mirata-alert');
   } else if (action === 'remove') {
-    await applyRemoveDisponibilita([mirataOmbId], date, date, 'mirata-alert');
+    await applyRemoveDisponibilita([mirataOmbId], date, date, avanzateCtx + '-mirata-alert');
   }
   await reloadAfterMutation();
   if (mirataOmbId) await mirataLoadOmb(mirataOmbId);
@@ -819,7 +841,7 @@ async function mirataBulkForce() {
   if (!inizio || !fine) return;
   const dates = getDatesInRange(inizio, fine);
   if (!confirm(`Rendere disponibile per sub-affitto questo ombrellone per tutta la stagione (${dates.length} ${dates.length === 1 ? 'giorno' : 'giorni'})? Le date già sub-affittate non verranno toccate.`)) return;
-  await applyForceDisponibile([mirataOmbId], dates, 'mirata-alert');
+  await applyForceDisponibile([mirataOmbId], dates, avanzateCtx + '-mirata-alert');
   await reloadAfterMutation();
   if (mirataOmbId) await mirataLoadOmb(mirataOmbId);
 }
@@ -830,7 +852,7 @@ async function mirataBulkRemove() {
   const fine   = currentStabilimento.data_fine_stagione;
   if (!inizio || !fine) return;
   if (!confirm(`Rimuovere lo stato 'libero per sub-affitto' da questo ombrellone per tutta la stagione? I sub-affitti già confermati non verranno toccati.`)) return;
-  await applyRemoveDisponibilita([mirataOmbId], inizio, fine, 'mirata-alert');
+  await applyRemoveDisponibilita([mirataOmbId], inizio, fine, avanzateCtx + '-mirata-alert');
   await reloadAfterMutation();
   if (mirataOmbId) await mirataLoadOmb(mirataOmbId);
 }
@@ -839,13 +861,12 @@ function mirataAdjustSaldo() {
   if (!mirataOmbId) return;
   const cliente = (clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === mirataOmbId) || null;
   if (!cliente) {
-    showAlert('mirata-alert', 'Nessun cliente associato a questo ombrellone.', 'error');
-    setTimeout(() => showAlert('mirata-alert', '', ''), 3000);
+    showAlert(avanzateCtx + '-mirata-alert', 'Nessun cliente associato a questo ombrellone.', 'error');
+    setTimeout(() => showAlert(avanzateCtx + '-mirata-alert', '', ''), 3000);
     return;
   }
-  // Riusa il modal esistente di Avanzate impostando i suoi globals.
   avanzateClienteCurrent = cliente;
-  avanzateOmbCurrent = ombrelloniList.find(o => o.id === mirataOmbId) || null;
+  setAvanzateOmbCurrent(ombrelloniList.find(o => o.id === mirataOmbId) || null);
   avanzateSaldoOrigin = 'mirata';
   avanzateAdjustSaldo();
 }
@@ -863,7 +884,8 @@ function mirataOpenEdit() {
         await mirataLoadOmb(mirataOmbId);
       } else {
         mirataOmbId = null;
-        document.getElementById('mirata-detail').classList.add('hidden');
+        const detail = avId('mirata-detail');
+        if (detail) detail.classList.add('hidden');
       }
     }
   });
@@ -874,14 +896,13 @@ async function mirataDelete() {
   if (!mirataOmbId || typeof deleteRow !== 'function') return;
   const id = mirataOmbId;
   await deleteRow(id);
-  // deleteRow chiama loadManagerData() che rinfresca ombrelloniList. Se l'utente
-  // ha confermato l'eliminazione l'ombrellone non c'è più: ripulisci la vista.
   populateMirataSelector();
   if (!ombrelloniList.find(o => o.id === id)) {
     mirataOmbId = null;
-    const sel = document.getElementById('mirata-omb-select');
+    const sel = avId('mirata-omb-select');
     if (sel) sel.value = '';
-    document.getElementById('mirata-detail').classList.add('hidden');
+    const detail = avId('mirata-detail');
+    if (detail) detail.classList.add('hidden');
   } else {
     await mirataLoadOmb(id);
   }
@@ -890,6 +911,7 @@ async function mirataDelete() {
 /* ---------- Esposizione globale ---------- */
 
 window.avanzateInit = avanzateInit;
+window.prenOmbInit = prenOmbInit;
 window.setAvanzateRangePreset = setAvanzateRangePreset;
 window.setAvanzateRangeStagione = setAvanzateRangeStagione;
 window.refreshAvanzateMap = refreshAvanzateMap;

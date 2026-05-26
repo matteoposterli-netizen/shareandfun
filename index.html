@@ -629,6 +629,7 @@
         <div class="config-subtabs">
           <button class="config-subtab active" data-subtab="stagione" onclick="switchConfigSubtab('stagione',this)">🗓️ Stagione</button>
           <button class="config-subtab" data-subtab="email-sub" onclick="switchConfigSubtab('email-sub',this)">✉️ Email</button>
+          <button class="config-subtab" data-subtab="avanzate" onclick="switchConfigSubtab('avanzate',this)">⚙️ Avanzate</button>
           <button class="config-subtab" data-subtab="account" onclick="switchConfigSubtab('account',this)">👤 Account</button>
         </div>
 
@@ -969,6 +970,146 @@
         </div><!-- /config-sub-account -->
 
         <!-- AVANZATE SUBTAB: azioni gestore (massiva su mappa / mirata su singolo ombrellone) -->
+        <div id="config-sub-avanzate" class="config-subpanel">
+          <div id="avanzate-container">
+          <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
+            Da qui puoi forzare lo stato degli ombrelloni indipendentemente da quello che dichiara il cliente stagionale: rendere disponibili per sub-affitto o rimuovere disponibilità, sia in modo massivo che giorno per giorno su un singolo ombrellone.
+          </div>
+
+          <div id="avanzate-save-alert" style="margin-bottom:16px"></div>
+
+          <div class="avanzate-subtabs">
+            <button class="avanzate-subtab active" data-avanzate-subtab="massiva" onclick="switchAvanzateSubtab('massiva',this)">🗺️ Azione massiva</button>
+            <button class="avanzate-subtab" data-avanzate-subtab="mirata" onclick="switchAvanzateSubtab('mirata',this)">🎯 Giorno per giorno</button>
+          </div>
+
+          <div id="avanzate-pane-massiva" class="avanzate-pane active">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🗺️ Mappa ombrelloni</div>
+            </div>
+
+            <div class="avanzate-step-label">Passo 1 — Scegli il periodo e seleziona gli ombrelloni</div>
+
+            <div style="padding:8px 4px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="font-size:13px;color:var(--text-mid)">Periodo:</span>
+              <input type="text" id="avanzate-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+              <input type="hidden" id="avanzate-date-from">
+              <input type="hidden" id="avanzate-date-to">
+            </div>
+
+            <div id="avanzate-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px 14px">
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="1" onclick="setAvanzateRangePreset(1)">Oggi</button>
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="2" onclick="setAvanzateRangePreset(2)">Prossimi 2 gg</button>
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="3" onclick="setAvanzateRangePreset(3)">Prossimi 3 gg</button>
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-days="7" onclick="setAvanzateRangePreset(7)">Prossimi 7 gg</button>
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-preset="stagione" onclick="setAvanzateRangeStagione()">Tutta la stagione</button>
+            </div>
+
+            <div class="beach-map-wrap">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                <div>
+                  <div class="map-legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Occupato dal cliente</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Libero tutto il periodo</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#EAF4FB;border:2px dashed var(--ocean-mid)"></div>Senza cliente (subaffittabile)</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,var(--green-light) 0 6px,var(--ocean-light) 6px 12px);border:1.5px solid #96DDB8"></div>Libero parziale</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+                  </div>
+                  <div id="avanzate-summary" style="font-size:12px;color:var(--text-light);margin-top:10px"></div>
+                  <div style="font-size:12px;color:var(--text-light);margin-top:8px">Periodo: <strong id="avanzate-range-label">oggi</strong></div>
+                </div>
+                <div>
+                  <div class="bar-label">Bar</div>
+                  <div class="map-rows" id="avanzate-map"></div>
+                  <div class="sea-label">Mare</div>
+                </div>
+              </div>
+            </div><!-- /beach-map-wrap -->
+
+            <div class="avanzate-step-label" style="margin-top:20px">Passo 2 — Applica l'azione agli ombrelloni selezionati</div>
+
+            <div class="avanzate-selection-bar" id="avanzate-selection-bar">
+              <span id="avanzate-selection-count" class="avanzate-sel-count">0 selezionati</span>
+              <button type="button" class="btn btn-outline btn-sm" onclick="avanzateClearSelection()">Deseleziona tutti</button>
+            </div>
+
+            <div id="avanzate-booking-warning" class="hidden" style="margin:0 4px 12px;padding:10px 14px;background:#FFF8E1;border:1px solid #FFD54F;border-radius:var(--radius-sm);font-size:13px;color:#5D4037">
+              <span id="avanzate-booking-warning-text"></span>
+            </div>
+
+            <div class="avanzate-bulk-bar">
+              <div style="font-size:12px;color:var(--text-mid)">Azioni sugli ombrelloni selezionati:</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-outline btn-sm" id="avanzate-bulk-force-btn" onclick="bulkAvanzateForceDisponibile()" disabled>✓ Rendi disponibili i selezionati</button>
+                <button class="btn btn-outline btn-sm" id="avanzate-bulk-remove-btn" onclick="bulkAvanzateRemoveDisponibilita()" disabled>✗ Rimuovi disponibilità dai selezionati</button>
+              </div>
+            </div>
+          </div>
+          </div><!-- /avanzate-pane-massiva -->
+
+          <div id="avanzate-pane-mirata" class="avanzate-pane">
+            <div id="avanzate-mirata-alert" style="margin-bottom:12px"></div>
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">🎯 Azione mirata su un ombrellone</div>
+                  <div class="card-subtitle">Seleziona un ombrellone per forzare o rimuovere la disponibilità giorno per giorno</div>
+                </div>
+              </div>
+
+              <div style="padding:18px 22px 6px">
+                <label class="form-label" for="avanzate-mirata-omb-select" style="display:block;margin-bottom:6px">Ombrellone</label>
+                <select id="avanzate-mirata-omb-select" class="form-select" onchange="mirataOnSelect()" style="max-width:480px">
+                  <option value="">— Seleziona un ombrellone —</option>
+                </select>
+              </div>
+
+              <div id="avanzate-mirata-detail" class="hidden" style="padding:8px 22px 22px">
+                <div class="avanzate-omb-info">
+                  <div class="avanzate-omb-info-cell" style="grid-column:1/-1">
+                    <div class="avanzate-omb-info-label">Ombrellone</div>
+                    <div class="avanzate-omb-info-value" id="avanzate-mirata-omb-title">–</div>
+                  </div>
+                  <div class="avanzate-omb-info-cell" style="grid-column:1/-1">
+                    <div class="avanzate-omb-info-label">Cliente assegnato</div>
+                    <div class="avanzate-omb-info-value" id="avanzate-mirata-omb-cliente">–</div>
+                  </div>
+                  <div class="avanzate-omb-info-cell">
+                    <div class="avanzate-omb-info-label">Credito giornaliero</div>
+                    <div class="avanzate-omb-info-value" id="avanzate-mirata-omb-credito">–</div>
+                  </div>
+                  <div class="avanzate-omb-info-cell">
+                    <div class="avanzate-omb-info-label">Saldo coin cliente</div>
+                    <div class="avanzate-omb-info-value" id="avanzate-mirata-omb-saldo">–</div>
+                  </div>
+                </div>
+
+                <div class="avanzate-omb-section">
+                  <div class="avanzate-omb-section-title">Anagrafica e cliente</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button class="btn btn-outline btn-sm" onclick="mirataOpenEdit()">✏️ Modifica anagrafica</button>
+                    <button class="btn btn-outline btn-sm" id="avanzate-mirata-saldo-btn" onclick="mirataAdjustSaldo()">💰 Rettifica saldo coin</button>
+                    <button class="btn btn-danger btn-sm" onclick="mirataDelete()">🗑️ Cancella ombrellone</button>
+                  </div>
+                </div>
+
+                <div class="avanzate-omb-section">
+                  <div class="avanzate-omb-section-title">Disponibilità giorno per giorno</div>
+                  <div id="avanzate-mirata-stagione-info" style="font-size:12px;color:var(--text-light);margin-bottom:10px"></div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+                    <button class="btn btn-outline btn-sm" onclick="mirataBulkForce()">✓ Rendi disponibile tutta la stagione</button>
+                    <button class="btn btn-outline btn-sm" onclick="mirataBulkRemove()">✗ Rimuovi tutte le disponibilità</button>
+                  </div>
+                  <div id="avanzate-mirata-day-list" class="mirata-day-list"></div>
+                </div>
+              </div>
+            </div>
+          </div><!-- /avanzate-pane-mirata -->
+
+          </div><!-- /avanzate-container -->
+        </div><!-- /config-sub-avanzate -->
+
       </div>
 
       <!-- PRENOTAZIONI TAB (mappa + lista) -->
@@ -1104,18 +1245,19 @@
         </div><!-- /pren-sub-vedi -->
 
         <div id="pren-sub-disponibilita-omb" class="pren-subpanel">
+          <div id="prenomb-container">
           <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
             Da qui puoi forzare lo stato degli ombrelloni indipendentemente da quello che dichiara il cliente stagionale: rendere disponibili per sub-affitto o rimuovere disponibilità, sia in modo massivo che giorno per giorno su un singolo ombrellone.
           </div>
 
-          <div id="avanzate-save-alert" style="margin-bottom:16px"></div>
+          <div id="prenomb-save-alert" style="margin-bottom:16px"></div>
 
           <div class="avanzate-subtabs">
             <button class="avanzate-subtab active" data-avanzate-subtab="massiva" onclick="switchAvanzateSubtab('massiva',this)">🗺️ Azione massiva</button>
             <button class="avanzate-subtab" data-avanzate-subtab="mirata" onclick="switchAvanzateSubtab('mirata',this)">🎯 Giorno per giorno</button>
           </div>
 
-          <div id="avanzate-pane-massiva" class="avanzate-pane active">
+          <div id="prenomb-pane-massiva" class="avanzate-pane active">
           <div class="card">
             <div class="card-header">
               <div class="card-title">🗺️ Mappa ombrelloni</div>
@@ -1125,9 +1267,9 @@
 
             <div style="padding:8px 4px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
               <span style="font-size:13px;color:var(--text-mid)">Periodo:</span>
-              <input type="text" id="avanzate-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
-              <input type="hidden" id="avanzate-date-from">
-              <input type="hidden" id="avanzate-date-to">
+              <input type="text" id="prenomb-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+              <input type="hidden" id="prenomb-date-from">
+              <input type="hidden" id="prenomb-date-to">
             </div>
 
             <div class="beach-map-wrap">
@@ -1140,12 +1282,12 @@
                     <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,var(--green-light) 0 6px,var(--ocean-light) 6px 12px);border:1.5px solid #96DDB8"></div>Libero parziale</div>
                     <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
                   </div>
-                  <div id="avanzate-summary" style="font-size:12px;color:var(--text-light);margin-top:10px"></div>
-                  <div style="font-size:12px;color:var(--text-light);margin-top:8px">Periodo: <strong id="avanzate-range-label">oggi</strong></div>
+                  <div id="prenomb-summary" style="font-size:12px;color:var(--text-light);margin-top:10px"></div>
+                  <div style="font-size:12px;color:var(--text-light);margin-top:8px">Periodo: <strong id="prenomb-range-label">oggi</strong></div>
                 </div>
                 <div>
                   <div class="bar-label">Bar</div>
-                  <div class="map-rows" id="avanzate-map"></div>
+                  <div class="map-rows" id="prenomb-map"></div>
                   <div class="sea-label">Mare</div>
                 </div>
               </div>
@@ -1153,27 +1295,27 @@
 
             <div class="avanzate-step-label" style="margin-top:20px">Passo 2 — Applica l'azione agli ombrelloni selezionati</div>
 
-            <div class="avanzate-selection-bar" id="avanzate-selection-bar">
-              <span id="avanzate-selection-count" class="avanzate-sel-count">0 selezionati</span>
+            <div class="avanzate-selection-bar" id="prenomb-selection-bar">
+              <span id="prenomb-selection-count" class="avanzate-sel-count">0 selezionati</span>
               <button type="button" class="btn btn-outline btn-sm" onclick="avanzateClearSelection()">Deseleziona tutti</button>
             </div>
 
-            <div id="avanzate-booking-warning" class="hidden" style="margin:0 4px 12px;padding:10px 14px;background:#FFF8E1;border:1px solid #FFD54F;border-radius:var(--radius-sm);font-size:13px;color:#5D4037">
-              <span id="avanzate-booking-warning-text"></span>
+            <div id="prenomb-booking-warning" class="hidden" style="margin:0 4px 12px;padding:10px 14px;background:#FFF8E1;border:1px solid #FFD54F;border-radius:var(--radius-sm);font-size:13px;color:#5D4037">
+              <span id="prenomb-booking-warning-text"></span>
             </div>
 
             <div class="avanzate-bulk-bar">
               <div style="font-size:12px;color:var(--text-mid)">Azioni sugli ombrelloni selezionati:</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn btn-outline btn-sm" id="avanzate-bulk-force-btn" onclick="bulkAvanzateForceDisponibile()" disabled>✓ Rendi disponibili i selezionati</button>
-                <button class="btn btn-outline btn-sm" id="avanzate-bulk-remove-btn" onclick="bulkAvanzateRemoveDisponibilita()" disabled>✗ Rimuovi disponibilità dai selezionati</button>
+                <button class="btn btn-outline btn-sm" id="prenomb-bulk-force-btn" onclick="bulkAvanzateForceDisponibile()" disabled>✓ Rendi disponibili i selezionati</button>
+                <button class="btn btn-outline btn-sm" id="prenomb-bulk-remove-btn" onclick="bulkAvanzateRemoveDisponibilita()" disabled>✗ Rimuovi disponibilità dai selezionati</button>
               </div>
             </div>
           </div>
-          </div><!-- /avanzate-pane-massiva -->
+          </div><!-- /prenomb-pane-massiva -->
 
-          <div id="avanzate-pane-mirata" class="avanzate-pane">
-            <div id="mirata-alert" style="margin-bottom:12px"></div>
+          <div id="prenomb-pane-mirata" class="avanzate-pane">
+            <div id="prenomb-mirata-alert" style="margin-bottom:12px"></div>
             <div class="card">
               <div class="card-header">
                 <div>
@@ -1183,40 +1325,55 @@
               </div>
 
               <div style="padding:18px 22px 6px">
-                <label class="form-label" for="mirata-omb-select" style="display:block;margin-bottom:6px">Ombrellone</label>
-                <select id="mirata-omb-select" class="form-select" onchange="mirataOnSelect()" style="max-width:480px">
+                <label class="form-label" for="prenomb-mirata-omb-select" style="display:block;margin-bottom:6px">Ombrellone</label>
+                <select id="prenomb-mirata-omb-select" class="form-select" onchange="mirataOnSelect()" style="max-width:480px">
                   <option value="">— Seleziona un ombrellone —</option>
                 </select>
               </div>
 
-              <div id="mirata-detail" class="hidden" style="padding:8px 22px 22px">
+              <div id="prenomb-mirata-detail" class="hidden" style="padding:8px 22px 22px">
                 <div class="avanzate-omb-info">
                   <div class="avanzate-omb-info-cell" style="grid-column:1/-1">
                     <div class="avanzate-omb-info-label">Ombrellone</div>
-                    <div class="avanzate-omb-info-value" id="mirata-omb-title">–</div>
+                    <div class="avanzate-omb-info-value" id="prenomb-mirata-omb-title">–</div>
                   </div>
                   <div class="avanzate-omb-info-cell" style="grid-column:1/-1">
                     <div class="avanzate-omb-info-label">Cliente assegnato</div>
-                    <div class="avanzate-omb-info-value" id="mirata-omb-cliente">–</div>
+                    <div class="avanzate-omb-info-value" id="prenomb-mirata-omb-cliente">–</div>
                   </div>
                   <div class="avanzate-omb-info-cell">
                     <div class="avanzate-omb-info-label">Credito giornaliero</div>
-                    <div class="avanzate-omb-info-value" id="mirata-omb-credito">–</div>
+                    <div class="avanzate-omb-info-value" id="prenomb-mirata-omb-credito">–</div>
                   </div>
                   <div class="avanzate-omb-info-cell">
                     <div class="avanzate-omb-info-label">Saldo coin cliente</div>
-                    <div class="avanzate-omb-info-value" id="mirata-omb-saldo">–</div>
+                    <div class="avanzate-omb-info-value" id="prenomb-mirata-omb-saldo">–</div>
+                  </div>
+                </div>
+
+                <div class="avanzate-omb-section">
+                  <div class="avanzate-omb-section-title">Anagrafica e cliente</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button class="btn btn-outline btn-sm" onclick="mirataOpenEdit()">✏️ Modifica anagrafica</button>
+                    <button class="btn btn-outline btn-sm" id="prenomb-mirata-saldo-btn" onclick="mirataAdjustSaldo()">💰 Rettifica saldo coin</button>
+                    <button class="btn btn-danger btn-sm" onclick="mirataDelete()">🗑️ Cancella ombrellone</button>
                   </div>
                 </div>
 
                 <div class="avanzate-omb-section">
                   <div class="avanzate-omb-section-title">Disponibilità giorno per giorno</div>
-                  <div id="mirata-day-list" class="mirata-day-list"></div>
+                  <div id="prenomb-mirata-stagione-info" style="font-size:12px;color:var(--text-light);margin-bottom:10px"></div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+                    <button class="btn btn-outline btn-sm" onclick="mirataBulkForce()">✓ Rendi disponibile tutta la stagione</button>
+                    <button class="btn btn-outline btn-sm" onclick="mirataBulkRemove()">✗ Rimuovi tutte le disponibilità</button>
+                  </div>
+                  <div id="prenomb-mirata-day-list" class="mirata-day-list"></div>
                 </div>
               </div>
             </div>
-          </div><!-- /avanzate-pane-mirata -->
+          </div><!-- /prenomb-pane-mirata -->
 
+          </div><!-- /prenomb-container -->
         </div><!-- /pren-sub-disponibilita-omb -->
 
       </div>
