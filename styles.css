@@ -232,7 +232,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .ombrellone.selected { box-shadow: 0 0 0 3px var(--coral), 0 0 0 5px rgba(224, 123, 84, 0.25); border-color: var(--coral); transform: scale(1.04); }
 .ombrellone.selected::after { content: '✓'; position: absolute; top: -4px; right: -4px; background: var(--coral); color: #fff; font-size: 11px; font-weight: 700; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; line-height: 1; }
 
-.map-passerella { width: 40px; height: 40px; border-radius: 9px; flex-shrink: 0; background: repeating-linear-gradient(45deg, #ccc, #ccc 2px, #e8e8e8 2px, #e8e8e8 8px); border: 1.5px solid #bbb; }
+.map-passerella { width: 40px; height: 40px; border-radius: 9px; flex-shrink: 0; background: repeating-linear-gradient(180deg, #e4c07e 0, #e4c07e 9px, #c9a050 9px, #c9a050 10px); border: 1.5px solid #b08040; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.map-passerella::after { content: '👣'; }
 .map-empty { width: 40px; height: 40px; flex-shrink: 0; }
 
 .booking-selection-panel { margin-top: 14px; padding: 14px 16px; background: var(--coral-light); border: 1.5px solid var(--coral); border-radius: 10px; }
@@ -446,7 +447,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
   .map-rows { width: 100%; overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; cursor: grab; scrollbar-width: thin; }
   .map-row { gap: 4px; }
   .ombrellone { width: 32px; height: 32px; font-size: 9px; border-radius: 7px; border-width: 1.5px; }
-  .map-passerella { width: 32px; height: 32px; border-radius: 7px; }
+  .map-passerella { width: 32px; height: 32px; border-radius: 7px; font-size: 11px; }
   .map-empty { width: 32px; height: 32px; }
   .col-label { width: 32px; font-size: 9px; }
   .sea-label, .bar-label { font-size: 9px; letter-spacing: 3px; padding: 6px 0; gap: 8px; }
@@ -514,7 +515,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 }
 
 @media (max-width: 600px) { .user-hero { padding: 22px 20px; } .user-name { font-size: 28px; } .card-body { padding: 16px; } .cal-days-grid, .cal-days-header { gap: 3px; } .cal-day { font-size: 12px; } .cal-month { font-size: 16px; } .cal-legend { gap: 12px; font-size: 12px; } .legend-item { font-size: 11px; gap: 6px; } }
-@media (max-width: 480px) { .topnav { padding: 0 12px; } .logo { font-size: 16px; } .hero { padding: 40px 16px 32px; } .hero h1 { font-size: 32px; } .hero p { font-size: 14px; } .hero-waves { font-size: 24px; } .auth-card, .invito-card { padding: 26px 18px; } .main-content { padding: 16px 12px; } .stats-row { gap: 8px; } .stat-value { font-size: 28px; } .stat-card { padding: 16px 14px; } .ombrellone { width: 28px; height: 28px; font-size: 8px; border-radius: 6px; } .map-passerella { width: 28px; height: 28px; border-radius: 6px; } .map-empty { width: 28px; height: 28px; } .cal-day { font-size: 11px; } .modal { padding: 22px 16px; } .btn { padding: 11px 18px; font-size: 13px; } .btn-sm { padding: 8px 14px; font-size: 12px; } .data-table th, .data-table td { padding: 10px 12px; } .page-title { font-size: 24px; } .user-name { font-size: 28px; } .credit-amount { font-size: 34px; } .kpi-grid { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .topnav { padding: 0 12px; } .logo { font-size: 16px; } .hero { padding: 40px 16px 32px; } .hero h1 { font-size: 32px; } .hero p { font-size: 14px; } .hero-waves { font-size: 24px; } .auth-card, .invito-card { padding: 26px 18px; } .main-content { padding: 16px 12px; } .stats-row { gap: 8px; } .stat-value { font-size: 28px; } .stat-card { padding: 16px 14px; } .ombrellone { width: 28px; height: 28px; font-size: 8px; border-radius: 6px; } .map-passerella { width: 28px; height: 28px; border-radius: 6px; font-size: 10px; } .map-empty { width: 28px; height: 28px; } .cal-day { font-size: 11px; } .modal { padding: 22px 16px; } .btn { padding: 11px 18px; font-size: 13px; } .btn-sm { padding: 8px 14px; font-size: 12px; } .data-table th, .data-table td { padding: 10px 12px; } .page-title { font-size: 24px; } .user-name { font-size: 28px; } .credit-amount { font-size: 34px; } .kpi-grid { grid-template-columns: 1fr; } }
 
 .dash-range-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: var(--sand); border: 1px solid var(--border); font-size: 12px; color: var(--text-mid); }
 .dash-range-pill strong { color: var(--text-dark); font-weight: 600; }
