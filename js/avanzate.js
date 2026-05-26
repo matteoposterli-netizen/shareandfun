@@ -183,9 +183,9 @@ async function refreshAvanzateMap() {
 function renderAvanzateMap(ombs, dispMap) {
   const el = document.getElementById('avanzate-map');
   el.innerHTML = '';
-  const sorted = ombs.slice().sort((a, b) => (a.codice || '').localeCompare(b.codice || '', 'it'));
-  const mapRow = document.createElement('div'); mapRow.className = 'map-row';
-  sorted.forEach(o => {
+  if (!ombs.length) return;
+
+  const buildCell = (o) => {
     const stato = dispMap[o.id] || 'occupied';
     const cls = stato === 'libero' ? 'free'
       : stato === 'parziale' ? 'partial'
@@ -195,19 +195,61 @@ function renderAvanzateMap(ombs, dispMap) {
     const noClienteCls = !hasCliente ? ' no-cliente' : '';
     const cell = document.createElement('div');
     cell.className = 'ombrellone ' + cls + noClienteCls;
-    cell.title = `${o.codice} — ${formatCoin(o.credito_giornaliero)}/gg — `;
+    cell.textContent = '☂️';
     const stateLabel = stato === 'libero' && !hasCliente ? 'subaffittabile (nessun cliente assegnato)'
       : stato === 'libero' ? 'libero per tutto il periodo'
       : stato === 'parziale' ? 'libero in parte del periodo'
       : stato === 'sub_affittato' ? 'sub-affittato in parte del periodo'
       : 'occupato dal cliente stagionale';
     cell.title = `${o.codice} — ${formatCoin(o.credito_giornaliero)}/gg — ${stateLabel} · clicca per selezionare`;
-    cell.textContent = o.codice || '☂️';
     if (avanzateSelection.has(o.id)) cell.classList.add('selected');
     cell.onclick = () => toggleAvanzateSelection(o.id, cell);
-    mapRow.appendChild(cell);
-  });
-  el.appendChild(mapRow);
+    return cell;
+  };
+
+  const uniquePos = new Set(ombs.map(o => `${o.pos_x || 0}_${o.pos_y || 0}`));
+  const hasGrid = uniquePos.size > 1 || ombs.length === 1;
+
+  if (hasGrid) {
+    const byPos = {};
+    ombs.forEach(o => { byPos[`${o.pos_x || 0}_${o.pos_y || 0}`] = o; });
+    const passerelle = (currentStabilimento?.mappa_passerelle || []);
+    const passerelleSet = new Set(passerelle.map(p => `${p.x}_${p.y}`));
+    const xs = ombs.map(o => o.pos_x || 0).concat(passerelle.map(p => p.x || 0));
+    const ys = ombs.map(o => o.pos_y || 0).concat(passerelle.map(p => p.y || 0));
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+
+    for (let y = minY; y <= maxY; y++) {
+      const row = document.createElement('div');
+      row.className = 'map-row';
+      for (let x = minX; x <= maxX; x++) {
+        const key = `${x}_${y}`;
+        const o = byPos[key];
+        if (o) {
+          row.appendChild(buildCell(o));
+        } else if (passerelleSet.has(key)) {
+          const cell = document.createElement('div');
+          cell.className = 'map-passerella';
+          row.appendChild(cell);
+        } else {
+          const cell = document.createElement('div');
+          cell.className = 'map-empty';
+          row.appendChild(cell);
+        }
+      }
+      el.appendChild(row);
+    }
+  } else {
+    // Fallback: lista ordinata per codice
+    const sorted = ombs.slice().sort((a, b) => (a.codice || '').localeCompare(b.codice || '', 'it', { numeric: true }));
+    const row = document.createElement('div');
+    row.className = 'map-row';
+    sorted.forEach(o => row.appendChild(buildCell(o)));
+    el.appendChild(row);
+  }
 }
 
 /* ---------- Selezione ombrelloni (azione massiva) ---------- */
