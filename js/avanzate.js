@@ -353,6 +353,7 @@ function openAvanzateOmbModal(ombId) {
 
   showAlert('avanzate-omb-alert', '', '');
   document.getElementById('modal-avanzate-omb').classList.remove('hidden');
+  avanzateOmbLoadSeasonDays(ombId);
 }
 
 /* ---------- Azioni: forza / rimuovi disponibilità (singolo) ---------- */
@@ -929,6 +930,140 @@ async function mirataDelete() {
   }
 }
 
+/* ---------- Modal ombrellone: lista giorni intera stagione ---------- */
+
+async function avanzateOmbLoadSeasonDays(ombId) {
+  const el = document.getElementById('avanzate-omb-season-day-list');
+  const info = document.getElementById('avanzate-omb-season-info');
+  if (!el || !currentStabilimento) return;
+
+  const inizio = currentStabilimento.data_inizio_stagione;
+  const fine   = currentStabilimento.data_fine_stagione;
+  if (!inizio || !fine) {
+    el.innerHTML = '<div style="color:var(--text-light);font-size:12px;padding:6px">Stagione non configurata.</div>';
+    return;
+  }
+
+  el.innerHTML = '<div style="color:var(--text-light);font-size:12px;padding:6px">Caricamento…</div>';
+  if (info) info.textContent = `Stagione: ${formatDate(inizio)} → ${formatDate(fine)}`;
+
+  const dates = getDatesInRange(inizio, fine);
+
+  const [{ data: dispRows, error: dispErr }, { data: rulesRows, error: rulesErr }] = await Promise.all([
+    sb.from('disponibilita').select('data, stato')
+      .eq('ombrellone_id', ombId)
+      .gte('data', inizio).lte('data', fine),
+    sb.from('regole_stato_ombrelloni').select('*')
+      .eq('stabilimento_id', currentStabilimento.id)
+      .gte('data_a', inizio).lte('data_da', fine),
+  ]);
+
+  if (dispErr || rulesErr) {
+    el.innerHTML = `<div style="color:var(--red);font-size:12px;padding:6px">Errore: ${(dispErr || rulesErr).message}</div>`;
+    return;
+  }
+
+  const dispMap = {};
+  (dispRows || []).forEach(r => { dispMap[r.data] = r.stato; });
+
+  const regole = rulesRows || [];
+  const rulePri = { sempre_libero: 1, mai_libero: 2, chiusura_speciale: 3 };
+  const ruleLabels = { sempre_libero: 'Sempre libero', mai_libero: 'Mai libero', chiusura_speciale: 'Chiusura speciale' };
+
+  avanzateOmbRenderSeasonList(el, dates, dispMap, regole, rulePri, ruleLabels, ombId);
+}
+
+function avanzateOmbRenderSeasonList(el, dates, dispMap, regole, rulePri, ruleLabels, ombId) {
+  if (!dates.length) {
+    el.innerHTML = '<div style="color:var(--text-light);font-size:12px;padding:6px">Nessun giorno in stagione.</div>';
+    return;
+  }
+
+  let currentMonth = null;
+  const parts = [];
+
+  dates.forEach(d => {
+    const monthKey = d.substring(0, 7);
+    if (monthKey !== currentMonth) {
+      currentMonth = monthKey;
+      const dt = new Date(d + 'T00:00:00');
+      const label = dt.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+      parts.push(`<div class="mirata-month-header">${label.charAt(0).toUpperCase() + label.slice(1)}</div>`);
+    }
+
+    let activeRule = null;
+    let activePri = -1;
+    regole.forEach(r => {
+      if (d < r.data_da || d > r.data_a) return;
+      const p = rulePri[r.tipo] || 0;
+      if (p > activePri) { activePri = p; activeRule = r.tipo; }
+    });
+
+    const stato = dispMap[d] || 'occupied';
+    const stateLabel = stato === 'libero' ? 'Disponibile'
+      : stato === 'sub_affittato' ? 'Sub-affittato'
+      : 'Occupato';
+
+    let ruleBadge = '';
+    if (activeRule) {
+      ruleBadge = `<span class="mirata-rule-badge mirata-rule-${activeRule}">${ruleLabels[activeRule] || activeRule}</span>`;
+    }
+
+    let actions;
+    if (activeRule === 'chiusura_speciale') {
+      actions = `<span class="mirata-day-note">Bloccato</span>`;
+    } else if (stato === 'sub_affittato') {
+      actions = `<span class="mirata-day-note">Sub-affittato</span>`;
+    } else if (stato === 'libero') {
+      actions = `<button class="btn btn-outline btn-sm" onclick="avanzateOmbToggleDay('${d}','remove','${ombId}')">✗ Rimuovi</button>`;
+    } else {
+      actions = `<button class="btn btn-outline btn-sm" onclick="avanzateOmbToggleDay('${d}','force','${ombId}')">✓ Rendi libero</button>`;
+    }
+
+    parts.push(`<div class="mirata-day-row">
+      <div class="mirata-day-date">${formatDate(d)}</div>
+      <div class="mirata-day-badges">${ruleBadge}<span class="avanzate-day-state ${stato}">${stateLabel}</span></div>
+      <div class="mirata-day-actions">${actions}</div>
+    </div>`);
+  });
+
+  el.innerHTML = parts.join('');
+}
+
+async function avanzateOmbToggleDay(date, action, ombId) {
+  if (!ombId) return;
+  if (action === 'force') {
+    await applyForceDisponibile([ombId], [date], 'avanzate-omb-alert');
+  } else {
+    await applyRemoveDisponibilita([ombId], date, date, 'avanzate-omb-alert');
+  }
+  await reloadAfterMutation();
+  await avanzateOmbLoadSeasonDays(ombId);
+}
+
+async function avanzateOmbBulkForce() {
+  if (!avanzateOmbCurrent || !currentStabilimento) return;
+  const inizio = currentStabilimento.data_inizio_stagione;
+  const fine   = currentStabilimento.data_fine_stagione;
+  if (!inizio || !fine) return;
+  const dates = getDatesInRange(inizio, fine);
+  if (!confirm(`Rendere disponibile per sub-affitto questo ombrellone per tutta la stagione (${dates.length} giorni)? Le date già sub-affittate non verranno toccate.`)) return;
+  await applyForceDisponibile([avanzateOmbCurrent.id], dates, 'avanzate-omb-alert');
+  await reloadAfterMutation();
+  await avanzateOmbLoadSeasonDays(avanzateOmbCurrent.id);
+}
+
+async function avanzateOmbBulkRemove() {
+  if (!avanzateOmbCurrent || !currentStabilimento) return;
+  const inizio = currentStabilimento.data_inizio_stagione;
+  const fine   = currentStabilimento.data_fine_stagione;
+  if (!inizio || !fine) return;
+  if (!confirm(`Rimuovere tutte le disponibilità libere da questo ombrellone per tutta la stagione? I sub-affitti confermati non verranno toccati.`)) return;
+  await applyRemoveDisponibilita([avanzateOmbCurrent.id], inizio, fine, 'avanzate-omb-alert');
+  await reloadAfterMutation();
+  await avanzateOmbLoadSeasonDays(avanzateOmbCurrent.id);
+}
+
 /* ---------- Esposizione globale ---------- */
 
 window.avanzateInit = avanzateInit;
@@ -956,3 +1091,6 @@ window.mirataBulkRemove = mirataBulkRemove;
 window.mirataAdjustSaldo = mirataAdjustSaldo;
 window.mirataOpenEdit = mirataOpenEdit;
 window.mirataDelete = mirataDelete;
+window.avanzateOmbToggleDay = avanzateOmbToggleDay;
+window.avanzateOmbBulkForce = avanzateOmbBulkForce;
+window.avanzateOmbBulkRemove = avanzateOmbBulkRemove;
