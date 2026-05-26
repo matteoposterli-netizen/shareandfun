@@ -176,24 +176,25 @@ function renderMappaStep1() {
         const cod = mappaState.codici[`${r}_${c}`];
         cell.textContent = cod || '';
       }
-      cell.addEventListener('mousedown', async (e) => {
+      cell.addEventListener('mousedown', (e) => {
         _mappaDragging = false;
         const currentTipo = mappaState.grid[r][c];
-        const nextTipo = (currentTipo === mappaState.modalita) ? CELL_TIPO.VUOTO : mappaState.modalita;
-        if (nextTipo === CELL_TIPO.VUOTO && currentTipo === CELL_TIPO.OMBRELLONE && _mappaModalita === 'edit') {
-          const ombId = mappaState.ids[`${r}_${c}`];
-          if (ombId) {
-            const ok = await _confermaRimozioneOmbrellone(ombId, mappaState.codici[`${r}_${c}`] || '?');
-            if (!ok) { e.preventDefault(); return; }
-            if (!mappaState.toDelete) mappaState.toDelete = [];
-            mappaState.toDelete.push(ombId);
-            delete mappaState.ids[`${r}_${c}`];
-          }
+        // In edit mode, existing umbrella cells are handled by the click event
+        // (rename/delete popup). Not calling preventDefault here preserves HTML5 drag.
+        if (currentTipo === CELL_TIPO.OMBRELLONE && _mappaModalita === 'edit') {
+          return;
         }
+        const nextTipo = (currentTipo === mappaState.modalita) ? CELL_TIPO.VUOTO : mappaState.modalita;
         _mappaLastDragTipo = nextTipo;
         setCellTipo(r, c, nextTipo);
         _mappaDraggingActive = true;
         e.preventDefault();
+      });
+      cell.addEventListener('click', (e) => {
+        if (mappaState.grid[r][c] === CELL_TIPO.OMBRELLONE && _mappaModalita === 'edit') {
+          _mostraPopupCella(r, c, cell);
+          e.stopPropagation();
+        }
       });
       cell.addEventListener('mouseenter', () => {
         if (_mappaDraggingActive && mappaState.modalita !== CELL_TIPO.VUOTO) {
@@ -433,6 +434,7 @@ async function salvaMappaStabilimento(stabilimentoId) {
     if (btn) { btn.disabled = false; btn.textContent = 'Salva mappa'; }
     return;
   }
+  if (currentStabilimento) currentStabilimento.mappa_passerelle = passerelleData;
 
   const inOverlay = _mappaStabilimentoId !== null &&
     document.getElementById('modal-mappa-builder') &&
@@ -603,6 +605,50 @@ function _iniettaBuilderNelOverlay(modalita) {
   renderMappaStep1();
 }
 
+function _mostraPopupCella(r, c, cellEl) {
+  document.getElementById('mappa-cell-action-popup')?.remove();
+  const codice = mappaState.codici[`${r}_${c}`] || '?';
+  const popup = document.createElement('div');
+  popup.id = 'mappa-cell-action-popup';
+  const rect = cellEl.getBoundingClientRect();
+  const top = Math.min(rect.bottom + 6, window.innerHeight - 110);
+  const left = Math.min(rect.left, window.innerWidth - 160);
+  popup.style.cssText = `position:fixed;z-index:10000;background:#fff;border:1px solid var(--border,#ddd);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);padding:8px;display:flex;flex-direction:column;gap:6px;min-width:140px;top:${top}px;left:${left}px`;
+  popup.innerHTML = `
+    <div style="font-size:11px;font-weight:600;color:var(--text-mid,#888);padding:0 4px">Ombrellone <strong>${codice}</strong></div>
+    <button id="mappa-popup-rinomina" style="text-align:left;padding:6px 10px;border:1px solid var(--border,#ddd);border-radius:6px;background:#fff;cursor:pointer;font-size:13px">✏️ Rinomina</button>
+    <button id="mappa-popup-elimina" style="text-align:left;padding:6px 10px;border:1px solid var(--border,#ddd);border-radius:6px;background:#fff;cursor:pointer;font-size:13px;color:var(--red,#c0392b)">🗑️ Elimina</button>
+  `;
+  document.body.appendChild(popup);
+
+  const closePopup = (e) => { if (!popup.contains(e.target)) { popup.remove(); document.removeEventListener('mousedown', closePopup); } };
+  setTimeout(() => document.addEventListener('mousedown', closePopup), 0);
+
+  popup.querySelector('#mappa-popup-rinomina').addEventListener('click', () => {
+    popup.remove();
+    document.removeEventListener('mousedown', closePopup);
+    const nuovo = prompt(`Rinomina ombrellone "${codice}":`, codice);
+    if (nuovo !== null && nuovo.trim() !== '') {
+      mappaState.codici[`${r}_${c}`] = nuovo.trim();
+      updateCell(r, c);
+    }
+  });
+
+  popup.querySelector('#mappa-popup-elimina').addEventListener('click', async () => {
+    popup.remove();
+    document.removeEventListener('mousedown', closePopup);
+    const ombId = mappaState.ids[`${r}_${c}`];
+    if (ombId) {
+      const ok = await _confermaRimozioneOmbrellone(ombId, codice);
+      if (!ok) return;
+      if (!mappaState.toDelete) mappaState.toDelete = [];
+      mappaState.toDelete.push(ombId);
+      delete mappaState.ids[`${r}_${c}`];
+    }
+    setCellTipo(r, c, CELL_TIPO.VUOTO);
+  });
+}
+
 async function _confermaRimozioneOmbrellone(ombId, codice) {
   const [{ data: clienti }, { data: prenot }] = await Promise.all([
     sb.from('clienti_stagionali').select('id,nome,cognome').eq('ombrellone_id', ombId).limit(1),
@@ -715,6 +761,7 @@ async function _salvaMappaMod() {
     }
   }
   await sb.from('stabilimenti').update({ mappa_passerelle: passerelle }).eq('id', stabId);
+  if (currentStabilimento) currentStabilimento.mappa_passerelle = passerelle;
 
   chiudiMappaBuilderOverlay();
   await loadManagerData();
