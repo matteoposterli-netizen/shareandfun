@@ -17,6 +17,7 @@ let mappaState = {
 let _mappaStabilimentoId = null;
 let _mappaModalita = 'create'; // 'create' | 'edit'
 let _mappaOriginalSnapshot = null;
+let _cellJustCreated = false;
 
 // Scoped root for element lookups — set to the active container (overlay body or null for the
 // full-page view). Prevents document.getElementById from finding the static #view-mappa-builder
@@ -75,8 +76,10 @@ function setModalita(tipo) {
   _qall('.mode-btn').forEach(b => b.classList.remove('active'));
   const btnId = tipo === CELL_TIPO.OMBRELLONE ? 'btn-mode-ombrellone'
               : tipo === CELL_TIPO.PASSERELLA ? 'btn-mode-passerella'
-              : 'btn-mode-vuoto';
-  _qid(btnId)?.classList.add('active');
+              : tipo === CELL_TIPO.VUOTO ? 'btn-mode-vuoto'
+              : tipo === 'modifica' ? 'btn-mode-modifica'
+              : '';
+  if (btnId) _qid(btnId)?.classList.add('active');
 }
 
 function updateCell(r, c) {
@@ -177,23 +180,66 @@ function renderMappaStep1() {
         cell.textContent = cod || '';
       }
       cell.addEventListener('mousedown', (e) => {
-        _mappaDragging = false;
+        _cellJustCreated = false;
         const currentTipo = mappaState.grid[r][c];
-        // In edit mode, existing umbrella cells are handled by the click event
-        // (rename/delete popup). Not calling preventDefault here preserves HTML5 drag.
-        if (currentTipo === CELL_TIPO.OMBRELLONE && _mappaModalita === 'edit') {
+        if (_mappaModalita === 'edit' && currentTipo === CELL_TIPO.OMBRELLONE) {
+          // Le azioni su ombrelloni esistenti in edit mode sono gestite dal click
+          e.preventDefault(); // evita selezione testo durante drag
+          return;
+        }
+        if (mappaState.modalita === 'modifica') {
+          // In modalità modifica, ignora mousedown
+          e.preventDefault();
           return;
         }
         const nextTipo = (currentTipo === mappaState.modalita) ? CELL_TIPO.VUOTO : mappaState.modalita;
         _mappaLastDragTipo = nextTipo;
+        if (currentTipo === CELL_TIPO.VUOTO && nextTipo === CELL_TIPO.OMBRELLONE) {
+          _cellJustCreated = true;
+        }
         setCellTipo(r, c, nextTipo);
         _mappaDraggingActive = true;
         e.preventDefault();
       });
+
       cell.addEventListener('click', (e) => {
-        if (mappaState.grid[r][c] === CELL_TIPO.OMBRELLONE && _mappaModalita === 'edit') {
+        if (_mappaModalita !== 'edit') return;
+        if (mappaState.grid[r][c] !== CELL_TIPO.OMBRELLONE) return;
+
+        // Cella appena creata in questa sessione: non mostrare popup
+        if (_cellJustCreated) { _cellJustCreated = false; return; }
+
+        e.stopPropagation();
+        const codice = mappaState.codici[`${r}_${c}`] || '?';
+
+        if (mappaState.modalita === CELL_TIPO.VUOTO) {
+          // Cancella mode: elimina ombrellone
+          const ombId = mappaState.ids[`${r}_${c}`];
+          if (ombId) {
+            _confermaRimozioneOmbrellone(ombId, codice).then(ok => {
+              if (!ok) return;
+              if (!mappaState.toDelete) mappaState.toDelete = [];
+              mappaState.toDelete.push(ombId);
+              delete mappaState.ids[`${r}_${c}`];
+              delete mappaState.codici[`${r}_${c}`];
+              mappaState.grid[r][c] = CELL_TIPO.VUOTO;
+              updateCell(r, c);
+              updateCounter();
+            });
+          } else {
+            delete mappaState.codici[`${r}_${c}`];
+            setCellTipo(r, c, CELL_TIPO.VUOTO);
+          }
+        } else if (mappaState.modalita === 'modifica') {
+          // Modifica mode: rinomina direttamente
+          const nuovo = prompt(`Rinomina ombrellone "${codice}":`, codice);
+          if (nuovo !== null && nuovo.trim() !== '') {
+            mappaState.codici[`${r}_${c}`] = nuovo.trim();
+            updateCell(r, c);
+          }
+        } else {
+          // Ombrellone o Passerella mode: mostra popup rinomina/elimina
           _mostraPopupCella(r, c, cell);
-          e.stopPropagation();
         }
       });
       cell.addEventListener('mouseenter', () => {
@@ -560,12 +606,13 @@ function _iniettaBuilderNelOverlay(modalita) {
 
   body.innerHTML = `
     <div style="padding:20px 28px">
-      ${modalita === 'edit' ? '<div class="alert alert-info" style="margin-bottom:16px;font-size:13px">Modalità modifica: clicca su una cella vuota per aggiungere, clicca su un ombrellone esistente per rimuoverlo. Trascina per spostare.</div>' : ''}
+      ${modalita === 'edit' ? '<div class="alert alert-info" style="margin-bottom:16px;font-size:13px">☂️ <strong>Ombrellone</strong>: clicca su celle vuote per aggiungere · 🚶 <strong>Passerella</strong>: corridoi tra ombrelloni · ✕ <strong>Cancella</strong>: clicca su un ombrellone per rimuoverlo · ✏️ <strong>Modifica</strong>: clicca su un ombrellone per rinominarlo · 🖱️ <strong>Trascina</strong> un ombrellone su una cella vuota per spostarlo</div>' : ''}
       <div id="mappa-step1-content">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
           <button id="btn-mode-ombrellone" class="btn btn-sm mode-btn active" onclick="setModalita('ombrellone')">☂️ Ombrellone</button>
           <button id="btn-mode-passerella" class="btn btn-sm mode-btn" onclick="setModalita('passerella')">🚶 Passerella</button>
           <button id="btn-mode-vuoto" class="btn btn-sm mode-btn" onclick="setModalita('vuoto')">✕ Cancella</button>
+          <button id="btn-mode-modifica" class="btn btn-sm mode-btn" onclick="setModalita('modifica')">✏️ Modifica</button>
           <span id="mappa-counter" style="font-size:13px;color:var(--text-mid);margin-left:8px">0 ombrelloni</span>
         </div>
         <div style="overflow-x:auto">
