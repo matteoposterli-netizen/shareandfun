@@ -12,7 +12,7 @@
 
 let avanzateRangePickerInstance = null;
 let avanzateCurrentRange = null;     // { from, to, dates, dispByOmbDate, rangeDispMap }
-let avanzateOmbCurrent = null;       // { id, fila, numero, credito_giornaliero }
+let avanzateOmbCurrent = null;       // { id, codice, credito_giornaliero }
 let avanzateClienteCurrent = null;   // { id, nome, ..., credito_saldo } | null
 let avanzateSaldoOrigin = null;      // 'omb' (modal scheda) | 'mirata' (pane mirata)
 let avanzateSelection = new Set();   // ombrellone IDs selezionati per azione massiva
