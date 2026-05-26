@@ -434,6 +434,7 @@ async function salvaMappaStabilimento(stabilimentoId) {
     if (btn) { btn.disabled = false; btn.textContent = 'Salva mappa'; }
     return;
   }
+  if (currentStabilimento) currentStabilimento.mappa_passerelle = passerelleData;
 
   const inOverlay = _mappaStabilimentoId !== null &&
     document.getElementById('modal-mappa-builder') &&
@@ -760,6 +761,7 @@ async function _salvaMappaMod() {
     }
   }
   await sb.from('stabilimenti').update({ mappa_passerelle: passerelle }).eq('id', stabId);
+  if (currentStabilimento) currentStabilimento.mappa_passerelle = passerelle;
 
   chiudiMappaBuilderOverlay();
   await loadManagerData();
