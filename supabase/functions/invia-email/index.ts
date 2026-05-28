@@ -292,7 +292,7 @@ Deno.serve(async (req: Request) => {
     subject = oggetto_custom || `Hai ricevuto ${importo_formatted ?? "dei coin"} — ${stabilimento_nome}`;
     const testoCustom = testo_custom
       ? testo_custom.replace(/\n/g, "<br>")
-      : `Abbiamo appena accreditato <strong>${importo_formatted ?? ""}</strong> sul tuo saldo ShareAndFun.${saldo_formatted ? ` Il tuo nuovo saldo è <strong>${saldo_formatted}</strong>.` : ""}${nota ? `<br><br><em>${nota}</em>` : ""}`;
+      : `Abbiamo appena accreditato <strong>${importo_formatted ?? ""}</strong> sul tuo saldo SpiaggiaMia.${saldo_formatted ? ` Il tuo nuovo saldo è <strong>${saldo_formatted}</strong>.` : ""}${nota ? `<br><br><em>${nota}</em>` : ""}`;
     opts = {
       headerColor: "linear-gradient(135deg,#2EAA6B 0%,#38c97e 100%)",
       headerEmoji: "⭐ 💰",
@@ -314,7 +314,7 @@ Deno.serve(async (req: Request) => {
     subject = oggetto_custom || `Hai utilizzato ${importo_formatted ?? "dei coin"} — ${stabilimento_nome}`;
     const testoCustom = testo_custom
       ? testo_custom.replace(/\n/g, "<br>")
-      : `Abbiamo registrato l'utilizzo di <strong>${importo_formatted ?? ""}</strong> dal tuo saldo ShareAndFun.${saldo_formatted ? ` Il tuo saldo residuo è <strong>${saldo_formatted}</strong>.` : ""}${nota ? `<br><br><em>${nota}</em>` : ""}`;
+      : `Abbiamo registrato l'utilizzo di <strong>${importo_formatted ?? ""}</strong> dal tuo saldo SpiaggiaMia.${saldo_formatted ? ` Il tuo saldo residuo è <strong>${saldo_formatted}</strong>.` : ""}${nota ? `<br><br><em>${nota}</em>` : ""}`;
     opts = {
       headerColor: "linear-gradient(135deg,#E07B54 0%,#f09060 100%)",
       headerEmoji: "🎉 🧾",
