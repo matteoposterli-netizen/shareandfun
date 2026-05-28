@@ -793,6 +793,14 @@ body.view-stagionale .topnav, body:has(#view-stagionale.active) .topnav { displa
 .stag-view .cal-day.subleased { background: #fef3c7; color: #d97706; border-color: #fcd34d; }
 .stag-view .cal-day.pending-add { background: #dcfce7; color: #16a34a; border: 1.5px dashed #16a34a; }
 .stag-view .cal-day.pending-remove { background: #fee2e2; color: #b91c1c; border: 1.5px dashed #b91c1c; text-decoration: line-through; }
+.stag-view .cal-day.today.free { background: #dcfce7; color: #16a34a; border: 1.5px solid #0e7490; }
+.stag-view .cal-day.today.subleased { background: #fef3c7; color: #d97706; border: 1.5px solid #0e7490; }
+.stag-view .cal-day.past.free { background: #dcfce7; color: #16a34a; border-color: #86efac; opacity: 0.6; }
+.stag-view .cal-day.past.subleased { background: #fef3c7; color: #d97706; border-color: #fcd34d; opacity: 0.6; }
+.cal-day.today.free { background: var(--green-light); color: var(--green); border-color: var(--ink); }
+.cal-day.today.subleased { background: var(--yellow-light); color: #9C7A1F; border-color: var(--ink); }
+.cal-day.past.free { background: var(--green-light); color: var(--green); border-color: #96DDB8; opacity: 0.6; }
+.cal-day.past.subleased { background: var(--yellow-light); color: #9C7A1F; border-color: var(--yellow); opacity: 0.6; }
 .stag-view .cal-legend { gap: 10px; padding: 12px 0 4px; margin-top: 12px; border-top: 1px solid #e2e8f0; }
 .stag-view .legend-item { font-size: 10px; color: #94a3b8; }
 .stag-view .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
