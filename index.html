@@ -2017,6 +2017,17 @@
       <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="applyEditRowRemoveDisp()">🗑️ Rimuovi disponibilità</button>
     </div>
 
+    <!-- Disponibilità giornaliere -->
+    <div class="section-divider" style="margin-top:8px">📅 Disponibilità giornaliere</div>
+    <div id="edit-row-disp-info" style="font-size:12px;color:var(--text-light);margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <button class="btn btn-outline btn-sm" onclick="editRowBulkForce()">✓ Tutta la stagione disponibile</button>
+      <button class="btn btn-outline btn-sm" onclick="editRowBulkRemove()">✗ Rimuovi tutte le disponibilità</button>
+    </div>
+    <div id="edit-row-day-list" class="mirata-day-list" style="max-height:280px;overflow-y:auto">
+      <div style="padding:14px;font-size:13px;color:var(--text-light)">Caricamento...</div>
+    </div>
+
     <!-- FOOTER -->
     <div class="modal-footer" style="margin-top:20px">
       <button id="edit-row-close-btn" class="btn btn-outline btn-sm" onclick="closeEditRowModal()">Chiudi</button>

@@ -2436,6 +2436,7 @@ function openEditRowModal(ombId) {
     if (fine)   { dispFrom.max = fine;   dispTo.max = fine;   }
   }
   document.getElementById('modal-edit-row').classList.remove('hidden');
+  loadEditRowDayList(ombId);
 }
 
 async function saveEditRowOmbrellone() {
@@ -2740,3 +2741,137 @@ function renderViewOmbrelloneCalendar() {
     el.appendChild(div);
   }
 }
+
+/* ===== EDIT-ROW DAY LIST ===== */
+
+let editRowDayMap = {};
+let editRowRulesCache = [];
+let editRowDayOmbId = null;
+
+async function loadEditRowDayList(ombId) {
+  editRowDayOmbId = ombId;
+  const infoEl = document.getElementById('edit-row-disp-info');
+  const listEl = document.getElementById('edit-row-day-list');
+  if (!listEl) return;
+  if (!currentStabilimento) {
+    listEl.innerHTML = '<div style="padding:14px;font-size:13px;color:var(--text-light)">Stabilimento non caricato.</div>';
+    return;
+  }
+  const inizio = currentStabilimento.data_inizio_stagione;
+  const fine   = currentStabilimento.data_fine_stagione;
+  if (!inizio || !fine) {
+    listEl.innerHTML = '<div style="padding:14px;font-size:13px;color:var(--text-light)">Date stagione non impostate.</div>';
+    return;
+  }
+  listEl.innerHTML = '<div style="padding:14px;font-size:13px;color:var(--text-light)">Caricamento...</div>';
+  if (infoEl) infoEl.innerHTML = `Stagione <strong>${formatDate(inizio)} → ${formatDate(fine)}</strong>. I sub-affitti già confermati non sono modificabili da qui.`;
+
+  const [{ data: disp }, { data: rules }] = await Promise.all([
+    sb.from('disponibilita').select('id,data,stato,cliente_id')
+      .eq('ombrellone_id', ombId)
+      .gte('data', inizio).lte('data', fine)
+      .order('data', { ascending: true }),
+    sb.from('regole_stato_ombrelloni').select('*')
+      .eq('stabilimento_id', currentStabilimento.id)
+      .gte('data_a', inizio).lte('data_da', fine),
+  ]);
+  editRowDayMap = {};
+  (disp || []).forEach(d => { editRowDayMap[d.data] = d; });
+  editRowRulesCache = rules || [];
+  renderEditRowDayList();
+}
+
+function editRowRuleForDate(dateStr) {
+  const matching = (editRowRulesCache || []).filter(r => dateStr >= r.data_da && dateStr <= r.data_a);
+  if (matching.some(r => r.tipo === 'chiusura_speciale')) return { type: 'chiusura_speciale', label: 'Bagno chiuso' };
+  if (matching.some(r => r.tipo === 'mai_libero'))        return { type: 'mai_libero',        label: 'Mai subaffittabile' };
+  if (matching.some(r => r.tipo === 'sempre_libero'))     return { type: 'sempre_libero',     label: 'Sempre subaffittabile' };
+  return null;
+}
+
+function renderEditRowDayList() {
+  const listEl = document.getElementById('edit-row-day-list');
+  if (!listEl || !currentStabilimento) return;
+  const inizio = currentStabilimento.data_inizio_stagione;
+  const fine   = currentStabilimento.data_fine_stagione;
+  if (!inizio || !fine) return;
+  const dates = getDatesInRange(inizio, fine);
+  if (!dates.length) {
+    listEl.innerHTML = '<div style="padding:14px;font-size:13px;color:var(--text-light)">Nessun giorno nel range stagione.</div>';
+    return;
+  }
+  let lastMonth = '';
+  const parts = [];
+  for (const d of dates) {
+    const month = d.slice(0, 7);
+    if (month !== lastMonth) {
+      const dt = new Date(d + 'T00:00:00');
+      const monthName = dt.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+      parts.push(`<div class="mirata-month-header">${escapeHtml(monthName.charAt(0).toUpperCase() + monthName.slice(1))}</div>`);
+      lastMonth = month;
+    }
+    const rec = editRowDayMap[d];
+    const stato = rec?.stato || 'occupied';
+    const rule = editRowRuleForDate(d);
+    const stateLabel = stato === 'libero' ? 'Disponibile sub-affitto'
+      : stato === 'sub_affittato' ? 'Sub-affittato' : 'Occupato dal cliente';
+
+    let ruleBadge = '';
+    if (rule) {
+      ruleBadge = `<span class="mirata-rule-badge mirata-rule-${rule.type}">${escapeHtml(rule.label)}</span>`;
+    }
+    let actions;
+    if (rule && rule.type === 'chiusura_speciale') {
+      actions = `<span class="mirata-day-note">Bloccato</span>`;
+    } else if (stato === 'sub_affittato') {
+      actions = `<span class="mirata-day-note">Sub-affittato</span>`;
+    } else if (stato === 'libero') {
+      actions = `<button class="btn btn-outline btn-sm" onclick="editRowToggleDay('${d}','remove')">✗ Rimuovi</button>`;
+    } else {
+      actions = `<button class="btn btn-outline btn-sm" onclick="editRowToggleDay('${d}','force')">✓ Rendi libero</button>`;
+    }
+    parts.push(`<div class="mirata-day-row">
+      <div class="mirata-day-date">${formatDate(d)}</div>
+      <div class="mirata-day-badges">${ruleBadge}<span class="avanzate-day-state ${stato}">${stateLabel}</span></div>
+      <div class="mirata-day-actions">${actions}</div>
+    </div>`);
+  }
+  listEl.innerHTML = parts.join('');
+}
+
+async function editRowToggleDay(date, action) {
+  if (!editRowDayOmbId) return;
+  if (action === 'force') {
+    await applyForceDisponibile([editRowDayOmbId], [date], 'edit-row-alert');
+  } else {
+    await applyRemoveDisponibilita([editRowDayOmbId], date, date, 'edit-row-alert');
+  }
+  await loadManagerData();
+  await loadEditRowDayList(editRowDayOmbId);
+}
+
+async function editRowBulkForce() {
+  if (!editRowDayOmbId || !currentStabilimento) return;
+  const { data_inizio_stagione: inizio, data_fine_stagione: fine } = currentStabilimento;
+  if (!inizio || !fine) return;
+  const dates = getDatesInRange(inizio, fine);
+  if (!confirm(`Rendere disponibile per sub-affitto questo ombrellone per tutta la stagione (${dates.length} giorni)? Le date già sub-affittate non verranno toccate.`)) return;
+  await applyForceDisponibile([editRowDayOmbId], dates, 'edit-row-alert');
+  await loadManagerData();
+  await loadEditRowDayList(editRowDayOmbId);
+}
+
+async function editRowBulkRemove() {
+  if (!editRowDayOmbId || !currentStabilimento) return;
+  const { data_inizio_stagione: inizio, data_fine_stagione: fine } = currentStabilimento;
+  if (!inizio || !fine) return;
+  if (!confirm(`Rimuovere lo stato 'libero per sub-affitto' da questo ombrellone per tutta la stagione? I sub-affitti già confermati non verranno toccati.`)) return;
+  await applyRemoveDisponibilita([editRowDayOmbId], inizio, fine, 'edit-row-alert');
+  await loadManagerData();
+  await loadEditRowDayList(editRowDayOmbId);
+}
+
+window.editRowToggleDay  = editRowToggleDay;
+window.editRowBulkForce  = editRowBulkForce;
+window.editRowBulkRemove = editRowBulkRemove;
+/* ===== END EDIT-ROW DAY LIST ===== */
