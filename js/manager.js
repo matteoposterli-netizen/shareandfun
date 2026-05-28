@@ -2732,12 +2732,14 @@ function renderViewOmbrelloneCalendar() {
     if (isPast) cls += ' past';
     else if (isToday) cls += ' today';
     if (stato === 'libero') cls += ' free';
-    if (stato === 'sub_affittato') cls += ' subleased';
+    else if (stato === 'sub_affittato') cls += ' subleased';
+    else if (!isPast && !isToday) cls += ' occupied';
     const div = document.createElement('div');
     div.className = cls;
     div.textContent = d;
     if (stato === 'libero') div.title = `${formatDate(dateStr)} · Dichiarato libero`;
     else if (stato === 'sub_affittato') div.title = `${formatDate(dateStr)} · Sub-affittato`;
+    else if (!isPast) div.title = `${formatDate(dateStr)} · Stagionale presente`;
     el.appendChild(div);
   }
 }

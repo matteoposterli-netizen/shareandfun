@@ -297,6 +297,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .cal-day.today { background: var(--ink); color: #fff; font-weight: 700; border-color: var(--ink); }
 .cal-day.free { background: var(--green-light); color: var(--green); border-color: #96DDB8; }
 .cal-day.subleased { background: var(--yellow-light); color: #9C7A1F; border-color: var(--yellow); }
+.cal-day.occupied { background: var(--ocean-light); color: var(--ocean); border-color: var(--ocean-mid); }
+.cal-day.cal-day-readonly.occupied:hover { border-color: var(--ocean-mid); }
 .cal-day.cal-day-readonly { cursor: default; }
 .cal-day.cal-day-readonly:hover:not(.empty):not(.past) { border-color: var(--border); }
 .cal-day.cal-day-readonly.today:hover { border-color: var(--ink); }
