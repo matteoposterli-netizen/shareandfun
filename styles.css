@@ -189,7 +189,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .ombrellone:hover { transform: scale(1.1); z-index: 1; box-shadow: 0 4px 12px rgba(14,27,38,0.12); }
 .ombrellone.occupied { background: var(--ocean-light); color: var(--ocean); border-color: var(--ocean-mid); }
 .ombrellone.free { background: var(--green-light); color: var(--green); border-color: #96DDB8; }
-.ombrellone.partial { background: repeating-linear-gradient(45deg, var(--green-light) 0 6px, var(--ocean-light) 6px 12px); color: var(--green); border-color: #96DDB8; }
+.ombrellone.partial { background: repeating-linear-gradient(45deg, #FF9A3C 0 6px, #FFD29A 6px 12px); color: #7A3800; border-color: #FF8C00; border-width: 2px; }
 .ombrellone.combo { background: repeating-linear-gradient(45deg, var(--coral) 0 4px, var(--coral-light) 4px 10px); color: var(--coral); border-color: var(--coral); border-width: 2px; }
 .ombrellone.combo:hover { background: var(--coral); color: #fff; }
 .ombrellone.subleased { background: var(--yellow-light); color: #9C7A1F; border-color: var(--yellow); }
