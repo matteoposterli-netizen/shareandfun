@@ -894,6 +894,26 @@
         <!-- ACCOUNT SUBTAB -->
         <div id="config-sub-account" class="config-subpanel">
 
+          <!-- Dati stabilimento -->
+          <div class="card" style="margin-bottom:24px">
+            <div class="card-header">
+              <div>
+                <div class="card-title">🏖️ Dati del tuo stabilimento</div>
+                <div class="card-subtitle">Modifica le informazioni del tuo stabilimento.</div>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="stab-account-alert" style="margin-bottom:12px"></div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Nome stabilimento *</label>
+                  <input type="text" id="account-stab-nome" class="form-input" placeholder="es. Bagno Azzurro" maxlength="100">
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="saveStabilimentoAccount()">Salva nome stabilimento</button>
+            </div>
+          </div>
+
           <!-- Anagrafica -->
           <div class="card" style="margin-bottom:24px">
             <div class="card-header">

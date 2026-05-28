@@ -19,6 +19,7 @@ function switchConfigSubtab(sub, btn) {
   }
   if (sub === 'avanzate' && typeof avanzateInit === 'function') avanzateInit();
   if (sub === 'account' && typeof accountLoad === 'function') accountLoad();
+  if (sub === 'account' && typeof loadStabilimentoAccount === 'function') loadStabilimentoAccount();
 }
 
 /* ---------- Stagione: load/save ---------- */
@@ -249,6 +250,28 @@ async function eliminaRegolaStato(id) {
   await loadRegoleStato();
   setTimeout(() => { if (alert) alert.innerHTML = ''; }, 3000);
 }
+
+/* ---------- Account subtab: load/save nome stabilimento ---------- */
+function loadStabilimentoAccount() {
+  const el = document.getElementById('account-stab-nome');
+  if (!el || !currentStabilimento) return;
+  el.value = currentStabilimento.nome || '';
+}
+
+async function saveStabilimentoAccount() {
+  const nome = (document.getElementById('account-stab-nome')?.value || '').trim();
+  if (!nome) { showAlert('stab-account-alert', 'Il nome stabilimento è obbligatorio', 'error'); return; }
+  if (!currentStabilimento?.id) return;
+  const { error } = await sb.from('stabilimenti').update({ nome }).eq('id', currentStabilimento.id);
+  if (error) { showAlert('stab-account-alert', error.message, 'error'); return; }
+  currentStabilimento.nome = nome;
+  const navNome = document.getElementById('manager-stab-nome');
+  if (navNome) navNome.textContent = nome;
+  showAlert('stab-account-alert', 'Nome stabilimento aggiornato con successo!', 'success');
+}
+
+window.loadStabilimentoAccount = loadStabilimentoAccount;
+window.saveStabilimentoAccount = saveStabilimentoAccount;
 
 /* Esponi funzioni globali usate dall'HTML */
 window.switchConfigSubtab = switchConfigSubtab;
