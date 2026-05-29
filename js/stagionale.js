@@ -214,10 +214,16 @@ function renderStagStats() {
   const freeEl = document.getElementById('stag-stat-free');
   const subEl = document.getElementById('stag-stat-sub');
   if (!freeEl || !subEl) return;
-  // Conteggio sull'intera disponibilità del cliente, con i pending applicati.
+
+  const today = todayStr();
+  const inizio = stagStagione?.inizio;
+  const fine = stagStagione?.fine;
+
   const dates = new Set([...Object.keys(currentDispMap), ...Object.keys(pendingDispChanges)]);
   let free = 0, sub = 0;
   dates.forEach(d => {
+    if (d < today) return;
+    if (inizio && fine && (d < inizio || d > fine)) return;
     const stato = stagEffectiveDayStato(d);
     if (stato === 'free' || stato === 'pending-add') free++;
     else if (stato === 'sub') sub++;
