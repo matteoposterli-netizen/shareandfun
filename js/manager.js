@@ -72,8 +72,6 @@ function initMapRangePicker(today) {
   if (!input) return;
   const todayDate = new Date(today + 'T00:00:00');
   if (mapRangePickerInstance) {
-    mapRangePickerInstance.set('minDate', currentStabilimento?.data_inizio_stagione || undefined);
-    mapRangePickerInstance.set('maxDate', currentStabilimento?.data_fine_stagione || undefined);
     mapRangePickerInstance.setDate([todayDate, todayDate], false);
     return;
   }
@@ -84,8 +82,6 @@ function initMapRangePicker(today) {
     defaultDate: [todayDate, todayDate],
     showMonths: 1,
     disableMobile: true,
-    minDate: currentStabilimento?.data_inizio_stagione || undefined,
-    maxDate: currentStabilimento?.data_fine_stagione || undefined,
     onChange: (selectedDates) => {
       if (selectedDates.length === 2) {
         const from = toLocalDateStr(selectedDates[0]);
