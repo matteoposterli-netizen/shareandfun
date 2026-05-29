@@ -343,7 +343,8 @@ function renderCalendar() {
       cls += ' restricted restricted-' + restr.state;
     } else {
       if (stato === 'libero') cls += ' free';
-      if (stato === 'sub_affittato') cls += ' subleased';
+      else if (stato === 'sub_affittato') cls += ' subleased';
+      else if (!isPast && !isToday) cls += ' occupied';
       if (pending === 'add') cls += ' pending-add';
       if (pending === 'remove') cls += ' pending-remove';
     }
