@@ -11,13 +11,15 @@ async function loadStagionaleData() {
     stagStagione = null;
     stagRegole = [];
     stagCurrentStab = null;
+    stagOmbrellone = null;
     buildCalendar([],[]);
     return;
   }
 
   stagClienteId = cliente.id;
   stagOmbrelloneId = cliente.ombrellone_id;
-  const omb = cliente.ombrelloni;
+  stagOmbrellone = cliente.ombrelloni || null;
+  const omb = stagOmbrellone;
   const stab = omb?.stabilimenti;
   stagCurrentStab = stab;
   stagStabilimentoId = stab?.id || cliente.stabilimento_id;
@@ -56,13 +58,18 @@ async function loadStagionaleData() {
 function renderStagioneBanner() {
   const el = document.getElementById('stag-stagione-banner');
   if (!el) return;
+  let html = '';
+  if (stagOmbrellone && stagOmbrellone.attivo === false) {
+    html += `<div class="alert alert-coral" style="margin-bottom:8px">⛔ Il tuo ombrellone è temporaneamente <strong>non attivo</strong>. Non è possibile dichiarare disponibilità. Contatta il gestore per informazioni.</div>`;
+  }
   if (!stagStagione || !stagStagione.inizio || !stagStagione.fine) {
-    el.innerHTML = '';
-    el.style.display = 'none';
+    el.innerHTML = html;
+    el.style.display = html ? '' : 'none';
     return;
   }
   el.style.display = '';
-  el.innerHTML = `Stagione <strong>${formatDate(stagStagione.inizio)} → ${formatDate(stagStagione.fine)}</strong>. I giorni fuori da queste date non sono modificabili.`;
+  html += `Stagione <strong>${formatDate(stagStagione.inizio)} → ${formatDate(stagStagione.fine)}</strong>. I giorni fuori da queste date non sono modificabili.`;
+  el.innerHTML = html;
 }
 
 // Restituisce { state, label } dove state ∈ null|'fuori_stagione'|'chiusura_speciale'|'sempre_libero'|'mai_libero'.
@@ -342,7 +349,9 @@ function renderCalendar() {
     const isPast = cellDate < today && !isToday;
     const stato = currentDispMap[dateStr];
     const pending = pendingDispChanges[dateStr];
-    const restr = regolaStatoPerData(dateStr);
+    const restr = (stagOmbrellone && stagOmbrellone.attivo === false)
+      ? { state: 'mai_libero', label: 'Ombrellone non attivo' }
+      : regolaStatoPerData(dateStr);
     let cls = 'cal-day';
     if (isPast) cls += ' past';
     else if (isToday) cls += ' today';

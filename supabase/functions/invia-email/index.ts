@@ -26,7 +26,7 @@ function buildFromHeader(displayName: string | undefined): string {
 }
 
 interface EmailRequest {
-  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "chiusura_stagione" | "comunicazione";
+  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "chiusura_stagione" | "comunicazione" | "ombrellone_disattivato";
   email: string;
   nome: string;
   cognome?: string;
@@ -389,6 +389,32 @@ Deno.serve(async (req: Request) => {
       stabilimento_telefono,
       stabilimento_email,
       footer_extra: `Per qualsiasi domanda contatta direttamente <strong>${stabilimento_nome}</strong> ai recapiti qui sopra.`,
+    };
+
+  } else if (tipo === "ombrellone_disattivato") {
+    subject = oggetto_custom || `Il tuo ombrellone è stato temporaneamente disattivato`;
+    const ombrelloneLabel = ombrellone ? `<strong>${ombrellone}</strong>` : "il tuo ombrellone";
+    const testoCustom = testo_custom
+      ? testo_custom.replace(/\n/g, "<br>")
+      : `Il gestore ha temporaneamente disattivato ${ombrelloneLabel}.<br>
+         Durante questo periodo non sarà possibile dichiarare disponibilità per il sub-affitto.<br><br>
+         Quando l'ombrellone verrà riattivato riceverai un'ulteriore comunicazione.
+         Per qualsiasi informazione contatta direttamente lo stabilimento.`;
+    opts = {
+      headerColor: "linear-gradient(135deg,#E8541A 0%,#F07040 100%)",
+      headerEmoji: "⛔ ☂️",
+      headerSub: `Comunicazione da ${stabilimento_nome}`,
+      nome,
+      testoPrincipale: `Ti informiamo di un aggiornamento riguardante il tuo ombrellone presso <strong>${stabilimento_nome}</strong>.`,
+      boxColor: "#FFF3F0",
+      boxBorderColor: "#F0A090",
+      boxTitoloColor: "#C04020",
+      boxTitolo: "⛔ Ombrellone temporaneamente non attivo",
+      boxTesto: testoCustom,
+      stabilimento_nome,
+      stabilimento_telefono,
+      stabilimento_email,
+      footer_extra: `Per qualsiasi domanda o chiarimento contatta direttamente <strong>${stabilimento_nome}</strong> ai recapiti qui sopra.`,
     };
 
   } else {
