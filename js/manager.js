@@ -357,6 +357,7 @@ async function loadManagerData() {
 
   await refreshMap();
   renderGestioneTable(ombrelloniList, dispMap, clientiList);
+  loadOmbViewMode();
   applyDefaultPrenFilter(today);
   initPrenRangePicker();
   await loadPrenotazioni();
@@ -657,6 +658,7 @@ function renderGestioneTable(ombs, dispMap, clienti) {
     if (!validClienteIds.has(id)) selectedClienteIds.delete(id);
   }
   renderGestioneFiltered();
+  if (ombViewMode === 'mappa') renderGestioneMappa();
 }
 
 function getFiltratiGestione() {
@@ -2632,13 +2634,26 @@ async function deleteRow(ombId) {
   const omb = ombrelloniList.find(o => o.id === ombId);
   if (!omb) return;
   const cliente = (clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === ombId) || null;
+
   const msg = cliente
-    ? `Rimuovere l'ombrellone ${omb.codice} e il cliente associato (${cliente.nome || ''} ${cliente.cognome || ''})?`
-    : `Rimuovere l'ombrellone ${omb.codice}?`;
+    ? `Stai per eliminare l'ombrellone "${omb.codice}" e il cliente associato (${cliente.nome || ''} ${cliente.cognome || ''}).\n\nSei sicuro di voler procedere?`
+    : `Stai per eliminare l'ombrellone "${omb.codice}".\n\nSei sicuro di voler procedere?`;
   if (!confirm(msg)) return;
+
+  const nomeBagno = (currentStabilimento?.nome || '').trim();
+  const risposta = prompt(
+    `Conferma finale: per eliminare definitivamente l'ombrellone "${omb.codice}" scrivi il nome dello stabilimento:\n\n"${nomeBagno}"`
+  );
+  if (risposta === null) return;
+  if (risposta.trim().toLowerCase() !== nomeBagno.toLowerCase()) {
+    alert('Il nome inserito non corrisponde. Eliminazione annullata.');
+    return;
+  }
+
   if (cliente) await sb.from('clienti_stagionali').delete().eq('id', cliente.id);
   await sb.from('ombrelloni').delete().eq('id', ombId);
   await loadManagerData();
+  if (ombViewMode === 'mappa') renderGestioneMappa();
 }
 
 let viewOmbIdCurrent = null;
@@ -2888,3 +2903,171 @@ window.editRowToggleDay  = editRowToggleDay;
 window.editRowBulkForce  = editRowBulkForce;
 window.editRowBulkRemove = editRowBulkRemove;
 /* ===== END EDIT-ROW DAY LIST ===== */
+
+// ===== VISTA MAPPA OMBRELLONI (ANAGRAFICA) =====
+
+let ombViewMode = 'tabella';
+
+function ombViewStorageKey() {
+  return `omb-view-mode:${currentStabilimento?.id || 'default'}`;
+}
+
+function setOmbViewMode(mode) {
+  ombViewMode = (mode === 'mappa') ? 'mappa' : 'tabella';
+  try { localStorage.setItem(ombViewStorageKey(), ombViewMode); } catch (_) {}
+  syncOmbViewToggleUI();
+  if (ombViewMode === 'mappa') renderGestioneMappa();
+}
+
+function loadOmbViewMode() {
+  try {
+    const v = localStorage.getItem(ombViewStorageKey());
+    ombViewMode = (v === 'mappa') ? 'mappa' : 'tabella';
+  } catch (_) { ombViewMode = 'tabella'; }
+  syncOmbViewToggleUI();
+}
+
+function syncOmbViewToggleUI() {
+  document.querySelectorAll('.pren-view-btn[data-omb-view]').forEach(btn => {
+    const active = btn.dataset.ombView === ombViewMode;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  const tabEl = document.getElementById('gestione-tabella-wrap');
+  const mapEl = document.getElementById('gestione-mappa-wrap');
+  if (tabEl) tabEl.classList.toggle('hidden', ombViewMode !== 'tabella');
+  if (mapEl) mapEl.classList.toggle('hidden', ombViewMode !== 'mappa');
+}
+
+function renderGestioneMappa() {
+  const el = document.getElementById('gestione-mappa');
+  if (!el) return;
+
+  const clienteByOmb = {};
+  (clientiList || []).filter(c => !c.rifiutato).forEach(c => {
+    if (c.ombrellone_id) clienteByOmb[c.ombrellone_id] = c;
+  });
+
+  const stab = currentStabilimento;
+  const passerelle = stab?.mappa_passerelle || [];
+  if (!ombrelloniList.length) {
+    el.innerHTML = '<div style="padding:20px;color:var(--text-light);font-size:13px">Nessun ombrellone configurato.</div>';
+    return;
+  }
+
+  const maxX = Math.max(...ombrelloniList.map(o => o.pos_x || 0), ...passerelle.map(p => p.x || 0));
+  const maxY = Math.max(...ombrelloniList.map(o => o.pos_y || 0), ...passerelle.map(p => p.y || 0));
+  const cols = maxX + 1;
+  const rows = maxY + 1;
+
+  const grid = [];
+  for (let r = 0; r < rows; r++) {
+    grid.push([]);
+    for (let c = 0; c < cols; c++) {
+      grid[r].push(null);
+    }
+  }
+  ombrelloniList.forEach(o => {
+    const r = o.pos_y;
+    const c = o.pos_x;
+    if (r >= 0 && r < rows && c >= 0 && c < cols) {
+      grid[r][c] = { type: 'ombrellone', data: o };
+    }
+  });
+  passerelle.forEach(p => {
+    const r = p.y;
+    const c = p.x;
+    if (r >= 0 && r < rows && c >= 0 && c < cols && !grid[r][c]) {
+      grid[r][c] = { type: 'passerella', data: p };
+    }
+  });
+
+  el.innerHTML = '';
+  for (let r = 0; r < rows; r++) {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'map-row';
+    for (let c = 0; c < cols; c++) {
+      const cell = grid[r][c];
+      const cellDiv = document.createElement('div');
+      if (!cell) {
+        cellDiv.className = 'ombrellone empty-cell';
+        cellDiv.style.cssText = 'background:transparent;border:none;cursor:default';
+      } else if (cell.type === 'passerella') {
+        cellDiv.className = 'ombrellone passerella-cell';
+        cellDiv.style.cssText = 'background:var(--sand);border:1px solid #d4c4a0;cursor:default;font-size:11px;color:var(--text-light)';
+        cellDiv.textContent = '—';
+        cellDiv.title = 'Passerella';
+      } else {
+        const omb = cell.data;
+        const hasCliente = !!clienteByOmb[omb.id];
+        cellDiv.className = hasCliente ? 'ombrellone occupied' : 'ombrellone no-cliente';
+        if (!hasCliente) {
+          cellDiv.style.background = '#EAF4FB';
+          cellDiv.style.borderStyle = 'dashed';
+          cellDiv.style.borderColor = 'var(--ocean-mid)';
+          cellDiv.style.borderWidth = '2px';
+          cellDiv.style.color = 'var(--ocean-mid)';
+        }
+        cellDiv.textContent = '☂️';
+        const cliente = clienteByOmb[omb.id];
+        cellDiv.title = hasCliente
+          ? `${omb.codice} — ${cliente.nome || ''} ${cliente.cognome || ''}`
+          : `${omb.codice} — Senza cliente`;
+        cellDiv.style.cursor = 'pointer';
+        cellDiv.addEventListener('click', () => openOmbrelloneMapPopup(omb, cliente || null, cellDiv));
+      }
+      rowDiv.appendChild(cellDiv);
+    }
+    el.appendChild(rowDiv);
+  }
+}
+
+let _mapPopupCurrent = null;
+
+function openOmbrelloneMapPopup(omb, cliente, anchorEl) {
+  const existing = document.getElementById('omb-map-popup');
+  if (existing) existing.remove();
+  _mapPopupCurrent = omb.id;
+
+  const popup = document.createElement('div');
+  popup.id = 'omb-map-popup';
+  popup.className = 'omb-map-popup';
+
+  const clienteInfo = cliente
+    ? `<div class="omb-popup-cliente"><strong>${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')}</strong>${cliente.email ? `<br><span style="color:var(--text-light);font-size:11px">${escapeHtml(cliente.email)}</span>` : ''}</div>`
+    : `<div class="omb-popup-cliente" style="color:var(--text-light);font-style:italic">Nessun cliente</div>`;
+
+  popup.innerHTML = `
+    <div class="omb-popup-header">
+      <span>☂️ <strong>${escapeHtml(omb.codice)}</strong></span>
+      <button type="button" class="omb-popup-close" onclick="document.getElementById('omb-map-popup')?.remove()">✕</button>
+    </div>
+    ${clienteInfo}
+    <div class="omb-popup-actions">
+      <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('omb-map-popup')?.remove(); openViewOmbrelloneModal('${omb.id}')">👁️ Dettagli</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('omb-map-popup')?.remove(); openEditRowModal('${omb.id}')">✏️ Modifica</button>
+      <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('omb-map-popup')?.remove(); deleteRow('${omb.id}')">🗑️ Elimina</button>
+    </div>
+  `;
+
+  document.body.appendChild(popup);
+  const rect = anchorEl.getBoundingClientRect();
+  const scrollY = window.scrollY || document.documentElement.scrollTop;
+  const scrollX = window.scrollX || document.documentElement.scrollLeft;
+  popup.style.position = 'absolute';
+  popup.style.top = `${rect.bottom + scrollY + 6}px`;
+  popup.style.left = `${rect.left + scrollX}px`;
+  popup.style.zIndex = '9999';
+
+  setTimeout(() => {
+    document.addEventListener('click', function closePopup(e) {
+      if (!popup.contains(e.target) && e.target !== anchorEl) {
+        popup.remove();
+        document.removeEventListener('click', closePopup);
+      }
+    });
+  }, 0);
+}
+
+window.setOmbViewMode = setOmbViewMode;
+// ===== END VISTA MAPPA OMBRELLONI =====
