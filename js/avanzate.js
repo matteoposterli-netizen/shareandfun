@@ -190,6 +190,13 @@ function renderAvanzateMap(ombs, dispMap) {
   if (!ombs.length) return;
 
   const buildCell = (o) => {
+    if (!o.attivo) {
+      const cell = document.createElement('div');
+      cell.className = 'ombrellone inactive';
+      cell.textContent = '☂️';
+      cell.title = `${o.codice} — Non attivo`;
+      return cell;
+    }
     const stato = dispMap[o.id] || 'occupied';
     const cls = stato === 'libero' ? 'free'
       : stato === 'parziale' ? 'partial'
@@ -270,8 +277,8 @@ function toggleAvanzateSelection(ombId, cell) {
 }
 
 function avanzateSelectAll() {
-  (ombrelloniList || []).forEach(o => avanzateSelection.add(o.id));
-  document.querySelectorAll('#avanzate-map .ombrellone').forEach(c => c.classList.add('selected'));
+  (ombrelloniList || []).filter(o => o.attivo !== false).forEach(o => avanzateSelection.add(o.id));
+  document.querySelectorAll('#avanzate-map .ombrellone:not(.inactive)').forEach(c => c.classList.add('selected'));
   updateAvanzateSelectionBar();
 }
 
@@ -774,7 +781,17 @@ async function mirataLoadOmb(ombId) {
     : '<span style="color:var(--text-light)">Nessun cliente associato</span>';
   document.getElementById('mirata-omb-saldo').textContent = cliente ? formatCoin(cliente.credito_saldo) : '–';
   const saldoBtn = document.getElementById('mirata-saldo-btn');
-  if (saldoBtn) saldoBtn.disabled = !cliente;
+  if (saldoBtn) saldoBtn.disabled = !cliente || !omb.attivo;
+
+  // Ombrellone non attivo: mostra banner e blocca modifiche disponibilità
+  const inattivoBanner = document.getElementById('mirata-inattivo-banner');
+  if (inattivoBanner) {
+    if (!omb.attivo) {
+      inattivoBanner.innerHTML = `<div style="background:#f5f5f5;border:1px solid #ccc;border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;color:#888">⛔ Questo ombrellone è <strong>non attivo</strong>. Non è possibile modificare le disponibilità. Solo l'anagrafica è modificabile.</div>`;
+    } else {
+      inattivoBanner.innerHTML = '';
+    }
+  }
 
   const _infoEl = document.getElementById('mirata-stagione-info');
   if (_infoEl) _infoEl.innerHTML =
@@ -804,6 +821,9 @@ function mirataRenderDayList() {
     return;
   }
 
+  const mirataOmb = mirataOmbId ? (ombrelloniList || []).find(o => o.id === mirataOmbId) : null;
+  const mirataInattivo = mirataOmb && !mirataOmb.attivo;
+
   let lastMonth = '';
   const parts = [];
   for (const d of dates) {
@@ -828,7 +848,9 @@ function mirataRenderDayList() {
     }
 
     let actions;
-    if (rule && rule.type === 'chiusura_speciale') {
+    if (mirataInattivo) {
+      actions = `<span class="mirata-day-note">Non attivo</span>`;
+    } else if (rule && rule.type === 'chiusura_speciale') {
       actions = `<span class="mirata-day-note">Bloccato</span>`;
     } else if (stato === 'sub_affittato') {
       actions = `<span class="mirata-day-note">Sub-affittato</span>`;

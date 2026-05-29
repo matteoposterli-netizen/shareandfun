@@ -478,6 +478,15 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
   sorted.forEach(o => {
     const el2 = document.createElement('div');
 
+    // Ombrellone non attivo: grigio barrato, nessun click
+    if (!o.attivo) {
+      el2.className = 'ombrellone inactive';
+      el2.textContent = '☂️';
+      el2.title = `${o.codice} — Non attivo`;
+      el.appendChild(el2);
+      return;
+    }
+
     // Fuori stagione: tutti grigi, non selezionabili
     if (allOutOfSeason) {
       el2.className = 'ombrellone fuori-stagione';
@@ -714,12 +723,14 @@ function renderGestioneFiltered() {
     const checkbox = cliente
       ? `<input type="checkbox" class="clienti-check" data-id="${cliente.id}" ${selectedClienteIds.has(cliente.id) ? 'checked' : ''} onchange="toggleCliente('${cliente.id}', this.checked)">`
       : '';
+    const ombCheck = `<input type="checkbox" class="gestione-omb-check" data-omb="${omb.id}" title="Seleziona ombrellone" ${gestioneSelection.has(omb.id) ? 'checked' : ''} onchange="toggleGestioneSelect('${omb.id}')">`;
+    const inactiveBadge = !omb.attivo ? ' <span class="badge-inactive">Non attivo</span>' : '';
     const azioniInvito = cliente && !cliente.user_id
       ? `<button class="btn btn-outline btn-sm" onclick="invitaSingolo('${cliente.id}')" title="Invia/reinvia invito" style="margin-right:4px">✉️</button>`
       : '';
     return `<tr style="cursor:pointer" onclick="openViewOmbrelloneModal('${omb.id}')" title="Vedi dettagli ombrellone">
-      <td onclick="event.stopPropagation()">${checkbox}</td>
-      <td colspan="2"><strong>${escapeHtml(omb.codice)}</strong></td>
+      <td onclick="event.stopPropagation()" style="display:flex;flex-direction:column;gap:4px;align-items:center">${checkbox}${ombCheck}</td>
+      <td colspan="2"><strong>${escapeHtml(omb.codice)}</strong>${inactiveBadge}</td>
       <td>${formatCoin(omb.credito_giornaliero)}</td>
       <td>${cliente ? `<strong>${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')}</strong>` : '<span style="color:var(--text-light)">–</span>'}</td>
       <td>${cliente ? escapeHtml(cliente.email || '') : '<span style="color:var(--text-light)">–</span>'}</td>
@@ -2671,7 +2682,8 @@ async function openViewOmbrelloneModal(ombId) {
   viewOmbCalYear = now.getFullYear();
   viewOmbCalMonth = now.getMonth();
 
-  document.getElementById('view-omb-title').textContent = `☂️ Ombrellone ${omb.codice}`;
+  const inactiveBadgeHtml = !omb.attivo ? ' <span class="badge-inactive">Non attivo</span>' : '';
+  document.getElementById('view-omb-title').innerHTML = `☂️ Ombrellone ${escapeHtml(omb.codice)}${inactiveBadgeHtml}`;
   document.getElementById('view-omb-credito').textContent = formatCoin(omb.credito_giornaliero);
   const clienteInfo = cliente
     ? `${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')}${cliente.email ? ' · ' + escapeHtml(cliente.email) : ''}`
@@ -2680,6 +2692,14 @@ async function openViewOmbrelloneModal(ombId) {
   document.getElementById('view-omb-saldo').textContent = cliente
     ? formatCoin(cliente.credito_saldo)
     : '–';
+
+  const footer = document.getElementById('view-omb-footer');
+  if (footer) {
+    const btnToggle = omb.attivo
+      ? `<button class="btn btn-outline btn-sm" style="color:var(--coral);border-color:var(--coral)" onclick="closeModal('modal-view-ombrellone');initDisattivaOmbrellone('${omb.id}')">⛔ Disattiva ombrellone</button>`
+      : `<button class="btn btn-primary btn-sm" onclick="closeModal('modal-view-ombrellone');riattivaOmbrellone('${omb.id}')">✓ Riattiva ombrellone</button>`;
+    footer.innerHTML = `<button class="btn btn-outline btn-sm" onclick="closeModal('modal-view-ombrellone')">Chiudi</button>${btnToggle}`;
+  }
 
   showLoading();
   const [{ data: disp }, { data: txs }] = await Promise.all([
@@ -3071,3 +3091,209 @@ function openOmbrelloneMapPopup(omb, cliente, anchorEl) {
 
 window.setOmbViewMode = setOmbViewMode;
 // ===== END VISTA MAPPA OMBRELLONI =====
+
+// ===== GESTIONE SELEZIONE OMBRELLONI (bulk disattivazione) =====
+
+function toggleGestioneSelect(ombId) {
+  if (gestioneSelection.has(ombId)) gestioneSelection.delete(ombId);
+  else gestioneSelection.add(ombId);
+  updateGestioneBulkBar();
+}
+
+function updateGestioneBulkBar() {
+  const bar = document.getElementById('gestione-bulk-bar');
+  const cnt = document.getElementById('gestione-bulk-count');
+  if (!bar) return;
+  if (gestioneSelection.size === 0) {
+    bar.classList.add('hidden');
+    bar.style.display = 'none';
+  } else {
+    bar.classList.remove('hidden');
+    bar.style.display = 'flex';
+    if (cnt) cnt.textContent = `${gestioneSelection.size} ombrellone${gestioneSelection.size > 1 ? 'i' : ''} selezionat${gestioneSelection.size > 1 ? 'i' : 'o'}`;
+  }
+}
+
+function clearGestioneSelection() {
+  gestioneSelection.clear();
+  document.querySelectorAll('.gestione-omb-check').forEach(cb => cb.checked = false);
+  updateGestioneBulkBar();
+}
+
+function bulkInviaInviti() {
+  const ids = Array.from(gestioneSelection);
+  const clienteIds = ids.map(ombId => {
+    const c = (clientiList || []).find(cl => !cl.rifiutato && cl.ombrellone_id === ombId && !cl.user_id);
+    return c ? c.id : null;
+  }).filter(Boolean);
+  if (!clienteIds.length) { alert('Nessun cliente da invitare tra gli ombrelloni selezionati.'); return; }
+  openBulkInviteModal(clienteIds);
+}
+
+// ===== DISATTIVA / RIATTIVA OMBRELLONE =====
+
+function showConfirmModal(title, bodyHtml, confirmLabel = 'Conferma', cancelLabel = 'Annulla') {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:12px;padding:28px;max-width:480px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+        <div style="font-size:16px;font-weight:700;margin-bottom:14px">${escapeHtml(title)}</div>
+        <div>${bodyHtml}</div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+          <button id="_confirm-cancel" class="btn btn-outline btn-sm">${escapeHtml(cancelLabel)}</button>
+          <button id="_confirm-ok" class="btn btn-primary btn-sm">${escapeHtml(confirmLabel)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#_confirm-ok').onclick = () => { document.body.removeChild(overlay); resolve(true); };
+    overlay.querySelector('#_confirm-cancel').onclick = () => { document.body.removeChild(overlay); resolve(false); };
+  });
+}
+
+async function initDisattivaOmbrellone(ombId) {
+  const { data: subFuturi } = await sb
+    .from('disponibilita')
+    .select('id, data, nome_prenotazione')
+    .eq('ombrellone_id', ombId)
+    .eq('stato', 'sub_affittato')
+    .gte('data', todayStr())
+    .order('data');
+
+  const omb = ombrelloniList.find(o => o.id === ombId);
+  const label = omb ? omb.codice : ombId;
+
+  let warningHtml = '';
+  if (subFuturi && subFuturi.length > 0) {
+    const lista = subFuturi.map(s => {
+      const d = new Date(s.data + 'T00:00:00');
+      const fmt = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+      const prenLabel = s.nome_prenotazione ? ` — Prenotazione: <strong>${escapeHtml(s.nome_prenotazione)}</strong>` : '';
+      return `<li>${escapeHtml(fmt)}${prenLabel} ⚠️ questa prenotazione non sarà più disponibile</li>`;
+    }).join('');
+    warningHtml = `
+      <div style="background:#FFF3CD;border:1px solid #F0C040;border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px">
+        <strong>⚠️ Attenzione: ${subFuturi.length} prenotazion${subFuturi.length > 1 ? 'i' : 'e'} futur${subFuturi.length > 1 ? 'e' : 'a'} sar${subFuturi.length > 1 ? 'anno' : 'à'} cancellat${subFuturi.length > 1 ? 'e' : 'a'}:</strong>
+        <ul style="margin:8px 0 0;padding-left:18px">${lista}</ul>
+      </div>`;
+  }
+
+  const confirmed = await showConfirmModal(
+    `Disattiva ombrellone ${label}`,
+    `${warningHtml}
+    <p style="font-size:13px">Tutte le disponibilità future verranno cancellate.
+    L'ombrellone non sarà più prenotabile finché non viene riattivato manualmente.</p>
+    <p style="font-size:13px;color:var(--coral)"><strong>Operazione non reversibile automaticamente.</strong></p>`,
+    'Disattiva',
+    'Annulla'
+  );
+  if (!confirmed) return;
+
+  await eseguiDisattivaOmbrellone(ombId);
+}
+
+async function eseguiDisattivaOmbrellone(ombId) {
+  const { error } = await sb.rpc('disattiva_ombrellone', { p_ombrellone_id: ombId });
+  if (error) {
+    alert('Errore nella disattivazione: ' + error.message);
+    return;
+  }
+  const idx = ombrelloniList.findIndex(o => o.id === ombId);
+  if (idx >= 0) ombrelloniList[idx].attivo = false;
+
+  await _inviaEmailDisattivazioneOmbrellone(ombId);
+
+  renderGestioneFiltered();
+  await refreshMap();
+  showAlert('gestione-alert', 'Ombrellone disattivato.', 'success');
+}
+
+async function _inviaEmailDisattivazioneOmbrellone(ombId) {
+  try {
+    const { data: clienti } = await sb
+      .from('clienti_stagionali')
+      .select('id, nome, cognome, email, user_id')
+      .eq('ombrellone_id', ombId)
+      .not('user_id', 'is', null)
+      .limit(1);
+
+    if (!clienti || clienti.length === 0) return;
+    const cliente = clienti[0];
+    if (!cliente.email) return;
+
+    const omb = ombrelloniList.find(o => o.id === ombId);
+    await inviaEmail('ombrellone_disattivato', {
+      email: cliente.email,
+      nome: cliente.nome,
+      cognome: cliente.cognome,
+      ombrellone: omb ? omb.codice : null,
+    }, currentStabilimento);
+  } catch (e) {
+    console.warn('Email disattivazione non inviata:', e);
+  }
+}
+
+async function riattivaOmbrellone(ombId) {
+  const omb = ombrelloniList.find(o => o.id === ombId);
+  const label = omb ? omb.codice : ombId;
+  const confirmed = await showConfirmModal(
+    `Riattiva ombrellone ${label}`,
+    `<p style="font-size:13px">L'ombrellone tornerà attivo. Nessuna disponibilità verrà creata automaticamente: lo stagionale assegnato risulterà "presente" (occupato) su tutti i giorni finché non dichiara le assenze.</p>`,
+    'Riattiva',
+    'Annulla'
+  );
+  if (!confirmed) return;
+
+  const { error } = await sb.rpc('riattiva_ombrellone', { p_ombrellone_id: ombId });
+  if (error) { alert('Errore: ' + error.message); return; }
+  const idx = ombrelloniList.findIndex(o => o.id === ombId);
+  if (idx >= 0) ombrelloniList[idx].attivo = true;
+  renderGestioneFiltered();
+  await refreshMap();
+  showAlert('gestione-alert', 'Ombrellone riattivato.', 'success');
+}
+
+async function bulkDisattivaOmbrelloni() {
+  const ids = Array.from(gestioneSelection);
+  if (!ids.length) return;
+
+  const { data: subFuturi } = await sb
+    .from('disponibilita')
+    .select('id, data, nome_prenotazione, ombrellone_id')
+    .in('ombrellone_id', ids)
+    .eq('stato', 'sub_affittato')
+    .gte('data', todayStr())
+    .order('data');
+
+  let warningHtml = '';
+  if (subFuturi && subFuturi.length > 0) {
+    warningHtml = `
+      <div style="background:#FFF3CD;border:1px solid #F0C040;border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px">
+        <strong>⚠️ ${subFuturi.length} prenotazion${subFuturi.length > 1 ? 'i' : 'e'} futur${subFuturi.length > 1 ? 'e' : 'a'} verr${subFuturi.length > 1 ? 'anno' : 'à'} cancellat${subFuturi.length > 1 ? 'e' : 'a'}.</strong>
+        Queste prenotazioni non saranno più disponibili.
+      </div>`;
+  }
+
+  const confirmed = await showConfirmModal(
+    `Disattiva ${ids.length} ombrelloni`,
+    `${warningHtml}<p style="font-size:13px">Tutte le disponibilità future dei ${ids.length} ombrelloni selezionati verranno cancellate.</p>`,
+    'Disattiva tutti',
+    'Annulla'
+  );
+  if (!confirmed) return;
+
+  const { data, error } = await sb.rpc('disattiva_ombrelloni_bulk', { p_ids: ids });
+  if (error) { alert('Errore: ' + error.message); return; }
+
+  ids.forEach(id => {
+    const idx = ombrelloniList.findIndex(o => o.id === id);
+    if (idx >= 0) ombrelloniList[idx].attivo = false;
+  });
+
+  await Promise.allSettled(ids.map(id => _inviaEmailDisattivazioneOmbrellone(id)));
+
+  clearGestioneSelection();
+  renderGestioneFiltered();
+  await refreshMap();
+  showAlert('gestione-alert', `${ids.length} ombrelloni disattivati.`, 'success');
+}

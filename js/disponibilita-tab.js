@@ -160,6 +160,7 @@ function renderDispLegend() {
   if (dispStabRegoleTipi.has('sempre_libero')) items.push({ cls: 'disp-cell-sempre-libero', label: 'Sempre subaffittabile' });
   if (dispStabRegoleTipi.has('mai_libero')) items.push({ cls: 'disp-cell-mai-libero', label: 'Mai subaffittabile' });
   items.push({ cls: 'disp-cell-fuori-stagione', label: 'Fuori stagione' });
+  items.push({ cls: 'disp-cell-inattivo', label: 'Non attivo' });
   el.innerHTML = items.map(i =>
     `<span class="legend-item"><span class="legend-swatch ${i.cls}"></span>${i.label}</span>`
   ).join('');
@@ -357,7 +358,12 @@ function renderDispView() {
 
   // Body
   const bodyHtml = `<tbody>${visibleOmbs.map(o => {
+    const inactiveOmb = o.attivo === false;
+    const ombHeaderBadge = inactiveOmb ? ' <span class="badge-inactive" style="margin-left:4px;font-size:10px">N/A</span>' : '';
     const cells = dates.map(d => {
+      if (inactiveOmb) {
+        return `<td class="disp-cell disp-cell-inattivo disp-cell-noaction" data-omb="${o.id}" data-date="${d}" title="Ombrellone non attivo"></td>`;
+      }
       const st = getDispCellState(o.id, d);
       const cellKey = `${o.id}|${d}`;
       let cls = 'disp-cell disp-cell-' + st.kind;
@@ -379,7 +385,7 @@ function renderDispView() {
       const onclick = `onDispCellClick('${o.id}','${d}',event)`;
       return `<td class="${cls}" data-omb="${o.id}" data-date="${d}" data-kind="${st.kind}" title="${escapeHtml(tooltipBase)}" onclick="${onclick}"></td>`;
     }).join('');
-    return `<tr><th class="disp-th-row" scope="row">${escapeHtml(o.codice || '')}</th>${cells}</tr>`;
+    return `<tr><th class="disp-th-row" scope="row">${escapeHtml(o.codice || '')}${ombHeaderBadge}</th>${cells}</tr>`;
   }).join('')}</tbody>`;
 
   wrap.innerHTML = `<table class="disp-table">${headHtml}${bodyHtml}</table>`;

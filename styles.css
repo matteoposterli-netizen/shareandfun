@@ -194,6 +194,45 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .ombrellone.combo:hover { background: var(--coral); color: #fff; }
 .ombrellone.subleased { background: var(--yellow-light); color: #9C7A1F; border-color: var(--yellow); }
 
+/* Ombrellone non attivo: grigio barrato, nessuna interazione */
+.ombrellone.inactive {
+  background: repeating-linear-gradient(
+    45deg,
+    #e0e0e0 0 6px,
+    #f0f0f0 6px 12px
+  );
+  color: #aaa;
+  border-color: #ccc;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+.ombrellone.inactive:hover {
+  transform: none;
+  box-shadow: none;
+}
+/* Badge "NON ATTIVO" nella scheda ombrellone */
+.badge-inactive {
+  display: inline-block;
+  background: #e0e0e0;
+  color: #888;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+/* Celle tabella disponibilità per ombrellone non attivo */
+.disp-table td.disp-cell-inattivo,
+.disp-legend .legend-swatch.disp-cell-inattivo {
+  background: repeating-linear-gradient(
+    45deg,
+    #e0e0e0 0 5px,
+    #f0f0f0 5px 10px
+  );
+  cursor: not-allowed;
+}
+
 /* Fuori stagione: ombrellone non prenotabile */
 .ombrellone.fuori-stagione {
   background: #EFEFEF;
@@ -229,6 +268,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
   font-size: 13px; color: var(--text-mid);
 }
 .ombrellone.free.no-cliente { background: var(--green-light); color: var(--green); border: 2px dashed #96DDB8; }
+/* Legende */
+.legend-inactive { background: repeating-linear-gradient(45deg,#e0e0e0 0 6px,#f0f0f0 6px 12px); border: 1.5px solid #ccc; }
 .ombrellone.selected { box-shadow: 0 0 0 3px var(--coral), 0 0 0 5px rgba(224, 123, 84, 0.25); border-color: var(--coral); transform: scale(1.04); }
 .ombrellone.selected::after { content: '✓'; position: absolute; top: -4px; right: -4px; background: var(--coral); color: #fff; font-size: 11px; font-weight: 700; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; line-height: 1; }
 
