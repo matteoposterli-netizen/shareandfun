@@ -13,6 +13,7 @@ let calMonth = new Date().getMonth();
 let stagClienteId = null;
 let stagOmbrelloneId = null;
 let stagStabilimentoId = null;
+let stagCreditoGiornaliero = 0;
 let stagStagione = null;
 let stagRegole = [];
 let currentInviteToken = null;

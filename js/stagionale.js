@@ -21,6 +21,7 @@ async function loadStagionaleData() {
   const stab = omb?.stabilimenti;
   stagCurrentStab = stab;
   stagStabilimentoId = stab?.id || cliente.stabilimento_id;
+  stagCreditoGiornaliero = parseFloat(omb?.credito_giornaliero || 0);
   stagStagione = stab
     ? { inizio: stab.data_inizio_stagione || null, fine: stab.data_fine_stagione || null }
     : null;
@@ -429,44 +430,55 @@ async function salvaModifichePending() {
   if (!stagOmbrelloneId) { showAlert('stag-alert', 'Nessun ombrellone associato', 'error'); return; }
   showAlert('stag-alert', '', '');
   showLoading();
-  const { data: cliente, error: clienteErr } = await sb.from('clienti_stagionali').select('stabilimento_id').eq('id', stagClienteId).single();
-  if (clienteErr || !cliente) {
-    hideLoading();
-    showAlert('stag-alert', 'Impossibile leggere i dati cliente: ' + (clienteErr?.message || 'dati mancanti'), 'error');
-    return;
-  }
-  const succeededAdds = [];
-  const succeededRemoves = [];
+
+  const addEntries = entries.filter(([, op]) => op === 'add');
+  const removeEntries = entries.filter(([, op]) => op === 'remove');
+  let succeededAdds = 0;
+  let succeededRemoves = 0;
   const failed = [];
-  for (const [dateStr, op] of entries) {
-    const isFreeing = op === 'add';
-    const dispRes = isFreeing
-      ? await sb.from('disponibilita').upsert({ ombrellone_id: stagOmbrelloneId, cliente_id: stagClienteId, data: dateStr, stato: 'libero' }, { onConflict: 'ombrellone_id,data' })
-      : await sb.from('disponibilita').delete().eq('ombrellone_id', stagOmbrelloneId).eq('data', dateStr);
-    if (dispRes.error) {
-      failed.push({ dateStr, op, msg: dispRes.error.message });
-      continue;
-    }
-    const { error: txErr } = await sb.from('transazioni').insert({
-      stabilimento_id: cliente.stabilimento_id,
+
+  // Rimozioni: DELETE diretto su disponibilita (RLS consente al cliente per le proprie righe)
+  for (const [dateStr] of removeEntries) {
+    const { error } = await sb.from('disponibilita')
+      .delete().eq('ombrellone_id', stagOmbrelloneId).eq('data', dateStr);
+    if (error) failed.push({ dateStr, op: 'remove', msg: error.message });
+    else succeededRemoves++;
+  }
+
+  // Aggiunte: upsert a libero (RLS consente), poi RPC SECURITY DEFINER per sub_affittato + transazioni
+  if (addEntries.length > 0) {
+    const addDates = addEntries.map(([d]) => d);
+    const dispRows = addDates.map(dateStr => ({
       ombrellone_id: stagOmbrelloneId,
       cliente_id: stagClienteId,
-      tipo: isFreeing ? 'disponibilita_aggiunta' : 'disponibilita_rimossa',
-      importo: null,
-      nota: isFreeing ? `Disponibilità dichiarata per ${formatDate(dateStr)}` : `Disponibilità rimossa per ${formatDate(dateStr)}`,
-    });
-    if (txErr) {
-      if (isFreeing) {
-        await sb.from('disponibilita').delete().eq('ombrellone_id', stagOmbrelloneId).eq('data', dateStr);
+      data: dateStr,
+      stato: 'libero',
+    }));
+    const { error: dispErr } = await sb.from('disponibilita').upsert(dispRows, { onConflict: 'ombrellone_id,data' });
+    if (dispErr) {
+      addDates.forEach(d => failed.push({ dateStr: d, op: 'add', msg: dispErr.message }));
+    } else {
+      const { data: rpcResult, error: rpcError } = await sb.rpc('conferma_prenotazione_stagionale', {
+        p_cliente_id: stagClienteId,
+        p_ombrellone_id: stagOmbrelloneId,
+        p_date: addDates,
+        p_credito_per_giorno: stagCreditoGiornaliero,
+        p_nome_prenotazione: null,
+      });
+      if (rpcError || !rpcResult?.success) {
+        // Rollback: rimuovi le righe libero appena create
+        for (const dateStr of addDates) {
+          await sb.from('disponibilita').delete()
+            .eq('ombrellone_id', stagOmbrelloneId).eq('data', dateStr);
+        }
+        const msg = rpcError?.message || rpcResult?.error || 'Errore sconosciuto';
+        addDates.forEach(d => failed.push({ dateStr: d, op: 'add', msg }));
       } else {
-        await sb.from('disponibilita').upsert({ ombrellone_id: stagOmbrelloneId, cliente_id: stagClienteId, data: dateStr, stato: 'libero' }, { onConflict: 'ombrellone_id,data' });
+        succeededAdds = rpcResult.sub_affitti;
       }
-      failed.push({ dateStr, op, msg: txErr.message });
-      continue;
     }
-    if (isFreeing) succeededAdds.push(dateStr);
-    else succeededRemoves.push(dateStr);
   }
+
   pendingDispChanges = {};
   hideLoading();
   await loadStagionaleData();
@@ -474,8 +486,8 @@ async function salvaModifichePending() {
     const sample = failed.slice(0, 3).map(f => `${formatDate(f.dateStr)}: ${f.msg}`).join(' · ');
     showAlert('stag-alert', `Alcune modifiche non sono state salvate (${failed.length}). ${sample}`, 'error');
   }
-  if (succeededAdds.length || succeededRemoves.length) {
-    showSavedConfirmModal(succeededAdds.length, succeededRemoves.length);
+  if (succeededAdds || succeededRemoves) {
+    showSavedConfirmModal(succeededAdds, succeededRemoves);
   }
 }
 
