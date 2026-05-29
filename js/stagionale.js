@@ -136,6 +136,7 @@ function renderQuickSelector() {
     else if (stato === 'free') cls.push('free');
     else if (stato === 'pending-add') cls.push('pending-add');
     else if (stato === 'pending-remove') cls.push('pending-remove');
+    else cls.push('occupied');
     const onclick = disabled ? '' : ` onclick="stagToggleQuickDay('${item.dateStr}')"`;
     const title = restr ? ` title="${restr.label}"` : '';
     return `<button class="${cls.join(' ')}"${disabled ? ' disabled' : ''}${onclick}${title}>
