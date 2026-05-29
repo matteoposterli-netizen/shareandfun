@@ -107,6 +107,8 @@ function initDispRangePicker(fromStr, toStr) {
   const fromDate = new Date(fromStr + 'T00:00:00');
   const toDate = new Date(toStr + 'T00:00:00');
   if (dispRangePickerInstance) {
+    dispRangePickerInstance.set('minDate', currentStabilimento?.data_inizio_stagione || undefined);
+    dispRangePickerInstance.set('maxDate', currentStabilimento?.data_fine_stagione || undefined);
     dispRangePickerInstance.setDate([fromDate, toDate], false);
     return;
   }
@@ -117,6 +119,8 @@ function initDispRangePicker(fromStr, toStr) {
     defaultDate: [fromDate, toDate],
     showMonths: 1,
     disableMobile: true,
+    minDate: currentStabilimento?.data_inizio_stagione || undefined,
+    maxDate: currentStabilimento?.data_fine_stagione || undefined,
     onChange: (selectedDates) => {
       if (selectedDates.length === 2) {
         let from = toLocalDateStr(selectedDates[0]);
