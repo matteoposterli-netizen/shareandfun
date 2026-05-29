@@ -2735,9 +2735,16 @@ function renderViewOmbrelloneCalendar() {
     let cls = 'cal-day cal-day-readonly';
     if (isPast) cls += ' past';
     else if (isToday) cls += ' today';
-    if (stato === 'libero') cls += ' free';
-    else if (stato === 'sub_affittato') cls += ' subleased';
-    else if (!isPast && !isToday) cls += ' occupied';
+    const inizio = currentStabilimento?.data_inizio_stagione;
+    const fine = currentStabilimento?.data_fine_stagione;
+    const fuoriStagione = !!(inizio && fine && (dateStr < inizio || dateStr > fine));
+    if (fuoriStagione) {
+      cls += ' restricted restricted-fuori_stagione';
+    } else {
+      if (stato === 'libero') cls += ' free';
+      else if (stato === 'sub_affittato') cls += ' subleased';
+      else if (!isPast && !isToday) cls += ' occupied';
+    }
     const div = document.createElement('div');
     div.className = cls;
     div.textContent = d;

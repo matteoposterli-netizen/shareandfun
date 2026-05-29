@@ -339,11 +339,14 @@ function renderCalendar() {
     let cls = 'cal-day';
     if (isPast) cls += ' past';
     else if (isToday) cls += ' today';
-    if (stato === 'libero') cls += ' free';
-    if (stato === 'sub_affittato') cls += ' subleased';
-    if (pending === 'add') cls += ' pending-add';
-    if (pending === 'remove') cls += ' pending-remove';
-    if (!isPast && restr) cls += ' restricted restricted-' + restr.state;
+    if (restr) {
+      cls += ' restricted restricted-' + restr.state;
+    } else {
+      if (stato === 'libero') cls += ' free';
+      if (stato === 'sub_affittato') cls += ' subleased';
+      if (pending === 'add') cls += ' pending-add';
+      if (pending === 'remove') cls += ' pending-remove';
+    }
     const div = document.createElement('div');
     div.className = cls;
     div.textContent = d;
