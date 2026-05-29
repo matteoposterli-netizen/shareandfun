@@ -39,6 +39,8 @@ function initAvanzateRangePicker(fromDate) {
   const endDefault = new Date(fromDate + 'T00:00:00');
   endDefault.setDate(endDefault.getDate() + 6);
   if (avanzateRangePickerInstance) {
+    avanzateRangePickerInstance.set('minDate', currentStabilimento?.data_inizio_stagione || undefined);
+    avanzateRangePickerInstance.set('maxDate', currentStabilimento?.data_fine_stagione || undefined);
     avanzateRangePickerInstance.setDate([startDate, endDefault], false);
     return;
   }
@@ -49,6 +51,8 @@ function initAvanzateRangePicker(fromDate) {
     defaultDate: [startDate, endDefault],
     showMonths: 1,
     disableMobile: true,
+    minDate: currentStabilimento?.data_inizio_stagione || undefined,
+    maxDate: currentStabilimento?.data_fine_stagione || undefined,
     onChange: (selectedDates) => {
       if (selectedDates.length === 2) {
         document.getElementById('avanzate-date-from').value = toLocalDateStr(selectedDates[0]);
