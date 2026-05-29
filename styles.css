@@ -1044,3 +1044,18 @@ body.view-stagionale .topnav, body:has(#view-stagionale.active) .topnav { displa
 .onboarding-banner-icon { font-size: 32px; flex-shrink: 0; line-height: 1; margin-top: 2px; }
 .onboarding-banner-title { font-size: 16px; font-weight: 600; color: var(--text-dark); margin-bottom: 6px; }
 .onboarding-banner-sub { font-size: 13px; color: var(--text-mid); line-height: 1.6; }
+
+/* ===== FIX: flatpickr calendar non tagliato da overflow:hidden ===== */
+.beach-map-wrap {
+  overflow: visible;
+}
+#pren-sub-crea .card {
+  overflow: visible;
+}
+#avanzate-pane-massiva .card {
+  overflow: visible;
+}
+.flatpickr-calendar {
+  z-index: 9999 !important;
+}
+/* ===== END FIX ===== */
