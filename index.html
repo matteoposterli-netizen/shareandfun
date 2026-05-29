@@ -1945,13 +1945,20 @@
     <div class="modal-title">➕ Aggiungi ombrellone e cliente</div>
     <div class="modal-sub">L'ombrellone è obbligatorio. I campi del cliente sono opzionali: se compilati, il cliente verrà salvato e potrai invitarlo subito.</div>
     <div id="add-row-alert"></div>
-    <div class="section-divider" style="margin-top:0">☂️ Ombrellone</div>
+    <div class="section-header-block" style="margin-top:0">
+      <span class="section-header-icon">☂️</span>
+      <span class="section-header-label">OMBRELLONE</span>
+    </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Fila <span style="color:var(--red)">*</span></label><input type="text" id="row-fila" class="form-input" placeholder="A" maxlength="3"></div>
       <div class="form-group"><label class="form-label">Numero <span style="color:var(--red)">*</span></label><input type="number" id="row-numero" class="form-input" placeholder="1" min="1"></div>
     </div>
     <div class="form-group"><label class="form-label" data-coin-label="Credito giornaliero">Credito giornaliero</label><input type="number" id="row-credito" class="form-input" placeholder="12.00" step="0.50" min="0"></div>
-    <div class="section-divider">👤 Cliente stagionale <span style="font-size:11px;color:var(--text-light);font-weight:400;text-transform:none;letter-spacing:0">(opzionale)</span></div>
+    <div class="section-header-block">
+      <span class="section-header-icon">👤</span>
+      <span class="section-header-label">CLIENTE STAGIONALE</span>
+      <span style="font-size:11px;color:var(--text-light);font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px">(opzionale)</span>
+    </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Nome</label><input type="text" id="row-nome" class="form-input"></div>
       <div class="form-group"><label class="form-label">Cognome</label><input type="text" id="row-cognome" class="form-input"></div>
@@ -1977,7 +1984,10 @@
     <input type="hidden" id="edit-row-cl-id">
 
     <!-- SEZIONE OMBRELLONE -->
-    <div class="section-divider" style="margin-top:0">☂️ Ombrellone</div>
+    <div class="section-header-block" style="margin-top:0">
+      <span class="section-header-icon">☂️</span>
+      <span class="section-header-label">OMBRELLONE</span>
+    </div>
     <div id="edit-row-omb-alert"></div>
     <div class="form-row">
       <div class="form-group" style="flex:2">
@@ -1998,7 +2008,11 @@
     </div>
 
     <!-- SEZIONE CLIENTE -->
-    <div class="section-divider">👤 Cliente stagionale <span style="font-size:11px;color:var(--text-light);font-weight:400;text-transform:none;letter-spacing:0">(lascia vuoto per rimuovere)</span></div>
+    <div class="section-header-block">
+      <span class="section-header-icon">👤</span>
+      <span class="section-header-label">CLIENTE STAGIONALE</span>
+      <span style="font-size:11px;color:var(--text-light);font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px">(lascia vuoto per rimuovere)</span>
+    </div>
     <div style="font-size:12px;color:var(--text-light);margin-bottom:8px">L'email non si può modificare se il cliente è già attivo.</div>
     <div id="edit-row-clt-alert"></div>
     <div class="form-row">
@@ -2160,10 +2174,6 @@
       <div class="avanzate-omb-section-title">Stato per il periodo selezionato</div>
       <div id="avanzate-omb-range-label" style="font-size:12px;color:var(--text-light);margin-bottom:8px"></div>
       <div id="avanzate-omb-day-list" class="avanzate-day-list"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-        <button class="btn btn-outline btn-sm" onclick="avanzateForceCurrentRange()">✓ Rendi disponibile per tutto il periodo</button>
-        <button class="btn btn-outline btn-sm" onclick="avanzateRemoveCurrentRange()">✗ Rimuovi disponibilità nel periodo</button>
-      </div>
     </div>
 
     <div class="avanzate-omb-section">
