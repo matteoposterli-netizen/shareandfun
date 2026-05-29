@@ -519,6 +519,26 @@
               <button class="btn btn-outline btn-sm" onclick="clearClientiSelection()">Deseleziona</button>
             </div>
           </div>
+          <!-- Toggle vista ombrelloni -->
+          <div style="padding:14px 24px 0">
+            <div class="pren-view-toggle" role="tablist" aria-label="Visualizzazione ombrelloni" style="margin: 0 0 14px 0">
+              <button type="button" class="pren-view-btn active" data-omb-view="tabella" role="tab" aria-selected="true" onclick="setOmbViewMode('tabella')">📋 Tabella</button>
+              <button type="button" class="pren-view-btn" data-omb-view="mappa" role="tab" aria-selected="false" onclick="setOmbViewMode('mappa')">🗺️ Mappa</button>
+            </div>
+            <!-- Contenitore mappa ombrelloni (inizialmente nascosto) -->
+            <div id="gestione-mappa-wrap" class="hidden">
+              <div class="map-legend" style="margin-bottom:14px">
+                <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Con cliente stagionale</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#EAF4FB;border:2px dashed var(--ocean-mid)"></div>Senza cliente</div>
+              </div>
+              <div class="beach-map-wrap">
+                <div class="bar-label">Bar</div>
+                <div class="map-rows" id="gestione-mappa"></div>
+                <div class="sea-label">Mare</div>
+              </div>
+            </div>
+          </div>
+          <div id="gestione-tabella-wrap">
           <div class="table-wrap data-table-wrapper"><table class="data-table data-table-compact">
             <thead><tr>
               <th style="width:36px"><input type="checkbox" id="clienti-check-all" onchange="toggleAllClienti(this.checked)"></th>
@@ -526,6 +546,7 @@
             </tr></thead>
             <tbody id="gestione-table"></tbody>
           </table></div>
+          </div>
         </div>
 
         </div><!-- /gestione-sub-anagrafica -->
@@ -2544,7 +2565,7 @@ document.addEventListener('click', function(e) {
 <script src="js/router.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/setup.js"></script>
-<script src="js/manager.js?v=20260529a"></script>
+<script src="js/manager.js?v=20260529b"></script>
 <script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>
