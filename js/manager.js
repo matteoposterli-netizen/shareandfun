@@ -588,7 +588,7 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
   }
 
   // --- DBG 47: scrivi info nell'header ---
-  const _dbg47Sub = document.querySelector('.page-subtitle');
+  const _dbg47Sub = document.getElementById('_dbg47-sub');
   if (_dbg47Sub) {
     const o47 = ombs.find(o => o.codice === '47');
     const lines = _dbg47Lines.length > 0 ? _dbg47Lines : [
