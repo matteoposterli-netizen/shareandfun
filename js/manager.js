@@ -2972,9 +2972,11 @@ function renderEditRowDayList() {
     } else if (stato === 'sub_affittato') {
       actions = `<span class="mirata-day-note">Sub-affittato</span>`;
     } else if (stato === 'libero') {
-      actions = `<button class="btn btn-outline btn-sm" onclick="editRowToggleDay('${d}','remove')">✗ Rimuovi</button>`;
+      const ombAttivo = (() => { const o = (ombrelloniList || []).find(x => x.id === editRowDayOmbId); return o ? !!o.attivo : true; })();
+      actions = `<button class="btn btn-outline btn-sm" onclick="editRowToggleDay('${d}','remove')" ${ombAttivo ? '' : 'disabled'}>✗ Rimuovi</button>`;
     } else {
-      actions = `<button class="btn btn-outline btn-sm" onclick="editRowToggleDay('${d}','force')">✓ Rendi libero</button>`;
+      const ombAttivo = (() => { const o = (ombrelloniList || []).find(x => x.id === editRowDayOmbId); return o ? !!o.attivo : true; })();
+      actions = `<button class="btn btn-outline btn-sm" onclick="editRowToggleDay('${d}','force')" ${ombAttivo ? '' : 'disabled'}>✓ Rendi libero</button>`;
     }
     parts.push(`<div class="mirata-day-row">
       <div class="mirata-day-date">${formatDate(d)}</div>
