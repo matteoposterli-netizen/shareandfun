@@ -587,15 +587,17 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
     el.appendChild(row);
   }
 
-  // --- DBG 47 alert (once per session) ---
-  if (!sessionStorage._dbg47shown && _dbg47Lines.length > 0) {
-    sessionStorage._dbg47shown = '1';
-    alert('[DBG47]\n' + _dbg47Lines.join('\n'));
-  }
-  if (!sessionStorage._dbg47shown && _dbg47Lines.length === 0) {
-    sessionStorage._dbg47shown = '1';
+  // --- DBG 47: scrivi info nell'header ---
+  const _dbg47Sub = document.querySelector('.page-subtitle');
+  if (_dbg47Sub) {
     const o47 = ombs.find(o => o.codice === '47');
-    alert('[DBG47] nessun log omb47\nombs count:' + ombs.length + '\nomb47 in ombs:' + (o47 ? JSON.stringify({attivo:o47.attivo,pos_x:o47.pos_x,pos_y:o47.pos_y}) : 'NON TROVATO') + '\nbyPos[9_6]:' + (byPos['9_6']?.codice || 'VUOTO'));
+    const lines = _dbg47Lines.length > 0 ? _dbg47Lines : [
+      'nessun log omb47',
+      'ombs count: ' + ombs.length,
+      'omb47 in ombs: ' + (o47 ? JSON.stringify({attivo: o47.attivo, tipo: typeof o47.attivo, pos_x: o47.pos_x, pos_y: o47.pos_y}) : 'NON TROVATO'),
+      'byPos[9_6]: ' + (byPos['9_6']?.codice || 'VUOTO'),
+    ];
+    _dbg47Sub.textContent = lines.join(' | ');
   }
   // ---
 }
