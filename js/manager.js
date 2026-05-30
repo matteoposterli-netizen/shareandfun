@@ -3072,11 +3072,35 @@ function openOmbrelloneMapPopup(omb, cliente, anchorEl) {
 
   document.body.appendChild(popup);
   const rect = anchorEl.getBoundingClientRect();
-  const scrollY = window.scrollY || document.documentElement.scrollTop;
-  const scrollX = window.scrollX || document.documentElement.scrollLeft;
+  const vw = document.documentElement.clientWidth;
+  const vh = window.innerHeight;
+  const pw = popup.offsetWidth || 240;
+  const ph = popup.offsetHeight || 160;
+  const isMobile = vw < 600;
+  let left, top;
+
+  if (isMobile) {
+    left = Math.max(8, (vw - pw) / 2) + window.scrollX;
+    top = rect.bottom + window.scrollY + 6;
+    if (rect.bottom + ph + 6 > vh) {
+      top = rect.top + window.scrollY - ph - 6;
+    }
+    if (top < window.scrollY + 8) {
+      top = window.scrollY + (vh - ph) / 2;
+    }
+  } else {
+    left = rect.left + window.scrollX + rect.width / 2 - pw / 2;
+    top = rect.bottom + window.scrollY + 6;
+    if (left < 8) left = 8;
+    if (left + pw > vw - 8) left = vw - 8 - pw;
+    if (top + ph > window.scrollY + vh - 8) {
+      top = rect.top + window.scrollY - ph - 6;
+    }
+  }
+
   popup.style.position = 'absolute';
-  popup.style.top = `${rect.bottom + scrollY + 6}px`;
-  popup.style.left = `${rect.left + scrollX}px`;
+  popup.style.top = `${top}px`;
+  popup.style.left = `${left}px`;
   popup.style.zIndex = '9999';
 
   setTimeout(() => {
