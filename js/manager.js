@@ -153,8 +153,12 @@ async function refreshMap() {
     return;
   }
 
+  try {
+
+  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3d: renderMapRegoleBanner...';
   renderMapRegoleBanner(from, to, dates, regole || []);
 
+  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3e: calcolo stagione/dispByOmbDate...';
   const inizio = currentStabilimento?.data_inizio_stagione;
   const fine = currentStabilimento?.data_fine_stagione;
   const allOutOfSeason = !!(inizio && fine && dates.length && dates.every(d => d < inizio || d > fine));
@@ -268,6 +272,7 @@ async function refreshMap() {
 
   currentMapRange = { from, to, dispByOmbDate, dates, combinationCovers, combinationValid, rangeDispMap };
 
+  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3f: rangeDispMap OK, chiamo renderManagerMap...';
   const isToday = isSingleDay && from === todayStr();
   const label = isSingleDay
     ? (isToday ? 'oggi' : formatDate(from))
@@ -320,6 +325,10 @@ async function refreshMap() {
   freeEl.innerHTML = pills.map(p => `<div>${p}</div>`).join('');
 
   updateMapPresetActive();
+
+  } catch(e) {
+    if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3 ERRORE processing: ' + e.message + ' @ ' + (e.stack||'').split('\n')[1];
+  }
 }
 
 async function loadManagerData() {
