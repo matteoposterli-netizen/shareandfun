@@ -459,7 +459,7 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
 
   const { allOutOfSeason = false, stagioneDa = '', staginoA = '' } = opts;
 
-  // Overlay fuori stagione (mostrato sopra la mappa)
+  // Overlay fuori stagione
   const existingOverlay = document.getElementById('map-fuori-stagione-overlay');
   if (existingOverlay) existingOverlay.remove();
   if (allOutOfSeason && stagioneDa && staginoA) {
@@ -474,27 +474,23 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
     el.parentElement.insertBefore(overlay, el);
   }
 
-  const sorted = ombs.slice().sort((a, b) => (a.codice || '').localeCompare(b.codice || '', 'it', { numeric: true }));
-  sorted.forEach(o => {
+  if (!ombs.length) return;
+
+  const buildCell = (o) => {
     const el2 = document.createElement('div');
 
-    // Ombrellone non attivo: grigio barrato, nessun click
     if (!o.attivo) {
       el2.className = 'ombrellone inactive';
       el2.textContent = '☂️';
       el2.title = `${o.codice} — Non attivo`;
-      el.appendChild(el2);
-      return;
+      return el2;
     }
 
-    // Fuori stagione: tutti grigi, non selezionabili
     if (allOutOfSeason) {
       el2.className = 'ombrellone fuori-stagione';
       el2.textContent = '☂️';
       el2.title = `${o.codice} — fuori stagione`;
-      el2.onclick = null;
-      el.appendChild(el2);
-      return;
+      return el2;
     }
 
     const stato = dispMap[o.id] || 'occupied';
@@ -508,7 +504,6 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
     const noClienteCls = !hasCliente ? ' no-cliente' : '';
     el2.className = 'ombrellone ' + cls + noClienteCls + (isSelected ? ' selected' : '');
     el2.textContent = '☂️';
-    let hint = '';
     const fmtDay = d => {
       const dt = new Date(d + 'T00:00:00');
       return dt.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
@@ -517,6 +512,7 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
     const selectSuffix = isSelected
       ? ' — selezionato, clicca per rimuoverlo dalla prenotazione'
       : ' — clicca per aggiungerlo alla prenotazione';
+    let hint = '';
     if (stato === 'libero') {
       hint = ' — libero per tutto il periodo' + selectSuffix;
     } else if (stato === 'combinazione') {
@@ -533,8 +529,54 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
     }
     el2.title = `${o.codice} — ${formatCoin(o.credito_giornaliero)}/gg${hint}`;
     el2.onclick = () => toggleMapOmbSelection(o, stato);
-    el.appendChild(el2);
-  });
+    return el2;
+  };
+
+  // Usa griglia posizionale se gli ombrelloni hanno pos_x/pos_y
+  const passerelle = (currentStabilimento?.mappa_passerelle || []);
+  const passerelleSet = new Set(passerelle.map(p => `${p.x}_${p.y}`));
+  const byPos = {};
+  ombs.forEach(o => { byPos[`${o.pos_x || 0}_${o.pos_y || 0}`] = o; });
+
+  const xs = ombs.map(o => o.pos_x || 0).concat(passerelle.map(p => p.x || 0));
+  const ys = ombs.map(o => o.pos_y || 0).concat(passerelle.map(p => p.y || 0));
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+
+  const uniquePos = new Set(ombs.map(o => `${o.pos_x || 0}_${o.pos_y || 0}`));
+  const hasGrid = uniquePos.size > 1 || ombs.length === 1;
+
+  if (hasGrid) {
+    for (let y = minY; y <= maxY; y++) {
+      const row = document.createElement('div');
+      row.className = 'map-row';
+      for (let x = minX; x <= maxX; x++) {
+        const key = `${x}_${y}`;
+        const o = byPos[key];
+        if (o) {
+          row.appendChild(buildCell(o));
+        } else if (passerelleSet.has(key)) {
+          const cell = document.createElement('div');
+          cell.className = 'map-passerella';
+          row.appendChild(cell);
+        } else {
+          const cell = document.createElement('div');
+          cell.className = 'map-empty';
+          row.appendChild(cell);
+        }
+      }
+      el.appendChild(row);
+    }
+  } else {
+    // Fallback lista sequenziale
+    const sorted = ombs.slice().sort((a, b) => (a.codice || '').localeCompare(b.codice || '', 'it', { numeric: true }));
+    const row = document.createElement('div');
+    row.className = 'map-row';
+    sorted.forEach(o => row.appendChild(buildCell(o)));
+    el.appendChild(row);
+  }
 }
 
 function toggleMapOmbSelection(omb, stato) {
