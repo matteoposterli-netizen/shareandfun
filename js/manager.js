@@ -457,6 +457,18 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
   const el = document.getElementById('manager-map');
   el.innerHTML = '';
 
+  // --- DBG 47 on-screen panel (mobile debug) ---
+  let _dbg47Panel = document.getElementById('_dbg47-panel');
+  if (!_dbg47Panel) {
+    _dbg47Panel = document.createElement('div');
+    _dbg47Panel.id = '_dbg47-panel';
+    _dbg47Panel.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#111;color:#0f0;font:12px monospace;padding:8px;z-index:99999;max-height:40vh;overflow-y:auto;white-space:pre-wrap;word-break:break-all;';
+    document.body.appendChild(_dbg47Panel);
+  }
+  _dbg47Panel.textContent = '';
+  const _dbg47 = (...args) => { console.log(...args); _dbg47Panel.textContent += args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ') + '\n'; };
+  // --- fine DBG 47 panel ---
+
   const { allOutOfSeason = false, stagioneDa = '', staginoA = '' } = opts;
 
   // Overlay fuori stagione
@@ -477,14 +489,14 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
   if (!ombs.length) return;
 
   const buildCell = (o) => {
-    if (o.codice === '47') console.log('[DBG 47] buildCell chiamata, attivo =', o.attivo, '| tipo:', typeof o.attivo);
+    if (o.codice === '47') _dbg47('[DBG 47] buildCell chiamata, attivo =', o.attivo, '| tipo:', typeof o.attivo);
     const el2 = document.createElement('div');
 
     if (!o.attivo) {
       el2.className = 'ombrellone inactive';
       el2.textContent = '☂️';
       el2.title = `${o.codice} — Non attivo`;
-      if (o.codice === '47') console.log('[DBG 47] ramo INACTIVE eseguito, className =', el2.className);
+      if (o.codice === '47') _dbg47('[DBG 47] ramo INACTIVE eseguito, className =', el2.className);
       return el2;
     }
 
@@ -540,7 +552,7 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
   const byPos = {};
   ombs.forEach(o => { byPos[`${o.pos_x || 0}_${o.pos_y || 0}`] = o; });
   const _omb47 = ombs.find(o => o.codice === '47');
-  console.log('[DBG 47] trovato in ombs:', _omb47, '| attivo:', _omb47?.attivo, '| pos:', _omb47?.pos_x, _omb47?.pos_y, '| in byPos[9_6]:', byPos['9_6']?.codice);
+  _dbg47('[DBG 47] trovato in ombs:', _omb47, '| attivo:', _omb47?.attivo, '| pos:', _omb47?.pos_x, _omb47?.pos_y, '| in byPos[9_6]:', byPos['9_6']?.codice);
 
   const xs = ombs.map(o => o.pos_x || 0).concat(passerelle.map(p => p.x || 0));
   const ys = ombs.map(o => o.pos_y || 0).concat(passerelle.map(p => p.y || 0));
