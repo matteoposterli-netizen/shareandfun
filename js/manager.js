@@ -272,7 +272,7 @@ async function refreshMap() {
 
   currentMapRange = { from, to, dispByOmbDate, dates, combinationCovers, combinationValid, rangeDispMap };
 
-  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3f: rangeDispMap OK, chiamo renderManagerMap...';
+  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3f: rangeDispMap OK';
   const isToday = isSingleDay && from === todayStr();
   const label = isSingleDay
     ? (isToday ? 'oggi' : formatDate(from))
@@ -290,6 +290,7 @@ async function refreshMap() {
     document.getElementById('stat-subaffittati').textContent = subleased;
   }
 
+  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3g: sto chiamando renderManagerMap ora';
   pruneBookingSelection();
   renderManagerMap(ombrelloniList, rangeDispMap, {
     allOutOfSeason,
@@ -476,6 +477,14 @@ function applyDefaultPrenFilter(today) {
 }
 
 function renderManagerMap(ombs, dispMap, opts = {}) {
+  // --- CP4 assoluto: prima di qualsiasi altra istruzione ---
+  (function() {
+    const el4 = document.getElementById('_cp4');
+    if (el4) { el4.textContent = 'CP4: ✅ renderManagerMap chiamata (ombs=' + ombs.length + ')'; }
+    else { document.title = '[CP4-NULL] renderManagerMap ombs=' + ombs.length; }
+  })();
+  // ---
+
   const el = document.getElementById('manager-map');
   el.innerHTML = '';
 
@@ -483,7 +492,6 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
   const _dbg47Lines = [];
   const _dbg47 = (...args) => { console.log(...args); _dbg47Lines.push(args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')); };
   const _cp = id => document.getElementById(id);
-  if (_cp('_cp4')) _cp('_cp4').textContent = 'CP4 renderManagerMap start: ✅ ombs=' + ombs.length;
   // ---
 
   const { allOutOfSeason = false, stagioneDa = '', staginoA = '' } = opts;
