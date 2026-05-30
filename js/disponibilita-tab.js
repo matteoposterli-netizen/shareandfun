@@ -430,17 +430,35 @@ function buildPopover(html, anchorEl) {
   document.body.appendChild(pop);
 
   const rect = anchorEl.getBoundingClientRect();
-  const pw = pop.offsetWidth;
-  const ph = pop.offsetHeight;
-  let left = rect.left + window.scrollX + rect.width / 2 - pw / 2;
-  let top = rect.bottom + window.scrollY + 6;
-  if (left < 8) left = 8;
-  if (left + pw > document.documentElement.clientWidth - 8) {
-    left = document.documentElement.clientWidth - 8 - pw;
+  const vw = document.documentElement.clientWidth;
+  const vh = window.innerHeight;
+  const pw = pop.offsetWidth || 280;
+  const ph = pop.offsetHeight || 160;
+  const isMobile = vw < 600;
+
+  let left, top;
+
+  if (isMobile) {
+    left = Math.max(8, (vw - pw) / 2) + window.scrollX;
+    top = rect.bottom + window.scrollY + 6;
+    if (rect.bottom + ph + 6 > vh) {
+      top = rect.top + window.scrollY - ph - 6;
+    }
+    if (top < window.scrollY + 8) {
+      top = window.scrollY + (vh - ph) / 2;
+    }
+  } else {
+    left = rect.left + window.scrollX + rect.width / 2 - pw / 2;
+    top = rect.bottom + window.scrollY + 6;
+    if (left < 8) left = 8;
+    if (left + pw > vw - 8) {
+      left = vw - 8 - pw;
+    }
+    if (top + ph > window.scrollY + vh - 8) {
+      top = rect.top + window.scrollY - ph - 6;
+    }
   }
-  if (top + ph > window.scrollY + window.innerHeight - 8) {
-    top = rect.top + window.scrollY - ph - 6;
-  }
+
   pop.style.left = left + 'px';
   pop.style.top = top + 'px';
 
