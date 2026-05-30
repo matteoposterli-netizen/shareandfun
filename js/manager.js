@@ -123,15 +123,18 @@ function updateMapPresetActive() {
 
 async function refreshMap() {
   const _cp = id => document.getElementById(id);
-  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3 refreshMap: ✅ avviato (ombs=' + ombrelloniList.length + ')';
+  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3a: refreshMap avviato (ombs=' + ombrelloniList.length + ')';
   const from = document.getElementById('map-date-from').value;
   const to = document.getElementById('map-date-to').value || from;
-  if (!from) return;
+  if (!from) { if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3 STOP: from vuoto'; return; }
   const dates = getDatesInRange(from, to);
-  if (dates.length === 0) return;
+  if (dates.length === 0) { if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3 STOP: dates vuoto (from=' + from + ' to=' + to + ')'; return; }
+  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3b: from=' + from + ' dates=' + dates.length + ' — fetch in corso...';
 
   const ombIds = ombrelloniList.map(o => o.id);
-  const [{ data: disp }, { data: regole }] = await Promise.all([
+  let disp, regole;
+  try {
+    const res = await Promise.all([
     fetchAllPaginated(() => sb.from('disponibilita')
       .select('*')
       .gte('data', from)
@@ -142,7 +145,13 @@ async function refreshMap() {
       .eq('stabilimento_id', currentStabilimento.id)
       .gte('data_a', from)
       .lte('data_da', to),
-  ]);
+    ]);
+    disp = res[0].data; regole = res[1].data;
+    if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3c: fetch OK disp=' + (disp||[]).length + ' regole=' + (regole||[]).length;
+  } catch(e) {
+    if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3 ERRORE fetch: ' + e.message;
+    return;
+  }
 
   renderMapRegoleBanner(from, to, dates, regole || []);
 
