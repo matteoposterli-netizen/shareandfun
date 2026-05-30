@@ -457,17 +457,10 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
   const el = document.getElementById('manager-map');
   el.innerHTML = '';
 
-  // --- DBG 47 on-screen panel (mobile debug) ---
-  let _dbg47Panel = document.getElementById('_dbg47-panel');
-  if (!_dbg47Panel) {
-    _dbg47Panel = document.createElement('div');
-    _dbg47Panel.id = '_dbg47-panel';
-    _dbg47Panel.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#111;color:#0f0;font:12px monospace;padding:8px;z-index:99999;max-height:40vh;overflow-y:auto;white-space:pre-wrap;word-break:break-all;';
-    document.body.appendChild(_dbg47Panel);
-  }
-  _dbg47Panel.textContent = '▶ DBG47 panel attivo\n';
-  const _dbg47 = (...args) => { console.log(...args); _dbg47Panel.textContent += args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ') + '\n'; };
-  // --- fine DBG 47 panel ---
+  // --- DBG 47 (mobile debug via alert, once per session) ---
+  const _dbg47Lines = [];
+  const _dbg47 = (...args) => { console.log(...args); _dbg47Lines.push(args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')); };
+  // ---
 
   const { allOutOfSeason = false, stagioneDa = '', staginoA = '' } = opts;
 
@@ -593,6 +586,18 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
     sorted.forEach(o => row.appendChild(buildCell(o)));
     el.appendChild(row);
   }
+
+  // --- DBG 47 alert (once per session) ---
+  if (!sessionStorage._dbg47shown && _dbg47Lines.length > 0) {
+    sessionStorage._dbg47shown = '1';
+    alert('[DBG47]\n' + _dbg47Lines.join('\n'));
+  }
+  if (!sessionStorage._dbg47shown && _dbg47Lines.length === 0) {
+    sessionStorage._dbg47shown = '1';
+    const o47 = ombs.find(o => o.codice === '47');
+    alert('[DBG47] nessun log omb47\nombs count:' + ombs.length + '\nomb47 in ombs:' + (o47 ? JSON.stringify({attivo:o47.attivo,pos_x:o47.pos_x,pos_y:o47.pos_y}) : 'NON TROVATO') + '\nbyPos[9_6]:' + (byPos['9_6']?.codice || 'VUOTO'));
+  }
+  // ---
 }
 
 function toggleMapOmbSelection(omb, stato) {
