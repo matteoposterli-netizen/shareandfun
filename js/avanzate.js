@@ -151,8 +151,13 @@ async function refreshAvanzateMap() {
   });
 
   const rangeDispMap = {};
-  let countLibero = 0, countSub = 0, countParziale = 0, countOccupied = 0;
+  let countLibero = 0, countSub = 0, countParziale = 0, countOccupied = 0, countInattivi = 0;
   ombrelloniList.forEach(o => {
+    if (!o.attivo) {
+      rangeDispMap[o.id] = 'inactive';
+      countInattivi++;
+      return;
+    }
     const ombDisp = dispByOmbDate[o.id] || {};
     const liberoDays = dates.filter(d => ombDisp[d] === 'libero').length;
     const subDays = dates.filter(d => ombDisp[d] === 'sub_affittato').length;
@@ -178,6 +183,7 @@ async function refreshAvanzateMap() {
   if (countParziale) parts.push(`<strong>${countParziale}</strong> parzial${countParziale === 1 ? 'e' : 'i'}`);
   if (countSub) parts.push(`<strong>${countSub}</strong> sub-affittat${countSub === 1 ? 'o' : 'i'}`);
   if (countOccupied) parts.push(`<strong>${countOccupied}</strong> occupat${countOccupied === 1 ? 'o' : 'i'}`);
+  if (countInattivi) parts.push(`<strong>${countInattivi}</strong> non attiv${countInattivi === 1 ? 'o' : 'i'}`);
   summaryEl.innerHTML = parts.join(' · ');
 
   renderAvanzateMap(ombrelloniList, rangeDispMap);
