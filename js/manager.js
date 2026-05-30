@@ -3019,22 +3019,29 @@ function renderGestioneMappa() {
         cellDiv.title = 'Passerella';
       } else {
         const omb = cell.data;
-        const hasCliente = !!clienteByOmb[omb.id];
-        cellDiv.className = hasCliente ? 'ombrellone occupied' : 'ombrellone no-cliente';
-        if (!hasCliente) {
-          cellDiv.style.background = '#EAF4FB';
-          cellDiv.style.borderStyle = 'dashed';
-          cellDiv.style.borderColor = 'var(--ocean-mid)';
-          cellDiv.style.borderWidth = '2px';
-          cellDiv.style.color = 'var(--ocean-mid)';
+        if (!omb.attivo) {
+          cellDiv.className = 'ombrellone inactive';
+          cellDiv.textContent = '☂️';
+          cellDiv.title = `${omb.codice} — Non attivo`;
+          cellDiv.style.cursor = 'default';
+        } else {
+          const hasCliente = !!clienteByOmb[omb.id];
+          cellDiv.className = hasCliente ? 'ombrellone occupied' : 'ombrellone no-cliente';
+          if (!hasCliente) {
+            cellDiv.style.background = '#EAF4FB';
+            cellDiv.style.borderStyle = 'dashed';
+            cellDiv.style.borderColor = 'var(--ocean-mid)';
+            cellDiv.style.borderWidth = '2px';
+            cellDiv.style.color = 'var(--ocean-mid)';
+          }
+          cellDiv.textContent = '☂️';
+          const cliente = clienteByOmb[omb.id];
+          cellDiv.title = hasCliente
+            ? `${omb.codice} — ${cliente.nome || ''} ${cliente.cognome || ''}`
+            : `${omb.codice} — Senza cliente`;
+          cellDiv.style.cursor = 'pointer';
+          cellDiv.addEventListener('click', () => openOmbrelloneMapPopup(omb, cliente || null, cellDiv));
         }
-        cellDiv.textContent = '☂️';
-        const cliente = clienteByOmb[omb.id];
-        cellDiv.title = hasCliente
-          ? `${omb.codice} — ${cliente.nome || ''} ${cliente.cognome || ''}`
-          : `${omb.codice} — Senza cliente`;
-        cellDiv.style.cursor = 'pointer';
-        cellDiv.addEventListener('click', () => openOmbrelloneMapPopup(omb, cliente || null, cellDiv));
       }
       rowDiv.appendChild(cellDiv);
     }
