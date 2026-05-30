@@ -122,19 +122,15 @@ function updateMapPresetActive() {
 }
 
 async function refreshMap() {
-  const _cp = id => document.getElementById(id);
-  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3a: refreshMap avviato (ombs=' + ombrelloniList.length + ')';
   const from = document.getElementById('map-date-from').value;
   const to = document.getElementById('map-date-to').value || from;
-  if (!from) { if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3 STOP: from vuoto'; return; }
+  if (!from) return;
   const dates = getDatesInRange(from, to);
-  if (dates.length === 0) { if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3 STOP: dates vuoto (from=' + from + ' to=' + to + ')'; return; }
-  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3b: from=' + from + ' dates=' + dates.length + ' — fetch in corso...';
+  if (dates.length === 0) return;
 
   const ombIds = ombrelloniList.map(o => o.id);
   let disp, regole;
-  try {
-    const res = await Promise.all([
+  const res = await Promise.all([
     fetchAllPaginated(() => sb.from('disponibilita')
       .select('*')
       .gte('data', from)
@@ -145,20 +141,10 @@ async function refreshMap() {
       .eq('stabilimento_id', currentStabilimento.id)
       .gte('data_a', from)
       .lte('data_da', to),
-    ]);
-    disp = res[0].data; regole = res[1].data;
-    if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3c: fetch OK disp=' + (disp||[]).length + ' regole=' + (regole||[]).length;
-  } catch(e) {
-    if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3 ERRORE fetch: ' + e.message;
-    return;
-  }
-
-  try {
-
-  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3d: renderMapRegoleBanner...';
+  ]);
+  disp = res[0].data; regole = res[1].data;
   renderMapRegoleBanner(from, to, dates, regole || []);
 
-  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3e: calcolo stagione/dispByOmbDate...';
   const inizio = currentStabilimento?.data_inizio_stagione;
   const fine = currentStabilimento?.data_fine_stagione;
   const allOutOfSeason = !!(inizio && fine && dates.length && dates.every(d => d < inizio || d > fine));
@@ -272,7 +258,6 @@ async function refreshMap() {
 
   currentMapRange = { from, to, dispByOmbDate, dates, combinationCovers, combinationValid, rangeDispMap };
 
-  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3f: rangeDispMap OK';
   const isToday = isSingleDay && from === todayStr();
   const label = isSingleDay
     ? (isToday ? 'oggi' : formatDate(from))
@@ -290,7 +275,6 @@ async function refreshMap() {
     document.getElementById('stat-subaffittati').textContent = subleased;
   }
 
-  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3g: sto chiamando renderManagerMap ora';
   pruneBookingSelection();
   renderManagerMap(ombrelloniList, rangeDispMap, {
     allOutOfSeason,
@@ -326,15 +310,9 @@ async function refreshMap() {
   freeEl.innerHTML = pills.map(p => `<div>${p}</div>`).join('');
 
   updateMapPresetActive();
-
-  } catch(e) {
-    if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3 ERRORE processing: ' + e.message + ' @ ' + (e.stack||'').split('\n')[1];
-  }
 }
 
 async function loadManagerData() {
-  const _cp = id => document.getElementById(id);
-  if (_cp('_cp2')) _cp('_cp2').textContent = 'CP2 loadManagerData: ✅ avviato';
   const today = todayStr();
   currentMapDate = today;
   document.getElementById('map-date-from').value = today;
@@ -477,23 +455,8 @@ function applyDefaultPrenFilter(today) {
 }
 
 function renderManagerMap(ombs, dispMap, opts = {}) {
-  // --- CP4 assoluto ---
-  window._rmapN = (window._rmapN || 0) + 1;
-  const _cp4msg = 'CP4[' + window._rmapN + ']: ombs=' + ombs.length + ' attivo=' + ombs.filter(o=>!o.attivo).length + 'inattivi';
-  localStorage.setItem('_cp4last', _cp4msg);
-  document.title = _cp4msg;
-  const _el4 = document.getElementById('_cp4');
-  if (_el4) _el4.textContent = _cp4msg;
-  // ---
-
   const el = document.getElementById('manager-map');
   el.innerHTML = '';
-
-  // --- DBG 47 checkpoints ---
-  const _dbg47Lines = [];
-  const _dbg47 = (...args) => { console.log(...args); _dbg47Lines.push(args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')); };
-  const _cp = id => document.getElementById(id);
-  // ---
 
   const { allOutOfSeason = false, stagioneDa = '', staginoA = '' } = opts;
 
@@ -515,14 +478,12 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
   if (!ombs.length) return;
 
   const buildCell = (o) => {
-    if (o.codice === '47') _dbg47('[DBG 47] buildCell chiamata, attivo =', o.attivo, '| tipo:', typeof o.attivo);
     const el2 = document.createElement('div');
 
     if (!o.attivo) {
       el2.className = 'ombrellone inactive';
       el2.textContent = '☂️';
       el2.title = `${o.codice} — Non attivo`;
-      if (o.codice === '47') _dbg47('[DBG 47] ramo INACTIVE eseguito, className =', el2.className);
       return el2;
     }
 
@@ -577,8 +538,6 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
   const passerelleSet = new Set(passerelle.map(p => `${p.x}_${p.y}`));
   const byPos = {};
   ombs.forEach(o => { byPos[`${o.pos_x || 0}_${o.pos_y || 0}`] = o; });
-  const _omb47 = ombs.find(o => o.codice === '47');
-  _dbg47('[DBG 47] trovato in ombs:', _omb47, '| attivo:', _omb47?.attivo, '| pos:', _omb47?.pos_x, _omb47?.pos_y, '| in byPos[9_6]:', byPos['9_6']?.codice);
 
   const xs = ombs.map(o => o.pos_x || 0).concat(passerelle.map(p => p.x || 0));
   const ys = ombs.map(o => o.pos_y || 0).concat(passerelle.map(p => p.y || 0));
@@ -620,17 +579,6 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
     el.appendChild(row);
   }
 
-  // --- DBG 47 CP5 ---
-  const o47 = ombs.find(o => o.codice === '47');
-  const _cp5txt = [
-    'omb47 in ombs: ' + (o47 ? 'SI' : 'NO'),
-    o47 ? 'attivo=' + o47.attivo + ' tipo=' + typeof o47.attivo : '',
-    o47 ? 'pos=' + o47.pos_x + ',' + o47.pos_y : '',
-    'byPos[9_6]=' + (byPos['9_6']?.codice || 'VUOTO'),
-    'logs: ' + (_dbg47Lines.length > 0 ? _dbg47Lines.join(' / ') : 'nessuno'),
-  ].filter(Boolean).join(' | ');
-  if (_cp('_cp5')) _cp('_cp5').textContent = 'CP5 renderManagerMap end: ✅ ' + _cp5txt;
-  // ---
 }
 
 function toggleMapOmbSelection(omb, stato) {
