@@ -122,6 +122,8 @@ function updateMapPresetActive() {
 }
 
 async function refreshMap() {
+  const _cp = id => document.getElementById(id);
+  if (_cp('_cp3')) _cp('_cp3').textContent = 'CP3 refreshMap: ✅ avviato (ombs=' + ombrelloniList.length + ')';
   const from = document.getElementById('map-date-from').value;
   const to = document.getElementById('map-date-to').value || from;
   if (!from) return;
@@ -312,6 +314,8 @@ async function refreshMap() {
 }
 
 async function loadManagerData() {
+  const _cp = id => document.getElementById(id);
+  if (_cp('_cp2')) _cp('_cp2').textContent = 'CP2 loadManagerData: ✅ avviato';
   const today = todayStr();
   currentMapDate = today;
   document.getElementById('map-date-from').value = today;
@@ -457,9 +461,11 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
   const el = document.getElementById('manager-map');
   el.innerHTML = '';
 
-  // --- DBG 47 (mobile debug via alert, once per session) ---
+  // --- DBG 47 checkpoints ---
   const _dbg47Lines = [];
   const _dbg47 = (...args) => { console.log(...args); _dbg47Lines.push(args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')); };
+  const _cp = id => document.getElementById(id);
+  if (_cp('_cp4')) _cp('_cp4').textContent = 'CP4 renderManagerMap start: ✅ ombs=' + ombs.length;
   // ---
 
   const { allOutOfSeason = false, stagioneDa = '', staginoA = '' } = opts;
@@ -587,18 +593,16 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
     el.appendChild(row);
   }
 
-  // --- DBG 47: scrivi info nell'header ---
-  const _dbg47Sub = document.getElementById('_dbg47-sub');
-  if (_dbg47Sub) {
-    const o47 = ombs.find(o => o.codice === '47');
-    const lines = _dbg47Lines.length > 0 ? _dbg47Lines : [
-      'nessun log omb47',
-      'ombs count: ' + ombs.length,
-      'omb47 in ombs: ' + (o47 ? JSON.stringify({attivo: o47.attivo, tipo: typeof o47.attivo, pos_x: o47.pos_x, pos_y: o47.pos_y}) : 'NON TROVATO'),
-      'byPos[9_6]: ' + (byPos['9_6']?.codice || 'VUOTO'),
-    ];
-    _dbg47Sub.textContent = lines.join(' | ');
-  }
+  // --- DBG 47 CP5 ---
+  const o47 = ombs.find(o => o.codice === '47');
+  const _cp5txt = [
+    'omb47 in ombs: ' + (o47 ? 'SI' : 'NO'),
+    o47 ? 'attivo=' + o47.attivo + ' tipo=' + typeof o47.attivo : '',
+    o47 ? 'pos=' + o47.pos_x + ',' + o47.pos_y : '',
+    'byPos[9_6]=' + (byPos['9_6']?.codice || 'VUOTO'),
+    'logs: ' + (_dbg47Lines.length > 0 ? _dbg47Lines.join(' / ') : 'nessuno'),
+  ].filter(Boolean).join(' | ');
+  if (_cp('_cp5')) _cp('_cp5').textContent = 'CP5 renderManagerMap end: ✅ ' + _cp5txt;
   // ---
 }
 
