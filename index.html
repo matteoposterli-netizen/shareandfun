@@ -516,7 +516,6 @@
             <div id="gestione-bulk-bar" class="hidden" style="display:none;align-items:center;gap:10px;padding:10px 16px;background:var(--sand);border-radius:8px;border:1px solid var(--border);margin-bottom:12px">
               <span id="gestione-bulk-count" style="font-size:13px;color:var(--text-mid)"></span>
               <button class="btn btn-outline btn-sm" onclick="bulkInviaInviti()">📧 Invia invito</button>
-              <button class="btn btn-outline btn-sm" style="color:var(--coral);border-color:var(--coral)" onclick="bulkDisattivaOmbrelloni()">⛔ Disattiva selezionati</button>
               <button class="btn btn-outline btn-sm" onclick="clearGestioneSelection()">✕ Deseleziona</button>
             </div>
           </div>
@@ -1982,6 +1981,21 @@
     <input type="hidden" id="edit-row-omb-id">
     <input type="hidden" id="edit-row-cl-id">
 
+    <!-- SEZIONE STATO ATTIVO/INATTIVO — sempre prima -->
+    <div id="edit-row-attivo-section" style="padding:14px 0 10px;border-bottom:1px solid var(--border);margin-bottom:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--ink)" id="edit-row-attivo-label">Ombrellone attivo</div>
+          <div style="font-size:12px;color:var(--text-light);margin-top:2px" id="edit-row-attivo-sub">L'ombrellone è operativo e prenotabile</div>
+        </div>
+        <label class="toggle-switch" style="flex-shrink:0">
+          <input type="checkbox" id="edit-row-attivo-toggle" onchange="onEditRowAttivoToggle(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div id="edit-row-attivo-alert" style="margin-top:8px"></div>
+    </div>
+
     <!-- SEZIONE OMBRELLONE -->
     <div class="section-divider" style="margin-top:0">☂️ Ombrellone</div>
     <div id="edit-row-omb-alert"></div>
@@ -2571,7 +2585,7 @@ document.addEventListener('click', function(e) {
 <script src="js/router.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/setup.js"></script>
-<script src="js/manager.js?v=20260529b"></script>
+<script src="js/manager.js?v=20260530a"></script>
 <script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>

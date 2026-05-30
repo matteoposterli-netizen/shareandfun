@@ -2422,6 +2422,12 @@ function populateEditRowFromData(ombId) {
     document.getElementById('edit-row-saldo-nuovo').value = parseFloat(cliente.credito_saldo || 0).toFixed(2);
     document.getElementById('edit-row-saldo-nota').value = '';
   }
+  // Imposta toggle attivo/disattivo
+  const attivoToggle = document.getElementById('edit-row-attivo-toggle');
+  if (attivoToggle) {
+    attivoToggle.checked = !!omb.attivo;
+    _updateEditRowAttivoUI(!!omb.attivo);
+  }
   return true;
 }
 
@@ -2613,6 +2619,59 @@ async function applyEditRowRemoveDisp() {
   await refreshEditRowAfterSave(ombId, { alertId: 'edit-row-disp-alert' });
 }
 
+function _updateEditRowAttivoUI(isAttivo) {
+  const label = document.getElementById('edit-row-attivo-label');
+  const sub = document.getElementById('edit-row-attivo-sub');
+  const saldoSection = document.getElementById('edit-row-saldo-section');
+
+  if (label) label.textContent = isAttivo ? 'Ombrellone attivo' : 'Ombrellone non attivo';
+  if (sub) sub.textContent = isAttivo
+    ? "L'ombrellone è operativo e prenotabile"
+    : "L'ombrellone è disattivato. Puoi modificare l'anagrafica. Coin e disponibilità sono in sola lettura.";
+
+  if (saldoSection) {
+    const inputs = saldoSection.querySelectorAll('input, button:not([id="edit-row-attivo-toggle"])');
+    inputs.forEach(el => { el.disabled = !isAttivo; });
+    saldoSection.style.opacity = isAttivo ? '' : '0.5';
+  }
+
+  const dispInputs = document.querySelectorAll('#modal-edit-row #edit-row-disp-from, #modal-edit-row #edit-row-disp-to, #modal-edit-row #edit-row-disp-note');
+  const dispBtns = document.querySelectorAll('#modal-edit-row [onclick="applyEditRowAddDisp()"], #modal-edit-row [onclick="applyEditRowRemoveDisp()"], #modal-edit-row [onclick="editRowBulkForce()"], #modal-edit-row [onclick="editRowBulkRemove()"]');
+  const dayListBtns = document.querySelectorAll('#edit-row-day-list button');
+  dispInputs.forEach(el => { el.disabled = !isAttivo; });
+  dispBtns.forEach(el => { el.disabled = !isAttivo; });
+  dayListBtns.forEach(el => { el.disabled = !isAttivo; });
+}
+
+async function onEditRowAttivoToggle(isAttivo) {
+  const ombId = document.getElementById('edit-row-omb-id').value;
+  if (!ombId) return;
+  const omb = ombrelloniList.find(o => o.id === ombId);
+  if (!omb) return;
+
+  _updateEditRowAttivoUI(isAttivo);
+
+  if (!isAttivo) {
+    await initDisattivaOmbrellone(ombId);
+    const toggl = document.getElementById('edit-row-attivo-toggle');
+    const updated = ombrelloniList.find(o => o.id === ombId);
+    if (toggl && updated) {
+      toggl.checked = !!updated.attivo;
+      _updateEditRowAttivoUI(!!updated.attivo);
+    }
+  } else {
+    await riattivaOmbrellone(ombId);
+    const toggl = document.getElementById('edit-row-attivo-toggle');
+    const updated = ombrelloniList.find(o => o.id === ombId);
+    if (toggl && updated) {
+      toggl.checked = !!updated.attivo;
+      _updateEditRowAttivoUI(!!updated.attivo);
+    }
+  }
+}
+
+window.onEditRowAttivoToggle = onEditRowAttivoToggle;
+
 // Explicit global exports for HTML inline handlers
 window.checkEditRowDirty    = checkEditRowDirty;
 window.closeEditRowModal    = closeEditRowModal;
@@ -2695,10 +2754,7 @@ async function openViewOmbrelloneModal(ombId) {
 
   const footer = document.getElementById('view-omb-footer');
   if (footer) {
-    const btnToggle = omb.attivo
-      ? `<button class="btn btn-outline btn-sm" style="color:var(--coral);border-color:var(--coral)" onclick="closeModal('modal-view-ombrellone');initDisattivaOmbrellone('${omb.id}')">⛔ Disattiva ombrellone</button>`
-      : `<button class="btn btn-primary btn-sm" onclick="closeModal('modal-view-ombrellone');riattivaOmbrellone('${omb.id}')">✓ Riattiva ombrellone</button>`;
-    footer.innerHTML = `<button class="btn btn-outline btn-sm" onclick="closeModal('modal-view-ombrellone')">Chiudi</button>${btnToggle}`;
+    footer.innerHTML = `<button class="btn btn-outline btn-sm" onclick="closeModal('modal-view-ombrellone')">Chiudi</button>`;
   }
 
   showLoading();
@@ -2942,8 +2998,8 @@ function setOmbViewMode(mode) {
 function loadOmbViewMode() {
   try {
     const v = localStorage.getItem(ombViewStorageKey());
-    ombViewMode = (v === 'mappa') ? 'mappa' : 'tabella';
-  } catch (_) { ombViewMode = 'tabella'; }
+    ombViewMode = (v === 'tabella') ? 'tabella' : 'mappa';
+  } catch (_) { ombViewMode = 'mappa'; }
   syncOmbViewToggleUI();
 }
 
@@ -3020,10 +3076,12 @@ function renderGestioneMappa() {
       } else {
         const omb = cell.data;
         if (!omb.attivo) {
+          const cliente = clienteByOmb[omb.id] || null;
           cellDiv.className = 'ombrellone inactive';
           cellDiv.textContent = '☂️';
           cellDiv.title = `${omb.codice} — Non attivo`;
-          cellDiv.style.cursor = 'default';
+          cellDiv.style.cursor = 'pointer';
+          cellDiv.addEventListener('click', () => openOmbrelloneMapPopup(omb, cliente, cellDiv));
         } else {
           const hasCliente = !!clienteByOmb[omb.id];
           cellDiv.className = hasCliente ? 'ombrellone occupied' : 'ombrellone no-cliente';
