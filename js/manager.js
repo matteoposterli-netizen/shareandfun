@@ -465,7 +465,7 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
     _dbg47Panel.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#111;color:#0f0;font:12px monospace;padding:8px;z-index:99999;max-height:40vh;overflow-y:auto;white-space:pre-wrap;word-break:break-all;';
     document.body.appendChild(_dbg47Panel);
   }
-  _dbg47Panel.textContent = '';
+  _dbg47Panel.textContent = '▶ DBG47 panel attivo\n';
   const _dbg47 = (...args) => { console.log(...args); _dbg47Panel.textContent += args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ') + '\n'; };
   // --- fine DBG 47 panel ---
 
