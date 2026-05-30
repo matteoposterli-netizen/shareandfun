@@ -477,12 +477,13 @@ function applyDefaultPrenFilter(today) {
 }
 
 function renderManagerMap(ombs, dispMap, opts = {}) {
-  // --- CP4 assoluto: prima di qualsiasi altra istruzione ---
-  (function() {
-    const el4 = document.getElementById('_cp4');
-    if (el4) { el4.textContent = 'CP4: ✅ renderManagerMap chiamata (ombs=' + ombs.length + ')'; }
-    else { document.title = '[CP4-NULL] renderManagerMap ombs=' + ombs.length; }
-  })();
+  // --- CP4 assoluto ---
+  window._rmapN = (window._rmapN || 0) + 1;
+  const _cp4msg = 'CP4[' + window._rmapN + ']: ombs=' + ombs.length + ' attivo=' + ombs.filter(o=>!o.attivo).length + 'inattivi';
+  localStorage.setItem('_cp4last', _cp4msg);
+  document.title = _cp4msg;
+  const _el4 = document.getElementById('_cp4');
+  if (_el4) _el4.textContent = _cp4msg;
   // ---
 
   const el = document.getElementById('manager-map');
