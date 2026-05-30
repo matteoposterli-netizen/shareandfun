@@ -72,10 +72,14 @@ function setAvanzateRangePreset(days) {
   const startDate = new Date(today + 'T00:00:00');
   const endDate = new Date(today + 'T00:00:00');
   endDate.setDate(endDate.getDate() + days - 1);
-  document.getElementById('avanzate-date-from').value = today;
-  document.getElementById('avanzate-date-to').value = toLocalDateStr(endDate);
-  if (avanzateRangePickerInstance) avanzateRangePickerInstance.setDate([startDate, endDate], false);
-  refreshAvanzateMap();
+  if (avanzateRangePickerInstance) {
+    // triggerChange=true → onChange aggiorna i campi nascosti e chiama refreshAvanzateMap
+    avanzateRangePickerInstance.setDate([startDate, endDate]);
+  } else {
+    document.getElementById('avanzate-date-from').value = today;
+    document.getElementById('avanzate-date-to').value = toLocalDateStr(endDate);
+    refreshAvanzateMap();
+  }
 }
 
 function setAvanzateRangeStagione() {
@@ -89,10 +93,13 @@ function setAvanzateRangeStagione() {
   }
   const startDate = new Date(inizio + 'T00:00:00');
   const endDate = new Date(fine + 'T00:00:00');
-  document.getElementById('avanzate-date-from').value = inizio;
-  document.getElementById('avanzate-date-to').value = fine;
-  if (avanzateRangePickerInstance) avanzateRangePickerInstance.setDate([startDate, endDate], false);
-  refreshAvanzateMap();
+  if (avanzateRangePickerInstance) {
+    avanzateRangePickerInstance.setDate([startDate, endDate]);
+  } else {
+    document.getElementById('avanzate-date-from').value = inizio;
+    document.getElementById('avanzate-date-to').value = fine;
+    refreshAvanzateMap();
+  }
 }
 
 function updateAvanzatePresetActive() {

@@ -129,7 +129,8 @@ async function refreshMap() {
   if (dates.length === 0) return;
 
   const ombIds = ombrelloniList.map(o => o.id);
-  const [{ data: disp }, { data: regole }] = await Promise.all([
+  let disp, regole;
+  const res = await Promise.all([
     fetchAllPaginated(() => sb.from('disponibilita')
       .select('*')
       .gte('data', from)
@@ -141,7 +142,7 @@ async function refreshMap() {
       .gte('data_a', from)
       .lte('data_da', to),
   ]);
-
+  disp = res[0].data; regole = res[1].data;
   renderMapRegoleBanner(from, to, dates, regole || []);
 
   const inizio = currentStabilimento?.data_inizio_stagione;
@@ -577,6 +578,7 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
     sorted.forEach(o => row.appendChild(buildCell(o)));
     el.appendChild(row);
   }
+
 }
 
 function toggleMapOmbSelection(omb, stato) {
