@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -20,4 +20,2587 @@
   <p>Caricamento...</p>
 </div>
 
-OOPS - this approach won't work for 164K file
+<!-- TOPNAV -->
+<nav class="topnav" id="topnav">
+  <div class="logo" onclick="goHome()">🌊 SpiaggiaMia</div>
+  <div class="nav-right" id="nav-right">
+    <button class="btn-nav" onclick="showView('auth', 'login')">Accedi</button>
+    <button class="btn-nav filled" onclick="showView('auth', 'register')">Registra stabilimento</button>
+  </div>
+  <button class="hamburger-btn" id="hamburger-btn" onclick="openDrawer()" aria-label="Apri menu">☰</button>
+</nav>
+<div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
+
+<!-- ======================== VIEWS ======================== -->
+
+<!-- LANDING -->
+<div id="view-landing" class="view active">
+  <div class="hero">
+    <div class="hero-waves">☀️ 🌊 ☂️</div>
+    <h1>Ogni ombrellone vuoto<br><span>è un'opportunità persa.</span></h1>
+    <p>SpiaggiaMia connette gli stabilimenti balneari con i loro clienti stagionali per trasformare i giorni liberi in valore per tutti.</p>
+    <div class="hero-ctas">
+      <button class="btn-hero-primary" onclick="showView('auth','register')">Registra il tuo stabilimento →</button>
+      <button class="btn-hero-outline" onclick="showView('auth','login')">Hai già un account? Accedi</button>
+    </div>
+    <p style="margin-top:18px;font-size:13px;opacity:0.85;font-weight:300">Sei un cliente stagionale? Accedi solo su invito del tuo stabilimento.</p>
+  </div>
+  <div class="landing-content">
+    <div class="section-label">Come funziona</div>
+    <div class="section-title">Semplice per tutti</div>
+    <div class="how-steps">
+      <div class="step-card"><div class="step-icon">🏖️</div><h3>Lo stabilimento registra la mappa</h3><p>Il proprietario carica gli ombrelloni, associa ogni cliente stagionale e imposta il credito per ogni posizione.</p></div>
+      <div class="step-card"><div class="step-icon">📅</div><h3>Il stagionale dichiara i giorni liberi</h3><p>Con un click sul calendario, il cliente indica i giorni in cui non userà il suo ombrellone.</p></div>
+      <div class="step-card"><div class="step-icon">💰</div><h3>Lo stabilimento sub-affitta e tutti guadagnano</h3><p>L'ombrellone viene affittato a un cliente giornaliero e il tuo cliente stagionale riceve dei coin che può spendere solo al tuo bar.</p></div>
+    </div>
+    <div class="section-label">Due strumenti, un'unica piattaforma</div>
+    <div class="section-title">Progettato per entrambi</div>
+    <div class="roles-grid">
+      <div class="role-card manager">
+        <h3>🏖️ Proprietario dello Stabilimento</h3>
+        <div class="role-sub">Visibilità totale, controllo completo</div>
+        <ul class="feature-list">
+          <li>Mappa visuale degli ombrelloni in tempo reale</li>
+          <li>Vedi subito quali ombrelloni sono liberi oggi</li>
+          <li>Imposta il credito per ogni ombrellone</li>
+          <li>Caricamento massivo via Excel</li>
+          <li>Log completo di tutte le transazioni</li>
+        </ul>
+        <button class="btn btn-primary btn-full" onclick="showView('auth','register')">Inizia gratis →</button>
+      </div>
+      <div class="role-card seasonal">
+        <h3>☂️ Cliente Stagionale</h3>
+        <div class="role-sub">Accesso solo su invito del tuo stabilimento</div>
+        <ul class="feature-list">
+          <li>Calendario per dichiarare i giorni liberi</li>
+          <li>Notifica se l'ombrellone viene sub-affittato</li>
+          <li>Wallet crediti sempre aggiornato</li>
+          <li>Storico completo delle disponibilità</li>
+        </ul>
+        <div style="background:var(--sand);border-radius:var(--radius-sm);padding:14px 16px;font-size:13px;color:var(--text-mid);line-height:1.6">
+          ✉️ <strong>L'accesso è solo su invito.</strong> Se vuoi usare SpiaggiaMia, contatta il tuo stabilimento balneare e chiedi di essere invitato: riceverai un'email con il link personale per creare la password. Una volta attivato, usa <em>Accedi</em> in alto a destra.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- INVITO (completamento registrazione via link) -->
+<div id="view-invito" class="view">
+  <div class="invito-container">
+    <div class="invito-card">
+      <div class="auth-logo"><div class="logo-text">🌊 SpiaggiaMia</div></div>
+      <div class="invito-badge">✉️ Invito personale</div>
+      <div class="auth-title" id="invito-title">Completa la registrazione</div>
+      <div class="auth-sub" id="invito-sub">Sei stato invitato. Imposta la tua password per accedere.</div>
+      <div id="invito-alert"></div>
+      <div id="invito-info" style="background:var(--sand);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:20px;font-size:13px;color:var(--text-mid)"></div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="password-wrap">
+          <input type="password" id="invito-password" class="form-input" placeholder="Minimo 6 caratteri" autocomplete="new-password">
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility(this)" aria-label="Mostra password" aria-pressed="false">
+            <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-10-7-10-7a18.4 18.4 0 0 1 4.22-5.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Conferma password</label>
+        <div class="password-wrap">
+          <input type="password" id="invito-password2" class="form-input" placeholder="Ripeti la password" autocomplete="new-password">
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility(this)" aria-label="Mostra password" aria-pressed="false">
+            <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-10-7-10-7a18.4 18.4 0 0 1 4.22-5.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="completeInviteRegistration()" id="btn-invito">Accedi a SpiaggiaMia →</button>
+    </div>
+  </div>
+</div>
+
+<!-- AUTH -->
+<div id="view-auth" class="view">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-logo"><div class="logo-text">🌊 SpiaggiaMia</div></div>
+      <!-- LOGIN -->
+      <div id="auth-login">
+        <div class="auth-title">Bentornato</div>
+        <div class="auth-sub">Accedi al tuo account</div>
+        <div id="login-alert"></div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" id="login-email" class="form-input" placeholder="mario@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="password-wrap">
+            <input type="password" id="login-password" class="form-input" placeholder="••••••••">
+            <button type="button" class="password-toggle" onclick="togglePasswordVisibility(this)" aria-label="Mostra password" aria-pressed="false">
+              <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-10-7-10-7a18.4 18.4 0 0 1 4.22-5.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
+            </button>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="doLogin()" id="btn-login">Accedi</button>
+        <div class="auth-switch"><a onclick="toggleAuth('forgot')">Password dimenticata?</a></div>
+        <div class="auth-switch">Non hai un account? <a onclick="toggleAuth('register')">Registrati</a></div>
+      </div>
+      <!-- FORGOT PASSWORD -->
+      <div id="auth-forgot" class="hidden">
+        <div class="auth-title">Recupera password</div>
+        <div class="auth-sub">Inserisci la tua email: ti invieremo un link per impostare una nuova password. Funziona sia per i proprietari di stabilimento sia per i clienti stagionali.</div>
+        <div id="forgot-alert"></div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" id="forgot-email" class="form-input" placeholder="mario@example.com" autocomplete="email">
+        </div>
+        <button class="btn btn-primary btn-full" onclick="doForgotPassword()" id="btn-forgot">Invia link di recupero</button>
+        <div class="auth-switch">Ti sei ricordato? <a onclick="toggleAuth('login')">Torna al login</a></div>
+      </div>
+      <!-- RESET PASSWORD (post link email) -->
+      <div id="auth-reset" class="hidden">
+        <div class="auth-title">Imposta nuova password</div>
+        <div class="auth-sub">Scegli una nuova password per il tuo account.</div>
+        <div id="reset-alert"></div>
+        <div class="form-group">
+          <label class="form-label">Nuova password</label>
+          <div class="password-wrap">
+            <input type="password" id="reset-password" class="form-input" placeholder="Minimo 6 caratteri" autocomplete="new-password">
+            <button type="button" class="password-toggle" onclick="togglePasswordVisibility(this)" aria-label="Mostra password" aria-pressed="false">
+              <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-10-7-10-7a18.4 18.4 0 0 1 4.22-5.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Conferma nuova password</label>
+          <div class="password-wrap">
+            <input type="password" id="reset-password2" class="form-input" placeholder="Ripeti la password" autocomplete="new-password">
+            <button type="button" class="password-toggle" onclick="togglePasswordVisibility(this)" aria-label="Mostra password" aria-pressed="false">
+              <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-10-7-10-7a18.4 18.4 0 0 1 4.22-5.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
+            </button>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="doResetPassword()" id="btn-reset">Aggiorna password</button>
+      </div>
+      <!-- REGISTER (solo proprietari) -->
+      <div id="auth-register" class="hidden">
+        <div class="auth-title">Registra il tuo stabilimento</div>
+        <div class="auth-sub">Crea l'account per gestire ombrelloni, clienti stagionali e sub-affitti.</div>
+        <div id="register-alert"></div>
+        <div class="alert alert-info" style="margin-bottom:18px;font-size:13px;line-height:1.55">
+          ☂️ <strong>Cliente stagionale?</strong> L'accesso è solo su invito. Il tuo stabilimento ti invierà un'email con il link per impostare la password.
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Nome</label><input type="text" id="reg-nome" class="form-input" placeholder="Mario"></div>
+          <div class="form-group"><label class="form-label">Cognome</label><input type="text" id="reg-cognome" class="form-input" placeholder="Rossi"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Email</label><input type="email" id="reg-email" class="form-input" placeholder="mario@example.com"></div>
+        <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="reg-telefono" class="form-input" placeholder="+39 333 1234567"></div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="password-wrap">
+            <input type="password" id="reg-password" class="form-input" placeholder="Minimo 6 caratteri">
+            <button type="button" class="password-toggle" onclick="togglePasswordVisibility(this)" aria-label="Mostra password" aria-pressed="false">
+              <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-10-7-10-7a18.4 18.4 0 0 1 4.22-5.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
+            </button>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="doRegister()" id="btn-register">Crea account</button>
+        <div class="auth-switch">Hai già un account? <a onclick="toggleAuth('login')">Accedi</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETUP STABILIMENTO -->
+<div id="view-setup" class="view">
+  <div class="setup-container">
+    <div class="setup-step active" id="setup-1">
+      <div class="setup-title">🏖️ Configura il tuo stabilimento</div>
+      <div class="setup-sub">Inserisci le informazioni base del tuo stabilimento balneare. Potrai aggiungere gli ombrelloni in qualsiasi momento dalla dashboard.</div>
+      <div id="setup1-alert"></div>
+      <div class="card"><div class="card-body">
+        <div class="form-group"><label class="form-label">Nome stabilimento</label><input type="text" id="stab-nome" class="form-input" placeholder="es. Bagno Azzurro"></div>
+        <div class="form-group"><label class="form-label">Città</label><input type="text" id="stab-citta" class="form-input" placeholder="es. Rimini"></div>
+        <div class="form-group"><label class="form-label">Indirizzo</label><input type="text" id="stab-indirizzo" class="form-input" placeholder="es. Via del Mare 12"></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="stab-telefono" class="form-input" placeholder="+39 0541 000000"></div>
+          <div class="form-group"><label class="form-label">Email stabilimento</label><input type="email" id="stab-email" class="form-input" placeholder="info@bagnoblu.it"></div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="saveStabilimento()">Vai alla dashboard →</button>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD MANAGER -->
+<div id="view-manager" class="view">
+  <div class="dash-layout">
+    <div class="sidebar">
+      <div class="sidebar-title">Principale</div>
+      <button class="sidebar-item active" onclick="managerTab('panoramica',this)"><span class="icon">📊</span> Dashboard</button>
+      <button class="sidebar-item" onclick="managerTab('prenotazioni',this)"><span class="icon">📖</span> Gestisci Prenotazioni</button>
+      <button class="sidebar-item" onclick="managerTab('crediti',this)"><span class="icon">💳</span> Gestione Credito</button>
+      <button class="sidebar-item" onclick="managerTab('gestione',this)"><span class="icon">🗺️</span> Ombrelloni e Clienti</button>
+
+      <button class="sidebar-item sidebar-altro-toggle" onclick="toggleSidebarAltro(this)" aria-expanded="false">
+        <span class="icon">⋯</span> Altro
+        <span class="sidebar-altro-chevron">▸</span>
+      </button>
+      <div class="sidebar-altro-items" id="sidebar-altro-items">
+        <button class="sidebar-item sidebar-item-sub" onclick="managerTab('transazioni',this)"><span class="icon">📋</span> Transazioni</button>
+        <button class="sidebar-item sidebar-item-sub" onclick="managerTab('comunicazioni',this)"><span class="icon">📣</span> Comunicazioni</button>
+        <button class="sidebar-item sidebar-item-sub" onclick="managerTab('config',this)"><span class="icon">⚙️</span> Configurazioni</button>
+        <button class="sidebar-item sidebar-item-sub" onclick="managerTab('log',this)"><span class="icon">🕵️</span> Log attività</button>
+      </div>
+    </div>
+    <div class="main-content">
+      <!-- DASHBOARD (KPI overview) -->
+      <!-- DASHBOARD (KPI overview — 4 KPI + flow + top-3) -->
+      <div id="mtab-panoramica" class="tab-content active">
+
+        <!-- ============ OVERVIEW (default) ============ -->
+        <div id="pano-overview">
+
+          <div id="pano-empty-state" class="hidden" style="text-align:center;padding:60px 20px">
+            <div style="font-size:48px;margin-bottom:16px">☂️</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:26px;margin-bottom:10px;color:var(--text-dark)">Il tuo stabilimento è pronto</div>
+            <div style="font-size:15px;color:var(--text-mid);max-width:440px;margin:0 auto 24px;line-height:1.6">
+              Aggiungi i tuoi ombrelloni per iniziare a usare SpiaggiaMia. Puoi farlo uno alla volta o importarli in massa con Excel.
+            </div>
+            <button class="btn btn-primary" onclick="managerTab('gestione', document.querySelector('.sidebar-item[onclick*=gestione]'))">
+              ☂️ Vai a Ombrelloni e Clienti →
+            </button>
+          </div>
+
+          <div class="page-header">
+            <div>
+              <div class="page-title">Panoramica Stabilimento <span id="pano-stab-nome"></span></div>
+            </div>
+          </div>
+
+          <!-- Toolbar periodo (range picker) -->
+          <div class="card" style="margin-bottom:20px">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:13px;color:var(--text-mid)">Periodo</span>
+              <input type="text" id="pano-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:100%;max-width:320px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+              <input type="hidden" id="pano-date-from">
+              <input type="hidden" id="pano-date-to">
+            </div>
+          </div>
+
+          <!-- 4 KPI card -->
+          <div class="pano-kpi-grid">
+            <div class="pano-kpi-card" data-accent="ocean">
+              <div class="pano-kpi-head">
+                <span class="pano-kpi-label">Giorni Ombrelloni disponibili</span>
+                <span class="pano-kpi-delta" id="pano-kpi-disp-delta"></span>
+              </div>
+              <div class="pano-kpi-value-row">
+                <span class="pano-kpi-value" id="pano-kpi-disp-val">–</span>
+                <span class="pano-kpi-unit">giorni</span>
+              </div>
+              <svg class="pano-kpi-spark" id="pano-kpi-disp-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+            </div>
+
+            <div class="pano-kpi-card" data-accent="ink">
+              <div class="pano-kpi-head">
+                <span class="pano-kpi-label">Giorni Ombrelloni subaffittati</span>
+                <span class="pano-kpi-delta" id="pano-kpi-pren-delta"></span>
+              </div>
+              <div class="pano-kpi-value-row">
+                <span class="pano-kpi-value" id="pano-kpi-pren-val">–</span>
+                <span class="pano-kpi-unit">giorni</span>
+              </div>
+              <svg class="pano-kpi-spark" id="pano-kpi-pren-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+            </div>
+
+            <div class="pano-kpi-card" data-accent="green">
+              <div class="pano-kpi-head">
+                <span class="pano-kpi-label">Coin distribuiti</span>
+                <span class="pano-kpi-delta" id="pano-kpi-distr-delta"></span>
+              </div>
+              <div class="pano-kpi-value-row">
+                <span class="pano-kpi-value" id="pano-kpi-distr-val">–</span>
+                <span class="pano-kpi-unit" data-coin-unit>Coin</span>
+              </div>
+              <svg class="pano-kpi-spark" id="pano-kpi-distr-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+            </div>
+
+            <div class="pano-kpi-card" data-accent="coral">
+              <div class="pano-kpi-head">
+                <span class="pano-kpi-label">Coin spesi</span>
+                <span class="pano-kpi-delta" id="pano-kpi-spent-delta"></span>
+              </div>
+              <div class="pano-kpi-value-row">
+                <span class="pano-kpi-value" id="pano-kpi-spent-val">–</span>
+                <span class="pano-kpi-unit" data-coin-unit>Coin</span>
+              </div>
+              <svg class="pano-kpi-spark" id="pano-kpi-spent-spark" viewBox="0 0 160 40" preserveAspectRatio="none"></svg>
+            </div>
+          </div>
+
+          <!-- Andamento disponibilità (grouped bar chart) -->
+          <div class="pano-chart-card">
+            <div class="pano-chart-head">
+              <div class="pano-chart-title-block">
+                <div class="pano-chart-title">Andamento disponibilità</div>
+                <div class="pano-chart-legend">
+                  <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:var(--ocean,#1B6CA8)"></span>Dichiarate</span>
+                  <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:var(--coral,#E07B54)"></span>Sub-affittate</span>
+                </div>
+              </div>
+              <div class="pano-chart-granularity" data-chart="disp">
+                <button type="button" class="pano-gran-btn active" data-gran="day" onclick="setChartGranularity('disp','day')">Giornaliera</button>
+                <button type="button" class="pano-gran-btn" data-gran="week" onclick="setChartGranularity('disp','week')">Settimanale</button>
+                <button type="button" class="pano-gran-btn" data-gran="month" onclick="setChartGranularity('disp','month')">Mensile</button>
+              </div>
+            </div>
+            <div class="pano-chart-body" id="pano-chart-disp">
+              <div class="pano-chart-empty">Caricamento…</div>
+            </div>
+          </div>
+
+          <!-- Andamento UniversoCoin (grouped bar chart) -->
+          <div class="pano-chart-card">
+            <div class="pano-chart-head">
+              <div class="pano-chart-title-block">
+                <div class="pano-chart-title" data-coin-trend-title>Andamento UniversoCoin</div>
+                <div class="pano-chart-legend">
+                  <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:#0A7C4A"></span><span data-coin-unit-prefix>Coin</span> distribuiti</span>
+                  <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:var(--coral,#E07B54)"></span><span data-coin-unit-prefix>Coin</span> spesi</span>
+                </div>
+              </div>
+              <div class="pano-chart-granularity" data-chart="coin">
+                <button type="button" class="pano-gran-btn active" data-gran="day" onclick="setChartGranularity('coin','day')">Giornaliera</button>
+                <button type="button" class="pano-gran-btn" data-gran="week" onclick="setChartGranularity('coin','week')">Settimanale</button>
+                <button type="button" class="pano-gran-btn" data-gran="month" onclick="setChartGranularity('coin','month')">Mensile</button>
+              </div>
+            </div>
+            <div class="pano-chart-body" id="pano-chart-coin">
+              <div class="pano-chart-empty">Caricamento…</div>
+            </div>
+          </div>
+
+          <!-- Top 5 ombrelloni: utilizzo + UniversoCoin -->
+          <div class="pano-top5-grid">
+            <div class="pano-chart-card">
+              <div class="pano-chart-head">
+                <div class="pano-chart-title-block">
+                  <div class="pano-chart-title">Top 5 ombrelloni — utilizzo</div>
+                  <div class="pano-chart-legend">
+                    <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:var(--ocean,#1B6CA8)"></span>Dichiarate</span>
+                    <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:var(--coral,#E07B54)"></span>Sub-affittate</span>
+                  </div>
+                </div>
+                <div class="pano-chart-granularity" data-chart="top-usage">
+                  <button type="button" class="pano-gran-btn active" data-sort="dichiarate" onclick="setTopSort('usage','dichiarate')">Per dichiarate</button>
+                  <button type="button" class="pano-gran-btn" data-sort="subaffittate" onclick="setTopSort('usage','subaffittate')">Per sub-affittate</button>
+                </div>
+              </div>
+              <div class="pano-chart-body" id="pano-top-usage">
+                <div class="pano-chart-empty">Caricamento…</div>
+              </div>
+            </div>
+
+            <div class="pano-chart-card">
+              <div class="pano-chart-head">
+                <div class="pano-chart-title-block">
+                  <div class="pano-chart-title" data-coin-top-title>Top 5 ombrelloni — UniversoCoin</div>
+                  <div class="pano-chart-legend">
+                    <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:#0A7C4A"></span>Ricevuti</span>
+                    <span class="pano-legend-item"><span class="pano-legend-swatch" style="background:var(--coral,#E07B54)"></span>Spesi</span>
+                  </div>
+                </div>
+                <div class="pano-chart-granularity" data-chart="top-coin">
+                  <button type="button" class="pano-gran-btn active" data-sort="ricevuti" onclick="setTopSort('coin','ricevuti')">Per ricevuti</button>
+                  <button type="button" class="pano-gran-btn" data-sort="spesi" onclick="setTopSort('coin','spesi')">Per spesi</button>
+                </div>
+              </div>
+              <div class="pano-chart-body" id="pano-top-coin">
+                <div class="pano-chart-empty">Caricamento…</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Placeholder ID legacy: loadManagerData/refreshMap scrivono qui su elementi
+             invisibili. Il nuovo design popola valori equivalenti via panoramicaLoad. -->
+        <span id="manager-stab-nome" hidden></span>
+        <span id="manager-today-label" hidden></span>
+        <span id="stat-totali" hidden></span>
+        <span id="stat-liberi" hidden></span>
+        <span id="stat-subaffittati" hidden></span>
+        <span id="stat-crediti" hidden></span>
+        <span id="stat-crediti-unit" hidden></span>
+
+      </div>
+
+      <!-- GESTIONE TAB (ombrelloni + clienti) -->
+      <div id="mtab-gestione" class="tab-content">
+        <div class="page-header">
+          <div><div class="page-title">Ombrelloni e Clienti</div><div class="page-subtitle">Aggiungi singolarmente o in massa via Excel. Ogni riga contiene sia l'ombrellone sia il cliente stagionale assegnato.</div></div>
+        </div>
+
+        <div id="gestione-sub-anagrafica" class="config-subpanel active">
+          <div id="gestione-alert" style="margin-bottom:8px"></div>
+
+        <!-- ONBOARDING BANNER — visibile solo se zero ombrelloni -->
+        <div id="onboarding-banner" class="onboarding-banner hidden">
+          <div class="onboarding-banner-inner">
+            <div class="onboarding-banner-icon">🏖️</div>
+            <div class="onboarding-banner-body">
+              <div class="onboarding-banner-title">Inizia aggiungendo i tuoi ombrelloni</div>
+              <div class="onboarding-banner-sub">
+                Usa il pulsante <strong>"+ Aggiungi"</strong> per inserirli uno a uno, oppure carica tutto in una volta con il file Excel.
+                Una volta caricati, potrai invitare i tuoi clienti stagionali via email.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Azioni: aggiungi singolo + Excel -->
+        <div class="action-grid">
+          <div class="action-card">
+            <div class="action-icon">🗺️</div>
+            <div class="action-title" id="gestisci-mappa-title">Crea mappa spiaggia</div>
+            <div class="action-desc" id="gestisci-mappa-desc">Disegna visivamente la mappa degli ombrelloni e delle passerelle.</div>
+            <button class="btn btn-primary btn-sm btn-full" onclick="apriMappaBuilderOverlay()">🔧 Gestisci mappa</button>
+          </div>
+          <div class="action-card highlight">
+            <div class="action-icon">📊</div>
+            <div class="action-title">Importa in massa via Excel</div>
+            <div class="action-desc">
+              Colonne: <code>codice, credito_giornaliero, nome, cognome, telefono, email</code>. Max 1000 righe. I campi del cliente sono opzionali.
+              <a href="#" onclick="event.preventDefault();scaricaExcel()" style="color:var(--ocean);font-weight:600" id="link-scarica-excel">📥 Scarica Excel</a>
+            </div>
+            <div id="xlsx-alert"></div>
+            <input type="file" id="xlsx-file" accept=".xlsx,.xls" onchange="loadExcelFile(event)" class="form-input">
+            <div id="xlsx-preview"></div>
+            <div id="xlsx-actions" class="hidden" style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <button class="btn btn-primary btn-sm" onclick="importaExcel()">+ Importa selezionati</button>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid);cursor:pointer"><input type="checkbox" id="xlsx-invia-inviti"> Invia anche l'invito via email</label>
+              <button class="btn btn-outline btn-sm" onclick="annullaExcel()">Annulla</button>
+              <span id="xlsx-count" style="font-size:13px;color:var(--text-mid)"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabella unificata -->
+        <div class="section-divider">☂️ Ombrelloni e clienti registrati</div>
+        <div class="card">
+          <div class="card-header" style="flex-wrap:wrap;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <input type="search" id="clienti-filter" class="form-input" placeholder="Cerca codice, nome, email…" style="width:260px;padding:6px 10px;font-size:13px" oninput="renderGestioneFiltered()">
+              <select id="clienti-stato-filter" class="form-select" style="width:auto;padding:6px 10px;font-size:13px" onchange="renderGestioneFiltered()">
+                <option value="">Tutti</option>
+                <option value="senza">Senza cliente</option>
+                <option value="mai">Mai invitato</option>
+                <option value="invitato">Invito inviato</option>
+                <option value="attivo">Cliente attivo</option>
+              </select>
+              <span id="clienti-count-label" style="font-size:13px;color:var(--text-light)"></span>
+            </div>
+            <div id="clienti-bulk-toolbar" class="hidden" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span id="clienti-selected-count" style="font-size:13px;color:var(--text-mid);font-weight:600"></span>
+              <button class="btn btn-primary btn-sm" onclick="openBulkInviteModal()">✉️ Invia inviti ai selezionati</button>
+              <button class="btn btn-outline btn-sm" onclick="clearClientiSelection()">Deseleziona</button>
+            </div>
+            <div id="gestione-bulk-bar" class="hidden" style="display:none;align-items:center;gap:10px;padding:10px 16px;background:var(--sand);border-radius:8px;border:1px solid var(--border);margin-bottom:12px">
+              <span id="gestione-bulk-count" style="font-size:13px;color:var(--text-mid)"></span>
+              <button class="btn btn-outline btn-sm" onclick="bulkInviaInviti()">📧 Invia invito</button>
+              <button class="btn btn-outline btn-sm" style="color:var(--coral);border-color:var(--coral)" onclick="bulkDisattivaOmbrelloni()">⛔ Disattiva selezionati</button>
+              <button class="btn btn-outline btn-sm" onclick="clearGestioneSelection()">✕ Deseleziona</button>
+            </div>
+          </div>
+          <!-- Toggle vista ombrelloni -->
+          <div style="padding:14px 24px 0">
+            <div class="pren-view-toggle" role="tablist" aria-label="Visualizzazione ombrelloni" style="margin: 0 0 14px 0">
+              <button type="button" class="pren-view-btn active" data-omb-view="tabella" role="tab" aria-selected="true" onclick="setOmbViewMode('tabella')">📋 Tabella</button>
+              <button type="button" class="pren-view-btn" data-omb-view="mappa" role="tab" aria-selected="false" onclick="setOmbViewMode('mappa')">🗺️ Mappa</button>
+            </div>
+            <!-- Contenitore mappa ombrelloni (inizialmente nascosto) -->
+            <div id="gestione-mappa-wrap" class="hidden">
+              <div class="map-legend" style="margin-bottom:14px">
+                <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Con cliente stagionale</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#EAF4FB;border:2px dashed var(--ocean-mid)"></div>Senza cliente</div>
+                <div class="legend-item"><div class="legend-dot legend-inactive"></div>Non attivo</div>
+              </div>
+              <div class="beach-map-wrap">
+                <div class="bar-label">Bar</div>
+                <div class="map-rows" id="gestione-mappa"></div>
+                <div class="sea-label">Mare</div>
+              </div>
+            </div>
+          </div>
+          <div id="gestione-tabella-wrap">
+          <div class="table-wrap data-table-wrapper"><table class="data-table data-table-compact">
+            <thead><tr>
+              <th style="width:36px"><input type="checkbox" id="clienti-check-all" onchange="toggleAllClienti(this.checked)"></th>
+              <th style="min-width:50px">Fila</th><th style="min-width:50px">N°</th><th style="min-width:90px">Credito/gg</th><th style="min-width:120px">Nome cliente</th><th style="min-width:160px">Email</th><th style="min-width:120px">Telefono</th><th style="min-width:80px">Stato</th><th style="min-width:100px">Azioni</th>
+            </tr></thead>
+            <tbody id="gestione-table"></tbody>
+          </table></div>
+          </div>
+        </div>
+
+        </div><!-- /gestione-sub-anagrafica -->
+
+        <!-- TRANSAZIONI SUBTAB: storico azioni su ombrelloni, clienti, inviti, import -->
+        <div id="gestione-sub-transazioni" class="config-subpanel">
+          <div class="alert alert-info" style="margin-bottom:16px;font-size:13px">
+            Storico delle attività su questa pagina: aggiunte, modifiche ed eliminazioni di ombrelloni e clienti, inviti via email, import Excel. Retention: ultimi 30 giorni.
+          </div>
+
+          <div class="card">
+            <div class="card-header" style="flex-wrap:wrap;gap:10px">
+              <div class="card-title">Filtri</div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-outline btn-sm" onclick="gestTxResetFilters()">Reset filtri</button>
+                <button id="gest-tx-export-btn" class="btn btn-primary btn-sm" onclick="exportGestTxXlsx()">📥 Esporta Excel</button>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:4px 0 8px">
+              <div>
+                <label class="form-label" style="font-size:12px">Dal</label>
+                <input type="date" id="gest-tx-date-from" class="form-input" style="padding:6px 10px;font-size:13px">
+              </div>
+              <div>
+                <label class="form-label" style="font-size:12px">Al</label>
+                <input type="date" id="gest-tx-date-to" class="form-input" style="padding:6px 10px;font-size:13px">
+              </div>
+              <div>
+                <label class="form-label" style="font-size:12px">Entità</label>
+                <select id="gest-tx-entity-type" class="form-select" style="padding:6px 10px;font-size:13px">
+                  <option value="">Tutte</option>
+                  <option value="cliente_stagionale">Cliente stagionale</option>
+                  <option value="ombrellone">Ombrellone</option>
+                  <option value="email">Email inviata</option>
+                  <option value="import">Import batch</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label" style="font-size:12px">Azione</label>
+                <select id="gest-tx-action" class="form-select" style="padding:6px 10px;font-size:13px">
+                  <option value="">Tutte</option>
+                  <option value="insert">Creazione</option>
+                  <option value="update">Modifica</option>
+                  <option value="delete">Eliminazione</option>
+                  <option value="email_sent">Email inviata</option>
+                  <option value="import_batch">Import batch</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label" style="font-size:12px">Cerca</label>
+                <input type="search" id="gest-tx-search" class="form-input" placeholder="Testo libero, nome cliente…" style="padding:6px 10px;font-size:13px">
+              </div>
+              <div>
+                <label class="form-label" style="font-size:12px">Eventi per pagina</label>
+                <select id="gest-tx-page-size" class="form-select" style="padding:6px 10px;font-size:13px">
+                  <option value="30" selected>30</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                </select>
+              </div>
+              <div style="display:flex;align-items:flex-end">
+                <button class="btn btn-primary btn-sm btn-full" onclick="gestTxApplyFilters()">Applica</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:16px">
+            <div class="card-header" style="flex-wrap:wrap;gap:10px">
+              <div style="font-size:13px;color:var(--text-mid)"><span id="gest-tx-count-label">–</span></div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <button id="gest-tx-prev" class="btn btn-outline btn-sm" onclick="gestTxPrevPage()">← Prec.</button>
+                <span id="gest-tx-page-label" style="font-size:12px;color:var(--text-mid)">Pagina 1 / 1</span>
+                <button id="gest-tx-next" class="btn btn-outline btn-sm" onclick="gestTxNextPage()">Succ. →</button>
+              </div>
+            </div>
+            <div class="table-wrap data-table-wrapper"><table class="data-table data-table-compact">
+              <thead><tr>
+                <th style="width:170px">Quando</th>
+                <th style="width:220px">Attore</th>
+                <th style="width:200px">Entità · Azione</th>
+                <th>Descrizione</th>
+                <th style="width:120px;text-align:right">Dettagli</th>
+              </tr></thead>
+              <tbody id="gest-tx-tbody"></tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EMAIL TAB -->
+      <!-- CONFIGURAZIONI TAB (Stagione + Email) -->
+      <div id="mtab-config" class="tab-content">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Configurazioni</div>
+            <div class="page-subtitle">Gestisci i parametri del tuo stabilimento</div>
+          </div>
+        </div>
+
+        <div class="config-subtabs">
+          <button class="config-subtab active" data-subtab="stagione" onclick="switchConfigSubtab('stagione',this)">🗓️ Stagione</button>
+          <button class="config-subtab" data-subtab="email-sub" onclick="switchConfigSubtab('email-sub',this)">✉️ Email</button>
+          <button class="config-subtab" data-subtab="account" onclick="switchConfigSubtab('account',this)">👤 Account</button>
+        </div>
+
+        <!-- STAGIONE SUBTAB -->
+        <div id="config-sub-stagione" class="config-subpanel active">
+          <div id="stagione-save-alert" style="margin-bottom:16px"></div>
+          <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
+            Definisci quando inizia e finisce la tua stagione. I clienti stagionali potranno dichiarare le proprie disponibilità solo all'interno di queste date.
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">📅 Date della stagione corrente</div>
+                <div class="card-subtitle">Prima e ultima giornata di operatività</div>
+              </div>
+            </div>
+            <div class="stagione-form">
+              <div class="form-group">
+                <label class="form-label" for="stagione-inizio">Inizio stagione</label>
+                <input type="date" id="stagione-inizio" class="form-input">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="stagione-fine">Fine stagione</label>
+                <input type="date" id="stagione-fine" class="form-input">
+              </div>
+              <div class="stagione-summary" id="stagione-summary"></div>
+              <div class="stagione-actions">
+                <button class="btn btn-primary btn-sm" onclick="saveStagione()">Salva date</button>
+                <button class="btn btn-outline btn-sm" onclick="loadStagione()">Ripristina</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:24px">
+            <div class="card-header">
+              <div>
+                <div class="card-title">🛠️ Regole forzate sul calendario</div>
+                <div class="card-subtitle">Sovrascrivi il comportamento di default per range di date specifici</div>
+              </div>
+            </div>
+            <div class="card-body">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+                <div style="font-size:13px;font-weight:600;color:var(--text-strong)">Regole attive e future</div>
+                <label style="font-size:13px;color:var(--text-mid);display:flex;align-items:center;gap:6px">
+                  <input type="checkbox" id="regole-show-history" onchange="renderRegoleList()"> Mostra anche le regole passate
+                </label>
+              </div>
+              <div id="regole-list" style="margin-bottom:18px"></div>
+
+              <div style="border-top:1px solid var(--border);padding-top:16px">
+                <div style="font-size:13px;font-weight:600;color:var(--text-strong);margin-bottom:10px">Crea nuova regola</div>
+                <div class="alert alert-info" style="font-size:13px;margin-bottom:16px">
+                  <strong>Chiusura speciale</strong>: bagno chiuso, le prenotazioni esistenti nel range vengono annullate automaticamente. ·
+                  <strong>Sempre subaffittabile</strong>: i clienti stagionali non possono ritirare la disponibilità. ·
+                  <strong>Mai subaffittabile</strong>: i clienti stagionali non possono dichiarare libero (bagno aperto).
+                </div>
+                <div id="regole-save-alert" style="margin-bottom:12px"></div>
+                <div class="regole-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:8px">
+                  <div class="form-group" style="margin:0">
+                    <label class="form-label" for="regola-tipo">Tipo</label>
+                    <select id="regola-tipo" class="form-input">
+                      <option value="chiusura_speciale">Chiusura speciale</option>
+                      <option value="sempre_libero">Sempre subaffittabile</option>
+                      <option value="mai_libero">Mai subaffittabile</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin:0">
+                    <label class="form-label" for="regola-data-da">Dal</label>
+                    <input type="date" id="regola-data-da" class="form-input">
+                  </div>
+                  <div class="form-group" style="margin:0">
+                    <label class="form-label" for="regola-data-a">Al</label>
+                    <input type="date" id="regola-data-a" class="form-input">
+                  </div>
+                  <div class="form-group" style="margin:0;grid-column:1/-1">
+                    <label class="form-label" for="regola-nota">Nota (opzionale)</label>
+                    <input type="text" id="regola-nota" class="form-input" maxlength="200" placeholder="es. Ferragosto, manutenzione, maltempo…">
+                  </div>
+                </div>
+                <div>
+                  <button class="btn btn-primary btn-sm" onclick="creaRegolaStato()">Crea regola</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RESET STAGIONE: zona pericolosa -->
+          <div class="card reset-card" style="margin-top:24px">
+            <div class="card-header">
+              <div>
+                <div class="card-title" style="color:var(--coral)">⚠️ Reset stagione</div>
+                <div class="card-subtitle">Pulisce tutto per far partire una nuova stagione. Operazione protetta da backup automatico.</div>
+              </div>
+            </div>
+            <div style="padding:0 4px 8px">
+              <div class="alert alert-coral" style="font-size:13px;margin-bottom:16px">
+                Il reset cancella <strong>disponibilità</strong>, <strong>transazioni</strong> e azzera i <strong>saldi coin</strong>. Puoi scegliere se mantenere la base clienti (CB) o azzerarla insieme alla mappa ombrelloni. Prima di eseguire viene creato automaticamente un backup completo, ripristinabile in qualsiasi momento.
+              </div>
+              <button class="btn btn-danger btn-sm" onclick="apriResetWizard()">🔄 Avvia reset stagione</button>
+            </div>
+          </div>
+
+          <!-- BACKUP: lista ripristinabile -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">💾 Backup disponibili</div>
+                <div class="card-subtitle">Ultimi 10 backup. Ripristinare riapplica clienti, ombrelloni, disponibilità, transazioni e saldi del momento del backup.</div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-outline btn-sm" onclick="creaBackupManuale()">+ Crea backup ora</button>
+                <button class="btn btn-outline btn-sm" onclick="loadBackupList()">↻ Aggiorna</button>
+              </div>
+            </div>
+            <div id="backup-list" style="padding:0 4px 8px">
+              <div style="font-size:13px;color:var(--text-light);padding:12px 0">Caricamento…</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- EMAIL SUBTAB (contenuto del precedente mtab-email) -->
+        <div id="config-sub-email-sub" class="config-subpanel">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+            <div style="font-size:13px;color:var(--text-mid)">Personalizza i testi delle email ai tuoi clienti</div>
+            <button class="btn btn-primary btn-sm" onclick="saveEmailTemplates()">Salva tutto</button>
+          </div>
+          <div id="email-save-alert" style="margin-bottom:16px"></div>
+          <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
+            Le email includeranno sempre in automatico il nome, telefono ed email del tuo stabilimento. Il tono è caldo e accogliente.
+          </div>
+
+          <!-- Invito -->
+        <div class="email-section">
+          <div class="email-section-header" onclick="toggleEmailSection('invito')">
+            <div class="email-section-title">✉️ Email di invito <span style="font-size:12px;color:var(--text-light);font-weight:400">(quando invii il link personale al cliente)</span></div>
+            <span>▾</span>
+          </div>
+          <div class="email-section-body" id="email-body-invito">
+            <div class="form-group">
+              <label class="form-label">Oggetto email</label>
+              <input type="text" id="email-invito-oggetto" class="form-input" maxlength="80" oninput="updateCounter('invito-oggetto',80)" placeholder="es. Sei stato invitato su SpiaggiaMia">
+              <div class="char-counter" id="counter-invito-oggetto">0/80</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Messaggio personalizzato</label>
+              <textarea id="email-invito-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('invito-testo',500)" placeholder="es. Quest'anno usiamo SpiaggiaMia per gestire gli ombrelloni..." style="resize:vertical"></textarea>
+              <div class="char-counter" id="counter-invito-testo">0/500</div>
+              <div style="font-size:12px;color:var(--text-light);margin-top:4px">Puoi usare <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{cognome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{ombrellone}}</code>.</div>
+            </div>
+            <div class="email-preview-box">
+              <strong>Anteprima:</strong> <span id="preview-invito-oggetto" style="color:var(--ocean)"></span><br>
+              <span id="preview-invito-testo"></span>
+              <div class="email-preview-fixed">+ pulsante "Completa la registrazione" (automatico) · nome stabilimento · telefono · email</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Benvenuto -->
+        <div class="email-section">
+          <div class="email-section-header" onclick="toggleEmailSection('benvenuto')">
+            <div class="email-section-title">☀️ Email di benvenuto <span style="font-size:12px;color:var(--text-light);font-weight:400">(dopo che il cliente completa l'invito)</span></div>
+            <span>▾</span>
+          </div>
+          <div class="email-section-body" id="email-body-benvenuto">
+            <div class="form-group">
+              <label class="form-label">Oggetto email</label>
+              <input type="text" id="email-benvenuto-oggetto" class="form-input" maxlength="80" oninput="updateCounter('benvenuto-oggetto',80)" placeholder="es. Benvenuto su SpiaggiaMia!">
+              <div class="char-counter" id="counter-benvenuto-oggetto">0/80</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Messaggio personalizzato</label>
+              <textarea id="email-benvenuto-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('benvenuto-testo',500)" placeholder="es. Siamo felicissimi di averti con noi!..." style="resize:vertical"></textarea>
+              <div class="char-counter" id="counter-benvenuto-testo">0/500</div>
+            </div>
+            <div class="email-preview-box">
+              <strong>Anteprima:</strong> <span id="preview-benvenuto-oggetto" style="color:var(--ocean)"></span><br>
+              <span id="preview-benvenuto-testo"></span>
+              <div class="email-preview-fixed">+ nome stabilimento · telefono · email stabilimento (automatici)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Credito accreditato -->
+        <div class="email-section">
+          <div class="email-section-header" onclick="toggleEmailSection('credito-accreditato')">
+            <div class="email-section-title">⭐ Email coin accreditati <span style="font-size:12px;color:var(--text-light);font-weight:400">(quando accrediti coin al cliente, anche dopo un sub-affitto)</span></div>
+            <span>▾</span>
+          </div>
+          <div class="email-section-body" id="email-body-credito-accreditato">
+            <div class="form-group">
+              <label class="form-label">Oggetto email</label>
+              <input type="text" id="email-credito-accreditato-oggetto" class="form-input" maxlength="80" oninput="updateCounter('credito-accreditato-oggetto',80)" placeholder="es. Hai ricevuto {{importo}}!">
+              <div class="char-counter" id="counter-credito-accreditato-oggetto">0/80</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Messaggio personalizzato</label>
+              <textarea id="email-credito-accreditato-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('credito-accreditato-testo',500)" placeholder="es. Ciao {{nome}}, abbiamo accreditato {{importo}} sul tuo saldo. Nuovo saldo: {{saldo}}." style="resize:vertical"></textarea>
+              <div class="char-counter" id="counter-credito-accreditato-testo">0/500</div>
+              <div style="font-size:12px;color:var(--text-light);margin-top:4px">Puoi usare <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{cognome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{importo}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{saldo}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{stabilimento}}</code>.</div>
+            </div>
+            <div class="email-preview-box">
+              <strong>Anteprima:</strong> <span id="preview-credito-accreditato-oggetto" style="color:var(--ocean)"></span><br>
+              <span id="preview-credito-accreditato-testo"></span>
+              <div class="email-preview-fixed">+ nome stabilimento · telefono · email stabilimento (automatici)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Credito ritirato -->
+        <div class="email-section">
+          <div class="email-section-header" onclick="toggleEmailSection('credito-ritirato')">
+            <div class="email-section-title">🧾 Email coin utilizzati <span style="font-size:12px;color:var(--text-light);font-weight:400">(quando registri l'utilizzo dei coin del cliente)</span></div>
+            <span>▾</span>
+          </div>
+          <div class="email-section-body" id="email-body-credito-ritirato">
+            <div class="form-group">
+              <label class="form-label">Oggetto email</label>
+              <input type="text" id="email-credito-ritirato-oggetto" class="form-input" maxlength="80" oninput="updateCounter('credito-ritirato-oggetto',80)" placeholder="es. Hai utilizzato {{importo}}">
+              <div class="char-counter" id="counter-credito-ritirato-oggetto">0/80</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Messaggio personalizzato</label>
+              <textarea id="email-credito-ritirato-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('credito-ritirato-testo',500)" placeholder="es. Ciao {{nome}}, hai utilizzato {{importo}} dal tuo saldo. Saldo residuo: {{saldo}}." style="resize:vertical"></textarea>
+              <div class="char-counter" id="counter-credito-ritirato-testo">0/500</div>
+              <div style="font-size:12px;color:var(--text-light);margin-top:4px">Puoi usare <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{cognome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{importo}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{saldo}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nota}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{stabilimento}}</code>.</div>
+            </div>
+            <div class="email-preview-box">
+              <strong>Anteprima:</strong> <span id="preview-credito-ritirato-oggetto" style="color:var(--ocean)"></span><br>
+              <span id="preview-credito-ritirato-testo"></span>
+              <div class="email-preview-fixed">+ nome stabilimento · telefono · email stabilimento (automatici)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chiusura stagione -->
+        <div class="email-section">
+          <div class="email-section-header" onclick="toggleEmailSection('chiusura-stagione')">
+            <div class="email-section-title">🌅 Email di chiusura stagione <span style="font-size:12px;color:var(--text-light);font-weight:400">(inviata ai clienti registrati al reset stagione)</span></div>
+            <span>▾</span>
+          </div>
+          <div class="email-section-body" id="email-body-chiusura-stagione">
+            <div class="form-group">
+              <label class="form-label">Oggetto email</label>
+              <input type="text" id="email-chiusura-stagione-oggetto" class="form-input" maxlength="80" oninput="updateCounter('chiusura-stagione-oggetto',80)" placeholder="es. La stagione è terminata — grazie {{nome}}!">
+              <div class="char-counter" id="counter-chiusura-stagione-oggetto">0/80</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Messaggio personalizzato</label>
+              <textarea id="email-chiusura-stagione-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('chiusura-stagione-testo',500)" placeholder="es. Ciao {{nome}}, la stagione è finita. Il tuo account non sarà più attivo fino alla riapertura..." style="resize:vertical"></textarea>
+              <div class="char-counter" id="counter-chiusura-stagione-testo">0/500</div>
+              <div style="font-size:12px;color:var(--text-light);margin-top:4px">Puoi usare <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{cognome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{stabilimento}}</code>. Il riepilogo (giorni di disponibilità, sub-affitti, coin ricevuti/spesi) viene aggiunto automaticamente in fondo all'email.</div>
+            </div>
+            <div class="email-preview-box">
+              <strong>Anteprima:</strong> <span id="preview-chiusura-stagione-oggetto" style="color:var(--ocean)"></span><br>
+              <span id="preview-chiusura-stagione-testo"></span>
+              <div class="email-preview-fixed">+ riepilogo personale del cliente (gg disponibilità, gg sub-affittati, coin ricevuti/spesi) · nome stabilimento · contatti (automatici)</div>
+            </div>
+          </div>
+        </div>
+
+        </div><!-- /config-sub-email-sub -->
+
+        <!-- ACCOUNT SUBTAB -->
+        <div id="config-sub-account" class="config-subpanel">
+
+          <!-- Dati stabilimento -->
+          <div class="card" style="margin-bottom:24px">
+            <div class="card-header">
+              <div>
+                <div class="card-title">🏖️ Dati del tuo stabilimento</div>
+                <div class="card-subtitle">Modifica le informazioni del tuo stabilimento.</div>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="stab-account-alert" style="margin-bottom:12px"></div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Nome stabilimento *</label>
+                  <input type="text" id="account-stab-nome" class="form-input" placeholder="es. Bagno Azzurro" maxlength="100">
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="saveStabilimentoAccount()">Salva nome stabilimento</button>
+            </div>
+          </div>
+
+          <!-- Anagrafica -->
+          <div class="card" style="margin-bottom:24px">
+            <div class="card-header">
+              <div>
+                <div class="card-title">👤 Dati del tuo account</div>
+                <div class="card-subtitle">Modifica le informazioni del tuo profilo.</div>
+              </div>
+            </div>
+            <div id="account-save-alert" style="margin-bottom:12px"></div>
+            <div style="padding:0 4px 8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+              <div class="form-group" style="margin:0">
+                <label class="form-label" for="account-nome">Nome *</label>
+                <input type="text" id="account-nome" class="form-input" maxlength="100" placeholder="es. Mario">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label class="form-label" for="account-cognome">Cognome *</label>
+                <input type="text" id="account-cognome" class="form-input" maxlength="100" placeholder="es. Rossi">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label class="form-label" for="account-telefono">Telefono</label>
+                <input type="tel" id="account-telefono" class="form-input" maxlength="30" placeholder="es. +39 333 1234567">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label class="form-label" for="account-email">Email (non modificabile)</label>
+                <input type="email" id="account-email" class="form-input" readonly style="background:var(--sand);color:var(--text-light);cursor:default">
+              </div>
+            </div>
+            <div style="padding:4px 4px 8px">
+              <button class="btn btn-primary btn-sm" id="btn-account-save" onclick="accountSaveProfilo()">Salva modifiche</button>
+            </div>
+          </div>
+
+          <!-- Cambio password -->
+          <div class="card" style="margin-bottom:24px">
+            <div class="card-header">
+              <div>
+                <div class="card-title">🔑 Cambia password</div>
+                <div class="card-subtitle">Imposta una nuova password per il tuo account.</div>
+              </div>
+            </div>
+            <div id="account-pw-alert" style="margin-bottom:12px"></div>
+            <div style="padding:0 4px 8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+              <div class="form-group" style="margin:0">
+                <label class="form-label" for="account-new-password">Nuova password</label>
+                <input type="password" id="account-new-password" class="form-input" minlength="6" autocomplete="new-password" placeholder="Almeno 6 caratteri">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label class="form-label" for="account-new-password2">Conferma nuova password</label>
+                <input type="password" id="account-new-password2" class="form-input" minlength="6" autocomplete="new-password" placeholder="Ripeti la password">
+              </div>
+            </div>
+            <div style="padding:4px 4px 8px">
+              <button class="btn btn-primary btn-sm" id="btn-account-pw" onclick="accountChangePassword()">Aggiorna password</button>
+            </div>
+          </div>
+
+          <!-- Zona pericolosa -->
+          <div class="card reset-card">
+            <div class="card-header">
+              <div>
+                <div class="card-title" style="color:var(--coral)">⚠️ Zona pericolosa</div>
+                <div class="card-subtitle">Operazioni irreversibili sull'account.</div>
+              </div>
+            </div>
+            <div style="padding:0 4px 8px">
+              <div class="alert alert-coral" style="font-size:13px;margin-bottom:16px">
+                La cancellazione elimina definitivamente <strong>tutti i tuoi dati</strong>: stabilimento, ombrelloni, clienti stagionali, prenotazioni, transazioni e backup. <strong>Non è recuperabile.</strong>
+              </div>
+              <button class="btn btn-danger btn-sm" onclick="openCancellaAccountModal()">🗑️ Elimina account definitivamente</button>
+            </div>
+          </div>
+
+        </div><!-- /config-sub-account -->
+
+        <!-- AVANZATE SUBTAB: azioni gestore (massiva su mappa / mirata su singolo ombrellone) -->
+      </div>
+
+      <!-- PRENOTAZIONI TAB (mappa + lista) -->
+      <div id="mtab-prenotazioni" class="tab-content">
+        <div class="page-header">
+          <div><div class="page-title">Gestisci Prenotazioni</div><div class="page-subtitle">Crea una nuova prenotazione dalla mappa e consulta le prenotazioni attive.</div></div>
+        </div>
+
+        <div class="pren-subtabs" role="tablist">
+          <button type="button" class="pren-subtab active" data-pren-subtab="crea" onclick="switchPrenSubtab('crea',this)">Crea prenotazione</button>
+          <button type="button" class="pren-subtab hidden" data-pren-subtab="vedi" onclick="switchPrenSubtab('vedi',this)">Vedi disponibilità</button>
+          <button type="button" class="pren-subtab" data-pren-subtab="disponibilita-omb" onclick="switchPrenSubtab('disponibilita-omb',this)">⚙️ Disponibilità Ombrelloni</button>
+        </div>
+
+        <div id="pren-sub-crea" class="pren-subpanel active">
+
+        <!-- MAPPA PER CREARE PRENOTAZIONI -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🗺️ Mappa ombrelloni</div>
+          </div>
+          <div id="map-range-presets" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:0 4px 12px">
+            <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
+              <span>Seleziona il Periodo della prenotazione</span>
+              <input type="text" id="map-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+              <input type="hidden" id="map-date-from">
+              <input type="hidden" id="map-date-to">
+            </div>
+            <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="1" onclick="setMapRangePreset(1)">Oggi</button>
+            <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="2" onclick="setMapRangePreset(2)">Prossimi 2 giorni</button>
+            <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="3" onclick="setMapRangePreset(3)">Prossimi 3 giorni</button>
+            <button type="button" class="btn btn-outline btn-sm map-preset-btn" data-days="7" onclick="setMapRangePreset(7)">Prossimi 7 giorni</button>
+          </div>
+          <div class="beach-map-wrap">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px">
+              <div>
+                <div class="map-legend">
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Stagionale presente</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Libero tutto il periodo</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:2px dashed #96DDB8"></div>Libero tutto il periodo, non assegnato a nessun cliente stagionale</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,var(--coral) 0 4px,var(--coral-light) 4px 10px);border:2px solid var(--coral)"></div>Parte di una combinazione</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+                  <div class="legend-item"><div class="legend-dot legend-inactive"></div>Non attivo</div>
+                </div>
+                <div id="map-regole-banner" style="margin-top:10px"></div>
+                <div id="map-free-count" style="margin-top:10px"></div>
+                <div style="font-size:12px;color:var(--text-light);margin-top:8px">Periodo: <strong id="map-range-label">oggi</strong></div>
+              </div>
+              <div>
+                <div class="bar-label">Bar</div>
+                <div class="map-rows" id="manager-map"></div>
+                <div class="sea-label">Mare</div>
+              </div>
+            </div>
+          </div><!-- /beach-map-wrap -->
+          <div id="booking-selection-panel" class="booking-selection-panel hidden"></div>
+        </div>
+
+        <!-- ELENCO PRENOTAZIONI -->
+        <div class="card" style="margin-top:20px">
+          <div class="card-header" style="flex-wrap:wrap;gap:10px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div class="card-title">Elenco prenotazioni</div>
+              <div class="pren-view-toggle" role="tablist" aria-label="Modalità di visualizzazione">
+                <button type="button" class="pren-view-btn active" data-view="lista" role="tab" aria-selected="true" onclick="setPrenViewMode('lista')">📋 Lista</button>
+                <button type="button" class="pren-view-btn" data-view="tabella" role="tab" aria-selected="false" onclick="setPrenViewMode('tabella')">🗓️ Tabella</button>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <input type="search" id="pren-filter-nome" class="form-input" placeholder="Nome prenotazione" style="width:200px;padding:6px 10px;font-size:13px" oninput="renderPrenotazioni()">
+              <input type="search" id="pren-filter-ombrellone" class="form-input" placeholder="Numero ombrellone (es. 23 oppure A 12)" style="width:240px;padding:6px 10px;font-size:13px" oninput="renderPrenotazioni()">
+              <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
+                <span title="Filtra le prenotazioni per giorno di sub-affitto">Periodo (giorno del sub-affitto)</span>
+                <input type="text" id="pren-range-picker" class="form-input" readonly placeholder="Tutte le date" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+                <input type="hidden" id="pren-filter-from">
+                <input type="hidden" id="pren-filter-to">
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="pren-count-label" style="font-size:13px;color:var(--text-light);margin-bottom:10px"></div>
+            <div id="prenotazioni-list"><div class="tx-empty">Caricamento...</div></div>
+            <div id="prenotazioni-tabella" class="hidden"></div>
+          </div>
+        </div>
+
+        </div><!-- /pren-sub-crea -->
+
+        <div id="pren-sub-vedi" class="pren-subpanel">
+          <div class="card">
+            <div class="card-header" style="flex-wrap:wrap;gap:10px">
+              <div class="card-title">📅 Disponibilità giorno per giorno</div>
+            </div>
+            <div id="disp-range-presets" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:0 4px 12px">
+              <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
+                <span>Periodo</span>
+                <input type="text" id="disp-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+                <input type="hidden" id="disp-date-from">
+                <input type="hidden" id="disp-date-to">
+              </div>
+              <button type="button" class="btn btn-outline btn-sm disp-preset-btn" data-days="1" onclick="setDispRangePreset(1)">Oggi</button>
+              <button type="button" class="btn btn-outline btn-sm disp-preset-btn" data-days="3" onclick="setDispRangePreset(3)">Prossimi 3 giorni</button>
+              <button type="button" class="btn btn-outline btn-sm disp-preset-btn" data-days="7" onclick="setDispRangePreset(7)">Prossimi 7 giorni</button>
+              <button type="button" class="btn btn-outline btn-sm disp-preset-btn" data-days="14" onclick="setDispRangePreset(14)">Prossimi 14 giorni</button>
+              <button type="button" class="btn btn-outline btn-sm disp-preset-btn" data-days="31" onclick="setDispRangePreset(31)">Prossimi 31 giorni</button>
+            </div>
+            <div class="card-body" style="padding-top:0">
+              <div class="disp-filters">
+                <div class="disp-filter-group">
+                  <label class="disp-filter-label">Codice ombrellone</label>
+                  <div id="disp-filter-file" class="disp-checkbox-row">
+                    <input type="text" id="disp-filter-codice" class="form-input" style="font-size:12px;padding:4px 8px" placeholder="es. A1, Gazebo" oninput="renderDispView()">
+                  </div>
+                </div>
+                <div class="disp-filter-group">
+                  <label class="disp-filter-label">Stato</label>
+                  <div class="disp-checkbox-row">
+                    <label class="disp-chk"><input type="checkbox" data-stato="libero" onchange="renderDispView()"> Libero</label>
+                    <label class="disp-chk"><input type="checkbox" data-stato="subaffittato" onchange="renderDispView()"> Sub-affittato</label>
+                    <label id="disp-chk-regola-wrap" class="disp-chk hidden"><input type="checkbox" data-stato="regola" onchange="renderDispView()"> Con regole</label>
+                  </div>
+                </div>
+                <div class="disp-filter-group" style="flex:1;min-width:220px">
+                  <label class="disp-filter-label">Cerca</label>
+                  <input type="search" id="disp-search" class="form-input" placeholder="Stagionale o nome prenotazione" style="padding:6px 10px;font-size:13px" oninput="renderDispView()">
+                </div>
+              </div>
+              <div id="disp-legend" class="disp-legend"></div>
+              <div id="disp-table-wrap" class="disp-table-wrap">
+                <div class="tx-empty">Seleziona un periodo per vedere la disponibilità.</div>
+              </div>
+            </div>
+          </div>
+        </div><!-- /pren-sub-vedi -->
+
+        <div id="pren-sub-disponibilita-omb" class="pren-subpanel">
+          <div class="alert alert-info" style="margin-bottom:20px;font-size:13px">
+            Da qui puoi forzare lo stato degli ombrelloni indipendentemente da quello che dichiara il cliente stagionale: rendere disponibili per sub-affitto o rimuovere disponibilità, sia in modo massivo che giorno per giorno su un singolo ombrellone.
+          </div>
+
+          <div id="avanzate-save-alert" style="margin-bottom:16px"></div>
+
+          <div class="avanzate-subtabs">
+            <button class="avanzate-subtab active" data-avanzate-subtab="massiva" onclick="switchAvanzateSubtab('massiva',this)">🗺️ Azione massiva</button>
+            <button class="avanzate-subtab" data-avanzate-subtab="mirata" onclick="switchAvanzateSubtab('mirata',this)">🎯 Giorno per giorno</button>
+          </div>
+
+          <div id="avanzate-pane-massiva" class="avanzate-pane active">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🗺️ Mappa ombrelloni</div>
+            </div>
+
+            <div class="avanzate-step-label">Passo 1 — Scegli il periodo e seleziona gli ombrelloni</div>
+
+            <div style="padding:8px 4px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="font-size:13px;color:var(--text-mid)">Periodo:</span>
+              <input type="text" id="avanzate-range-picker" class="form-input" readonly placeholder="Seleziona inizio e fine" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
+              <input type="hidden" id="avanzate-date-from">
+              <input type="hidden" id="avanzate-date-to">
+              <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-preset="stagione" onclick="setAvanzateRangeStagione()">📅 Tutta la stagione</button>
+            </div>
+
+            <div class="beach-map-wrap">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                <div>
+                  <div class="map-legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Occupato dal cliente</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Libero tutto il periodo</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#EAF4FB;border:2px dashed var(--ocean-mid)"></div>Senza cliente (subaffittabile)</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,#FF9A3C 0 6px,#FFD29A 6px 12px);border:2px solid #FF8C00"></div>Libero parziale</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+                    <div class="legend-item"><div class="legend-dot legend-inactive"></div>Non attivo</div>
+                  </div>
+                  <div id="avanzate-summary" style="font-size:12px;color:var(--text-light);margin-top:10px"></div>
+                  <div style="font-size:12px;color:var(--text-light);margin-top:8px">Periodo: <strong id="avanzate-range-label">oggi</strong></div>
+                </div>
+                <div>
+                  <div class="bar-label">Bar</div>
+                  <div class="map-rows" id="avanzate-map"></div>
+                  <div class="sea-label">Mare</div>
+                </div>
+              </div>
+            </div><!-- /beach-map-wrap -->
+
+            <div class="avanzate-step-label" style="margin-top:20px">Passo 2 — Applica l'azione agli ombrelloni selezionati</div>
+
+            <div class="avanzate-selection-bar" id="avanzate-selection-bar">
+              <span id="avanzate-selection-count" class="avanzate-sel-count">0 selezionati</span>
+              <button type="button" class="btn btn-outline btn-sm" onclick="avanzateClearSelection()">Deseleziona tutti</button>
+            </div>
+
+            <div id="avanzate-booking-warning" class="hidden" style="margin:0 4px 12px;padding:10px 14px;background:#FFF8E1;border:1px solid #FFD54F;border-radius:var(--radius-sm);font-size:13px;color:#5D4037">
+              <span id="avanzate-booking-warning-text"></span>
+            </div>
+
+            <div class="avanzate-bulk-bar">
+              <div style="font-size:12px;color:var(--text-mid)">Azioni sugli ombrelloni selezionati:</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-outline btn-sm" id="avanzate-bulk-force-btn" onclick="bulkAvanzateForceDisponibile()" disabled>✓ Rendi disponibili i selezionati</button>
+                <button class="btn btn-outline btn-sm" id="avanzate-bulk-remove-btn" onclick="bulkAvanzateRemoveDisponibilita()" disabled>✗ Rimuovi disponibilità dai selezionati</button>
+              </div>
+            </div>
+          </div>
+          </div><!-- /avanzate-pane-massiva -->
+
+          <div id="avanzate-pane-mirata" class="avanzate-pane">
+            <div id="mirata-alert" style="margin-bottom:12px"></div>
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">🎯 Azione mirata su un ombrellone</div>
+                  <div class="card-subtitle">Seleziona un ombrellone per forzare o rimuovere la disponibilità giorno per giorno</div>
+                </div>
+              </div>
+
+              <div style="padding:18px 22px 6px">
+                <label class="form-label" for="mirata-omb-select" style="display:block;margin-bottom:6px">Ombrellone</label>
+                <select id="mirata-omb-select" class="form-select" onchange="mirataOnSelect()" style="max-width:480px">
+                  <option value="">— Seleziona un ombrellone —</option>
+                </select>
+              </div>
+
+              <div id="mirata-detail" class="hidden" style="padding:8px 22px 22px">
+                <div class="avanzate-omb-info">
+                  <div class="avanzate-omb-info-cell" style="grid-column:1/-1">
+                    <div class="avanzate-omb-info-label">Ombrellone</div>
+                    <div class="avanzate-omb-info-value" id="mirata-omb-title">–</div>
+                  </div>
+                  <div class="avanzate-omb-info-cell" style="grid-column:1/-1">
+                    <div class="avanzate-omb-info-label">Cliente assegnato</div>
+                    <div class="avanzate-omb-info-value" id="mirata-omb-cliente">–</div>
+                  </div>
+                  <div class="avanzate-omb-info-cell">
+                    <div class="avanzate-omb-info-label">Credito giornaliero</div>
+                    <div class="avanzate-omb-info-value" id="mirata-omb-credito">–</div>
+                  </div>
+                  <div class="avanzate-omb-info-cell">
+                    <div class="avanzate-omb-info-label">Saldo coin cliente</div>
+                    <div class="avanzate-omb-info-value" id="mirata-omb-saldo">–</div>
+                  </div>
+                </div>
+
+                <div id="mirata-inattivo-banner"></div>
+                <div class="avanzate-omb-section">
+                  <div class="avanzate-omb-section-title">Disponibilità giorno per giorno</div>
+                  <div id="mirata-day-list" class="mirata-day-list"></div>
+                </div>
+              </div>
+            </div>
+          </div><!-- /avanzate-pane-mirata -->
+
+        </div><!-- /pren-sub-disponibilita-omb -->
+
+      </div>
+
+      <!-- CREDITI TAB -->
+      <div id="mtab-crediti" class="tab-content">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Gestione Credito</div>
+            <div class="page-subtitle">Registra utilizzi e consulta il saldo coin degli stagionali</div>
+          </div>
+        </div>
+
+        <div class="crediti-subtabs">
+          <button type="button" class="crediti-subtab active" data-crediti-subtab="utilizzo" onclick="switchCreditiSubtab('utilizzo',this)">💳 Utilizzo Crediti</button>
+          <button type="button" class="crediti-subtab" data-crediti-subtab="stagionali" onclick="switchCreditiSubtab('stagionali',this)">🏖️ Crediti degli Stagionali</button>
+        </div>
+
+        <div id="crediti-sub-utilizzo" class="crediti-subpanel active">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Registra utilizzo credito</div></div>
+            <div class="card-body">
+              <div id="crediti-alert"></div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-label">Cliente</label>
+                  <div class="combobox" data-combobox="credito-cliente">
+                    <input type="text" id="credito-cliente-search" class="form-input combobox-search" placeholder="Cerca per nome cliente o ombrellone (es. A12)…" autocomplete="off">
+                    <input type="hidden" id="credito-cliente">
+                    <div id="credito-cliente-list" class="combobox-list hidden"></div>
+                  </div>
+                  <div id="credito-saldo-box" class="credito-saldo-box hidden">
+                    <span>💰 Credito disponibile:</span>
+                    <strong id="credito-saldo-value"></strong>
+                  </div>
+                </div>
+                <div class="form-group"><label class="form-label" data-coin-label="Importo">Importo</label><input type="number" id="credito-importo" class="form-input" placeholder="es. 20.00" min="0.01" step="0.01"></div>
+              </div>
+              <div class="form-group"><label class="form-label">Note (opzionale)</label><input type="text" id="credito-nota" class="form-input" placeholder="es. Pranzo al ristorante"></div>
+              <button class="btn btn-primary" onclick="usaCredito()">Registra utilizzo</button>
+            </div>
+          </div>
+          <div style="margin-top:20px" class="card">
+            <div class="card-header">
+              <div class="card-title">📋 Ultime transazioni</div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
+                  <span>Dal</span>
+                  <input type="date" id="analytics-date-from" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="updateAnalyticsPresetActive(); loadCreditiAnalytics()">
+                  <span>al</span>
+                  <input type="date" id="analytics-date-to" class="form-input" style="width:140px;padding:6px 10px;font-size:13px" onchange="updateAnalyticsPresetActive(); loadCreditiAnalytics()">
+                </div>
+                <button class="btn btn-outline btn-sm analytics-preset-btn" data-preset="7" onclick="setAnalyticsRange('7')">Ultimi 7 gg</button>
+                <button class="btn btn-outline btn-sm analytics-preset-btn" data-preset="3" onclick="setAnalyticsRange('3')">Ultimi 3 gg</button>
+                <button class="btn btn-outline btn-sm analytics-preset-btn" data-preset="ieri" onclick="setAnalyticsRange('ieri')">Ieri</button>
+                <button class="btn btn-outline btn-sm analytics-preset-btn" data-preset="oggi" onclick="setAnalyticsRange('oggi')">Oggi</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="stats-row compact" style="margin-bottom:16px">
+                <div class="stat-card"><div class="stat-label">Crediti distribuiti</div><div class="stat-value ocean" id="analytics-tot-ricevuti">–</div><div class="stat-sub">ai clienti stagionali</div></div>
+                <div class="stat-card"><div class="stat-label">Crediti spesi</div><div class="stat-value coral" id="analytics-tot-spesi">–</div><div class="stat-sub">dai clienti stagionali</div></div>
+                <div class="stat-card"><div class="stat-label">Sub-affitti</div><div class="stat-value green" id="analytics-tot-subaffitti">–</div><div class="stat-sub" id="analytics-tot-subaffitti-sub">giornate sub-affittate</div></div>
+              </div>
+              <div class="table-wrap data-table-wrapper"><table class="data-table">
+                <thead><tr>
+                  <th>Data</th>
+                  <th>Tipo</th>
+                  <th>Cliente</th>
+                  <th>Ombrellone</th>
+                  <th style="text-align:right">Importo</th>
+                  <th>Nota</th>
+                </tr></thead>
+                <tbody id="analytics-table"></tbody>
+              </table></div>
+              <div id="analytics-pagination" class="hidden" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--text-mid)">
+                <span id="analytics-page-info"></span>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <button class="btn btn-outline btn-sm" id="analytics-page-prev" onclick="changeAnalyticsPage(-1)">← Precedente</button>
+                  <button class="btn btn-outline btn-sm" id="analytics-page-next" onclick="changeAnalyticsPage(1)">Successiva →</button>
+                </div>
+              </div>
+              <div id="analytics-empty" class="hidden" style="text-align:center;color:var(--text-light);padding:24px">Nessuna transazione nel periodo selezionato</div>
+            </div>
+          </div>
+        </div><!-- /crediti-sub-utilizzo -->
+
+        <div id="crediti-sub-stagionali" class="crediti-subpanel">
+          <div class="crediti-stag-filters">
+            <input type="search" id="crediti-stag-search-nome" class="form-input" placeholder="🔍 Cerca per nome proprietario…" oninput="renderCreditiStagionali()">
+            <input type="search" id="crediti-stag-search-omb" class="form-input" placeholder="🔍 Cerca per ombrellone (es. A12)…" oninput="renderCreditiStagionali()">
+          </div>
+          <div id="crediti-stag-list" class="crediti-stag-list">
+            <div class="tx-empty">Caricamento...</div>
+          </div>
+        </div><!-- /crediti-sub-stagionali -->
+
+      </div><!-- /mtab-crediti -->
+
+<!-- MODAL dettaglio transazioni coin stagionale -->
+<div id="modal-crediti-stag-dettaglio" class="modal-overlay hidden" onclick="if(event.target===this)closeCreditiStagModal()">
+  <div class="modal" style="max-width:520px;width:100%">
+    <div class="modal-header">
+      <div class="modal-title" id="crediti-stag-modal-title">Transazioni Coin</div>
+      <button class="modal-close" onclick="closeCreditiStagModal()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <div class="crediti-stag-modal-summary" id="crediti-stag-modal-summary"></div>
+      <div id="crediti-stag-modal-tx-list" class="crediti-stag-modal-tx-list">
+        <div class="tx-empty">Caricamento...</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeCreditiStagModal()">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+      <!-- TRANSAZIONI TAB -->
+      <div id="mtab-transazioni" class="tab-content">
+        <div class="page-header">
+          <div><div class="page-title">📋 Transazioni</div><div class="page-subtitle">Tutti gli eventi dello stabilimento: transazioni credito, sub-affitti, email inviate e completamenti di registrazione. Filtra per periodo, cliente o numero ombrellone.</div></div>
+          <button class="btn btn-outline btn-sm" onclick="txTabResetFilters()">Reset filtri</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header" style="flex-wrap:wrap;gap:10px">
+            <div class="card-title">Filtri</div>
+            <span id="tx-tab-count-label" style="font-size:13px;color:var(--text-light)"></span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding:4px 0 8px">
+            <div>
+              <label class="form-label" style="font-size:12px">Dal</label>
+              <input type="date" id="tx-tab-date-from" class="form-input" style="padding:6px 10px;font-size:13px" onchange="loadTxTab()">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Al</label>
+              <input type="date" id="tx-tab-date-to" class="form-input" style="padding:6px 10px;font-size:13px" onchange="loadTxTab()">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Cliente</label>
+              <select id="tx-tab-cliente" class="form-select" style="padding:6px 10px;font-size:13px" onchange="loadTxTab()">
+                <option value="">Tutti i clienti</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Numero ombrellone</label>
+              <input type="search" id="tx-tab-ombrellone" class="form-input" placeholder="Es. 23 oppure A 12" style="padding:6px 10px;font-size:13px" oninput="renderTxTab()">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Tipo</label>
+              <select id="tx-tab-tipo" class="form-select" style="padding:6px 10px;font-size:13px" onchange="loadTxTab()">
+                <option value="">Tutti i tipi</option>
+                <option value="disponibilita_aggiunta">Disponibilità dichiarata</option>
+                <option value="disponibilita_rimossa">Disponibilità rimossa</option>
+                <option value="sub_affitto">Sub-affitto confermato</option>
+                <option value="sub_affitto_annullato">Sub-affitto annullato</option>
+                <option value="credito_ricevuto">Credito ricevuto</option>
+                <option value="credito_usato">Credito utilizzato</option>
+                <option value="credito_revocato">Credito revocato</option>
+                <option value="regola_forzata_aggiunta">Regola gestore: impostata</option>
+                <option value="regola_forzata_rimossa">Regola gestore: revocata</option>
+                <option value="comunicazione_ricevuta">Comunicazione ricevuta</option>
+                <option value="email_sent">Email inviata</option>
+                <option value="registrazione_completata">Registrazione completata</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px 8px">
+            <button type="button" class="btn btn-outline btn-sm tx-tab-preset-btn" data-preset="7" onclick="setTxTabRange(7)">Ultimi 7 gg</button>
+            <button type="button" class="btn btn-outline btn-sm tx-tab-preset-btn" data-preset="30" onclick="setTxTabRange(30)">Ultimi 30 gg</button>
+            <button type="button" class="btn btn-outline btn-sm tx-tab-preset-btn" data-preset="90" onclick="setTxTabRange(90)">Ultimi 90 gg</button>
+            <button type="button" class="btn btn-outline btn-sm tx-tab-preset-btn" data-preset="all" onclick="setTxTabRange('all')">Tutto lo storico</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div class="table-wrap data-table-wrapper"><table class="data-table">
+            <thead><tr>
+              <th style="width:160px">Data</th>
+              <th style="width:200px">Tipo</th>
+              <th>Cliente</th>
+              <th style="width:160px">Ombrellone</th>
+              <th style="width:120px;text-align:right">Importo</th>
+              <th>Nota</th>
+            </tr></thead>
+            <tbody id="tx-tab-tbody"></tbody>
+          </table></div>
+          <div id="tx-tab-empty" class="hidden" style="text-align:center;color:var(--text-light);padding:24px">Nessuna transazione corrispondente ai filtri</div>
+          <div id="tx-tab-pagination" class="hidden" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--text-mid)">
+            <span id="tx-tab-page-info"></span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <button class="btn btn-outline btn-sm" id="tx-tab-page-prev" onclick="changeTxTabPage(-1)">← Precedente</button>
+              <button class="btn btn-outline btn-sm" id="tx-tab-page-next" onclick="changeTxTabPage(1)">Successiva →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOG ATTIVITÀ TAB -->
+      <!-- COMUNICAZIONI -->
+      <div id="mtab-comunicazioni" class="tab-content">
+        <div class="page-header">
+          <div>
+            <div class="page-title">📣 Comunicazioni</div>
+            <div class="page-subtitle">Invia messaggi alla tua customer base. Email, WhatsApp e SMS.</div>
+          </div>
+        </div>
+
+        <div class="comm-tabs" role="tablist">
+          <button class="comm-tab active" data-comm-tab="email" role="tab" onclick="comunicazioniSwitchTab('email', this)">✉️ Email</button>
+          <button class="comm-tab" data-comm-tab="whatsapp" role="tab" onclick="comunicazioniSwitchTab('whatsapp', this)">💬 WhatsApp</button>
+          <button class="comm-tab" data-comm-tab="sms" role="tab" onclick="comunicazioniSwitchTab('sms', this)">📱 SMS</button>
+        </div>
+
+        <!-- ============ TAB EMAIL ============ -->
+        <div id="comm-pane-email" class="comm-pane active">
+
+          <!-- Bozze -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><div class="card-title">Bozze salvate</div></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+              <div style="flex:1;min-width:220px">
+                <label class="form-label" style="font-size:12px">Carica una bozza</label>
+                <select id="comm-email-bozza-select" class="form-select" onchange="comunicazioniBozzaCambiata()">
+                  <option value="">— Nessuna bozza selezionata —</option>
+                </select>
+              </div>
+              <button class="btn btn-outline btn-sm" type="button" onclick="comunicazioniSalvaBozza()">💾 Salva nuova bozza</button>
+              <button class="btn btn-outline btn-sm" id="comm-btn-sovrascrivi" type="button" onclick="comunicazioniSovrascriviBozza()" disabled>♻️ Sovrascrivi</button>
+            </div>
+            <div id="comm-bozza-info" style="margin-top:8px;font-size:12px;color:var(--text-mid)"></div>
+          </div>
+
+          <!-- Destinatari -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><div class="card-title">Destinatari</div></div>
+            <div class="comm-recipients">
+              <label class="comm-radio">
+                <input type="radio" name="comm-recipients" value="all" checked onchange="comunicazioniRefreshRecipients()">
+                <span>Tutti i clienti con email</span>
+              </label>
+              <label class="comm-radio">
+                <input type="radio" name="comm-recipients" value="filter" onchange="comunicazioniRefreshRecipients()">
+                <span>Filtra per fila / range numero</span>
+              </label>
+              <label class="comm-radio">
+                <input type="radio" name="comm-recipients" value="manual" onchange="comunicazioniRefreshRecipients()">
+                <span>Selezione manuale</span>
+              </label>
+              <label class="comm-radio">
+                <input type="radio" name="comm-recipients" value="single" onchange="comunicazioniRefreshRecipients()">
+                <span>Singolo cliente</span>
+              </label>
+            </div>
+
+            <div id="comm-rec-filter" class="comm-rec-detail" style="display:none">
+              <div>
+                <label class="form-label" style="font-size:12px">Filtra per codice ombrellone (separa con virgola, vuoto = tutti)</label>
+                <input type="text" id="comm-filter-codice" class="form-input" placeholder="es. A1, B3, Gazebo" oninput="comunicazioniRefreshRecipients()">
+              </div>
+            </div>
+
+            <div id="comm-rec-manual" class="comm-rec-detail" style="display:none">
+              <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <input type="search" id="comm-manual-search" class="form-input" placeholder="Cerca per nome / cognome / codice ombrellone…" style="flex:1;min-width:200px;padding:6px 10px;font-size:13px" oninput="comunicazioniManualRender()">
+                <button class="btn btn-outline btn-sm" type="button" onclick="comunicazioniManualSelectAll(true)">Seleziona tutti</button>
+                <button class="btn btn-outline btn-sm" type="button" onclick="comunicazioniManualSelectAll(false)">Deseleziona tutti</button>
+              </div>
+              <div id="comm-manual-list" class="comm-manual-list"></div>
+            </div>
+
+            <div id="comm-rec-single" class="comm-rec-detail" style="display:none">
+              <label class="form-label" style="font-size:12px">Cliente</label>
+              <select id="comm-single-select" class="form-select" onchange="comunicazioniRefreshRecipients()">
+                <option value="">— Seleziona un cliente —</option>
+              </select>
+            </div>
+
+            <div id="comm-recipients-summary" class="comm-summary"></div>
+          </div>
+
+          <!-- Contenuto -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><div class="card-title">Contenuto della email</div></div>
+            <div style="margin-bottom:12px">
+              <label class="form-label">Oggetto</label>
+              <input type="text" id="comm-email-oggetto" class="form-input" maxlength="200" placeholder="Es. Aggiornamento sull'apertura della stagione" oninput="comunicazioniContentChanged()">
+              <div class="comm-counter"><span id="comm-counter-oggetto">0</span>/200</div>
+            </div>
+            <div>
+              <label class="form-label">Corpo</label>
+              <textarea id="comm-email-corpo" class="form-input" rows="10" maxlength="8000" placeholder="Scrivi qui il messaggio. Andate a capo con Invio." oninput="comunicazioniContentChanged()"></textarea>
+              <div class="comm-counter"><span id="comm-counter-corpo">0</span>/8000</div>
+            </div>
+            <div class="comm-placeholders">
+              <strong>Placeholder disponibili:</strong>
+              <code>{{nome}}</code> <code>{{cognome}}</code> <code>{{ombrellone}}</code> <code>{{stabilimento}}</code>
+              <span style="color:var(--text-mid)">— vengono sostituiti per ogni destinatario al momento dell'invio.</span>
+            </div>
+          </div>
+
+          <!-- Azioni -->
+          <div class="card">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+              <button class="btn btn-outline" type="button" onclick="comunicazioniAnteprima()">👁️ Anteprima</button>
+              <button class="btn btn-primary" id="comm-btn-invia" type="button" onclick="comunicazioniInvia()">📤 Invia email</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ TAB WHATSAPP ============ -->
+        <div id="comm-pane-whatsapp" class="comm-pane">
+          <div class="card comm-wip-banner">
+            <div style="font-size:24px">🚧</div>
+            <div>
+              <div style="font-weight:700;font-size:15px;color:var(--text-dark)">Stiamo lavorando a questa funzionalità</div>
+              <div style="font-size:13px;color:var(--text-mid);margin-top:4px">L'invio di messaggi WhatsApp ai clienti sarà disponibile presto. Sotto vedi un'anteprima del layout.</div>
+            </div>
+          </div>
+          <fieldset class="comm-disabled-preview" disabled>
+            <div class="card" style="margin-bottom:16px">
+              <div class="card-header"><div class="card-title">Destinatari</div></div>
+              <div class="comm-recipients">
+                <label class="comm-radio"><input type="radio" name="comm-wa-rec"><span>Tutti i clienti con telefono</span></label>
+                <label class="comm-radio"><input type="radio" name="comm-wa-rec"><span>Filtra per fila / range numero</span></label>
+                <label class="comm-radio"><input type="radio" name="comm-wa-rec"><span>Singolo cliente</span></label>
+              </div>
+            </div>
+            <div class="card" style="margin-bottom:16px">
+              <div class="card-header"><div class="card-title">Messaggio</div></div>
+              <textarea class="form-input" rows="6" placeholder="Il tuo messaggio WhatsApp…"></textarea>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:flex-end">
+                <button class="btn btn-primary" type="button">📤 Invia WhatsApp</button>
+              </div>
+            </div>
+          </fieldset>
+        </div>
+
+        <!-- ============ TAB SMS ============ -->
+        <div id="comm-pane-sms" class="comm-pane">
+          <div class="card comm-wip-banner">
+            <div style="font-size:24px">🚧</div>
+            <div>
+              <div style="font-weight:700;font-size:15px;color:var(--text-dark)">Stiamo lavorando a questa funzionalità</div>
+              <div style="font-size:13px;color:var(--text-mid);margin-top:4px">L'invio di SMS ai clienti sarà disponibile presto. Sotto vedi un'anteprima del layout.</div>
+            </div>
+          </div>
+          <fieldset class="comm-disabled-preview" disabled>
+            <div class="card" style="margin-bottom:16px">
+              <div class="card-header"><div class="card-title">Destinatari</div></div>
+              <div class="comm-recipients">
+                <label class="comm-radio"><input type="radio" name="comm-sms-rec"><span>Tutti i clienti con telefono</span></label>
+                <label class="comm-radio"><input type="radio" name="comm-sms-rec"><span>Filtra per fila / range numero</span></label>
+                <label class="comm-radio"><input type="radio" name="comm-sms-rec"><span>Singolo cliente</span></label>
+              </div>
+            </div>
+            <div class="card" style="margin-bottom:16px">
+              <div class="card-header"><div class="card-title">Messaggio (max 160 caratteri)</div></div>
+              <textarea class="form-input" rows="3" maxlength="160" placeholder="Il tuo SMS…"></textarea>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:flex-end">
+                <button class="btn btn-primary" type="button">📤 Invia SMS</button>
+              </div>
+            </div>
+          </fieldset>
+        </div>
+      </div>
+
+      <div id="mtab-log" class="tab-content">
+        <div class="page-header">
+          <div><div class="page-title">🕵️ Log attività</div><div class="page-subtitle">Storico completo delle modifiche fatte da te, dai tuoi clienti stagionali e dal sistema. Retention: ultimi 30 giorni.</div></div>
+          <button id="audit-export-btn" class="btn btn-primary btn-sm" onclick="exportAuditXlsx()">📥 Esporta Excel</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header" style="flex-wrap:wrap;gap:10px">
+            <div class="card-title">Filtri</div>
+            <button class="btn btn-outline btn-sm" onclick="auditResetFilters()">Reset filtri</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:4px 0 8px">
+            <div>
+              <label class="form-label" style="font-size:12px">Dal</label>
+              <input type="date" id="audit-date-from" class="form-input" style="padding:6px 10px;font-size:13px">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Al</label>
+              <input type="date" id="audit-date-to" class="form-input" style="padding:6px 10px;font-size:13px">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Tipo attore</label>
+              <select id="audit-actor-type" class="form-select" style="padding:6px 10px;font-size:13px">
+                <option value="">Tutti</option>
+                <option value="proprietario">Proprietario</option>
+                <option value="stagionale">Cliente stagionale</option>
+                <option value="admin">Admin</option>
+                <option value="sistema">Sistema / automazione</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Entità</label>
+              <select id="audit-entity-type" class="form-select" style="padding:6px 10px;font-size:13px">
+                <option value="">Tutte</option>
+                <option value="transazione">Transazione credito</option>
+                <option value="disponibilita">Prenotazione / Disponibilità</option>
+                <option value="cliente_stagionale">Cliente stagionale</option>
+                <option value="ombrellone">Ombrellone</option>
+                <option value="stabilimento">Stabilimento</option>
+                <option value="profile">Profilo utente</option>
+                <option value="email">Email inviata</option>
+                <option value="auth">Accesso</option>
+                <option value="import">Import batch</option>
+                <option value="regola_stato">Regola calendario</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Azione</label>
+              <select id="audit-action" class="form-select" style="padding:6px 10px;font-size:13px">
+                <option value="">Tutte</option>
+                <option value="insert">Creazione</option>
+                <option value="update">Modifica</option>
+                <option value="delete">Eliminazione</option>
+                <option value="login">Login</option>
+                <option value="email_sent">Email inviata</option>
+                <option value="import_batch">Import batch</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Cerca</label>
+              <input type="search" id="audit-search" class="form-input" placeholder="Testo libero, descrizione…" style="padding:6px 10px;font-size:13px">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Nome</label>
+              <input type="search" id="audit-search-nome" class="form-input" placeholder="Es. Mario" style="padding:6px 10px;font-size:13px">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Cognome</label>
+              <input type="search" id="audit-search-cognome" class="form-input" placeholder="Es. Rossi" style="padding:6px 10px;font-size:13px">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Email</label>
+              <input type="search" id="audit-search-email" class="form-input" placeholder="Es. mario@…" style="padding:6px 10px;font-size:13px">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Numero ombrellone</label>
+              <input type="search" id="audit-search-ombrellone" class="form-input" placeholder="Es. 23 oppure A 12" style="padding:6px 10px;font-size:13px">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px">Eventi per pagina</label>
+              <select id="audit-page-size" class="form-select" style="padding:6px 10px;font-size:13px">
+                <option value="30" selected>30</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <button class="btn btn-primary btn-sm btn-full" onclick="auditApplyFilters()">Applica</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div class="card-header" style="flex-wrap:wrap;gap:10px">
+            <div style="font-size:13px;color:var(--text-mid)"><span id="audit-count-label">–</span></div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <button id="audit-prev" class="btn btn-outline btn-sm" onclick="auditPrevPage()">← Prec.</button>
+              <span id="audit-page-label" style="font-size:12px;color:var(--text-mid)">Pagina 1 / 1</span>
+              <button id="audit-next" class="btn btn-outline btn-sm" onclick="auditNextPage()">Succ. →</button>
+            </div>
+          </div>
+          <div class="table-wrap data-table-wrapper"><table class="data-table data-table-compact">
+            <thead><tr>
+              <th style="width:170px">Quando</th>
+              <th style="width:220px">Attore</th>
+              <th style="width:200px">Entità · Azione</th>
+              <th style="width:200px">Coinvolto</th>
+              <th>Descrizione</th>
+              <th style="width:120px;text-align:right">Dettagli</th>
+            </tr></thead>
+            <tbody id="audit-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD STAGIONALE -->
+<div id="view-stagionale" class="view stag-view">
+  <div class="stag-app">
+    <div class="stag-header">
+      <div class="stag-header-top">
+        <span class="stag-logo">🌊 SpiaggiaMia</span>
+        <button class="stag-exit-btn" onclick="doLogout()">Esci</button>
+      </div>
+      <div class="stag-welcome-sub">Benvenuto/a,</div>
+      <div class="stag-welcome-name" id="stag-nome">–</div>
+      <div class="stag-omb-info" id="stag-ombrellone">Caricamento...</div>
+      <div class="stag-coin-card">
+        <div class="stag-coin-info">
+          <div class="stag-coin-label">Credito disponibile</div>
+          <div class="stag-coin-val" id="stag-credito">–</div>
+          <div class="stag-coin-sub">Da usare al bar / ristorante</div>
+        </div>
+        <div class="stag-coin-badge">C</div>
+      </div>
+    </div>
+
+    <div class="stag-tabs">
+      <button class="stag-tab active" data-stag-tab="cal" onclick="stagSwitchTab('cal', this)">Calendario</button>
+      <button class="stag-tab" data-stag-tab="tx" onclick="stagSwitchTab('tx', this)">Transazioni</button>
+    </div>
+
+    <div class="stag-body">
+      <div class="stag-tab-content" id="stag-tab-cal">
+        <div id="stag-alert"></div>
+        <div id="stag-stagione-banner" class="alert alert-info" style="font-size:12px;margin-bottom:10px;display:none"></div>
+
+        <div class="stag-card">
+          <div class="stag-quick-title">
+            Seleziona i giorni liberi
+            <span class="stag-quick-sub">tocca per aggiungere / rimuovere</span>
+          </div>
+          <div class="stag-quick-grid" id="stag-quick-grid"></div>
+          <button class="stag-weekend-btn" id="stag-weekend-btn" onclick="stagToggleWeekend()" disabled>
+            <span id="stag-weekend-label">Prossimo weekend</span>
+            <span class="stag-weekend-tag" id="stag-weekend-tag">Libero?</span>
+          </button>
+        </div>
+
+        <button class="stag-howto-btn" id="stag-howto-btn" onclick="stagToggleHowto()">
+          <span class="stag-howto-label">Come funziona il sub-affitto?</span>
+          <span class="stag-howto-arrow" id="stag-howto-arrow">▼</span>
+        </button>
+        <div class="stag-howto-body" id="stag-howto-body" style="display:none">
+          <div class="stag-step"><div class="stag-step-num">1</div><div class="stag-step-txt">Segna i giorni in cui non userai il tuo ombrellone (dal selettore rapido o dal calendario)</div></div>
+          <div class="stag-step"><div class="stag-step-num">2</div><div class="stag-step-txt">Lo stabilimento potrà sub-affittare il tuo posto a un cliente giornaliero</div></div>
+          <div class="stag-step"><div class="stag-step-num">3</div><div class="stag-step-txt">Ricevi Coin nel wallet da spendere al bar o al ristorante</div></div>
+        </div>
+
+        <div class="stag-section-title">Tutto il mese</div>
+        <div class="stag-card stag-card-cal">
+          <div class="cal-header">
+            <button class="cal-nav" onclick="calNav(-1)">‹</button>
+            <div class="cal-month" id="cal-label"></div>
+            <button class="cal-nav" onclick="calNav(1)">›</button>
+          </div>
+          <div class="cal-days-header">
+            <div class="cal-day-name">L</div><div class="cal-day-name">M</div><div class="cal-day-name">M</div>
+            <div class="cal-day-name">G</div><div class="cal-day-name">V</div><div class="cal-day-name">S</div><div class="cal-day-name">D</div>
+          </div>
+          <div class="cal-days-grid" id="stag-calendar"></div>
+          <div class="cal-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Non disponibile per il sub-affitto</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Disponibile per essere sub-affittato</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+            <div class="legend-item"><div class="legend-dot" style="background:rgba(150,221,184,0.35);border:1.5px dashed var(--green)"></div>Salva la selezione</div>
+            <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,#EEE 0 4px,#DDD 4px 8px);border:1.5px solid #BBB"></div>Non modificabile</div>
+            <div class="legend-item"><div class="legend-dot legend-inactive"></div>Non attivo</div>
+          </div>
+        </div>
+
+        <div id="stag-pending-bar" class="stag-pending-bar" style="display:none"></div>
+
+        <div class="stag-stats-grid">
+          <div class="stag-stat-card stag-stat-green">
+            <div class="stag-stat-val stag-stat-val-green" id="stag-stat-free">0</div>
+            <div class="stag-stat-lbl">Disponibili per sub-affitto</div>
+          </div>
+          <div class="stag-stat-card stag-stat-amber">
+            <div class="stag-stat-val stag-stat-val-amber" id="stag-stat-sub">0</div>
+            <div class="stag-stat-lbl">Sub-affittati</div>
+          </div>
+        </div>
+        <div class="stag-hint">Tocca un giorno per dichiararlo libero · Tocca ancora per annullare</div>
+      </div>
+
+      <div class="stag-tab-content" id="stag-tab-tx" style="display:none">
+        <div class="stag-tx-card" id="stag-tx-list"><div class="tx-empty">Caricamento...</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div id="modal-stag-saved" class="modal-overlay hidden">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title" id="stag-saved-confirm-title">Modifiche salvate ✓</div>
+    <div class="modal-sub" id="stag-saved-confirm-body" style="font-size:14px;line-height:1.55"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-sm" onclick="closeModal('modal-stag-saved')">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-import-confirm" class="modal-overlay hidden">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title">Conferma importazione Excel</div>
+    <div class="modal-sub">Stai per applicare le seguenti modifiche al database. Verifica e conferma.</div>
+    <div id="import-confirm-summary" style="margin-top:14px;font-size:13px;line-height:1.6"></div>
+    <div id="import-confirm-warning" class="alert alert-info" style="margin-top:14px;font-size:12px;line-height:1.55;display:none">
+      ⚠️ Le cancellazioni rimuovono in modo permanente ombrelloni, clienti, transazioni e disponibilità collegate. L'operazione non è reversibile.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-import-confirm')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmImportaExcelExecute()">Conferma e importa</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-pren-dettagli" class="modal-overlay hidden">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-title" id="pren-dettagli-title">Dettagli prenotazione</div>
+    <div class="modal-sub" id="pren-dettagli-sub"></div>
+    <div class="table-wrap" style="margin-top:12px;max-height:360px;overflow:auto"><table class="data-table">
+      <thead><tr><th>Data</th><th>Ombrellone</th><th>Cliente Stagionale</th><th style="text-align:right">Importo</th></tr></thead>
+      <tbody id="pren-dettagli-rows"></tbody>
+    </table></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-pren-dettagli')">Chiudi</button>
+      <button class="btn btn-outline btn-sm" id="pren-dettagli-modifica">Modifica prenotazione</button>
+      <button class="btn btn-danger btn-sm" id="pren-dettagli-annulla">Annulla prenotazione</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-cancel-booking" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Annullare la prenotazione?</div>
+    <div class="modal-sub" id="cancel-booking-summary"></div>
+    <div id="cancel-booking-alert"></div>
+    <div class="alert alert-info" style="margin-top:14px;font-size:12px;line-height:1.55">
+      ⚠️ Gli ombrelloni torneranno disponibili per un'altra prenotazione. Il credito accreditato al cliente stagionale verrà revocato e il saldo può diventare negativo se il cliente ha già utilizzato parte di quel credito.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-cancel-booking')">Indietro</button>
+      <button class="btn btn-danger btn-sm" onclick="confirmCancelBooking()">Conferma annullamento</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-modify-booking" class="modal-overlay hidden">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-title">Modifica prenotazione</div>
+    <div class="modal-sub" id="modify-booking-header"></div>
+    <div id="modify-booking-alert"></div>
+    <div style="margin-top:12px;font-size:13px;color:var(--text-mid)">Togli la spunta dai giorni / ombrelloni da liberare. Le righe lasciate selezionate restano nella prenotazione.</div>
+    <div class="table-wrap" style="margin-top:8px;max-height:320px;overflow:auto"><table class="data-table">
+      <thead><tr><th style="width:34px"></th><th>Data</th><th>Ombrellone</th><th>Cliente Stagionale</th><th style="text-align:right">Importo</th></tr></thead>
+      <tbody id="modify-booking-rows"></tbody>
+    </table></div>
+    <div id="modify-booking-impact" style="margin-top:12px;font-size:13px;color:var(--text-mid)"></div>
+    <div class="alert alert-info" style="margin-top:14px;font-size:12px;line-height:1.55">
+      ⚠️ Gli ombrelloni rimossi torneranno disponibili per un'altra prenotazione. Il credito accreditato al cliente stagionale per le giornate rimosse verrà revocato e il saldo può diventare negativo se il cliente ha già utilizzato parte di quel credito.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-modify-booking')">Indietro</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmModifyBooking()">Conferma modifica</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-finalize-booking" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Finalizza prenotazione</div>
+    <div class="modal-sub" id="finalize-booking-summary"></div>
+    <div id="finalize-booking-alert"></div>
+    <div class="form-group" style="margin-top:14px"><label class="form-label">Nome prenotazione <span style="font-size:11px;color:var(--text-light);font-weight:400">(opzionale)</span></label>
+      <input type="text" id="finalize-booking-nome" class="form-input" placeholder="es. Famiglia Rossi — settimana 12" maxlength="120">
+      <div style="font-size:12px;color:var(--text-light);margin-top:4px">Stabilimento, data, ora e codice univoco vengono sempre aggiunti automaticamente per tenere raggruppate le righe della prenotazione. Il nome che inserisci qui viene accodato a questa intestazione.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-finalize-booking')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="finalizeBookingSelection()">Conferma prenotazione</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal unificato: aggiungi ombrellone + cliente (opzionale) -->
+<div id="modal-add-row" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">➕ Aggiungi ombrellone e cliente</div>
+    <div class="modal-sub">L'ombrellone è obbligatorio. I campi del cliente sono opzionali: se compilati, il cliente verrà salvato e potrai invitarlo subito.</div>
+    <div id="add-row-alert"></div>
+    <div class="section-divider" style="margin-top:0">☂️ Ombrellone</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Fila <span style="color:var(--red)">*</span></label><input type="text" id="row-fila" class="form-input" placeholder="A" maxlength="3"></div>
+      <div class="form-group"><label class="form-label">Numero <span style="color:var(--red)">*</span></label><input type="number" id="row-numero" class="form-input" placeholder="1" min="1"></div>
+    </div>
+    <div class="form-group"><label class="form-label" data-coin-label="Credito giornaliero">Credito giornaliero</label><input type="number" id="row-credito" class="form-input" placeholder="12.00" step="0.50" min="0"></div>
+    <div class="section-divider">👤 Cliente stagionale <span style="font-size:11px;color:var(--text-light);font-weight:400;text-transform:none;letter-spacing:0">(opzionale)</span></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nome</label><input type="text" id="row-nome" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Cognome</label><input type="text" id="row-cognome" class="form-input"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Email</label><input type="email" id="row-email" class="form-input" placeholder="cliente@example.com"></div>
+    <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="row-telefono" class="form-input"></div>
+    <label style="display:flex;align-items:center;gap:8px;margin:6px 0 0;font-size:13px;color:var(--text-mid);cursor:pointer">
+      <input type="checkbox" id="row-invia-invito" checked> Invia subito l'invito via email (se il cliente è compilato)
+    </label>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-row')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmAddRow()" id="btn-add-row">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modifica riga (ombrellone + cliente associato) -->
+<div id="modal-edit-row" class="modal-overlay hidden">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-title">✏️ Modifica ombrellone e cliente</div>
+    <div id="edit-row-alert"></div>
+    <input type="hidden" id="edit-row-omb-id">
+    <input type="hidden" id="edit-row-cl-id">
+
+    <!-- SEZIONE OMBRELLONE -->
+    <div class="section-divider" style="margin-top:0">☂️ Ombrellone</div>
+    <div id="edit-row-omb-alert"></div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label class="form-label">Codice ombrellone</label>
+        <input type="text" id="edit-row-codice" class="form-input" maxlength="20">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label" data-coin-label="Credito/gg">Credito/gg</label>
+        <input type="number" id="edit-row-credito" class="form-input" step="0.50" min="0">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Nota interna (facoltativa)</label>
+      <input type="text" id="edit-row-omb-note" class="form-input" maxlength="200" placeholder="es. Spostamento fila">
+    </div>
+    <div style="margin-top:8px">
+      <button class="btn btn-primary btn-sm" onclick="saveEditRowOmbrellone()">💾 Salva ombrellone</button>
+    </div>
+
+    <!-- SEZIONE CLIENTE -->
+    <div class="section-divider">👤 Cliente stagionale <span style="font-size:11px;color:var(--text-light);font-weight:400;text-transform:none;letter-spacing:0">(lascia vuoto per rimuovere)</span></div>
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:8px">L'email non si può modificare se il cliente è già attivo.</div>
+    <div id="edit-row-clt-alert"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nome</label><input type="text" id="edit-row-nome" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Cognome</label><input type="text" id="edit-row-cognome" class="form-input"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Email</label><input type="email" id="edit-row-email" class="form-input"></div>
+    <div class="form-group"><label class="form-label">Telefono</label><input type="tel" id="edit-row-telefono" class="form-input"></div>
+    <div class="form-group">
+      <label class="form-label">Nota interna (facoltativa)</label>
+      <input type="text" id="edit-row-clt-note" class="form-input" maxlength="200" placeholder="es. Cambio cliente">
+    </div>
+    <div style="margin-top:8px">
+      <button class="btn btn-primary btn-sm" onclick="saveEditRowCliente()">💾 Salva cliente</button>
+    </div>
+
+    <!-- SEZIONE SALDO COIN (visibile solo se c'è un cliente) -->
+    <div id="edit-row-saldo-section" class="hidden">
+      <div class="section-divider">💰 Rettifica saldo coin</div>
+      <div id="edit-row-saldo-alert"></div>
+      <div id="edit-row-saldo-wrap">
+        <div class="form-group">
+          <label class="form-label">Saldo attuale</label>
+          <div id="edit-row-saldo-attuale" style="font-size:15px;font-weight:600;color:var(--ink);padding:8px 12px;background:var(--sand);border-radius:var(--radius-sm)">–</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nuovo saldo</label>
+          <input type="number" id="edit-row-saldo-nuovo" class="form-input" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nota rettifica (facoltativa)</label>
+          <input type="text" id="edit-row-saldo-nota" class="form-input" maxlength="200" placeholder="es. Rettifica manuale">
+        </div>
+        <div style="margin-top:8px">
+          <button class="btn btn-primary btn-sm" onclick="applyEditRowSaldo()">💾 Applica rettifica saldo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEZIONE DISPONIBILITÀ -->
+    <div class="section-divider">📅 Gestisci disponibilità</div>
+    <div id="edit-row-disp-alert"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Dal</label>
+        <input type="date" id="edit-row-disp-from" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Al</label>
+        <input type="date" id="edit-row-disp-to" class="form-input">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Nota (facoltativa)</label>
+      <input type="text" id="edit-row-disp-note" class="form-input" maxlength="200">
+    </div>
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="applyEditRowAddDisp()">✅ Rendi disponibile</button>
+      <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="applyEditRowRemoveDisp()">🗑️ Rimuovi disponibilità</button>
+    </div>
+
+    <!-- Disponibilità giornaliere -->
+    <div class="section-divider" style="margin-top:8px">📅 Disponibilità giornaliere</div>
+    <div id="edit-row-disp-info" style="font-size:12px;color:var(--text-light);margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <button class="btn btn-outline btn-sm" onclick="editRowBulkForce()">✓ Tutta la stagione disponibile</button>
+      <button class="btn btn-outline btn-sm" onclick="editRowBulkRemove()">✗ Rimuovi tutte le disponibilità</button>
+    </div>
+    <div id="edit-row-day-list" class="mirata-day-list" style="max-height:280px;overflow-y:auto">
+      <div style="padding:14px;font-size:13px;color:var(--text-light)">Caricamento...</div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="modal-footer" style="margin-top:20px">
+      <button id="edit-row-close-btn" class="btn btn-outline btn-sm" onclick="closeEditRowModal()">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Visualizzazione ombrellone + calendario disponibilità (read-only) -->
+<div id="modal-view-ombrellone" class="modal-overlay hidden">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title" id="view-omb-title">☂️ Ombrellone</div>
+    <div class="modal-sub">Disponibilità in sola lettura. Solo il cliente stagionale può modificare la propria disponibilità.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0 18px;padding:12px;background:var(--sand);border-radius:var(--radius-sm)">
+      <div style="grid-column:1/-1">
+        <div style="font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Cliente</div>
+        <div id="view-omb-cliente" style="font-size:13px;color:var(--ink)">–</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Credito giornaliero</div>
+        <div id="view-omb-credito" style="font-size:13px;color:var(--ink);font-weight:600">–</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Saldo cliente</div>
+        <div id="view-omb-saldo" style="font-size:13px;color:var(--ink);font-weight:600">–</div>
+      </div>
+    </div>
+    <div class="cal-header">
+      <button class="cal-nav" onclick="viewOmbrelloneCalNav(-1)">‹</button>
+      <div class="cal-month" id="view-omb-cal-label"></div>
+      <button class="cal-nav" onclick="viewOmbrelloneCalNav(1)">›</button>
+    </div>
+    <div class="cal-days-header">
+      <div class="cal-day-name">Lun</div><div class="cal-day-name">Mar</div><div class="cal-day-name">Mer</div>
+      <div class="cal-day-name">Gio</div><div class="cal-day-name">Ven</div><div class="cal-day-name">Sab</div><div class="cal-day-name">Dom</div>
+    </div>
+    <div class="cal-days-grid" id="view-omb-calendar"></div>
+    <div class="cal-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Dichiarato libero</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Stagionale presente</div>
+    </div>
+
+    <div style="margin-top:20px">
+      <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px">📅 Giorni dichiarati liberi <span id="view-omb-liberi-count" style="color:var(--text-light);font-weight:400"></span></div>
+      <div id="view-omb-liberi-list" style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;background:#fff"></div>
+    </div>
+
+    <div style="margin-top:14px">
+      <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px">💰 Giorni sub-affittati <span id="view-omb-sub-count" style="color:var(--text-light);font-weight:400"></span></div>
+      <div id="view-omb-sub-list" style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;background:#fff"></div>
+    </div>
+
+    <div style="margin-top:14px">
+      <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px">📜 Transazioni dell'ombrellone <span id="view-omb-tx-count" style="color:var(--text-light);font-weight:400"></span></div>
+      <div id="view-omb-tx-list" style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;background:#fff"></div>
+    </div>
+
+    <div class="modal-footer" id="view-omb-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-view-ombrellone')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- AVANZATE: scheda ombrellone con azioni gestore -->
+<div id="modal-avanzate-omb" class="modal-overlay hidden">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title" id="avanzate-omb-title">☂️ Ombrellone</div>
+    <div class="modal-sub">Forza lo stato dell'ombrellone, modifica anagrafica o cancellalo dalla mappa.</div>
+    <div id="avanzate-omb-alert" style="margin-top:8px"></div>
+
+    <div class="avanzate-omb-info">
+      <div class="avanzate-omb-info-cell" style="grid-column:1/-1">
+        <div class="avanzate-omb-info-label">Cliente assegnato</div>
+        <div class="avanzate-omb-info-value" id="avanzate-omb-cliente">–</div>
+      </div>
+      <div class="avanzate-omb-info-cell">
+        <div class="avanzate-omb-info-label">Credito giornaliero</div>
+        <div class="avanzate-omb-info-value" id="avanzate-omb-credito">–</div>
+      </div>
+      <div class="avanzate-omb-info-cell">
+        <div class="avanzate-omb-info-label">Saldo coin cliente</div>
+        <div class="avanzate-omb-info-value" id="avanzate-omb-saldo">–</div>
+      </div>
+    </div>
+
+    <div class="avanzate-omb-section">
+      <div class="avanzate-omb-section-title">Stato per il periodo selezionato</div>
+      <div id="avanzate-omb-range-label" style="font-size:12px;color:var(--text-light);margin-bottom:8px"></div>
+      <div id="avanzate-omb-day-list" class="avanzate-day-list"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn btn-outline btn-sm" onclick="avanzateForceCurrentRange()">✓ Rendi disponibile per tutto il periodo</button>
+        <button class="btn btn-outline btn-sm" onclick="avanzateRemoveCurrentRange()">✗ Rimuovi disponibilità nel periodo</button>
+      </div>
+    </div>
+
+    <div class="avanzate-omb-section">
+      <div class="avanzate-omb-section-title">Anagrafica e cliente</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="avanzateOpenEdit()">✏️ Modifica anagrafica</button>
+        <button class="btn btn-outline btn-sm" onclick="avanzateAdjustSaldo()" id="avanzate-saldo-btn">💰 Rettifica saldo coin</button>
+      </div>
+    </div>
+
+    <div class="avanzate-omb-section">
+      <div class="avanzate-omb-section-title" style="color:var(--coral)">Zona pericolosa</div>
+      <button class="btn btn-danger btn-sm" onclick="avanzateDeleteOmbrellone()">🗑️ Cancella ombrellone dalla mappa</button>
+      <div style="font-size:11px;color:var(--text-light);margin-top:6px">L'eliminazione rimuove anche il cliente associato (se presente) e le disponibilità collegate.</div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-avanzate-omb')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- AVANZATE: rettifica saldo cliente -->
+<div id="modal-avanzate-saldo" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">💰 Rettifica saldo coin</div>
+    <div class="modal-sub" id="avanzate-saldo-sub">La modifica viene tracciata come transazione di rettifica nello storico.</div>
+    <div id="avanzate-saldo-alert"></div>
+    <div class="form-group">
+      <label class="form-label">Saldo attuale</label>
+      <div id="avanzate-saldo-corrente" style="font-size:16px;font-weight:600;color:var(--ink);padding:10px 12px;background:var(--sand);border-radius:var(--radius-sm)">–</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="avanzate-saldo-nuovo">Nuovo saldo</label>
+      <input type="number" id="avanzate-saldo-nuovo" class="form-input" step="0.01" min="0" placeholder="es. 50.00">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="avanzate-saldo-nota">Nota (facoltativa)</label>
+      <input type="text" id="avanzate-saldo-nota" class="form-input" maxlength="200" placeholder="es. Rettifica manuale">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-avanzate-saldo')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmAvanzateSaldo()">Salva rettifica</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESET STAGIONE — wizard 3 step -->
+<div id="modal-reset-wizard" class="modal-overlay hidden">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title" id="reset-wizard-title">🔄 Reset stagione</div>
+    <div id="reset-wizard-alert"></div>
+
+    <!-- STEP 1: scelta tipo -->
+    <div id="reset-step-1" class="reset-step">
+      <div class="modal-sub">Scegli come vuoi procedere. In entrambi i casi creiamo prima un backup completo dello stato attuale.</div>
+      <label class="reset-option">
+        <input type="radio" name="reset-tipo" value="mantieni" checked>
+        <div>
+          <div class="reset-option-title">Mantieni la base clienti</div>
+          <div class="reset-option-desc">Cancella disponibilità + transazioni, azzera i saldi coin. Conserva anagrafiche clienti e mappa ombrelloni, ma resetta lo stato di registrazione: tutti tornano "Mai invitato" e dovranno essere reinvitati.</div>
+        </div>
+      </label>
+      <label class="reset-option">
+        <input type="radio" name="reset-tipo" value="totale">
+        <div>
+          <div class="reset-option-title" style="color:var(--coral)">Reset totale</div>
+          <div class="reset-option-desc">Cancella anche tutti i clienti stagionali e tutta la mappa ombrelloni. La stagione riparte da zero.</div>
+        </div>
+      </label>
+      <div class="modal-footer">
+        <button class="btn btn-outline btn-sm" onclick="closeModal('modal-reset-wizard')">Annulla</button>
+        <button class="btn btn-primary btn-sm" onclick="resetWizardNext(2)">Avanti →</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: riepilogo -->
+    <div id="reset-step-2" class="reset-step hidden">
+      <div class="modal-sub">Riepilogo operazione. Verifica prima di proseguire.</div>
+      <div id="reset-summary" class="reset-summary"></div>
+      <label style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;padding:12px;background:var(--sand);border-radius:var(--radius-sm);font-size:13px;color:var(--text-mid);cursor:pointer">
+        <input type="checkbox" id="reset-send-chiusura-email" checked style="margin-top:2px;flex-shrink:0">
+        <span><strong>Invia email di chiusura stagione</strong> ai clienti attualmente registrati, con il riepilogo personale (giorni di disponibilità, sub-affitti, coin ricevuti/spesi). <span id="reset-send-chiusura-count" style="color:var(--text-light)"></span></span>
+      </label>
+      <div class="alert alert-coral" style="font-size:12px;margin-top:12px">
+        Operazione irreversibile senza ripristino. Verrà creato un backup automatico con etichetta riconoscibile, recuperabile dalla lista in alto.
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline btn-sm" onclick="resetWizardNext(1)">← Indietro</button>
+        <button class="btn btn-primary btn-sm" onclick="resetWizardNext(3)">Avanti →</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: conferma forte -->
+    <div id="reset-step-3" class="reset-step hidden">
+      <div class="modal-sub">Per confermare, digita esattamente il nome dello stabilimento: <strong id="reset-stab-nome"></strong></div>
+      <div class="form-group" style="margin-top:12px">
+        <input type="text" id="reset-stab-input" class="form-input" autocomplete="off" placeholder="Nome stabilimento" oninput="resetWizardCheckMatch()">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline btn-sm" onclick="resetWizardNext(2)">← Indietro</button>
+        <button class="btn btn-danger btn-sm" id="reset-confirm-btn" onclick="resetWizardExecute()" disabled>Conferma reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RIPRISTINA BACKUP — modale conferma -->
+<div id="modal-restore-backup" class="modal-overlay hidden">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">♻️ Ripristina backup</div>
+    <div class="modal-sub" id="restore-backup-sub">Stai per ripristinare lo stato salvato in un backup. Lo stato attuale verrà sostituito.</div>
+    <div id="restore-backup-alert"></div>
+
+    <div class="alert alert-info" style="font-size:12px;margin-top:12px">
+      Prima di procedere viene creato automaticamente un backup dello stato corrente, così puoi tornare indietro.
+    </div>
+
+    <div style="margin-top:14px">
+      <button class="btn btn-outline btn-sm" onclick="scaricaClientiAttualiExcel()">📥 Scarica clienti attuali (Excel)</button>
+    </div>
+
+    <div class="form-group" style="margin-top:18px">
+      <label class="form-label">Per confermare, digita il nome dello stabilimento: <strong id="restore-stab-nome"></strong></label>
+      <input type="text" id="restore-stab-input" class="form-input" autocomplete="off" placeholder="Nome stabilimento" oninput="restoreCheckMatch()">
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-restore-backup')">Annulla</button>
+      <button class="btn btn-primary btn-sm" id="restore-confirm-btn" onclick="confirmRestoreBackup()" disabled>Conferma ripristino</button>
+    </div>
+  </div>
+</div>
+
+<!-- Conflitto ombrellone -->
+<div id="modal-conflict-cliente" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">⚠️ Ombrellone già assegnato</div>
+    <div class="modal-sub" id="conflict-msg"></div>
+    <div class="modal-footer" style="flex-direction:column;align-items:stretch;gap:8px">
+      <button class="btn btn-outline btn-sm" onclick="resolveConflict('keep')">Tieni il cliente esistente (annulla)</button>
+      <button class="btn btn-primary btn-sm" onclick="resolveConflict('replace')">Sostituisci — il cliente precedente resterà senza ombrellone</button>
+    </div>
+  </div>
+</div>
+
+<!-- Conferma assegnazione cliente ↔ ombrellone (mostra coin che verranno accreditati) -->
+<div id="modal-assign-confirm" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Assegnare il cliente all'ombrellone?</div>
+    <div class="modal-sub" id="assign-confirm-msg"></div>
+    <div class="modal-footer" style="flex-direction:column;align-items:stretch;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="resolveAssignConfirm(true)">Sì, procedi</button>
+      <button class="btn btn-outline btn-sm" onclick="resolveAssignConfirm(false)">Annulla</button>
+    </div>
+  </div>
+</div>
+
+<!-- Invio inviti multiplo con template personalizzato -->
+<div id="modal-bulk-invite" class="modal-overlay hidden">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title">✉️ Invia inviti personalizzati</div>
+    <div class="modal-sub">Modifica oggetto e messaggio. Placeholder supportati: <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{cognome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{ombrellone}}</code>.</div>
+    <div id="bulk-invite-alert"></div>
+    <div class="form-group">
+      <label class="form-label">Destinatari (<span id="bulk-dest-count">0</span>)</label>
+      <div id="bulk-dest-list" style="max-height:140px;overflow-y:auto;background:var(--sand);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--text-mid)"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Oggetto</label>
+      <input type="text" id="bulk-invite-oggetto" class="form-input" maxlength="120" placeholder="Sei stato invitato su SpiaggiaMia">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Messaggio</label>
+      <textarea id="bulk-invite-testo" class="form-input" rows="5" maxlength="800" placeholder="Ciao {{nome}}, quest'anno stiamo usando SpiaggiaMia..." style="resize:vertical"></textarea>
+      <div style="font-size:12px;color:var(--text-light);margin-top:4px">Il pulsante "Completa la registrazione" viene aggiunto automaticamente.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-bulk-invite')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmBulkInvite()" id="btn-bulk-invite">Invia inviti</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN LOGIN -->
+<div id="view-admin-login" class="view">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-logo"><div class="logo-text">🔐 SpiaggiaMia · Admin</div></div>
+      <div class="auth-title">Accesso amministratore</div>
+      <div class="auth-sub">Area riservata. Solo credenziali admin autorizzate.</div>
+      <div id="admin-login-alert"></div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" id="admin-login-email" class="form-input" placeholder="admin@spiaggiamia.com" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="password-wrap">
+          <input type="password" id="admin-login-password" class="form-input" placeholder="••••••••" autocomplete="current-password">
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility(this)" aria-label="Mostra password" aria-pressed="false">
+            <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-10-7-10-7a18.4 18.4 0 0 1 4.22-5.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="doAdminLogin()" id="btn-admin-login">Accedi come admin</button>
+      <div class="auth-switch" style="margin-top:18px"><a href="/">← Torna al sito</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN DASHBOARD -->
+<div id="view-admin" class="view">
+  <div class="dash-layout">
+    <div class="sidebar">
+      <div class="sidebar-title">🔐 Admin DB</div>
+      <button class="sidebar-item active" onclick="adminTab('profiles',this)"><span class="icon">👤</span> profiles</button>
+      <button class="sidebar-item" onclick="adminTab('stabilimenti',this)"><span class="icon">🏖️</span> stabilimenti</button>
+      <button class="sidebar-item" onclick="adminTab('ombrelloni',this)"><span class="icon">☂️</span> ombrelloni</button>
+      <button class="sidebar-item" onclick="adminTab('clienti_stagionali',this)"><span class="icon">👥</span> clienti_stagionali</button>
+      <button class="sidebar-item" onclick="adminTab('disponibilita',this)"><span class="icon">📅</span> disponibilita</button>
+      <button class="sidebar-item" onclick="adminTab('transazioni',this)"><span class="icon">💰</span> transazioni</button>
+      <div style="margin-top:24px;padding:12px;border-top:1px solid var(--border)">
+        <button class="btn btn-outline btn-sm btn-full" onclick="doAdminLogout()">Esci</button>
+      </div>
+    </div>
+    <div class="main-content">
+      <div class="page-header">
+        <div><div class="page-title" id="admin-table-title">profiles</div><div class="page-subtitle" id="admin-table-sub">Caricamento…</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input type="search" id="admin-search" class="form-input" placeholder="Cerca in tutte le colonne…" style="width:260px;padding:6px 10px;font-size:13px" oninput="renderAdminTable()">
+          <button class="btn btn-outline btn-sm" onclick="loadAdminTable()">↻ Ricarica</button>
+          <button class="btn btn-primary btn-sm" onclick="openAdminAddModal()">+ Nuova riga</button>
+        </div>
+      </div>
+      <div id="admin-alert" style="margin-bottom:12px"></div>
+      <div class="card">
+        <div class="table-wrap data-table-wrapper"><table class="data-table">
+          <thead id="admin-table-head"></thead>
+          <tbody id="admin-table-body"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COMUNICAZIONI: anteprima email -->
+<div id="modal-comm-anteprima" class="modal-overlay hidden">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-title">Anteprima email</div>
+    <div class="modal-sub" id="comm-anteprima-sub" style="margin-bottom:12px"></div>
+    <div id="comm-anteprima-frame" class="comm-anteprima-frame"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-comm-anteprima')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- COMUNICAZIONI: salva nuova bozza -->
+<div id="modal-comm-bozza" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">Salva bozza</div>
+    <div class="modal-sub">Dai un nome alla bozza per ritrovarla in futuro.</div>
+    <div id="comm-bozza-alert"></div>
+    <div style="margin-top:12px">
+      <label class="form-label">Etichetta</label>
+      <input type="text" id="comm-bozza-etichetta" class="form-input" maxlength="80" placeholder="Es. Apertura stagione 2026">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-comm-bozza')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="comunicazioniBozzaConferma()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- COMUNICAZIONI: progress / risultato invio -->
+<div id="modal-comm-invio" class="modal-overlay hidden">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title" id="comm-invio-title">Invio email in corso…</div>
+    <div class="modal-sub" id="comm-invio-sub"></div>
+    <div class="comm-progress">
+      <div class="comm-progress-bar" id="comm-progress-bar" style="width:0%"></div>
+    </div>
+    <div class="comm-progress-meta" id="comm-progress-meta">0 / 0</div>
+    <div id="comm-invio-summary" class="comm-invio-summary" style="display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-sm" id="comm-invio-close" onclick="closeModal('modal-comm-invio')" disabled>Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN ROW EDITOR (add/edit) -->
+<div id="modal-admin-row" class="modal-overlay hidden">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title" id="admin-row-title">Modifica riga</div>
+    <div class="modal-sub" id="admin-row-sub"></div>
+    <div id="admin-row-alert"></div>
+    <div id="admin-row-fields"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-admin-row')">Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="saveAdminRow()" id="btn-admin-row-save">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- CANCELLA ACCOUNT — modal conferma -->
+<div id="modal-cancella-account" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title" style="color:var(--coral)">Conferma finale</div>
+    <div class="modal-sub">Digita <strong>ELIMINA</strong> nel campo sottostante per confermare la cancellazione definitiva di tutti i dati.</div>
+    <div id="cancella-account-alert" style="margin-top:12px"></div>
+    <div class="form-group" style="margin-top:16px">
+      <input type="text" id="cancella-account-input" class="form-input" autocomplete="off"
+             placeholder="ELIMINA" oninput="cancellaAccountCheckMatch()">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-cancella-account')">Annulla</button>
+      <button class="btn btn-danger btn-sm" id="btn-cancella-account-confirm"
+              onclick="cancellaAccountExecute()" disabled>Elimina definitivamente</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== VIEW: MAPPA BUILDER (onboarding) ===== -->
+<div id="view-mappa-builder" class="view" style="display:none">
+  <div class="mappa-builder-wrap">
+    <div class="mappa-builder-header">
+      <div class="mappa-builder-logo">SpiaggiaMia</div>
+      <h2 class="mappa-builder-title">Disegna la mappa del tuo stabilimento</h2>
+      <p class="mappa-builder-sub">Indica dove sono gli ombrelloni e i passaggi. Potrai modificarla in seguito.</p>
+    </div>
+
+    <div class="mappa-step-bar">
+      <span class="mappa-step-label active" id="mappa-step-1-label">1 · Disegna</span>
+      <span class="mappa-step-sep">→</span>
+      <span class="mappa-step-label" id="mappa-step-2-label">2 · Nomina</span>
+    </div>
+
+    <!-- Step 1: layout -->
+    <div id="mappa-step1-content">
+      <div class="mappa-mode-bar">
+        <button class="btn mode-btn active" id="btn-mode-ombrellone" onclick="setModalita('ombrellone')">☂ Ombrellone</button>
+        <button class="btn mode-btn" id="btn-mode-passerella" onclick="setModalita('passerella')">— Passaggio</button>
+        <button class="btn mode-btn" id="btn-mode-vuoto" onclick="setModalita('vuoto')">✕ Cancella</button>
+        <span class="mappa-counter" id="mappa-counter">0 ombrelloni</span>
+      </div>
+      <div class="mappa-grid-wrap">
+        <div class="mappa-grid" id="mappa-grid-step1"></div>
+      </div>
+      <div class="mappa-hint">Clicca le celle per disegnare. Clicca e trascina per disegnare in serie.</div>
+      <div class="mappa-actions">
+        <button class="btn btn-primary" id="btn-mappa-avanti" onclick="goToStep2()" disabled>Avanti →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: nomi -->
+    <div id="mappa-step2-content" style="display:none">
+      <div class="mappa-step2-layout">
+        <div class="mappa-step2-grid-col">
+          <div class="mappa-grid mappa-grid-small" id="mappa-grid-step2"></div>
+        </div>
+        <div class="mappa-step2-form-col">
+          <p class="mappa-step2-hint">Assegna un nome/codice a ogni ombrellone (es. A1, 23, Gazebo).</p>
+          <div class="mappa-codici-table" id="mappa-codici-table"></div>
+        </div>
+      </div>
+      <div id="mappa-error" class="alert alert-error" style="display:none;margin-top:12px"></div>
+      <div class="mappa-actions">
+        <button class="btn btn-outline" onclick="goToStep1()">← Indietro</button>
+        <button class="btn btn-primary" id="btn-mappa-salva" onclick="salvaMappaStabilimento(_mappaStabilimentoId)">Salva mappa</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Mobile drawer
+function openDrawer() {
+  document.querySelectorAll('.sidebar').forEach(function(s) { s.classList.add('drawer-open'); });
+  var bd = document.getElementById('drawer-backdrop');
+  if (bd) { bd.classList.add('open'); }
+  document.body.style.overflow = 'hidden';
+}
+function closeDrawer() {
+  document.querySelectorAll('.sidebar').forEach(function(s) { s.classList.remove('drawer-open'); });
+  var bd = document.getElementById('drawer-backdrop');
+  if (bd) { bd.classList.remove('open'); }
+  document.body.style.overflow = '';
+}
+document.addEventListener('click', function(e) {
+  var item = e.target.closest('.sidebar-item');
+  if (item && window.innerWidth <= 768) { closeDrawer(); }
+});
+</script>
+<script src="js/state.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/csv.js"></script>
+<script src="js/router.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/setup.js"></script>
+<script src="js/manager.js?v=20260529b"></script>
+<script src="js/dd-common.js"></script>
+<script src="js/panoramica.js"></script>
+<script src="js/configurazioni.js"></script>
+<script src="js/avanzate.js"></script>
+<script src="js/account.js"></script>
+<script src="js/reset-stagione.js"></script>
+<script src="js/clienti.js"></script>
+<script src="js/stagionale.js?v=20260529a"></script>
+<script src="js/email.js"></script>
+<script src="js/transazioni.js"></script>
+<script src="js/audit.js"></script>
+<script src="js/gestione-transazioni.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/comunicazioni.js"></script>
+<script src="js/disponibilita-tab.js"></script>
+<script src="js/crediti-stagionali.js"></script>
+<script src="js/main.js"></script>
+<script src="js/mappa-builder.js"></script>
+
+<div id="modal-mappa-builder" class="modal-overlay hidden" style="align-items:flex-start;padding:0">
+  <div class="modal" style="max-width:100%;width:100%;min-height:100vh;border-radius:0;padding:0;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid var(--border);background:#fff;position:sticky;top:0;z-index:10">
+      <div style="font-family:'DM Serif Display',serif;font-size:22px" id="builder-overlay-title">🗺️ Mappa spiaggia</div>
+      <button class="btn btn-outline btn-sm" onclick="chiudiMappaBuilderOverlay()">✕ Chiudi</button>
+    </div>
+    <div id="builder-overlay-body" style="flex:1;overflow-y:auto;padding:0">
+      <!-- contenuto iniettato da JS -->
+    </div>
+  </div>
+</div>
+</body>
+</html>
