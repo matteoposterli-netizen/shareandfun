@@ -477,12 +477,14 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
   if (!ombs.length) return;
 
   const buildCell = (o) => {
+    if (o.codice === '47') console.log('[DBG 47] buildCell chiamata, attivo =', o.attivo, '| tipo:', typeof o.attivo);
     const el2 = document.createElement('div');
 
     if (!o.attivo) {
       el2.className = 'ombrellone inactive';
       el2.textContent = '☂️';
       el2.title = `${o.codice} — Non attivo`;
+      if (o.codice === '47') console.log('[DBG 47] ramo INACTIVE eseguito, className =', el2.className);
       return el2;
     }
 
@@ -537,6 +539,8 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
   const passerelleSet = new Set(passerelle.map(p => `${p.x}_${p.y}`));
   const byPos = {};
   ombs.forEach(o => { byPos[`${o.pos_x || 0}_${o.pos_y || 0}`] = o; });
+  const _omb47 = ombs.find(o => o.codice === '47');
+  console.log('[DBG 47] trovato in ombs:', _omb47, '| attivo:', _omb47?.attivo, '| pos:', _omb47?.pos_x, _omb47?.pos_y, '| in byPos[9_6]:', byPos['9_6']?.codice);
 
   const xs = ombs.map(o => o.pos_x || 0).concat(passerelle.map(p => p.x || 0));
   const ys = ombs.map(o => o.pos_y || 0).concat(passerelle.map(p => p.y || 0));
