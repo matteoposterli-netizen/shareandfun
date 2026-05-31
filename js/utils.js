@@ -108,6 +108,18 @@ function formatDate(str) {
   return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+// Normalizza un numero di telefono in formato internazionale E.164 (+39…),
+// usato per le notifiche WhatsApp/SMS. Default Italia.
+function normalizzaTelefonoIT(raw) {
+  if (!raw) return '';
+  let s = String(raw).replace(/[\s\-().]/g, '');
+  if (s.startsWith('00')) s = '+' + s.slice(2);
+  if (s.startsWith('+')) return s;
+  if (s.startsWith('3')) return '+39' + s; // cellulare IT
+  if (s.startsWith('0')) return '+39' + s; // fisso IT
+  return '+' + s;
+}
+
 function formatDateShort(str) {
   if (!str) return '';
   const d = new Date(str);

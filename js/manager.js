@@ -2395,6 +2395,7 @@ function getEditRowOmbValues() {
 function getEditRowCltValues() {
   const v = {};
   EDIT_ROW_CLT_FIELDS.forEach(f => { v[f] = (document.getElementById(`edit-row-${f}`)?.value || '').trim(); });
+  v.wa = !!document.getElementById('edit-row-whatsapp-consenso')?.checked;
   return v;
 }
 function isEditRowOmbDirty() {
@@ -2405,7 +2406,7 @@ function isEditRowOmbDirty() {
 function isEditRowCltDirty() {
   if (!editRowCltSnapshot) return false;
   const cur = getEditRowCltValues();
-  return EDIT_ROW_CLT_FIELDS.some(f => cur[f] !== editRowCltSnapshot[f]);
+  return EDIT_ROW_CLT_FIELDS.some(f => cur[f] !== editRowCltSnapshot[f]) || cur.wa !== editRowCltSnapshot.wa;
 }
 
 function checkEditRowDirty() {
@@ -2449,6 +2450,8 @@ function populateEditRowFromData(ombId) {
   document.getElementById('edit-row-cognome').value = cliente?.cognome || '';
   document.getElementById('edit-row-email').value = cliente?.email || '';
   document.getElementById('edit-row-telefono').value = cliente?.telefono || '';
+  const waEl = document.getElementById('edit-row-whatsapp-consenso');
+  if (waEl) waEl.checked = !!cliente?.whatsapp_consenso;
   const emailInput = document.getElementById('edit-row-email');
   emailInput.disabled = !!cliente?.user_id;
   emailInput.title = cliente?.user_id ? 'Email non modificabile: il cliente è già attivo.' : '';
@@ -2534,6 +2537,7 @@ async function saveEditRowCliente() {
   const cognome = document.getElementById('edit-row-cognome').value.trim();
   const email = document.getElementById('edit-row-email').value.trim();
   const telefono = document.getElementById('edit-row-telefono').value.trim();
+  const waConsenso = !!document.getElementById('edit-row-whatsapp-consenso')?.checked;
   const nota = (document.getElementById('edit-row-clt-note')?.value || '').trim();
   const hasCliente = !!(nome || cognome || email || telefono);
   const existing = clId ? (clientiList || []).find(c => c.id === clId) : null;
@@ -2548,6 +2552,7 @@ async function saveEditRowCliente() {
   }
   if (hasCliente) {
     if (!email || !EMAIL_RE.test(email)) { showAlert('edit-row-clt-alert', 'Email cliente non valida.', 'error'); return; }
+    if (waConsenso && !telefono) { showAlert('edit-row-clt-alert', 'Per attivare le notifiche WhatsApp inserisci il numero di cellulare del cliente.', 'error'); return; }
     const snap = editRowCltSnapshot;
     const cur = getEditRowCltValues();
     const lines = EDIT_ROW_CLT_FIELDS.filter(f => cur[f] !== snap[f]).map(f => `• ${EDIT_ROW_CLT_LABELS[f]}: "${snap[f]||'—'}" → "${cur[f]||'—'}"`);
@@ -2558,7 +2563,12 @@ async function saveEditRowCliente() {
         const ok = await confirmAssignmentDialog(ombId, `${nome} ${cognome}`.trim() || email);
         if (!ok) return;
       }
-      const update = { nome, cognome, telefono, ombrellone_id: ombId };
+      const update = {
+        nome, cognome, ombrellone_id: ombId,
+        telefono: telefono ? normalizzaTelefonoIT(telefono) : null,
+        whatsapp_consenso: waConsenso,
+        whatsapp_consenso_at: waConsenso ? new Date().toISOString() : null,
+      };
       if (!existing.user_id) update.email = email;
       const { error } = await sb.from('clienti_stagionali').update(update).eq('id', existing.id);
       if (error) { showAlert('edit-row-clt-alert', error.message, 'error'); return; }
