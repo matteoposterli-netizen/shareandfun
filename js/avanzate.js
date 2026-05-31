@@ -52,12 +52,17 @@ function applyAvanzateRange(from, to) {
 
 function avanzateInit() {
   if (!currentStabilimento) return;
-  // First-time init of flatpickr (no-op if already instantiated)
   if (!avanzateRangePickerInstance) initAvanzateRangePicker(todayStr());
-  // Default: oggi → +6gg, così l'input mostra subito un range e non una data singola.
-  // setAvanzateRangePreset triggera il refresh della mappa.
+  // Sincronizza sempre minDate/maxDate con Date object locale (non stringa ISO):
+  // flatpickr con dateFormat 'd/m/Y' non riesce a parsare le stringhe YYYY-MM-DD
+  // di Supabase e produce date sbagliate (es. '2026-05-29' → June 19 UTC).
+  // Questo copre anche il caso in cui le date stagione cambino dopo la prima init.
+  if (avanzateRangePickerInstance) {
+    const toFpDate = s => s ? new Date(s + 'T00:00:00') : undefined;
+    avanzateRangePickerInstance.set('minDate', toFpDate(currentStabilimento.data_inizio_stagione));
+    avanzateRangePickerInstance.set('maxDate', toFpDate(currentStabilimento.data_fine_stagione));
+  }
   setAvanzateRangePreset(7);
-  // Popola il nome stabilimento nella sezione Zona pericolosa
   const dangerNome = document.getElementById('danger-stab-nome');
   if (dangerNome) dangerNome.textContent = currentStabilimento.nome;
 }
@@ -73,9 +78,10 @@ function initAvanzateRangePicker(fromDate) {
   const _def = avanzateClampToSeason(effectiveFrom, toLocalDateStr(endRaw));
   const startDate = new Date(_def.from + 'T00:00:00');
   const endDefault = new Date(_def.to + 'T00:00:00');
+  const toFpDate = s => s ? new Date(s + 'T00:00:00') : undefined;
   if (avanzateRangePickerInstance) {
-    avanzateRangePickerInstance.set('minDate', currentStabilimento?.data_inizio_stagione || undefined);
-    avanzateRangePickerInstance.set('maxDate', currentStabilimento?.data_fine_stagione || undefined);
+    avanzateRangePickerInstance.set('minDate', toFpDate(currentStabilimento?.data_inizio_stagione));
+    avanzateRangePickerInstance.set('maxDate', toFpDate(currentStabilimento?.data_fine_stagione));
     avanzateRangePickerInstance.setDate([startDate, endDefault], false);
     return;
   }
@@ -86,8 +92,8 @@ function initAvanzateRangePicker(fromDate) {
     defaultDate: [startDate, endDefault],
     showMonths: 1,
     disableMobile: true,
-    minDate: currentStabilimento?.data_inizio_stagione || undefined,
-    maxDate: currentStabilimento?.data_fine_stagione || undefined,
+    minDate: toFpDate(currentStabilimento?.data_inizio_stagione),
+    maxDate: toFpDate(currentStabilimento?.data_fine_stagione),
     onChange: (selectedDates) => {
       if (selectedDates.length === 2) {
         document.getElementById('avanzate-date-from').value = toLocalDateStr(selectedDates[0]);
