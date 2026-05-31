@@ -21,12 +21,14 @@ let avanzateSelection = new Set();   // ombrellone IDs selezionati per azione ma
 function avanzateClampToSeason(from, to) {
   const s = currentStabilimento?.data_inizio_stagione || null;
   const e = currentStabilimento?.data_fine_stagione || null;
+  const before = { from, to };
   // stringhe 'YYYY-MM-DD': il confronto lessicografico coincide con quello cronologico
   if (s && from < s) from = s;
   if (e && from > e) from = e;
   if (s && to   < s) to   = s;
   if (e && to   > e) to   = e;
   if (to < from) to = from;
+  console.log('[DBG avanzate] clampToSeason IN:', before, '→ OUT:', { from, to }, '| stagione:', s, '→', e);
   return { from, to };
 }
 
@@ -34,16 +36,22 @@ function avanzateClampToSeason(from, to) {
 // nascosti, allinea il picker senza triggerare onChange (evita il clamping di
 // flatpickr che con date fuori range riduce la selezione a un solo giorno) e rinfresca.
 function applyAvanzateRange(from, to) {
+  console.log('[DBG avanzate] applyAvanzateRange chiamato con:', { from, to });
   const c = avanzateClampToSeason(from, to);
   const fromEl = document.getElementById('avanzate-date-from');
   const toEl = document.getElementById('avanzate-date-to');
   if (fromEl) fromEl.value = c.from;
   if (toEl) toEl.value = c.to;
+  console.log('[DBG avanzate] input nascosti aggiornati → from:', fromEl?.value, 'to:', toEl?.value);
   if (avanzateRangePickerInstance) {
-    avanzateRangePickerInstance.setDate(
-      [new Date(c.from + 'T00:00:00'), new Date(c.to + 'T00:00:00')],
-      false
-    );
+    const d1 = new Date(c.from + 'T00:00:00');
+    const d2 = new Date(c.to + 'T00:00:00');
+    console.log('[DBG avanzate] setDate picker →', d1.toISOString(), '/', d2.toISOString());
+    avanzateRangePickerInstance.setDate([d1, d2], false);
+    console.log('[DBG avanzate] selectedDates dopo setDate:', avanzateRangePickerInstance.selectedDates.map(d => d.toISOString()));
+    console.log('[DBG avanzate] input picker value dopo setDate:', document.getElementById('avanzate-range-picker')?.value);
+  } else {
+    console.warn('[DBG avanzate] avanzateRangePickerInstance è NULL — setDate saltato');
   }
   refreshAvanzateMap();
 }
@@ -51,20 +59,26 @@ function applyAvanzateRange(from, to) {
 /* ---------- Init / range picker ---------- */
 
 function avanzateInit() {
-  if (!currentStabilimento) return;
-  // First-time init of flatpickr (no-op if already instantiated)
+  console.log('[DBG avanzate] avanzateInit START | currentStabilimento:', currentStabilimento ? {
+    nome: currentStabilimento.nome,
+    data_inizio_stagione: currentStabilimento.data_inizio_stagione,
+    data_fine_stagione: currentStabilimento.data_fine_stagione,
+  } : null);
+  if (!currentStabilimento) { console.warn('[DBG avanzate] currentStabilimento mancante — uscita'); return; }
+  console.log('[DBG avanzate] avanzateRangePickerInstance già esistente?', !!avanzateRangePickerInstance);
   if (!avanzateRangePickerInstance) initAvanzateRangePicker(todayStr());
-  // Default: oggi → +6gg, così l'input mostra subito un range e non una data singola.
-  // setAvanzateRangePreset triggera il refresh della mappa.
+  console.log('[DBG avanzate] dopo initAvanzateRangePicker — instance:', !!avanzateRangePickerInstance);
   setAvanzateRangePreset(7);
-  // Popola il nome stabilimento nella sezione Zona pericolosa
   const dangerNome = document.getElementById('danger-stab-nome');
   if (dangerNome) dangerNome.textContent = currentStabilimento.nome;
+  console.log('[DBG avanzate] avanzateInit END');
 }
 
 function initAvanzateRangePicker(fromDate) {
-  if (typeof flatpickr === 'undefined') return;
+  console.log('[DBG avanzate] initAvanzateRangePicker | fromDate:', fromDate, '| flatpickr disponibile:', typeof flatpickr !== 'undefined');
+  if (typeof flatpickr === 'undefined') { console.error('[DBG avanzate] flatpickr NON definito — uscita'); return; }
   const input = document.getElementById('avanzate-range-picker');
+  console.log('[DBG avanzate] input avanzate-range-picker trovato:', !!input);
   if (!input) return;
   const s = currentStabilimento?.data_inizio_stagione;
   const effectiveFrom = (s && fromDate < s) ? s : fromDate;
@@ -73,12 +87,16 @@ function initAvanzateRangePicker(fromDate) {
   const _def = avanzateClampToSeason(effectiveFrom, toLocalDateStr(endRaw));
   const startDate = new Date(_def.from + 'T00:00:00');
   const endDefault = new Date(_def.to + 'T00:00:00');
+  console.log('[DBG avanzate] initPicker calcoli:', { fromDate, s, effectiveFrom, endRaw: toLocalDateStr(endRaw), _def, startDate: startDate.toISOString(), endDefault: endDefault.toISOString() });
   if (avanzateRangePickerInstance) {
+    console.log('[DBG avanzate] picker già init — aggiorno minDate/maxDate + setDate');
     avanzateRangePickerInstance.set('minDate', currentStabilimento?.data_inizio_stagione || undefined);
     avanzateRangePickerInstance.set('maxDate', currentStabilimento?.data_fine_stagione || undefined);
     avanzateRangePickerInstance.setDate([startDate, endDefault], false);
+    console.log('[DBG avanzate] selectedDates dopo re-init setDate:', avanzateRangePickerInstance.selectedDates.map(d => d.toISOString()));
     return;
   }
+  console.log('[DBG avanzate] creo nuova istanza flatpickr con minDate:', s, 'maxDate:', currentStabilimento?.data_fine_stagione);
   avanzateRangePickerInstance = flatpickr(input, {
     mode: 'range',
     locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
@@ -89,6 +107,7 @@ function initAvanzateRangePicker(fromDate) {
     minDate: currentStabilimento?.data_inizio_stagione || undefined,
     maxDate: currentStabilimento?.data_fine_stagione || undefined,
     onChange: (selectedDates) => {
+      console.log('[DBG avanzate] onChange fired | selectedDates.length:', selectedDates.length, selectedDates.map(d => d.toISOString()));
       if (selectedDates.length === 2) {
         document.getElementById('avanzate-date-from').value = toLocalDateStr(selectedDates[0]);
         document.getElementById('avanzate-date-to').value = toLocalDateStr(selectedDates[1]);
@@ -100,6 +119,8 @@ function initAvanzateRangePicker(fromDate) {
       }
     },
   });
+  console.log('[DBG avanzate] flatpickr creato | selectedDates iniziali:', avanzateRangePickerInstance.selectedDates.map(d => d.toISOString()));
+  console.log('[DBG avanzate] input picker value dopo init:', input.value);
 }
 
 function setAvanzateRangePreset(days) {
@@ -110,6 +131,7 @@ function setAvanzateRangePreset(days) {
   const start = (s && today < s) ? s : today;
   const end = new Date(start + 'T00:00:00');
   end.setDate(end.getDate() + days - 1);
+  console.log('[DBG avanzate] setAvanzateRangePreset | days:', days, '| today:', today, '| s:', s, '| start effettivo:', start, '| end:', toLocalDateStr(end));
   applyAvanzateRange(start, toLocalDateStr(end));
 }
 
