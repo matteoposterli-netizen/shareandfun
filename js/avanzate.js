@@ -92,6 +92,7 @@ function avanzateInit() {
   dbg.push('data_inizio_stagione: ' + currentStabilimento.data_inizio_stagione);
   dbg.push('data_fine_stagione:   ' + currentStabilimento.data_fine_stagione);
   dbg.push('picker già init: ' + !!avanzateRangePickerInstance);
+  dbg.push('→ sync minDate/maxDate in corso…');
   _dbgPanel(dbg);
 
   console.log('[DBG avanzate] avanzateInit START | currentStabilimento:', {
@@ -100,7 +101,13 @@ function avanzateInit() {
     data_fine_stagione: currentStabilimento.data_fine_stagione,
   });
   if (!avanzateRangePickerInstance) initAvanzateRangePicker(todayStr());
-  console.log('[DBG avanzate] dopo initAvanzateRangePicker — instance:', !!avanzateRangePickerInstance);
+  // Sync minDate/maxDate SEMPRE: il picker potrebbe essere stale se le date stagione
+  // sono cambiate in Configurazioni dopo che il picker era già stato creato.
+  if (avanzateRangePickerInstance) {
+    avanzateRangePickerInstance.set('minDate', currentStabilimento.data_inizio_stagione || undefined);
+    avanzateRangePickerInstance.set('maxDate', currentStabilimento.data_fine_stagione || undefined);
+  }
+  console.log('[DBG avanzate] dopo initAvanzateRangePicker + sync — minDate:', avanzateRangePickerInstance?.config?.minDate?.toISOString?.(), 'maxDate:', avanzateRangePickerInstance?.config?.maxDate?.toISOString?.());
   setAvanzateRangePreset(7);
   const dangerNome = document.getElementById('danger-stab-nome');
   if (dangerNome) dangerNome.textContent = currentStabilimento.nome;
