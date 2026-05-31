@@ -69,15 +69,17 @@ function applyAvanzateRange(from, to) {
     dbg.push('⛔ picker NULL — setDate saltato');
     console.warn('[DBG avanzate] avanzateRangePickerInstance è NULL — setDate saltato');
   }
-  _dbgPanel(dbg);
+  _dbgPanel(dbg, true);  // append, non sovrascrive avanzateInit
   refreshAvanzateMap();
 }
 
 /* ---------- Init / range picker ---------- */
 
-function _dbgPanel(lines) {
+function _dbgPanel(lines, append) {
   const el = document.getElementById('avanzate-debug-panel');
-  if (el) el.textContent = lines.join('\n');
+  if (!el) return;
+  const txt = lines.join('\n');
+  el.textContent = append ? (el.textContent + '\n' + txt) : txt;
 }
 
 function avanzateInit() {
@@ -106,8 +108,15 @@ function avanzateInit() {
   if (avanzateRangePickerInstance) {
     avanzateRangePickerInstance.set('minDate', currentStabilimento.data_inizio_stagione || undefined);
     avanzateRangePickerInstance.set('maxDate', currentStabilimento.data_fine_stagione || undefined);
+    const minAfter = avanzateRangePickerInstance.config.minDate?.toISOString().slice(0,10) || 'nessuna';
+    const maxAfter = avanzateRangePickerInstance.config.maxDate?.toISOString().slice(0,10) || 'nessuna';
+    dbg.push('minDate dopo sync: ' + minAfter);
+    dbg.push('maxDate dopo sync: ' + maxAfter);
+  } else {
+    dbg.push('⛔ picker NULL dopo init');
   }
-  console.log('[DBG avanzate] dopo initAvanzateRangePicker + sync — minDate:', avanzateRangePickerInstance?.config?.minDate?.toISOString?.(), 'maxDate:', avanzateRangePickerInstance?.config?.maxDate?.toISOString?.());
+  _dbgPanel(dbg);  // mostra avanzateInit — applyAvanzateRange farà append
+  console.log('[DBG avanzate] dopo sync — minDate:', avanzateRangePickerInstance?.config?.minDate?.toISOString?.(), 'maxDate:', avanzateRangePickerInstance?.config?.maxDate?.toISOString?.());
   setAvanzateRangePreset(7);
   const dangerNome = document.getElementById('danger-stab-nome');
   if (dangerNome) dangerNome.textContent = currentStabilimento.nome;
