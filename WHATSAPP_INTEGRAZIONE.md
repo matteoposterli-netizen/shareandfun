@@ -68,8 +68,9 @@ Repo: `matteoposterli-netizen/shareandfun`. `CLAUDE.md` = architettura autorevol
 - **Tabella `clienti_stagionali`**: `telefono` (modificabile dal gestore nel Tab
   "Ombrelloni e clienti"), `email`, `nome`, `cognome`, `credito_saldo`, `user_id`,
   `stabilimento_id`, `ombrellone_id`, `approvato`, `invito_token`, `invitato_at`.
-  **+ NUOVI (Step 1, già applicati al DB)**: `whatsapp_consenso boolean DEFAULT false`,
-  `whatsapp_consenso_at timestamptz`.
+  **+ (Step 1, applicati al DB)**: `whatsapp_consenso boolean DEFAULT false`,
+  `whatsapp_consenso_at timestamptz`. Il consenso è scritto dal form di modifica cliente
+  (Step 5a, in main).
 - **Dashboard stagionale** (`#view-stagionale`, js/stagionale.js): schede
   `.stag-tab[data-stag-tab]`/`#stag-tab-X`, `stagSwitchTab()`. Helper: `sb`, `currentUser`,
   `stagClienteId`, `showAlert`, `showLoading/hideLoading`, `loadStagionaleData()`.
@@ -137,13 +138,14 @@ Estensioni future: ritiro coin, chiusura stagione, comunicazioni (cautela: marke
 - [x] **0. Strategia / provider (Twilio) / architettura** — definiti.
 - [x] **1. Migration consenso** — FATTO. `20260531000000_whatsapp_consenso.sql` su `main`
       e applicata al DB (`whatsapp_consenso`, `whatsapp_consenso_at` su `clienti_stagionali`).
-- [ ] **5a. Consenso in anagrafica gestore** — PROMPT PRONTO
-      (`03_consenso_whatsapp_anagrafica_gestore.txt`): checkbox consenso WhatsApp nel form
-      di modifica cliente del Tab "Ombrelloni e clienti" + normalizzazione telefono E.164.
-      Da incollare in Claude Code. Indip. da Twilio.
+- [x] **5a. Consenso in anagrafica gestore** — FATTO, in `main` (PR #97,
+      "feat(whatsapp): consenso WhatsApp nel form di modifica cliente"). Checkbox consenso
+      + normalizzazione telefono E.164 nel Tab "Ombrelloni e clienti". (Prompt:
+      `03_consenso_whatsapp_anagrafica_gestore.txt`.)
 - [ ] **5b. Preferenze nella dashboard stagionale** — PROMPT PRONTO
       (`02_ui_consenso_whatsapp_stagionale.txt`): scheda "Notifiche" per gestire/revocare
-      numero + consenso lato cliente. Da incollare in Claude Code. Indip. da Twilio.
+      numero + consenso lato cliente. **NON ancora pushato** — da incollare in Claude
+      Code. Indip. da Twilio.
 - [ ] **2. Setup Twilio** — account + Sandbox + Account SID/Auth Token. (Sessione Twilio.)
 - [ ] **3. Creare i 3 template** (invito/benvenuto/subaffitto) nel Content Template
       Builder -> 3 **Content SID**. (Sessione Twilio.)
@@ -160,14 +162,14 @@ Estensioni future: ritiro coin, chiusura stagione, comunicazioni (cautela: marke
 
 - `01_migration_whatsapp_consenso.txt` — migration consenso. **Eseguito** (Step 1).
 - `02_ui_consenso_whatsapp_stagionale.txt` — scheda "Notifiche" dashboard stagionale
-  (Step 5b). **Da eseguire.**
+  (Step 5b). **Da eseguire** (non ancora pushato).
 - `03_consenso_whatsapp_anagrafica_gestore.txt` — consenso nel form modifica cliente,
-  Tab "Ombrelloni e clienti" (Step 5a). **Da eseguire.**
+  Tab "Ombrelloni e clienti" (Step 5a). **Eseguito** (in main, PR #97).
 
 ## 13. Riprendere da qui
 
-Stato: **Step 0 e 1 completati**. Pronti da pushare su Claude Code (indip. da Twilio):
-Step 5a (prompt 03) e Step 5b (prompt 02).
+Stato: **Step 0, 1 e 5a completati** (in main). Resta da pushare (indip. da Twilio): Step
+5b (prompt 02, scheda Notifiche stagionale).
 Sessione Twilio (prossima): Step 2 (account+Sandbox) e Step 3 (3 template -> 3 Content
 SID); con i Content SID si fanno Step 4a (tab WhatsApp config) + 4b (Edge Function), che
 sono accoppiati. Step 6 = produzione dopo il pilota.
