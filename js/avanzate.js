@@ -66,9 +66,11 @@ function initAvanzateRangePicker(fromDate) {
   if (typeof flatpickr === 'undefined') return;
   const input = document.getElementById('avanzate-range-picker');
   if (!input) return;
-  const endRaw = new Date(fromDate + 'T00:00:00');
+  const s = currentStabilimento?.data_inizio_stagione;
+  const effectiveFrom = (s && fromDate < s) ? s : fromDate;
+  const endRaw = new Date(effectiveFrom + 'T00:00:00');
   endRaw.setDate(endRaw.getDate() + 6);
-  const _def = avanzateClampToSeason(fromDate, toLocalDateStr(endRaw));
+  const _def = avanzateClampToSeason(effectiveFrom, toLocalDateStr(endRaw));
   const startDate = new Date(_def.from + 'T00:00:00');
   const endDefault = new Date(_def.to + 'T00:00:00');
   if (avanzateRangePickerInstance) {
@@ -102,9 +104,13 @@ function initAvanzateRangePicker(fromDate) {
 
 function setAvanzateRangePreset(days) {
   const today = todayStr();
-  const end = new Date(today + 'T00:00:00');
+  const s = currentStabilimento?.data_inizio_stagione;
+  // Se oggi è prima dell'apertura stagione, parte dall'inizio stagione
+  // (altrimenti avanzateClampToSeason schiaccia sia from che to sullo stesso giorno)
+  const start = (s && today < s) ? s : today;
+  const end = new Date(start + 'T00:00:00');
   end.setDate(end.getDate() + days - 1);
-  applyAvanzateRange(today, toLocalDateStr(end));
+  applyAvanzateRange(start, toLocalDateStr(end));
 }
 
 function setAvanzateRangeStagione() {
