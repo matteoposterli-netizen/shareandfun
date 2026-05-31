@@ -17,6 +17,37 @@ let avanzateClienteCurrent = null;   // { id, nome, ..., credito_saldo } | null
 let avanzateSaldoOrigin = null;      // 'omb' (modal scheda) | 'mirata' (pane mirata)
 let avanzateSelection = new Set();   // ombrellone IDs selezionati per azione massiva
 
+/* ---------- Helper: clamp range alla stagione + applica in modo robusto ---------- */
+function avanzateClampToSeason(from, to) {
+  const s = currentStabilimento?.data_inizio_stagione || null;
+  const e = currentStabilimento?.data_fine_stagione || null;
+  // stringhe 'YYYY-MM-DD': il confronto lessicografico coincide con quello cronologico
+  if (s && from < s) from = s;
+  if (e && from > e) from = e;
+  if (s && to   < s) to   = s;
+  if (e && to   > e) to   = e;
+  if (to < from) to = from;
+  return { from, to };
+}
+
+// Imposta il range in modo robusto: clampa alla stagione, scrive SEMPRE gli input
+// nascosti, allinea il picker senza triggerare onChange (evita il clamping di
+// flatpickr che con date fuori range riduce la selezione a un solo giorno) e rinfresca.
+function applyAvanzateRange(from, to) {
+  const c = avanzateClampToSeason(from, to);
+  const fromEl = document.getElementById('avanzate-date-from');
+  const toEl = document.getElementById('avanzate-date-to');
+  if (fromEl) fromEl.value = c.from;
+  if (toEl) toEl.value = c.to;
+  if (avanzateRangePickerInstance) {
+    avanzateRangePickerInstance.setDate(
+      [new Date(c.from + 'T00:00:00'), new Date(c.to + 'T00:00:00')],
+      false
+    );
+  }
+  refreshAvanzateMap();
+}
+
 /* ---------- Init / range picker ---------- */
 
 function avanzateInit() {
@@ -35,9 +66,11 @@ function initAvanzateRangePicker(fromDate) {
   if (typeof flatpickr === 'undefined') return;
   const input = document.getElementById('avanzate-range-picker');
   if (!input) return;
-  const startDate = new Date(fromDate + 'T00:00:00');
-  const endDefault = new Date(fromDate + 'T00:00:00');
-  endDefault.setDate(endDefault.getDate() + 6);
+  const endRaw = new Date(fromDate + 'T00:00:00');
+  endRaw.setDate(endRaw.getDate() + 6);
+  const _def = avanzateClampToSeason(fromDate, toLocalDateStr(endRaw));
+  const startDate = new Date(_def.from + 'T00:00:00');
+  const endDefault = new Date(_def.to + 'T00:00:00');
   if (avanzateRangePickerInstance) {
     avanzateRangePickerInstance.set('minDate', currentStabilimento?.data_inizio_stagione || undefined);
     avanzateRangePickerInstance.set('maxDate', currentStabilimento?.data_fine_stagione || undefined);
@@ -69,17 +102,9 @@ function initAvanzateRangePicker(fromDate) {
 
 function setAvanzateRangePreset(days) {
   const today = todayStr();
-  const startDate = new Date(today + 'T00:00:00');
-  const endDate = new Date(today + 'T00:00:00');
-  endDate.setDate(endDate.getDate() + days - 1);
-  if (avanzateRangePickerInstance) {
-    // triggerChange=true → onChange aggiorna i campi nascosti e chiama refreshAvanzateMap
-    avanzateRangePickerInstance.setDate([startDate, endDate]);
-  } else {
-    document.getElementById('avanzate-date-from').value = today;
-    document.getElementById('avanzate-date-to').value = toLocalDateStr(endDate);
-    refreshAvanzateMap();
-  }
+  const end = new Date(today + 'T00:00:00');
+  end.setDate(end.getDate() + days - 1);
+  applyAvanzateRange(today, toLocalDateStr(end));
 }
 
 function setAvanzateRangeStagione() {
@@ -91,15 +116,7 @@ function setAvanzateRangeStagione() {
     setTimeout(() => showAlert('avanzate-save-alert', '', ''), 4000);
     return;
   }
-  const startDate = new Date(inizio + 'T00:00:00');
-  const endDate = new Date(fine + 'T00:00:00');
-  if (avanzateRangePickerInstance) {
-    avanzateRangePickerInstance.setDate([startDate, endDate]);
-  } else {
-    document.getElementById('avanzate-date-from').value = inizio;
-    document.getElementById('avanzate-date-to').value = fine;
-    refreshAvanzateMap();
-  }
+  applyAvanzateRange(inizio, fine);
 }
 
 function updateAvanzatePresetActive() {
@@ -135,9 +152,17 @@ function updateAvanzatePresetActive() {
 async function refreshAvanzateMap() {
   avanzateSelection.clear();
   updateAvanzateSelectionBar();
-  const from = document.getElementById('avanzate-date-from').value;
-  const to = document.getElementById('avanzate-date-to').value || from;
-  if (!from || !ombrelloniList || ombrelloniList.length === 0) {
+  let from = document.getElementById('avanzate-date-from').value;
+  let to = document.getElementById('avanzate-date-to').value || from;
+  if (!from) {
+    const c = avanzateClampToSeason(todayStr(), todayStr());
+    from = c.from; to = c.to;
+    const fEl = document.getElementById('avanzate-date-from');
+    const tEl = document.getElementById('avanzate-date-to');
+    if (fEl) fEl.value = from;
+    if (tEl) tEl.value = to;
+  }
+  if (!ombrelloniList || ombrelloniList.length === 0) {
     document.getElementById('avanzate-map').innerHTML = '<div style="color:var(--text-light);font-size:13px;padding:8px">Nessun ombrellone configurato.</div>';
     return;
   }
