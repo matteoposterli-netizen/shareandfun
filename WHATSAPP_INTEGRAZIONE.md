@@ -56,9 +56,14 @@ Repo: `matteoposterli-netizen/shareandfun`. `CLAUDE.md` = architettura autorevol
   `credito_ritirato`, `chiusura_stagione`, `comunicazione`, `ombrellone_disattivato`.
   Il `from` usa già il nome dello stabilimento come display name (pattern di attribuzione
   da replicare su WhatsApp).
-- **Tabella `clienti_stagionali`** (baseline): ha già `telefono text` (facoltativo),
-  `email text NOT NULL`, `nome`, `cognome`, `credito_saldo`, `user_id`,
-  `stabilimento_id`, `ombrellone_id`, `approvato`, `invito_token`, ecc.
+- **Tabella `clienti_stagionali`**: ha `telefono text` (facoltativo), `email text NOT
+  NULL`, `nome`, `cognome`, `credito_saldo`, `user_id`, `stabilimento_id`,
+  `ombrellone_id`, `approvato`, `invito_token`, ecc. **+ NUOVI**: `whatsapp_consenso
+  boolean DEFAULT false`, `whatsapp_consenso_at timestamptz` (Step 1, già applicati).
+- **Dashboard stagionale**: view `#view-stagionale` in index.html con schede
+  `.stag-tab[data-stag-tab]` / `#stag-tab-X`, cambio scheda via `stagSwitchTab(tab, btn)`
+  (js/stagionale.js). Helper globali: `sb`, `currentUser`, `stagClienteId`,
+  `showAlert(idEl,msg,tipo)`, `showLoading()`, `hideLoading()`, `loadStagionaleData()`.
 - **RLS**: le policy esistenti su `clienti_stagionali` coprono già l'update da parte del
   cliente stesso e del proprietario -> nessuna nuova policy necessaria per il consenso.
 - **Piano**: creare una Edge Function gemella **`invia-whatsapp`** con lo stesso pattern
@@ -122,34 +127,40 @@ Estensioni future: `credito_ritirato`, `chiusura_stagione`, eventuali comunicazi
 ## 9. Piano operativo — STEP
 
 - [x] **0. Strategia, provider (Twilio) e architettura** — definiti (questo documento).
-- [ ] **1. Migration consenso** — incollare in Claude Code il prompt
-      `01_migration_whatsapp_consenso.txt` -> crea
-      `supabase/migrations/20260531000000_whatsapp_consenso.sql` (aggiunge
-      `whatsapp_consenso boolean` + `whatsapp_consenso_at timestamptz` a
-      `clienti_stagionali`). Poi **applicare la migration su Supabase** (db push o
-      dashboard).
+- [x] **1. Migration consenso** — FATTO. File
+      `supabase/migrations/20260531000000_whatsapp_consenso.sql` creato e pushato su
+      `main`; migration **applicata al DB Supabase** (colonne `whatsapp_consenso` e
+      `whatsapp_consenso_at` live su `clienti_stagionali`).
+- [ ] **5. UI consenso + telefono** — PROMPT PRONTO
+      (`02_ui_consenso_whatsapp_stagionale.txt`): aggiunge una scheda "Notifiche" nella
+      dashboard stagionale (`#view-stagionale`) con campo telefono + checkbox consenso;
+      salva su `clienti_stagionali` (telefono normalizzato in +39…, `whatsapp_consenso`,
+      `whatsapp_consenso_at`). **Da incollare in Claude Code** (non ancora pushato).
+      Indipendente da Twilio. (Lo Step 5 è anticipato perché non dipende da Twilio.)
 - [ ] **2. Setup Twilio** — creare account -> annotare Account SID + Auth Token ->
-      attivare il Sandbox -> abilitare il proprio telefono.
+      attivare il Sandbox -> abilitare il proprio telefono. (DA FARE — sessione Twilio.)
 - [ ] **3. Creare i 3 template** nel Content Template Builder -> annotare i 3 **Content
-      SID** (`HX…`).
-- [ ] **4. Edge Function `invia-whatsapp`** — (Claude prepara il prompt Claude Code
-      quando sono disponibili i 3 Content SID): funzione gemella di `invia-email`,
-      mappa ogni `tipo` al rispettivo template, invia via Twilio, parte solo per chi ha
-      telefono + consenso; aggancio accanto agli invii email esistenti. Secret Twilio su
-      Supabase.
-- [ ] **5. UI consenso + telefono** — raccogliere numero (formato +39…) e consenso
-      WhatsApp in registrazione/invito stagionale; scrivere `whatsapp_consenso` e
-      `whatsapp_consenso_at`.
+      SID** (`HX…`). (DA FARE — sessione Twilio.)
+- [ ] **4. Edge Function `invia-whatsapp`** — Claude prepara il prompt Claude Code quando
+      sono disponibili i 3 Content SID: funzione gemella di `invia-email`, mappa ogni
+      `tipo` al rispettivo template, invia via Twilio, parte solo per chi ha telefono +
+      consenso; aggancio accanto agli invii email esistenti. Secret Twilio su Supabase.
 - [ ] **6. Produzione (post-pilota)** — numero Twilio dedicato + verifica business Meta +
       display name approvato.
 
 ## 10. Deliverable già prodotti
 
 - `01_migration_whatsapp_consenso.txt` — prompt Claude Code per la migration consenso.
+  **Eseguito** (Step 1 completato).
+- `02_ui_consenso_whatsapp_stagionale.txt` — prompt Claude Code per la scheda "Notifiche"
+  (telefono + consenso) nella dashboard stagionale. **Da eseguire** (Step 5).
 
 ## 11. Riprendere da qui
 
-Per ripartire (questa o nuova conversazione): siamo alla fine dello Step 0. Il prossimo
-gesto concreto è lo **Step 1** (push della migration) e, in parallelo, lo **Step 2**
-(setup Twilio, che ha tempi di attesa). Lo Step 4 (codice della Edge Function) richiede i
-3 Content SID dello Step 3.
+Stato attuale: **Step 0 e Step 1 completati**. Step 5 ha il prompt pronto
+(`02_...txt`) da incollare in Claude Code (frontend, indipendente da Twilio).
+
+Prossima sessione (Twilio): eseguire **Step 2** (account + Sandbox + credenziali) e
+**Step 3** (creare i 3 template -> 3 Content SID). Con i 3 Content SID si sblocca lo
+**Step 4** (Claude prepara il prompt della Edge Function `invia-whatsapp`). Lo **Step 6**
+è il passaggio in produzione, dopo la validazione del pilota.
