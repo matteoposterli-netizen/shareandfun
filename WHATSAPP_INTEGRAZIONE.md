@@ -64,16 +64,20 @@ Repo: `matteoposterli-netizen/shareandfun`. `CLAUDE.md` = architettura autorevol
   `inviaEmail('invito', { email, nome, cognome, ombrellone, invite_link }, currentStabilimento, {oggetto,testo})`
   sia nell'import Excel (`confirmImportaExcelExecute`, se attivo `xlsx-invia-inviti`) sia
   nel bulk invite (`confirmBulkInvite`). Link invito: `${origin}/?invito=${token}`.
-  -> Qui andrà affiancato l'invio WhatsApp.
+  -> Qui andrà affiancato l'invio WhatsApp (Step 4b).
+  -> DA MAPPARE domani con la Edge Function: i punti dove oggi partono il **benvenuto**
+     (registrazione/creazione password) e il **sub-affitto confermato** (conferma del
+     gestore + accredito coin) — lì si aggancia l'invio WhatsApp corrispondente.
 - **Tabella `clienti_stagionali`**: `telefono` (modificabile dal gestore nel Tab
   "Ombrelloni e clienti"), `email`, `nome`, `cognome`, `credito_saldo`, `user_id`,
   `stabilimento_id`, `ombrellone_id`, `approvato`, `invito_token`, `invitato_at`.
   **+ (Step 1, applicati al DB)**: `whatsapp_consenso boolean DEFAULT false`,
-  `whatsapp_consenso_at timestamptz`. Il consenso è scritto dal form di modifica cliente
-  (Step 5a, in main).
+  `whatsapp_consenso_at timestamptz`. Scritti dal form di modifica cliente (Step 5a) e
+  dalla scheda "Notifiche" della dashboard stagionale (Step 5b).
 - **Dashboard stagionale** (`#view-stagionale`, js/stagionale.js): schede
-  `.stag-tab[data-stag-tab]`/`#stag-tab-X`, `stagSwitchTab()`. Helper: `sb`, `currentUser`,
-  `stagClienteId`, `showAlert`, `showLoading/hideLoading`, `loadStagionaleData()`.
+  `.stag-tab[data-stag-tab]`/`#stag-tab-X`, `stagSwitchTab()`. Ora include la scheda
+  "Notifiche" (Step 5b). Helper: `sb`, `currentUser`, `stagClienteId`, `showAlert`,
+  `showLoading/hideLoading`, `loadStagionaleData()`.
 - **Pannello gestore — Comunicazioni** (js/comunicazioni.js): tre sotto-tab
   `.comm-tab`/`#comm-pane-<tab>` con `comunicazioniSwitchTab()`: **email** (broadcast
   funzionante via Resend), **whatsapp** (oggi placeholder "Stiamo lavorando"), **sms**
@@ -91,24 +95,20 @@ broadcast manuali. Il broadcast WhatsApp libero è fuori dal primo rilascio (mar
 
 ## 8. Template del primo rilascio (3, categoria Utility, verso stagionali)
 
-Tono breve/informale, max 1–2 emoji. Variabili `{{1}}`… Su Twilio si creano nel Content
-Template Builder -> ognuno ha un **Content SID** (`HX…`).
+Testi pronti da incollare nel Content Template Builder -> vedi deliverable
+`04_template_whatsapp_pronti_twilio.txt`. Riepilogo:
 
-1. **`invito_stagionale`** (con bottone URL "Crea password")
+1. **`spiaggiamia_invito_stagionale`** (Call To Action, bottone "Crea password")
    > Ciao {{1}}! 🏖️ {{2}} ti ha aperto il tuo spazio su SpiaggiaMia per gestire il tuo ombrellone. Crea la tua password per accedere.
+   (1=nome, 2=stabilimento; bottone URL https://spiaggiamia.com/?invito={{token}})
 
-   (1=nome, 2=stabilimento; link nel bottone URL)
-
-2. **`benvenuto_stagionale`**
+2. **`spiaggiamia_benvenuto_stagionale`** (Text)
    > Ciao {{1}}! 🌊 Il tuo account SpiaggiaMia è attivo. Da qui segnali le tue assenze e accumuli coin quando {{2}} sub-affitta il tuo ombrellone. Buona estate!
-
    (1=nome, 2=stabilimento)
 
-3. **`subaffitto_confermato`**
+3. **`spiaggiamia_subaffitto_confermato`** (Text)
    > Ciao {{1}}! ☂️ Il tuo ombrellone è stato affittato {{2}}. Hai guadagnato {{3}} — credito totale: {{4}}. Lo usi al bar e ristorante di {{5}}!
-
-   (1=nome, 2=periodo già formattato es. "dal 5 al 7 luglio"/"il 5 luglio", 3=credito
-   guadagnato, 4=credito totale, 5=stabilimento)
+   (1=nome, 2=periodo, 3=credito guadagnato, 4=credito totale, 5=stabilimento)
 
 Estensioni future: ritiro coin, chiusura stagione, comunicazioni (cautela: marketing).
 
@@ -136,40 +136,38 @@ Estensioni future: ritiro coin, chiusura stagione, comunicazioni (cautela: marke
 ## 11. Piano operativo — STEP
 
 - [x] **0. Strategia / provider (Twilio) / architettura** — definiti.
-- [x] **1. Migration consenso** — FATTO. `20260531000000_whatsapp_consenso.sql` su `main`
-      e applicata al DB (`whatsapp_consenso`, `whatsapp_consenso_at` su `clienti_stagionali`).
-- [x] **5a. Consenso in anagrafica gestore** — FATTO, in `main` (PR #97,
-      "feat(whatsapp): consenso WhatsApp nel form di modifica cliente"). Checkbox consenso
-      + normalizzazione telefono E.164 nel Tab "Ombrelloni e clienti". (Prompt:
-      `03_consenso_whatsapp_anagrafica_gestore.txt`.)
-- [ ] **5b. Preferenze nella dashboard stagionale** — PROMPT PRONTO
-      (`02_ui_consenso_whatsapp_stagionale.txt`): scheda "Notifiche" per gestire/revocare
-      numero + consenso lato cliente. **NON ancora pushato** — da incollare in Claude
-      Code. Indip. da Twilio.
+- [x] **1. Migration consenso** — FATTO, in `main` + applicata al DB.
+- [x] **5a. Consenso in anagrafica gestore** — FATTO, in `main` (PR #97). Checkbox
+      consenso + telefono E.164 nel Tab "Ombrelloni e clienti".
+- [x] **5b. Preferenze nella dashboard stagionale** — FATTO, in `main`. Scheda "Notifiche"
+      con numero + opt-in/revoca lato cliente.
 - [ ] **2. Setup Twilio** — account + Sandbox + Account SID/Auth Token. (Sessione Twilio.)
-- [ ] **3. Creare i 3 template** (invito/benvenuto/subaffitto) nel Content Template
-      Builder -> 3 **Content SID**. (Sessione Twilio.)
+- [ ] **3. Creare i 3 template** (testi pronti in `04_template_whatsapp_pronti_twilio.txt`)
+      nel Content Template Builder -> annotare i 3 **Content SID**. (Sessione Twilio.)
 - [ ] **4a. Tab WhatsApp (gestore)** — trasformare il placeholder `#comm-pane-whatsapp`
       nel pannello config: Content SID dei 3 template, numero mittente, stato, anteprima.
-      Salva su una config globale di sistema. (Accoppiato ai Content SID -> con Step 3.)
+      Config globale di sistema. (Accoppiato ai Content SID -> con Step 3.)
 - [ ] **4b. Edge Function `invia-whatsapp`** — gemella di `invia-email`; mappa `tipo` ->
       template (Content SID dalla config §7), invia via Twilio, solo se telefono+consenso.
-      Agganciata accanto agli invii email esistenti (invito in clienti.js, benvenuto alla
-      registrazione, sub-affitto alla conferma del gestore). Secret Twilio su Supabase.
+      Agganciata accanto agli invii email esistenti (invito in clienti.js + i punti di
+      benvenuto e sub-affitto da mappare). Secret Twilio su Supabase.
 - [ ] **6. Produzione (post-pilota)** — numero Twilio dedicato + verifica business Meta.
 
 ## 12. Deliverable prodotti
 
 - `01_migration_whatsapp_consenso.txt` — migration consenso. **Eseguito** (Step 1).
-- `02_ui_consenso_whatsapp_stagionale.txt` — scheda "Notifiche" dashboard stagionale
-  (Step 5b). **Da eseguire** (non ancora pushato).
-- `03_consenso_whatsapp_anagrafica_gestore.txt` — consenso nel form modifica cliente,
-  Tab "Ombrelloni e clienti" (Step 5a). **Eseguito** (in main, PR #97).
+- `02_ui_consenso_whatsapp_stagionale.txt` — scheda "Notifiche" dashboard stagionale.
+  **Eseguito** (Step 5b, in main).
+- `03_consenso_whatsapp_anagrafica_gestore.txt` — consenso nel form modifica cliente.
+  **Eseguito** (Step 5a, in main, PR #97).
+- `04_template_whatsapp_pronti_twilio.txt` — testi dei 3 template pronti da incollare nel
+  Content Template Builder (per lo Step 3). **Da usare in sessione Twilio.**
 
 ## 13. Riprendere da qui
 
-Stato: **Step 0, 1 e 5a completati** (in main). Resta da pushare (indip. da Twilio): Step
-5b (prompt 02, scheda Notifiche stagionale).
-Sessione Twilio (prossima): Step 2 (account+Sandbox) e Step 3 (3 template -> 3 Content
-SID); con i Content SID si fanno Step 4a (tab WhatsApp config) + 4b (Edge Function), che
-sono accoppiati. Step 6 = produzione dopo il pilota.
+Stato: **tutto il lato codice indipendente da Twilio è completato** (Step 0, 1, 5a, 5b
+tutti in main). 
+Sessione Twilio (prossima): Step 2 (account + Sandbox + credenziali) e Step 3 (creare i 3
+template dal file 04 -> annotare i 3 Content SID). Con i Content SID si fanno, insieme,
+Step 4a (tab WhatsApp di configurazione) e Step 4b (Edge Function `invia-whatsapp` +
+aggancio ai punti invito/benvenuto/sub-affitto). Step 6 = produzione dopo il pilota.
