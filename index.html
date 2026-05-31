@@ -522,11 +522,11 @@
           <!-- Toggle vista ombrelloni -->
           <div style="padding:14px 24px 0">
             <div class="pren-view-toggle" role="tablist" aria-label="Visualizzazione ombrelloni" style="margin: 0 0 14px 0">
-              <button type="button" class="pren-view-btn active" data-omb-view="tabella" role="tab" aria-selected="true" onclick="setOmbViewMode('tabella')">📋 Tabella</button>
-              <button type="button" class="pren-view-btn" data-omb-view="mappa" role="tab" aria-selected="false" onclick="setOmbViewMode('mappa')">🗺️ Mappa</button>
+              <button type="button" class="pren-view-btn" data-omb-view="tabella" role="tab" aria-selected="false" onclick="setOmbViewMode('tabella')">📋 Tabella</button>
+              <button type="button" class="pren-view-btn active" data-omb-view="mappa" role="tab" aria-selected="true" onclick="setOmbViewMode('mappa')">🗺️ Mappa</button>
             </div>
-            <!-- Contenitore mappa ombrelloni (inizialmente nascosto) -->
-            <div id="gestione-mappa-wrap" class="hidden">
+            <!-- Contenitore mappa ombrelloni -->
+            <div id="gestione-mappa-wrap">
               <div class="map-legend" style="margin-bottom:14px">
                 <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Con cliente stagionale</div>
                 <div class="legend-item"><div class="legend-dot" style="background:#EAF4FB;border:2px dashed var(--ocean-mid)"></div>Senza cliente</div>
@@ -539,7 +539,7 @@
               </div>
             </div>
           </div>
-          <div id="gestione-tabella-wrap">
+          <div id="gestione-tabella-wrap" class="hidden">
           <div class="table-wrap data-table-wrapper"><table class="data-table data-table-compact">
             <thead><tr>
               <th style="width:36px"><input type="checkbox" id="clienti-check-all" onchange="toggleAllClienti(this.checked)"></th>

@@ -3028,7 +3028,7 @@ window.editRowBulkRemove = editRowBulkRemove;
 
 // ===== VISTA MAPPA OMBRELLONI (ANAGRAFICA) =====
 
-let ombViewMode = 'tabella';
+let ombViewMode = 'mappa';
 
 function ombViewStorageKey() {
   return `omb-view-mode:${currentStabilimento?.id || 'default'}`;
@@ -3042,10 +3042,7 @@ function setOmbViewMode(mode) {
 }
 
 function loadOmbViewMode() {
-  try {
-    const v = localStorage.getItem(ombViewStorageKey());
-    ombViewMode = (v === 'tabella') ? 'tabella' : 'mappa';
-  } catch (_) { ombViewMode = 'mappa'; }
+  ombViewMode = 'mappa';
   syncOmbViewToggleUI();
 }
 
