@@ -43,29 +43,62 @@ function applyAvanzateRange(from, to) {
   if (fromEl) fromEl.value = c.from;
   if (toEl) toEl.value = c.to;
   console.log('[DBG avanzate] input nascosti aggiornati → from:', fromEl?.value, 'to:', toEl?.value);
+
+  const dbg = [];
+  dbg.push('=== applyAvanzateRange() ===');
+  dbg.push('input  → from: ' + from + '  to: ' + to);
+  dbg.push('clamp  → from: ' + c.from + '  to: ' + c.to);
+  dbg.push('stagione: ' + (currentStabilimento?.data_inizio_stagione || '?') + ' → ' + (currentStabilimento?.data_fine_stagione || '?'));
+  dbg.push('picker init: ' + !!avanzateRangePickerInstance);
+
   if (avanzateRangePickerInstance) {
     const d1 = new Date(c.from + 'T00:00:00');
     const d2 = new Date(c.to + 'T00:00:00');
+    const fp = avanzateRangePickerInstance;
+    dbg.push('minDate picker: ' + (fp.config.minDate ? fp.config.minDate.toISOString().slice(0,10) : 'nessuna'));
+    dbg.push('maxDate picker: ' + (fp.config.maxDate ? fp.config.maxDate.toISOString().slice(0,10) : 'nessuna'));
     console.log('[DBG avanzate] setDate picker →', d1.toISOString(), '/', d2.toISOString());
-    avanzateRangePickerInstance.setDate([d1, d2], false);
-    console.log('[DBG avanzate] selectedDates dopo setDate:', avanzateRangePickerInstance.selectedDates.map(d => d.toISOString()));
+    fp.setDate([d1, d2], false);
+    const sel = fp.selectedDates.map(d => d.toISOString().slice(0,10));
+    dbg.push('setDate([' + c.from + ', ' + c.to + '], false)');
+    dbg.push('selectedDates dopo: [' + sel.join(', ') + ']');
+    dbg.push('input picker value: "' + (document.getElementById('avanzate-range-picker')?.value || '') + '"');
+    console.log('[DBG avanzate] selectedDates dopo setDate:', sel);
     console.log('[DBG avanzate] input picker value dopo setDate:', document.getElementById('avanzate-range-picker')?.value);
   } else {
+    dbg.push('⛔ picker NULL — setDate saltato');
     console.warn('[DBG avanzate] avanzateRangePickerInstance è NULL — setDate saltato');
   }
+  _dbgPanel(dbg);
   refreshAvanzateMap();
 }
 
 /* ---------- Init / range picker ---------- */
 
+function _dbgPanel(lines) {
+  const el = document.getElementById('avanzate-debug-panel');
+  if (el) el.textContent = lines.join('\n');
+}
+
 function avanzateInit() {
-  console.log('[DBG avanzate] avanzateInit START | currentStabilimento:', currentStabilimento ? {
+  const dbg = [];
+  dbg.push('=== avanzateInit() ===');
+  dbg.push('today: ' + todayStr());
+  if (!currentStabilimento) {
+    dbg.push('⛔ currentStabilimento: NULL — uscita');
+    _dbgPanel(dbg); return;
+  }
+  dbg.push('stabilimento: ' + currentStabilimento.nome);
+  dbg.push('data_inizio_stagione: ' + currentStabilimento.data_inizio_stagione);
+  dbg.push('data_fine_stagione:   ' + currentStabilimento.data_fine_stagione);
+  dbg.push('picker già init: ' + !!avanzateRangePickerInstance);
+  _dbgPanel(dbg);
+
+  console.log('[DBG avanzate] avanzateInit START | currentStabilimento:', {
     nome: currentStabilimento.nome,
     data_inizio_stagione: currentStabilimento.data_inizio_stagione,
     data_fine_stagione: currentStabilimento.data_fine_stagione,
-  } : null);
-  if (!currentStabilimento) { console.warn('[DBG avanzate] currentStabilimento mancante — uscita'); return; }
-  console.log('[DBG avanzate] avanzateRangePickerInstance già esistente?', !!avanzateRangePickerInstance);
+  });
   if (!avanzateRangePickerInstance) initAvanzateRangePicker(todayStr());
   console.log('[DBG avanzate] dopo initAvanzateRangePicker — instance:', !!avanzateRangePickerInstance);
   setAvanzateRangePreset(7);
