@@ -1161,7 +1161,7 @@
           <div id="avanzate-pane-massiva" class="avanzate-pane active">
           <div class="card">
             <div class="card-header">
-              <div class="card-title">🗺️ Mappa ombrelloni</div>
+              <div class="card-title">🗺️ Mappa ombrelloni v1</div>
             </div>
 
             <div class="avanzate-step-label">Passo 1 — Scegli il periodo e seleziona gli ombrelloni</div>
@@ -1172,6 +1172,10 @@
               <input type="hidden" id="avanzate-date-from">
               <input type="hidden" id="avanzate-date-to">
               <button type="button" class="btn btn-outline btn-sm avanzate-preset-btn" data-preset="stagione" onclick="setAvanzateRangeStagione()">📅 Tutta la stagione</button>
+            </div>
+            <!-- DEBUG PANEL – rimuovere prima del merge -->
+            <div id="avanzate-debug-panel" style="background:#1e1e1e;color:#d4f576;font-family:monospace;font-size:11px;padding:10px 12px;border-radius:8px;margin:0 0 14px;line-height:1.7;white-space:pre-wrap;word-break:break-all">
+              ⏳ in attesa di avanzateInit()…
             </div>
 
             <div class="beach-map-wrap">
@@ -2589,7 +2593,7 @@ document.addEventListener('click', function(e) {
 <script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>
-<script src="js/avanzate.js?v=20260530a"></script>
+<script src="js/avanzate.js?v=20260531-dbg3"></script>
 <script src="js/account.js"></script>
 <script src="js/reset-stagione.js"></script>
 <script src="js/clienti.js"></script>
