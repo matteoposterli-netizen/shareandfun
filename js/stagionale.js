@@ -48,6 +48,11 @@ async function loadStagionaleData() {
     stagRegole = [];
   }
 
+  const telEl = document.getElementById('stag-wa-telefono');
+  const consEl = document.getElementById('stag-wa-consenso');
+  if (telEl) telEl.value = cliente.telefono || '';
+  if (consEl) consEl.checked = !!cliente.whatsapp_consenso;
+
   buildCalendar(dispMap, disp || []);
   renderStagioneBanner();
 
@@ -505,4 +510,42 @@ function showSavedConfirmModal(adds, removes) {
   if (removes) lines.push(`<strong>${removes}</strong> ${removes === 1 ? 'giorno rimosso' : 'giorni rimossi'} dalla disponibilità.`);
   bodyEl.innerHTML = lines.join('<br>');
   document.getElementById('modal-stag-saved').classList.remove('hidden');
+}
+
+function normalizzaTelefonoIT(raw) {
+  if (!raw) return '';
+  let s = String(raw).replace(/[\s\-().]/g, '');
+  if (s.startsWith('00')) s = '+' + s.slice(2);
+  if (s.startsWith('+')) return s;
+  if (s.startsWith('3')) return '+39' + s;
+  if (s.startsWith('0')) return '+39' + s;
+  return '+' + s;
+}
+
+async function salvaNotificheWhatsapp() {
+  const telEl = document.getElementById('stag-wa-telefono');
+  const consEl = document.getElementById('stag-wa-consenso');
+  if (!stagClienteId) { showAlert('stag-wa-alert', 'Nessun cliente associato', 'error'); return; }
+  const consenso = !!(consEl && consEl.checked);
+  const tel = ((telEl && telEl.value) || '').trim();
+  if (consenso && !tel) {
+    showAlert('stag-wa-alert', 'Inserisci il numero di cellulare per attivare le notifiche WhatsApp', 'error');
+    return;
+  }
+  const telNorm = tel ? normalizzaTelefonoIT(tel) : null;
+  if (telNorm && !/^\+[1-9]\d{7,14}$/.test(telNorm)) {
+    showAlert('stag-wa-alert', 'Numero non valido. Controlla e riprova.', 'error');
+    return;
+  }
+  showLoading();
+  const update = {
+    telefono: telNorm,
+    whatsapp_consenso: consenso,
+    whatsapp_consenso_at: consenso ? new Date().toISOString() : null,
+  };
+  const { error } = await sb.from('clienti_stagionali').update(update).eq('id', stagClienteId);
+  hideLoading();
+  if (error) { showAlert('stag-wa-alert', 'Errore nel salvataggio: ' + error.message, 'error'); return; }
+  if (telEl) telEl.value = telNorm || '';
+  showAlert('stag-wa-alert', 'Preferenze salvate ✓', 'success');
 }

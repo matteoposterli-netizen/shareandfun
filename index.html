@@ -1777,6 +1777,7 @@
     <div class="stag-tabs">
       <button class="stag-tab active" data-stag-tab="cal" onclick="stagSwitchTab('cal', this)">Calendario</button>
       <button class="stag-tab" data-stag-tab="tx" onclick="stagSwitchTab('tx', this)">Transazioni</button>
+      <button class="stag-tab" data-stag-tab="notifiche" onclick="stagSwitchTab('notifiche', this)">Notifiche</button>
     </div>
 
     <div class="stag-body">
@@ -1845,6 +1846,21 @@
 
       <div class="stag-tab-content" id="stag-tab-tx" style="display:none">
         <div class="stag-tx-card" id="stag-tx-list"><div class="tx-empty">Caricamento...</div></div>
+      </div>
+
+      <div id="stag-tab-notifiche" class="stag-tab-content" style="display:none">
+        <div class="stag-card" style="padding:16px">
+          <h3 style="margin-top:0">Notifiche WhatsApp</h3>
+          <p class="muted">Ricevi su WhatsApp gli avvisi importanti (accrediti coin, conferme) oltre che via email.</p>
+          <label for="stag-wa-telefono">Numero di cellulare</label>
+          <input id="stag-wa-telefono" type="tel" inputmode="tel" placeholder="es. 333 1234567" />
+          <label style="display:flex;align-items:center;gap:8px;margin-top:12px">
+            <input id="stag-wa-consenso" type="checkbox" />
+            Acconsento a ricevere notifiche via WhatsApp da SpiaggiaMia
+          </label>
+          <div id="stag-wa-alert"></div>
+          <button class="btn btn-primary" style="margin-top:12px" onclick="salvaNotificheWhatsapp()">Salva</button>
+        </div>
       </div>
     </div>
   </div>
