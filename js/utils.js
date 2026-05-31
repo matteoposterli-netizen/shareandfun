@@ -217,3 +217,46 @@ async function inviaEmail(tipo, clienteData, stab, override) {
     return false;
   }
 }
+
+// Formatta un array di date ordinate in italiano: "il 5 luglio" / "dal 5 al 7 luglio".
+function formatPeriodo(dates) {
+  if (!dates || !dates.length) return '';
+  const MESI = ['gennaio','febbraio','marzo','aprile','maggio','giugno',
+                'luglio','agosto','settembre','ottobre','novembre','dicembre'];
+  if (dates.length === 1) {
+    const d = new Date(dates[0] + 'T00:00:00');
+    return `il ${d.getDate()} ${MESI[d.getMonth()]}`;
+  }
+  const first = new Date(dates[0] + 'T00:00:00');
+  const last  = new Date(dates[dates.length - 1] + 'T00:00:00');
+  const mF = MESI[first.getMonth()], mL = MESI[last.getMonth()];
+  return mF === mL
+    ? `dal ${first.getDate()} al ${last.getDate()} ${mL}`
+    : `dal ${first.getDate()} ${mF} al ${last.getDate()} ${mL}`;
+}
+
+// Invia una notifica WhatsApp via Edge Function invia-whatsapp (fire-and-forget).
+// Parametri per tipo:
+//   invito              → params: { cliente_id, token }
+//   benvenuto           → params: { cliente_id }
+//   subaffitto_confermato → params: { cliente_id, periodo, coin_guadagnati, coin_totali }
+async function inviaWhatsapp(tipo, params, stab) {
+  try {
+    if (!stab?.wa_enabled) return;
+    const { data: { session } } = await sb.auth.getSession();
+    const headers = { 'Content-Type': 'application/json' };
+    if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+    const body = { tipo, stabilimento_id: stab.id, ...params };
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/invia-whatsapp`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) console.error(`WA ${tipo} fallito:`, data);
+    else if (data?.skipped) console.log(`WA ${tipo} saltato:`, data.skipped);
+    else console.log(`WA ${tipo} inviato`);
+  } catch (e) {
+    console.error(`WA ${tipo} eccezione:`, e);
+  }
+}

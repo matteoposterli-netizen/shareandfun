@@ -651,6 +651,7 @@
         <div class="config-subtabs">
           <button class="config-subtab active" data-subtab="stagione" onclick="switchConfigSubtab('stagione',this)">🗓️ Stagione</button>
           <button class="config-subtab" data-subtab="email-sub" onclick="switchConfigSubtab('email-sub',this)">✉️ Email</button>
+          <button class="config-subtab" data-subtab="whatsapp" onclick="switchConfigSubtab('whatsapp',this)">💬 WhatsApp</button>
           <button class="config-subtab" data-subtab="account" onclick="switchConfigSubtab('account',this)">👤 Account</button>
         </div>
 
@@ -1009,6 +1010,63 @@
           </div>
 
         </div><!-- /config-sub-account -->
+
+        <!-- WHATSAPP SUBTAB -->
+        <div id="config-sub-whatsapp" class="config-subpanel">
+          <div id="wa-config-alert" style="margin-bottom:16px"></div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">💬 Notifiche WhatsApp</div>
+                <div class="card-subtitle">Invia messaggi automatici ai tuoi clienti via WhatsApp</div>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="alert alert-info" style="font-size:13px;margin-bottom:20px">
+                Quando attivo, SpiaggiaMia invia automaticamente 3 messaggi ai clienti che hanno acconsentito a ricevere notifiche WhatsApp:
+                <ul style="margin:8px 0 0 0;padding-left:18px">
+                  <li><strong>Invito</strong> — link con bottone "Crea password" al momento dell'invito</li>
+                  <li><strong>Benvenuto</strong> — messaggio di conferma dopo la registrazione</li>
+                  <li><strong>Sub-affitto confermato</strong> — notifica con i coin guadagnati quando il tuo ombrellone viene sub-affittato</li>
+                </ul>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:14px;padding:16px 0;border-top:1px solid var(--border)">
+                <label class="toggle-switch" style="flex-shrink:0">
+                  <input type="checkbox" id="wa-enabled-toggle">
+                  <span class="toggle-slider"></span>
+                </label>
+                <div>
+                  <div style="font-weight:600;font-size:14px;color:var(--text-dark)">Attiva notifiche WhatsApp</div>
+                  <div id="wa-enabled-status" style="font-size:12px;color:var(--text-mid);margin-top:2px">Disattivato</div>
+                </div>
+              </div>
+
+              <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">
+                <button class="btn btn-primary btn-sm" onclick="saveWhatsappConfig()">Salva</button>
+                <button class="btn btn-outline btn-sm" onclick="loadWhatsappConfig()">Ripristina</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:20px">
+            <div class="card-header">
+              <div>
+                <div class="card-title">📋 Requisiti</div>
+                <div class="card-subtitle">Cosa serve per usare le notifiche WhatsApp</div>
+              </div>
+            </div>
+            <div class="card-body" style="font-size:13px;line-height:1.6">
+              <ol style="margin:0;padding-left:18px">
+                <li>I 3 template WhatsApp devono essere stati creati e approvati su <strong>Twilio Content Template Builder</strong>.</li>
+                <li>I Content SID (HX…) dei 3 template devono essere configurati come variabili d'ambiente della Edge Function <code>invia-whatsapp</code>.</li>
+                <li>Il cliente deve avere un <strong>numero di telefono</strong> valido e aver dato il <strong>consenso WhatsApp</strong> (visibile nel tab Notifiche del cliente stagionale).</li>
+              </ol>
+              <div id="wa-stats-line" style="margin-top:16px;padding:12px;background:var(--sand);border-radius:8px;font-size:13px"></div>
+            </div>
+          </div>
+        </div><!-- /config-sub-whatsapp -->
 
         <!-- AVANZATE SUBTAB: azioni gestore (massiva su mappa / mirata su singolo ombrellone) -->
       </div>
@@ -1575,32 +1633,59 @@
 
         <!-- ============ TAB WHATSAPP ============ -->
         <div id="comm-pane-whatsapp" class="comm-pane">
-          <div class="card comm-wip-banner">
-            <div style="font-size:24px">🚧</div>
-            <div>
-              <div style="font-weight:700;font-size:15px;color:var(--text-dark)">Stiamo lavorando a questa funzionalità</div>
-              <div style="font-size:13px;color:var(--text-mid);margin-top:4px">L'invio di messaggi WhatsApp ai clienti sarà disponibile presto. Sotto vedi un'anteprima del layout.</div>
+          <div class="card" id="comm-wa-status-card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">💬 Notifiche WhatsApp automatiche</div>
+                <div class="card-subtitle">Gestite dal pannello Configurazioni → WhatsApp</div>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="comm-wa-status-body" style="font-size:13px;line-height:1.7">
+                <div class="tx-empty">Caricamento…</div>
+              </div>
+              <div style="margin-top:16px">
+                <button class="btn btn-outline btn-sm" onclick="managerTab('config',null);setTimeout(()=>switchConfigSubtab('whatsapp',document.querySelector('[data-subtab=whatsapp]')),80)">
+                  ⚙️ Vai a Configurazioni → WhatsApp
+                </button>
+              </div>
             </div>
           </div>
-          <fieldset class="comm-disabled-preview" disabled>
-            <div class="card" style="margin-bottom:16px">
-              <div class="card-header"><div class="card-title">Destinatari</div></div>
-              <div class="comm-recipients">
-                <label class="comm-radio"><input type="radio" name="comm-wa-rec"><span>Tutti i clienti con telefono</span></label>
-                <label class="comm-radio"><input type="radio" name="comm-wa-rec"><span>Filtra per fila / range numero</span></label>
-                <label class="comm-radio"><input type="radio" name="comm-wa-rec"><span>Singolo cliente</span></label>
+
+          <div class="card" style="margin-top:16px">
+            <div class="card-header"><div class="card-title">📨 Messaggi inviati automaticamente</div></div>
+            <div class="card-body" style="font-size:13px;line-height:1.7">
+              <table style="width:100%;border-collapse:collapse">
+                <thead>
+                  <tr style="border-bottom:1px solid var(--border);font-weight:600;font-size:12px;color:var(--text-mid)">
+                    <th style="padding:6px 8px;text-align:left">Messaggio</th>
+                    <th style="padding:6px 8px;text-align:left">Quando viene inviato</th>
+                    <th style="padding:6px 8px;text-align:left">Condizione</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom:1px solid var(--border-light)">
+                    <td style="padding:8px">🏖️ <strong>Invito</strong></td>
+                    <td style="padding:8px">All'invio dell'invito</td>
+                    <td style="padding:8px">Telefono + consenso</td>
+                  </tr>
+                  <tr style="border-bottom:1px solid var(--border-light)">
+                    <td style="padding:8px">🌊 <strong>Benvenuto</strong></td>
+                    <td style="padding:8px">Dopo la registrazione del cliente</td>
+                    <td style="padding:8px">Telefono + consenso</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px">☂️ <strong>Sub-affitto confermato</strong></td>
+                    <td style="padding:8px">Quando una prenotazione viene confermata</td>
+                    <td style="padding:8px">Telefono + consenso</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="alert alert-info" style="margin-top:16px;font-size:12px">
+                Il consenso WhatsApp si raccoglie nel tab <strong>Notifiche</strong> della pagina cliente (dopo la registrazione). Solo i clienti con consenso attivo ricevono i messaggi.
               </div>
             </div>
-            <div class="card" style="margin-bottom:16px">
-              <div class="card-header"><div class="card-title">Messaggio</div></div>
-              <textarea class="form-input" rows="6" placeholder="Il tuo messaggio WhatsApp…"></textarea>
-            </div>
-            <div class="card">
-              <div style="display:flex;justify-content:flex-end">
-                <button class="btn btn-primary" type="button">📤 Invia WhatsApp</button>
-              </div>
-            </div>
-          </fieldset>
+          </div>
         </div>
 
         <!-- ============ TAB SMS ============ -->
