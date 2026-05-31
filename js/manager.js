@@ -1406,6 +1406,13 @@ async function finalizeBookingSelection() {
           nota,
         }, currentStabilimento);
       }
+      const dates = entry.rows.map(r => r.data).sort();
+      inviaWhatsapp('subaffitto_confermato', {
+        cliente_id: cliente.id,
+        periodo: formatPeriodo(dates),
+        coin_guadagnati: formatCoin(entry.delta.toFixed(2), currentStabilimento),
+        coin_totali: formatCoin(nuovoSaldo, currentStabilimento),
+      }, currentStabilimento);
     }
 
     closeModal('modal-finalize-booking');
@@ -2328,7 +2335,7 @@ async function saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito,
   const baseUpdate = { nome, cognome, telefono, ombrellone_id: ombId };
   if (inviaInvito) baseUpdate.invitato_at = now;
 
-  let token;
+  let token, clienteId;
   if (existing) {
     if (existing.user_id) {
       showAlert('add-row-alert', 'Questo cliente ha già completato la registrazione. Usa "Modifica" dalla tabella per cambiargli ombrellone.', 'error');
@@ -2337,12 +2344,14 @@ async function saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito,
     const { error: upErr } = await sb.from('clienti_stagionali').update(baseUpdate).eq('id', existing.id);
     if (upErr) { showAlert('add-row-alert', upErr.message, 'error'); return; }
     token = existing.invito_token;
+    clienteId = existing.id;
   } else {
     const { data: inserted, error: insErr } = await sb.from('clienti_stagionali')
       .insert({ stabilimento_id: currentStabilimento.id, email, fonte: 'csv', approvato: false, ...baseUpdate })
       .select('id,invito_token').single();
     if (insErr) { showAlert('add-row-alert', insErr.message, 'error'); return; }
     token = inserted?.invito_token;
+    clienteId = inserted?.id;
   }
 
   if (inviaInvito && token) {
@@ -2358,6 +2367,7 @@ async function saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito,
       await loadManagerData();
       return;
     }
+    if (clienteId) inviaWhatsapp('invito', { cliente_id: clienteId, token }, currentStabilimento);
   }
 
   closeModal('modal-add-row');

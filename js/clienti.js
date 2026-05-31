@@ -475,13 +475,13 @@ async function confirmImportaExcelExecute() {
     (inserted || []).forEach(c => insByEmail.set((c.email || '').toLowerCase(), c));
     for (const ti of toInsert) {
       const ins = insByEmail.get((ti.email || '').toLowerCase());
-      if (ins?.invito_token) targets.push({ email: ti.email, nome: ti._row.nome, cognome: ti._row.cognome, ombrellone: ti._ombStr, token: ins.invito_token });
+      if (ins?.invito_token) targets.push({ id: ins.id, email: ti.email, nome: ti._row.nome, cognome: ti._row.cognome, ombrellone: ti._ombStr, token: ins.invito_token });
     }
   }
 
   await runWithConcurrency(toUpdate, 5, async (u) => {
     await sb.from('clienti_stagionali').update(u.update).eq('id', u.id);
-    if (u.token) targets.push({ email: u.row.email, nome: u.row.nome, cognome: u.row.cognome, ombrellone: u.ombStr, token: u.token });
+    if (u.token) targets.push({ id: u.id, email: u.row.email, nome: u.row.nome, cognome: u.row.cognome, ombrellone: u.ombStr, token: u.token });
   });
 
   let sent = 0, failed = 0;
@@ -492,7 +492,10 @@ async function confirmImportaExcelExecute() {
         () => inviaEmail('invito', { email: t.email, nome: t.nome, cognome: t.cognome, ombrellone: t.ombrellone, invite_link: inviteLink }, currentStabilimento),
         3, 500
       );
-      if (ok) sent++; else failed++;
+      if (ok) {
+        sent++;
+        if (t.id) inviaWhatsapp('invito', { cliente_id: t.id, token: t.token }, currentStabilimento);
+      } else failed++;
     }, (done, total) => renderProgressInAlert('xlsx-alert', 'Invio email…', done, total));
   }
 

@@ -42,6 +42,20 @@ function comunicazioniSwitchTab(tab, btn) {
   document.querySelectorAll('.comm-pane').forEach(p => p.classList.remove('active'));
   const pane = document.getElementById('comm-pane-' + tab);
   if (pane) pane.classList.add('active');
+  if (tab === 'whatsapp') _renderCommWaStatus();
+}
+
+function _renderCommWaStatus() {
+  const el = document.getElementById('comm-wa-status-body');
+  if (!el || !currentStabilimento) return;
+  const enabled = !!currentStabilimento.wa_enabled;
+  el.innerHTML = enabled
+    ? `<div class="alert" style="background:#e8f5e9;border-left:3px solid #4caf50;padding:12px;border-radius:6px;font-size:13px">
+         ✅ <strong>WhatsApp attivo</strong> — i messaggi automatici vengono inviati ai clienti con consenso.
+       </div>`
+    : `<div class="alert alert-info" style="font-size:13px">
+         ⚠️ WhatsApp non è ancora attivo per questo stabilimento. Attivalo in <strong>Configurazioni → WhatsApp</strong>.
+       </div>`;
 }
 
 /* ---------- Bozze ---------- */

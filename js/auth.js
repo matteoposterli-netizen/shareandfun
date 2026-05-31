@@ -158,10 +158,11 @@ async function completeInviteRegistration() {
   currentUser = data.user;
   await sb.from('profiles').insert({ id: currentUser.id, nome: currentInviteData.nome, cognome: currentInviteData.cognome, ruolo: 'stagionale' });
   await sb.rpc('completa_registrazione_invito', { p_token: currentInviteToken, p_user_id: currentUser.id });
-  const { data: stab } = await sb.from('stabilimenti').select('id,nome,telefono,email,email_benvenuto_oggetto,email_benvenuto_testo').eq('id', currentInviteData.stabilimento_id).single();
+  const { data: stab } = await sb.from('stabilimenti').select('id,nome,telefono,email,wa_enabled,email_benvenuto_oggetto,email_benvenuto_testo').eq('id', currentInviteData.stabilimento_id).single();
   const ombLabel = currentInviteData.ombrellone_codice || null;
   const loginLink = `${window.location.origin}/?login=${encodeURIComponent(currentInviteData.email)}`;
   await inviaEmail('benvenuto', { email: currentInviteData.email, nome: currentInviteData.nome, cognome: currentInviteData.cognome, ombrellone: ombLabel, login_link: loginLink }, stab);
+  inviaWhatsapp('benvenuto', { cliente_id: currentInviteData.id }, stab);
   const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
   currentProfile = profile;
   updateNav();

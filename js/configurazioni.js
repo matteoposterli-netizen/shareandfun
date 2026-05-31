@@ -20,6 +20,7 @@ function switchConfigSubtab(sub, btn) {
   if (sub === 'avanzate' && typeof avanzateInit === 'function') avanzateInit();
   if (sub === 'account' && typeof accountLoad === 'function') accountLoad();
   if (sub === 'account' && typeof loadStabilimentoAccount === 'function') loadStabilimentoAccount();
+  if (sub === 'whatsapp') loadWhatsappConfig();
 }
 
 /* ---------- Stagione: load/save ---------- */
@@ -273,6 +274,48 @@ async function saveStabilimentoAccount() {
 window.loadStabilimentoAccount = loadStabilimentoAccount;
 window.saveStabilimentoAccount = saveStabilimentoAccount;
 
+/* ---------- WhatsApp subtab: load/save wa_enabled ---------- */
+
+function loadWhatsappConfig() {
+  if (!currentStabilimento) return;
+  const toggle = document.getElementById('wa-enabled-toggle');
+  const status = document.getElementById('wa-enabled-status');
+  if (!toggle) return;
+  toggle.checked = !!currentStabilimento.wa_enabled;
+  if (status) status.textContent = toggle.checked ? 'Attivo — i messaggi automatici vengono inviati' : 'Disattivato';
+  _loadWaStats();
+}
+
+async function _loadWaStats() {
+  const el = document.getElementById('wa-stats-line');
+  if (!el || !currentStabilimento?.id) return;
+  const { count } = await sb.from('clienti_stagionali')
+    .select('id', { count: 'exact', head: true })
+    .eq('stabilimento_id', currentStabilimento.id)
+    .eq('whatsapp_consenso', true)
+    .not('telefono', 'is', null);
+  el.innerHTML = `👥 <strong>${count ?? 0}</strong> client${count === 1 ? 'e ha' : 'i hanno'} dato il consenso WhatsApp con numero di telefono valido.`;
+}
+
+async function saveWhatsappConfig() {
+  if (!currentStabilimento?.id) return;
+  const toggle = document.getElementById('wa-enabled-toggle');
+  if (!toggle) return;
+  const wa_enabled = toggle.checked;
+  const { error } = await sb.from('stabilimenti')
+    .update({ wa_enabled })
+    .eq('id', currentStabilimento.id);
+  if (error) {
+    showAlert('wa-config-alert', error.message, 'error');
+    return;
+  }
+  currentStabilimento.wa_enabled = wa_enabled;
+  const status = document.getElementById('wa-enabled-status');
+  if (status) status.textContent = wa_enabled ? 'Attivo — i messaggi automatici vengono inviati' : 'Disattivato';
+  showAlert('wa-config-alert', wa_enabled ? '✓ WhatsApp attivato.' : '✓ WhatsApp disattivato.', 'success');
+  setTimeout(() => { const a = document.getElementById('wa-config-alert'); if (a) a.innerHTML = ''; }, 3000);
+}
+
 /* Esponi funzioni globali usate dall'HTML */
 window.switchConfigSubtab = switchConfigSubtab;
 window.loadStagione = loadStagione;
@@ -281,3 +324,5 @@ window.loadRegoleStato = loadRegoleStato;
 window.renderRegoleList = renderRegoleList;
 window.creaRegolaStato = creaRegolaStato;
 window.eliminaRegolaStato = eliminaRegolaStato;
+window.loadWhatsappConfig = loadWhatsappConfig;
+window.saveWhatsappConfig = saveWhatsappConfig;
