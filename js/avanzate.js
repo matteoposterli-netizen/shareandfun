@@ -103,11 +103,14 @@ function avanzateInit() {
     data_fine_stagione: currentStabilimento.data_fine_stagione,
   });
   if (!avanzateRangePickerInstance) initAvanzateRangePicker(todayStr());
-  // Sync minDate/maxDate SEMPRE: il picker potrebbe essere stale se le date stagione
-  // sono cambiate in Configurazioni dopo che il picker era già stato creato.
+  // Sync minDate/maxDate SEMPRE con Date object locale (non stringa ISO):
+  // flatpickr con dateFormat 'd/m/Y' non riesce a parsare le stringhe ISO 'YYYY-MM-DD'
+  // e produce date sbagliate (es. '2026-05-29' → June 19). Passare new Date(str+'T00:00:00')
+  // bypassa il parser di flatpickr e usa il Date object direttamente.
   if (avanzateRangePickerInstance) {
-    avanzateRangePickerInstance.set('minDate', currentStabilimento.data_inizio_stagione || undefined);
-    avanzateRangePickerInstance.set('maxDate', currentStabilimento.data_fine_stagione || undefined);
+    const toFpDate = str => str ? new Date(str + 'T00:00:00') : undefined;
+    avanzateRangePickerInstance.set('minDate', toFpDate(currentStabilimento.data_inizio_stagione));
+    avanzateRangePickerInstance.set('maxDate', toFpDate(currentStabilimento.data_fine_stagione));
     const minAfter = avanzateRangePickerInstance.config.minDate?.toISOString().slice(0,10) || 'nessuna';
     const maxAfter = avanzateRangePickerInstance.config.maxDate?.toISOString().slice(0,10) || 'nessuna';
     dbg.push('minDate dopo sync: ' + minAfter);
@@ -138,9 +141,10 @@ function initAvanzateRangePicker(fromDate) {
   const endDefault = new Date(_def.to + 'T00:00:00');
   console.log('[DBG avanzate] initPicker calcoli:', { fromDate, s, effectiveFrom, endRaw: toLocalDateStr(endRaw), _def, startDate: startDate.toISOString(), endDefault: endDefault.toISOString() });
   if (avanzateRangePickerInstance) {
+    const toFpDate = str => str ? new Date(str + 'T00:00:00') : undefined;
     console.log('[DBG avanzate] picker già init — aggiorno minDate/maxDate + setDate');
-    avanzateRangePickerInstance.set('minDate', currentStabilimento?.data_inizio_stagione || undefined);
-    avanzateRangePickerInstance.set('maxDate', currentStabilimento?.data_fine_stagione || undefined);
+    avanzateRangePickerInstance.set('minDate', toFpDate(currentStabilimento?.data_inizio_stagione));
+    avanzateRangePickerInstance.set('maxDate', toFpDate(currentStabilimento?.data_fine_stagione));
     avanzateRangePickerInstance.setDate([startDate, endDefault], false);
     console.log('[DBG avanzate] selectedDates dopo re-init setDate:', avanzateRangePickerInstance.selectedDates.map(d => d.toISOString()));
     return;
@@ -153,8 +157,8 @@ function initAvanzateRangePicker(fromDate) {
     defaultDate: [startDate, endDefault],
     showMonths: 1,
     disableMobile: true,
-    minDate: currentStabilimento?.data_inizio_stagione || undefined,
-    maxDate: currentStabilimento?.data_fine_stagione || undefined,
+    minDate: currentStabilimento?.data_inizio_stagione ? new Date(currentStabilimento.data_inizio_stagione + 'T00:00:00') : undefined,
+    maxDate: currentStabilimento?.data_fine_stagione ? new Date(currentStabilimento.data_fine_stagione + 'T00:00:00') : undefined,
     onChange: (selectedDates) => {
       console.log('[DBG avanzate] onChange fired | selectedDates.length:', selectedDates.length, selectedDates.map(d => d.toISOString()));
       if (selectedDates.length === 2) {
