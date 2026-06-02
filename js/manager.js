@@ -2532,7 +2532,9 @@ function openEditRowModal(ombId) {
     if (inizio) { dispFrom.min = inizio; dispTo.min = inizio; }
     if (fine)   { dispFrom.max = fine;   dispTo.max = fine;   }
   }
-  document.getElementById('modal-edit-row').classList.remove('hidden');
+  const _editModal = document.getElementById('modal-edit-row');
+  _editModal.classList.remove('hidden');
+  _editModal.scrollTop = 0;
   loadEditRowDayList(ombId);
 }
 

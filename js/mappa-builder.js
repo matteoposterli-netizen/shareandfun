@@ -594,6 +594,41 @@ async function _caricaMappaEsistente(stabId) {
     }
   });
 
+  // Auto-placement: se più ombrelloni occupano la stessa cella (es. tutti a 0,0
+  // dopo un import Excel), li ridistribuiamo a serpentina sulla griglia.
+  const placedKeys = Object.keys(mappaState.ids);
+  const uniquePlacedKeys = new Set(placedKeys);
+  const totalOmbs = (ombs || []).length;
+  if (totalOmbs > 1 && uniquePlacedKeys.size < totalOmbs) {
+    // Reset celle ombrellone (le passerelle già caricate rimangono)
+    for (let r = 0; r < MAPPA_ROWS; r++) {
+      for (let c = 0; c < MAPPA_COLS; c++) {
+        if (mappaState.grid[r][c] === CELL_TIPO.OMBRELLONE) {
+          mappaState.grid[r][c] = CELL_TIPO.VUOTO;
+        }
+      }
+    }
+    mappaState.codici = {};
+    mappaState.ids = {};
+
+    // Ordina per codice (natural sort) e piazza riga per riga saltando le passerelle
+    const sorted = (ombs || []).slice().sort((a, b) =>
+      (a.codice || '').localeCompare(b.codice || '', 'it', { numeric: true })
+    );
+    let placed = 0;
+    for (let r = 0; r < MAPPA_ROWS && placed < sorted.length; r++) {
+      for (let c = 0; c < MAPPA_COLS && placed < sorted.length; c++) {
+        if (mappaState.grid[r][c] === CELL_TIPO.VUOTO) {
+          const o = sorted[placed];
+          mappaState.grid[r][c] = CELL_TIPO.OMBRELLONE;
+          mappaState.codici[`${r}_${c}`] = o.codice || '';
+          mappaState.ids[`${r}_${c}`] = o.id;
+          placed++;
+        }
+      }
+    }
+  }
+
   _mappaOriginalSnapshot = {
     ombs: (ombs || []).map(o => ({ id: o.id, pos_x: o.pos_x, pos_y: o.pos_y, codice: o.codice })),
     passerelle: [...passerelle]

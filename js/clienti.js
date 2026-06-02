@@ -493,17 +493,13 @@ async function confirmImportaExcelExecute() {
   // Inserimento clienti senza email
   let noEmailInserted = 0;
   if (clientiNoEmail.length) {
-    const clienteByOmb2 = {};
-    // Ricarica dopo le operazioni precedenti
-    (clientiList || []).forEach(c => { if (c.ombrellone_id) clienteByOmb2[c.ombrellone_id] = c; });
-
+    // Raccoglie gli ombrellone_id coinvolti e i dati da inserire
+    const noEmailOmbIds = [];
     const noEmailToInsert = [];
-    const noEmailToDisplace = [];
     for (const r of clientiNoEmail) {
       const omb = ombByKey[r.codice];
       if (!omb) continue;
-      const existingCl = clienteByOmb2[omb.id];
-      if (existingCl) noEmailToDisplace.push(existingCl.id);
+      noEmailOmbIds.push(omb.id);
       noEmailToInsert.push({
         stabilimento_id: currentStabilimento.id,
         nome: r.nome,
@@ -514,9 +510,9 @@ async function confirmImportaExcelExecute() {
         approvato: false,
       });
     }
-    // Rimuovi l'ombrellone ai clienti spostati
-    if (noEmailToDisplace.length) {
-      await sb.from('clienti_stagionali').update({ ombrellone_id: null }).in('id', noEmailToDisplace);
+    // Displace direttamente per ombrellone_id nel DB (evita stale in-memory data)
+    if (noEmailOmbIds.length) {
+      await sb.from('clienti_stagionali').update({ ombrellone_id: null }).in('ombrellone_id', noEmailOmbIds);
     }
     if (noEmailToInsert.length) {
       const { data: insertedNoEmail, error: insNoEmailErr } = await sb.from('clienti_stagionali')
