@@ -764,16 +764,16 @@ function renderGestioneFiltered() {
           : stato === 'sub_affittato'
             ? '<span class="pill pill-yellow">Sub-affittato</span>'
             : '<span class="pill pill-gray">Senza cliente</span>');
-    const checkbox = cliente
-      ? `<input type="checkbox" class="clienti-check" data-id="${cliente.id}" ${selectedClienteIds.has(cliente.id) ? 'checked' : ''} onchange="toggleCliente('${cliente.id}', this.checked)">`
-      : '';
-    const ombCheck = `<input type="checkbox" class="gestione-omb-check" data-omb="${omb.id}" title="Seleziona ombrellone" ${gestioneSelection.has(omb.id) ? 'checked' : ''} onchange="toggleGestioneSelect('${omb.id}')">`;
+    // Checkbox unificata: seleziona ombrellone (bulk disattiva) + cliente (bulk invita)
+    const isChecked = gestioneSelection.has(omb.id) || (cliente && selectedClienteIds.has(cliente.id));
+    const clienteDataAttr = cliente ? ` data-cliente-id="${cliente.id}"` : '';
+    const unifiedCheck = `<input type="checkbox" class="gestione-omb-check" data-omb="${omb.id}"${clienteDataAttr} ${isChecked ? 'checked' : ''} onchange="toggleGestioneUnified('${omb.id}', '${cliente?.id || ''}', this.checked)">`;
     const inactiveBadge = !omb.attivo ? ' <span class="badge-inactive">Non attivo</span>' : '';
     const azioniInvito = cliente && !cliente.user_id
-      ? `<button class="btn btn-outline btn-sm" onclick="invitaSingolo('${cliente.id}')" title="Invia/reinvia invito" style="margin-right:4px">✉️</button>`
+      ? `<button class="btn btn-outline btn-sm" onclick="invitaSingolo('${cliente.id}')" title="Invia invito" style="margin-right:4px">Invita</button>`
       : '';
     return `<tr style="cursor:pointer" onclick="openViewOmbrelloneModal('${omb.id}')" title="Vedi dettagli ombrellone">
-      <td onclick="event.stopPropagation()" style="display:flex;flex-direction:column;gap:4px;align-items:center">${checkbox}${ombCheck}</td>
+      <td onclick="event.stopPropagation()">${unifiedCheck}</td>
       <td colspan="2"><strong>${escapeHtml(omb.codice)}</strong>${inactiveBadge}</td>
       <td>${formatCoin(omb.credito_giornaliero)}</td>
       <td>${cliente ? `<strong>${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')}</strong>` : '<span style="color:var(--text-light)">–</span>'}</td>
@@ -800,20 +800,27 @@ function dispStato(ombId) {
 function syncCheckAllClienti(righe) {
   const chk = document.getElementById('clienti-check-all');
   if (!chk) return;
-  const ids = righe.map(r => r.cliente?.id).filter(Boolean);
-  const all = ids.length > 0 && ids.every(id => selectedClienteIds.has(id));
-  const some = ids.some(id => selectedClienteIds.has(id));
+  const ombIds = righe.map(r => r.omb.id);
+  const all = ombIds.length > 0 && ombIds.every(id => gestioneSelection.has(id));
+  const some = ombIds.some(id => gestioneSelection.has(id));
   chk.checked = all;
   chk.indeterminate = !all && some;
 }
 
 function toggleAllClienti(checked) {
-  document.querySelectorAll('.clienti-check').forEach(cb => {
-    const id = cb.dataset.id;
-    if (checked) selectedClienteIds.add(id); else selectedClienteIds.delete(id);
+  document.querySelectorAll('.gestione-omb-check').forEach(cb => {
+    const ombId = cb.dataset.omb;
+    const cid = cb.dataset.clienteId;
+    if (ombId) {
+      if (checked) gestioneSelection.add(ombId); else gestioneSelection.delete(ombId);
+    }
+    if (cid) {
+      if (checked) selectedClienteIds.add(cid); else selectedClienteIds.delete(cid);
+    }
     cb.checked = checked;
   });
   updateClientiBulkToolbar();
+  updateGestioneBulkBar();
 }
 
 function toggleCliente(id, checked) {
@@ -3253,6 +3260,20 @@ function toggleGestioneSelect(ombId) {
   updateGestioneBulkBar();
 }
 
+function toggleGestioneUnified(ombId, clienteId, checked) {
+  if (checked) {
+    gestioneSelection.add(ombId);
+    if (clienteId) selectedClienteIds.add(clienteId);
+  } else {
+    gestioneSelection.delete(ombId);
+    if (clienteId) selectedClienteIds.delete(clienteId);
+  }
+  updateGestioneBulkBar();
+  updateClientiBulkToolbar();
+  syncCheckAllClienti(getFiltratiGestione());
+}
+window.toggleGestioneUnified = toggleGestioneUnified;
+
 function updateGestioneBulkBar() {
   const bar = document.getElementById('gestione-bulk-bar');
   const cnt = document.getElementById('gestione-bulk-count');
@@ -3269,8 +3290,15 @@ function updateGestioneBulkBar() {
 
 function clearGestioneSelection() {
   gestioneSelection.clear();
+  // Pulisce anche la selezione clienti sincronizzata
+  document.querySelectorAll('.gestione-omb-check[data-cliente-id]').forEach(cb => {
+    const cid = cb.dataset.clienteId;
+    if (cid) selectedClienteIds.delete(cid);
+  });
   document.querySelectorAll('.gestione-omb-check').forEach(cb => cb.checked = false);
   updateGestioneBulkBar();
+  updateClientiBulkToolbar();
+  syncCheckAllClienti(getFiltratiGestione());
 }
 
 function bulkInviaInviti() {
