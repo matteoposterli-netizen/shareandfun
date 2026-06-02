@@ -558,14 +558,63 @@ function openBulkInviteModal(forcedIds = null) {
   bulkInviteTargets = clientiList.filter(c => sourceSet.has(c.id) && !c.user_id && c.invito_token);
   const skipped = sourceIds.length - bulkInviteTargets.length;
 
+  const waEnabled = !!currentStabilimento?.wa_enabled;
+
+  // Costruisce la lista destinatari con flag canali
   const listEl = document.getElementById('bulk-dest-list');
-  listEl.innerHTML = bulkInviteTargets.length
-    ? bulkInviteTargets.map(c => `<div>• ${escapeHtml(c.nome || '')} ${escapeHtml(c.cognome || '')} — ${escapeHtml(c.email || '')}</div>`).join('')
-    : '<div style="color:var(--red)">Nessun destinatario valido selezionato.</div>';
+  if (bulkInviteTargets.length) {
+    listEl.innerHTML = bulkInviteTargets.map(c => {
+      const hasEmail = !!c.email;
+      const hasWA = waEnabled && !!(c.telefono && c.whatsapp_consenso);
+      const emailIcon = hasEmail
+        ? '<span style="color:var(--green);font-weight:600" title="Riceverà invito via email">✅ email</span>'
+        : '<span style="color:var(--red)" title="Manca email — invito email non partirà">⚠️ email mancante</span>';
+      const waIcon = waEnabled
+        ? (hasWA
+            ? '<span style="color:var(--green);font-weight:600" title="Riceverà notifica WhatsApp">✅ WhatsApp</span>'
+            : (!c.telefono
+                ? '<span style="color:var(--text-light)" title="Numero telefono non inserito">⚠️ WA: senza numero</span>'
+                : '<span style="color:var(--text-light)" title="Consenso WhatsApp non fornito">⚠️ WA: no consenso</span>'))
+        : '';
+      const channels = [emailIcon, waIcon].filter(Boolean).join(' &nbsp;·&nbsp; ');
+      return `<div style="padding:4px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>• ${escapeHtml(c.nome || '')} ${escapeHtml(c.cognome || '')} — <span style="color:var(--ocean)">${escapeHtml(c.email || '(senza email)')}</span></span>
+        <span style="font-size:11px;white-space:nowrap">${channels}</span>
+      </div>`;
+    }).join('');
+  } else {
+    listEl.innerHTML = '<div style="color:var(--red)">Nessun destinatario valido selezionato.</div>';
+  }
   document.getElementById('bulk-dest-count').textContent = bulkInviteTargets.length;
 
+  // Template email
   document.getElementById('bulk-invite-oggetto').value = currentStabilimento?.email_invito_oggetto || DEFAULT_EMAIL_TEMPLATES?.invito_oggetto || '';
   document.getElementById('bulk-invite-testo').value = currentStabilimento?.email_invito_testo || DEFAULT_EMAIL_TEMPLATES?.invito_testo || '';
+
+  // Sezione WhatsApp
+  const waBody = document.getElementById('bulk-wa-body');
+  if (!waEnabled) {
+    waBody.innerHTML = `<div class="alert alert-info" style="font-size:12px;margin:0">
+      ℹ️ WhatsApp non è ancora attivo per questo stabilimento. Attivalo in <strong>Configurazioni → WhatsApp</strong> per inviare anche il messaggio di invito via WhatsApp ai clienti con consenso.
+    </div>`;
+  } else {
+    const waCount = bulkInviteTargets.filter(c => c.telefono && c.whatsapp_consenso).length;
+    const waNoPhone = bulkInviteTargets.filter(c => !c.telefono).length;
+    const waNoConsent = bulkInviteTargets.filter(c => c.telefono && !c.whatsapp_consenso).length;
+    const pills = [];
+    if (waCount) pills.push(`<span style="color:var(--green);font-weight:600">${waCount} riceveranno WA</span>`);
+    if (waNoPhone) pills.push(`<span style="color:var(--text-light)">${waNoPhone} senza numero</span>`);
+    if (waNoConsent) pills.push(`<span style="color:var(--text-light)">${waNoConsent} senza consenso</span>`);
+    waBody.innerHTML = `
+      <div style="font-size:12px;color:var(--text-mid);margin-bottom:10px">${pills.join(' &nbsp;·&nbsp; ')}</div>
+      <div style="background:var(--sand);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:var(--text-mid)">
+        <div style="font-weight:600;margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-light)">Anteprima messaggio (read-only)</div>
+        <div>Ciao <em>[nome]</em>, <strong>[stabilimento]</strong> ti ha invitato su SpiaggiaMia! Completa la registrazione e accedi alla tua dashboard con il link qui sotto. 🏖️</div>
+        <div style="margin-top:8px;padding:6px 12px;background:#fff;border-radius:4px;display:inline-block;font-weight:600;color:var(--ocean);border:1px solid var(--ocean-mid)">Crea password →</div>
+        <div style="margin-top:6px;font-size:11px;color:var(--text-light)">Il messaggio è fisso e gestito da SpiaggiaMia. Inviato solo ai clienti con telefono + consenso WhatsApp.</div>
+      </div>`;
+  }
+
   showAlert('bulk-invite-alert', skipped ? `⚠ ${skipped} clienti saltati (già attivi o senza token)` : '', skipped ? 'error' : '');
 
   const btn = document.getElementById('btn-bulk-invite');

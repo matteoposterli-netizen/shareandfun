@@ -2449,23 +2449,37 @@
 
 <!-- Invio inviti multiplo con template personalizzato -->
 <div id="modal-bulk-invite" class="modal-overlay hidden">
-  <div class="modal" style="max-width:640px">
+  <div class="modal" style="max-width:660px">
     <div class="modal-title">✉️ Invia inviti personalizzati</div>
-    <div class="modal-sub">Modifica oggetto e messaggio. Placeholder supportati: <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{cognome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{ombrellone}}</code>.</div>
+    <div class="modal-sub">Placeholder supportati: <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{cognome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{ombrellone}}</code>.</div>
     <div id="bulk-invite-alert"></div>
+
+    <!-- Destinatari con flag canali -->
     <div class="form-group">
       <label class="form-label">Destinatari (<span id="bulk-dest-count">0</span>)</label>
-      <div id="bulk-dest-list" style="max-height:140px;overflow-y:auto;background:var(--sand);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--text-mid)"></div>
+      <div id="bulk-dest-list" style="max-height:160px;overflow-y:auto;background:var(--sand);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--text-mid)"></div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Oggetto</label>
-      <input type="text" id="bulk-invite-oggetto" class="form-input" maxlength="120" placeholder="Sei stato invitato su SpiaggiaMia">
+
+    <!-- Sezione EMAIL -->
+    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:10px">📧 Email</div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label class="form-label">Oggetto</label>
+        <input type="text" id="bulk-invite-oggetto" class="form-input" maxlength="120" placeholder="Sei stato invitato su SpiaggiaMia">
+      </div>
+      <div class="form-group" style="margin-bottom:6px">
+        <label class="form-label">Messaggio</label>
+        <textarea id="bulk-invite-testo" class="form-input" rows="5" maxlength="800" placeholder="Ciao {{nome}}, quest'anno stiamo usando SpiaggiaMia..." style="resize:vertical"></textarea>
+        <div style="font-size:12px;color:var(--text-light);margin-top:4px">Il pulsante "Completa la registrazione" viene aggiunto automaticamente.</div>
+      </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Messaggio</label>
-      <textarea id="bulk-invite-testo" class="form-input" rows="5" maxlength="800" placeholder="Ciao {{nome}}, quest'anno stiamo usando SpiaggiaMia..." style="resize:vertical"></textarea>
-      <div style="font-size:12px;color:var(--text-light);margin-top:4px">Il pulsante "Completa la registrazione" viene aggiunto automaticamente.</div>
+
+    <!-- Sezione WHATSAPP -->
+    <div id="bulk-wa-section" style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px">💬 WhatsApp</div>
+      <div id="bulk-wa-body"></div>
     </div>
+
     <div class="modal-footer">
       <button class="btn btn-outline btn-sm" onclick="closeModal('modal-bulk-invite')">Annulla</button>
       <button class="btn btn-primary btn-sm" onclick="confirmBulkInvite()" id="btn-bulk-invite">Invia inviti</button>
