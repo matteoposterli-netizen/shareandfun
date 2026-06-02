@@ -2326,17 +2326,23 @@ async function confirmAssignmentDialog(ombId, clienteLabel) {
   return new Promise(resolve => { assignConfirmResolver = resolve; });
 }
 
-async function saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito, skipAssignConfirm }) {
+async function saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito, skipAssignConfirm, alertId = 'add-row-alert' }) {
   const now = new Date().toISOString();
-  const { data: existing } = await sb.from('clienti_stagionali')
-    .select('id,invito_token,user_id,ombrellone_id')
-    .eq('stabilimento_id', currentStabilimento.id)
-    .eq('email', email)
-    .maybeSingle();
 
-  // Confirm dialog: assegnazione (nuovo ombId, oppure cambio ombrellone su cliente esistente).
+  // Lookup per email solo se email è fornita
+  let existing = null;
+  if (email) {
+    const { data } = await sb.from('clienti_stagionali')
+      .select('id,invito_token,user_id,ombrellone_id')
+      .eq('stabilimento_id', currentStabilimento.id)
+      .eq('email', email)
+      .maybeSingle();
+    existing = data;
+  }
+
+  // Confirm dialog assegnazione ombrellone
   if (!skipAssignConfirm && ombId && (!existing || existing.ombrellone_id !== ombId)) {
-    const ok = await confirmAssignmentDialog(ombId, `${nome} ${cognome}`.trim() || email);
+    const ok = await confirmAssignmentDialog(ombId, `${nome} ${cognome}`.trim() || email || '');
     if (!ok) return;
   }
 
@@ -2346,23 +2352,26 @@ async function saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito,
   let token, clienteId;
   if (existing) {
     if (existing.user_id) {
-      showAlert('add-row-alert', 'Questo cliente ha già completato la registrazione. Usa "Modifica" dalla tabella per cambiargli ombrellone.', 'error');
+      showAlert(alertId, 'Questo cliente ha già completato la registrazione. Usa "Modifica" dalla tabella per cambiargli ombrellone.', 'error');
       return;
     }
     const { error: upErr } = await sb.from('clienti_stagionali').update(baseUpdate).eq('id', existing.id);
-    if (upErr) { showAlert('add-row-alert', upErr.message, 'error'); return; }
+    if (upErr) { showAlert(alertId, upErr.message, 'error'); return; }
     token = existing.invito_token;
     clienteId = existing.id;
   } else {
+    const insertData = { stabilimento_id: currentStabilimento.id, fonte: 'csv', approvato: false, ...baseUpdate };
+    if (email) insertData.email = email;
     const { data: inserted, error: insErr } = await sb.from('clienti_stagionali')
-      .insert({ stabilimento_id: currentStabilimento.id, email, fonte: 'csv', approvato: false, ...baseUpdate })
+      .insert(insertData)
       .select('id,invito_token').single();
-    if (insErr) { showAlert('add-row-alert', insErr.message, 'error'); return; }
+    if (insErr) { showAlert(alertId, insErr.message, 'error'); return; }
     token = inserted?.invito_token;
     clienteId = inserted?.id;
   }
 
-  if (inviaInvito && token) {
+  // Invio invito solo se email presente
+  if (inviaInvito && token && email) {
     const omb = ombId ? (ombrelloniList.find(o => o.id === ombId) || null) : null;
     const ombStr = omb ? omb.codice : '';
     const inviteLink = `${window.location.origin}/?invito=${token}`;
@@ -2371,7 +2380,7 @@ async function saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito,
       3, 500
     );
     if (!ok) {
-      showAlert('add-row-alert', '⚠ Cliente salvato ma invio email fallito. Riprova dalla tabella.', 'error');
+      showAlert(alertId, '⚠ Cliente salvato ma invio email fallito. Riprova dalla tabella.', 'error');
       await loadManagerData();
       return;
     }
@@ -2569,7 +2578,22 @@ async function saveEditRowCliente() {
     return;
   }
   if (hasCliente) {
-    if (!email || !EMAIL_RE.test(email)) { showAlert('edit-row-clt-alert', 'Email cliente non valida.', 'error'); return; }
+    // Email opzionale: se fornita deve essere valida
+    if (email && !EMAIL_RE.test(email)) { showAlert('edit-row-clt-alert', 'Email cliente non valida.', 'error'); return; }
+    // Unicità email: se fornita non deve essere usata da un altro cliente dello stesso stabilimento
+    if (email) {
+      const duplicate = (clientiList || []).find(c =>
+        c.id !== clId &&
+        (c.email || '').toLowerCase() === email.toLowerCase()
+      );
+      if (duplicate) {
+        const ombDup = (ombrelloniList || []).find(o => o.id === duplicate.ombrellone_id);
+        const ombStr = ombDup ? ` — ombrellone ${ombDup.codice}` : '';
+        const nomeStr = `${duplicate.nome || ''} ${duplicate.cognome || ''}`.trim() || duplicate.email;
+        showAlert('edit-row-clt-alert', `Email già usata da ${escapeHtml(nomeStr)}${escapeHtml(ombStr)}. Inserisci un'email diversa o lascia il campo vuoto.`, 'error');
+        return;
+      }
+    }
     if (waConsenso && !telefono) { showAlert('edit-row-clt-alert', 'Per attivare le notifiche WhatsApp inserisci il numero di cellulare del cliente.', 'error'); return; }
     const snap = editRowCltSnapshot;
     const cur = getEditRowCltValues();
@@ -2587,7 +2611,7 @@ async function saveEditRowCliente() {
         whatsapp_consenso: waConsenso,
         whatsapp_consenso_at: waConsenso ? new Date().toISOString() : null,
       };
-      if (!existing.user_id) update.email = email;
+      if (!existing.user_id) update.email = email || null;
       const { error } = await sb.from('clienti_stagionali').update(update).eq('id', existing.id);
       if (error) { showAlert('edit-row-clt-alert', error.message, 'error'); return; }
     } else {
@@ -2605,7 +2629,7 @@ async function saveEditRowCliente() {
         document.getElementById('modal-conflict-cliente').classList.remove('hidden');
         return;
       }
-      await saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito: false });
+      await saveCliente({ nome, cognome, email, telefono, ombId, inviaInvito: false, alertId: 'edit-row-clt-alert' });
       await refreshEditRowAfterSave(ombId, { skipReload: true, alertId: 'edit-row-clt-alert' });
       return;
     }

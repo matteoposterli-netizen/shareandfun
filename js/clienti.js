@@ -63,10 +63,11 @@ function renderExcelAnteprima(rows) {
     const hasClienteFields = !!(r.nome || r.cognome || r.email || r.telefono);
 
     if (hasClienteFields) {
-      if (!email) return { kind: 'block', label: 'email cliente mancante', diffs: [], requiresExplicit: false };
-      if (!EMAIL_RE.test(email)) return { kind: 'block', label: 'email non valida', diffs: [], requiresExplicit: false };
-      if (seenEmails.has(email)) return { kind: 'block', label: 'email duplicata nel file', diffs: [], requiresExplicit: false };
-      seenEmails.add(email);
+      if (email) {
+        if (!EMAIL_RE.test(email)) return { kind: 'block', label: 'email non valida', diffs: [], requiresExplicit: false };
+        if (seenEmails.has(email)) return { kind: 'block', label: 'email duplicata nel file', diffs: [], requiresExplicit: false };
+        seenEmails.add(email);
+      }
     }
 
     const diffs = [];
@@ -397,6 +398,7 @@ async function confirmImportaExcelExecute() {
     await sb.from('ombrelloni').update({ credito_giornaliero: u.credito_giornaliero }).eq('id', u.id);
   });
 
+  // Righe con email valida → deduplicate per email
   const clientiRows = selected.filter(r => r.email && EMAIL_RE.test(r.email));
   const byEmail = new Map();
   for (const r of clientiRows) {
@@ -404,10 +406,14 @@ async function confirmImportaExcelExecute() {
     if (!byEmail.has(k)) byEmail.set(k, r);
   }
   const skipped = clientiRows.length - byEmail.size;
+
+  // Righe senza email ma con almeno un campo cliente → inserimento diretto
+  const clientiNoEmail = selected.filter(r => !r.email && !!(r.nome || r.cognome || r.telefono));
+
   const ombAggiunti = ombToInsert.length;
   const ombAggiornati = ombToUpdate.length;
 
-  if (!byEmail.size) {
+  if (!byEmail.size && !clientiNoEmail.length) {
     await coalesceImportAudit(auditSince, {
       ombAggiunti, ombAggiornati, clientiImportati: 0,
       invitiInviati: 0, invitiFalliti: 0, invitiAttesi: false,
@@ -484,6 +490,45 @@ async function confirmImportaExcelExecute() {
     if (u.token) targets.push({ id: u.id, email: u.row.email, nome: u.row.nome, cognome: u.row.cognome, ombrellone: u.ombStr, token: u.token });
   });
 
+  // Inserimento clienti senza email
+  let noEmailInserted = 0;
+  if (clientiNoEmail.length) {
+    const clienteByOmb2 = {};
+    // Ricarica dopo le operazioni precedenti
+    (clientiList || []).forEach(c => { if (c.ombrellone_id) clienteByOmb2[c.ombrellone_id] = c; });
+
+    const noEmailToInsert = [];
+    const noEmailToDisplace = [];
+    for (const r of clientiNoEmail) {
+      const omb = ombByKey[r.codice];
+      if (!omb) continue;
+      const existingCl = clienteByOmb2[omb.id];
+      if (existingCl) noEmailToDisplace.push(existingCl.id);
+      noEmailToInsert.push({
+        stabilimento_id: currentStabilimento.id,
+        nome: r.nome,
+        cognome: r.cognome,
+        telefono: r.telefono,
+        ombrellone_id: omb.id,
+        fonte: 'csv',
+        approvato: false,
+      });
+    }
+    // Rimuovi l'ombrellone ai clienti spostati
+    if (noEmailToDisplace.length) {
+      await sb.from('clienti_stagionali').update({ ombrellone_id: null }).in('id', noEmailToDisplace);
+    }
+    if (noEmailToInsert.length) {
+      const { data: insertedNoEmail, error: insNoEmailErr } = await sb.from('clienti_stagionali')
+        .insert(noEmailToInsert).select('id');
+      if (insNoEmailErr) {
+        showAlert('xlsx-alert', `⚠ Errore inserimento clienti senza email: ${insNoEmailErr.message}`, 'error');
+      } else {
+        noEmailInserted = (insertedNoEmail || []).length;
+      }
+    }
+  }
+
   let sent = 0, failed = 0;
   if (inviaInviti) {
     await runWithConcurrency(targets, 5, async (t) => {
@@ -500,7 +545,7 @@ async function confirmImportaExcelExecute() {
   }
 
   await coalesceImportAudit(auditSince, {
-    ombAggiunti, ombAggiornati, clientiImportati: byEmail.size,
+    ombAggiunti, ombAggiornati, clientiImportati: byEmail.size + noEmailInserted,
     invitiInviati: sent, invitiFalliti: failed, invitiAttesi: !!inviaInviti,
     displaced: displacedIds.size, skipped,
     deletedOmb, deletedCli, deletedTx, deletedDisp,
@@ -517,7 +562,8 @@ async function confirmImportaExcelExecute() {
   if (deletedDisp) parts.push(`${deletedDisp} disponibilità rimosse`);
   if (ombAggiunti) parts.push(`${ombAggiunti} ombrelloni aggiunti`);
   if (ombAggiornati) parts.push(`${ombAggiornati} ombrelloni aggiornati`);
-  parts.push(`${byEmail.size} clienti importati`);
+  if (byEmail.size) parts.push(`${byEmail.size} clienti importati`);
+  if (noEmailInserted) parts.push(`${noEmailInserted} clienti senza email importati`);
   if (skipped) parts.push(`${skipped} righe saltate (email duplicata)`);
   if (displacedIds.size) parts.push(`${displacedIds.size} clienti precedenti rimossi dall'ombrellone`);
   if (inviaInviti) parts.push(`inviti inviati: ${sent}${failed ? ` · falliti: ${failed}` : ''}`);
