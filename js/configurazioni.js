@@ -257,18 +257,23 @@ function loadStabilimentoAccount() {
   const el = document.getElementById('account-stab-nome');
   if (!el || !currentStabilimento) return;
   el.value = currentStabilimento.nome || '';
+  const elCred = document.getElementById('account-stab-nome-credito');
+  if (elCred) elCred.value = currentStabilimento.nome_credito || 'Crediti';
 }
 
 async function saveStabilimentoAccount() {
   const nome = (document.getElementById('account-stab-nome')?.value || '').trim();
   if (!nome) { showAlert('stab-account-alert', 'Il nome stabilimento è obbligatorio', 'error'); return; }
   if (!currentStabilimento?.id) return;
-  const { error } = await sb.from('stabilimenti').update({ nome }).eq('id', currentStabilimento.id);
+  const nomeCredito = (document.getElementById('account-stab-nome-credito')?.value || '').trim() || 'Crediti';
+  const { error } = await sb.from('stabilimenti').update({ nome, nome_credito: nomeCredito }).eq('id', currentStabilimento.id);
   if (error) { showAlert('stab-account-alert', error.message, 'error'); return; }
   currentStabilimento.nome = nome;
+  currentStabilimento.nome_credito = nomeCredito;
   const navNome = document.getElementById('manager-stab-nome');
   if (navNome) navNome.textContent = nome;
-  showAlert('stab-account-alert', 'Nome stabilimento aggiornato con successo!', 'success');
+  if (typeof refreshCoinLabels === 'function') refreshCoinLabels(currentStabilimento);
+  showAlert('stab-account-alert', 'Impostazioni account aggiornate con successo!', 'success');
 }
 
 window.loadStabilimentoAccount = loadStabilimentoAccount;

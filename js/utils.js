@@ -78,8 +78,8 @@ function showAlert(containerId, msg, type) {
 }
 
 function coinName(stab) {
-  const nome = stab?.nome || (typeof currentStabilimento !== 'undefined' ? currentStabilimento?.nome : null);
-  return nome ? `${nome}Coin` : 'Coin';
+  const s = stab || (typeof currentStabilimento !== 'undefined' ? currentStabilimento : null);
+  return (s?.nome_credito || 'Crediti');
 }
 
 function formatCoin(amount, stab) {
