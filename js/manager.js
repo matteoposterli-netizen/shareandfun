@@ -842,7 +842,6 @@ function toggleAllClienti(checked) {
     cb.checked = checked;
   });
   updateClientiBulkToolbar();
-  updateGestioneBulkBar();
 }
 
 function toggleCliente(id, checked) {
@@ -853,14 +852,17 @@ function toggleCliente(id, checked) {
 
 function clearClientiSelection() {
   selectedClienteIds.clear();
-  renderGestioneFiltered();
+  gestioneSelection.clear();
+  document.querySelectorAll('.gestione-omb-check').forEach(cb => cb.checked = false);
+  syncCheckAllClienti(getFiltratiGestione());
+  updateClientiBulkToolbar();
 }
 
 function updateClientiBulkToolbar() {
   const toolbar = document.getElementById('clienti-bulk-toolbar');
   const count = document.getElementById('clienti-selected-count');
   if (!toolbar || !count) return;
-  const n = selectedClienteIds.size;
+  const n = gestioneSelection.size || selectedClienteIds.size;
   if (n > 0) {
     toolbar.classList.remove('hidden');
     toolbar.style.display = 'flex';
@@ -3316,24 +3318,13 @@ function toggleGestioneUnified(ombId, clienteId, checked) {
     gestioneSelection.delete(ombId);
     if (clienteId) selectedClienteIds.delete(clienteId);
   }
-  updateGestioneBulkBar();
   updateClientiBulkToolbar();
   syncCheckAllClienti(getFiltratiGestione());
 }
 window.toggleGestioneUnified = toggleGestioneUnified;
 
 function updateGestioneBulkBar() {
-  const bar = document.getElementById('gestione-bulk-bar');
-  const cnt = document.getElementById('gestione-bulk-count');
-  if (!bar) return;
-  if (gestioneSelection.size === 0) {
-    bar.classList.add('hidden');
-    bar.style.display = 'none';
-  } else {
-    bar.classList.remove('hidden');
-    bar.style.display = 'flex';
-    if (cnt) cnt.textContent = `${gestioneSelection.size} ombrellone${gestioneSelection.size > 1 ? 'i' : ''} selezionat${gestioneSelection.size > 1 ? 'i' : 'o'}`;
-  }
+  // unificato in clienti-bulk-toolbar — mantenuta come no-op per compatibilità
 }
 
 function clearGestioneSelection() {
