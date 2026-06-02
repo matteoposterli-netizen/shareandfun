@@ -5,3 +5,4 @@ node_modules/
 scripts/credentials.json
 scripts/package.json
 scripts/package-lock.json
+.claude/launch.json
