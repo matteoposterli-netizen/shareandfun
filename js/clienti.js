@@ -633,6 +633,35 @@ function openBulkInviteModal(forcedIds = null) {
   document.getElementById('bulk-invite-oggetto').value = currentStabilimento?.email_invito_oggetto || DEFAULT_EMAIL_TEMPLATES?.invito_oggetto || '';
   document.getElementById('bulk-invite-testo').value = currentStabilimento?.email_invito_testo || DEFAULT_EMAIL_TEMPLATES?.invito_testo || '';
 
+  // Calcola email raggiungibili
+  const emailCount = bulkInviteTargets.filter(c => !!c.email).length;
+
+  // Applica stato inattivo al box sezione Email
+  const emailOggettoEl = document.getElementById('bulk-invite-oggetto');
+  const emailSectionBox = emailOggettoEl
+    ? emailOggettoEl.closest('div[style*="border"]')
+    : null;
+  if (emailSectionBox) {
+    if (emailCount === 0) {
+      emailSectionBox.style.background = 'repeating-linear-gradient(45deg,#e0e0e0 0 6px,#f0f0f0 6px 12px)';
+      emailSectionBox.style.borderColor = '#ccc';
+      emailSectionBox.style.opacity = '0.72';
+      // Badge "nessun destinatario"
+      const titleEl = emailSectionBox.querySelector('div[style*="font-size:13px"][style*="font-weight:600"]');
+      if (titleEl && !titleEl.querySelector('.ch-inactive-badge')) {
+        titleEl.insertAdjacentHTML('beforeend',
+          ' <span class="ch-inactive-badge" style="display:inline-block;background:#e0e0e0;color:#888;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;text-transform:uppercase;letter-spacing:.3px;vertical-align:middle">Nessun destinatario</span>'
+        );
+      }
+    } else {
+      emailSectionBox.style.background = '';
+      emailSectionBox.style.borderColor = '';
+      emailSectionBox.style.opacity = '';
+      const badge = emailSectionBox.querySelector('.ch-inactive-badge');
+      if (badge) badge.remove();
+    }
+  }
+
   // Sezione WhatsApp
   const waBody = document.getElementById('bulk-wa-body');
   if (!waEnabled) {
@@ -655,6 +684,28 @@ function openBulkInviteModal(forcedIds = null) {
         <div style="margin-top:8px;padding:6px 12px;background:#fff;border-radius:4px;display:inline-block;font-weight:600;color:var(--ocean);border:1px solid var(--ocean-mid)">Crea password →</div>
         <div style="margin-top:6px;font-size:11px;color:var(--text-light)">Il messaggio è fisso e gestito da SpiaggiaMia. Inviato solo ai clienti con telefono + consenso WhatsApp.</div>
       </div>`;
+
+    // Applica stato inattivo al box sezione WhatsApp
+    const waSectionBox = document.getElementById('bulk-wa-section');
+    if (waSectionBox) {
+      if (waCount === 0) {
+        waSectionBox.style.background = 'repeating-linear-gradient(45deg,#e0e0e0 0 6px,#f0f0f0 6px 12px)';
+        waSectionBox.style.borderColor = '#ccc';
+        waSectionBox.style.opacity = '0.72';
+        const waTitleEl = waSectionBox.querySelector('div[style*="font-weight:600"]');
+        if (waTitleEl && !waTitleEl.querySelector('.ch-inactive-badge')) {
+          waTitleEl.insertAdjacentHTML('beforeend',
+            ' <span class="ch-inactive-badge" style="display:inline-block;background:#e0e0e0;color:#888;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;text-transform:uppercase;letter-spacing:.3px;vertical-align:middle">Nessun destinatario</span>'
+          );
+        }
+      } else {
+        waSectionBox.style.background = '';
+        waSectionBox.style.borderColor = '';
+        waSectionBox.style.opacity = '';
+        const badge = waSectionBox.querySelector('.ch-inactive-badge');
+        if (badge) badge.remove();
+      }
+    }
   }
 
   showAlert('bulk-invite-alert', skipped ? `⚠ ${skipped} clienti saltati (già attivi o senza token)` : '', skipped ? 'error' : '');
