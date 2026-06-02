@@ -1,7 +1,7 @@
 # SpiaggiaMia — Integrazione notifiche WhatsApp (piano e stato)
 
 Documento di riferimento per la knowledge base del progetto.
-Ultimo aggiornamento discussione: 31 maggio 2026.
+Ultimo aggiornamento discussione: 2 giugno 2026.
 
 ## 1. Obiettivo
 
@@ -36,6 +36,13 @@ Tre momenti, ognuno inviato su email e/o WhatsApp secondo i contatti in anagrafi
   gestore (vedi §7). NON per-stabilimento.
 - **Fallback:** WhatsApp parte solo per chi ha **telefono + consenso**; gli altri solo
   email. Nessun blocco all'onboarding.
+- **(2 giu 2026) Numero del pilota = BYON (Bring Your Own Number) con eSIM dedicata.**
+  Verificato: gli account Twilio **trial NON possono registrare WhatsApp Sender** → fatto
+  **upgrade a paid** (account ora Active, ~$20 fondi). I numeri **italiani su Twilio**
+  richiedono un Regulatory Bundle (documenti + fino a 3 gg lavorativi) → aggirato scegliendo
+  il **BYON**: una **eSIM operatore italiano dedicata** (Iliad, a nome Matteo), mai usata
+  su WhatsApp, capace di ricevere SMS/voce per l'OTP. Il BYON evita il bundle Twilio ma NON
+  il livello Meta (serve comunque creare Meta Business Portfolio + WABA via Self Sign-up).
 
 ## 4. Costi
 
@@ -51,6 +58,9 @@ Per il pilota: trascurabile.
   raccoglie in **anagrafica cliente lato gestore** (telefono + flag consenso), non solo
   nella dashboard stagionale.
 - **Verifica business Meta** per la produzione (2–10 gg). Senza: max 250 conversazioni/24h.
+- **Placeholder a inizio/fine messaggio = rifiuto automatico** (verificato Twilio/Meta):
+  i body non devono iniziare né finire con `{{n}}`. Per questo il Template 3 chiude con
+  "Buona estate!" dopo `{{4}}`.
 - Comunicazione libera/promozionale = categoria *marketing* -> fuori dal primo rilascio.
 
 ## 6. Stato tecnico (riferimento)
@@ -65,9 +75,9 @@ Repo: `matteoposterli-netizen/shareandfun`. `CLAUDE.md` = architettura autorevol
   sia nell'import Excel (`confirmImportaExcelExecute`, se attivo `xlsx-invia-inviti`) sia
   nel bulk invite (`confirmBulkInvite`). Link invito: `${origin}/?invito=${token}`.
   -> Qui andrà affiancato l'invio WhatsApp (Step 4b).
-  -> DA MAPPARE domani con la Edge Function: i punti dove oggi partono il **benvenuto**
+  -> DA MAPPARE con la Edge Function: i punti dove oggi partono il **benvenuto**
      (registrazione/creazione password) e il **sub-affitto confermato** (conferma del
-     gestore + accredito coin) — lì si aggancia l'invio WhatsApp corrispondente.
+     gestore + accredito credito) — lì si aggancia l'invio WhatsApp corrispondente.
 - **Tabella `clienti_stagionali`**: `telefono` (modificabile dal gestore nel Tab
   "Ombrelloni e clienti"), `email`, `nome`, `cognome`, `credito_saldo`, `user_id`,
   `stabilimento_id`, `ombrellone_id`, `approvato`, `invito_token`, `invitato_at`.
@@ -95,41 +105,52 @@ broadcast manuali. Il broadcast WhatsApp libero è fuori dal primo rilascio (mar
 
 ## 8. Template del primo rilascio (3, categoria Utility, verso stagionali)
 
-Testi pronti da incollare nel Content Template Builder -> vedi deliverable
-`04_template_whatsapp_pronti_twilio.txt`. Riepilogo:
+Creati nel Content Template Builder il **2 giu 2026** (lingua: Italian, categoria: Utility).
+Stato: bozza con Content SID assegnato; **submit for approval in attesa del WhatsApp Sender**
+(business-initiated ancora pending finché il sender non è registrato). Testi definitivi:
 
-1. **`spiaggiamia_invito_stagionale`** (Call To Action, bottone "Crea password")
-   > Ciao {{1}}! 🏖️ {{2}} ti ha aperto il tuo spazio su SpiaggiaMia per gestire il tuo ombrellone. Crea la tua password per accedere.
-   (1=nome, 2=stabilimento; bottone URL https://spiaggiamia.com/?invito={{token}})
+1. **`spiaggiamia_invito_stagionale`** — Content SID `HXa6ec64d24da74f0d8348c7e180d727e8`
+   (Call To Action, bottone "Crea password")
+   > Ciao {{1}}! 🏖️ {{2}} ti dà il benvenuto su SpiaggiaMia: qui gestisci il tuo ombrellone per la stagione. Crea la password per iniziare.
+   - Variabili body: 1=nome, 2=stabilimento
+   - Bottone URL dinamico: `https://spiaggiamia.com/?invito={{3}}` (3=token invito)
 
-2. **`spiaggiamia_benvenuto_stagionale`** (Text)
-   > Ciao {{1}}! 🌊 Il tuo account SpiaggiaMia è attivo. Da qui segnali le tue assenze e accumuli coin quando {{2}} sub-affitta il tuo ombrellone. Buona estate!
-   (1=nome, 2=stabilimento)
+2. **`spiaggiamia_benvenuto_stagionale`** — Content SID `HXf42d6a56208f5e790550d1e38a9f54a3`
+   (Text)
+   > Ciao {{1}}! 🌊 Il tuo account SpiaggiaMia è attivo. Segnala quando non ci sei: ogni volta che {{2}} sub-affitta il tuo ombrellone accumuli credito. Buona estate!
+   - Variabili: 1=nome, 2=stabilimento
 
-3. **`spiaggiamia_subaffitto_confermato`** (Text)
-   > Ciao {{1}}! ☂️ Il tuo ombrellone è stato affittato {{2}}. Hai guadagnato {{3}} — credito totale: {{4}}. Lo usi al bar e ristorante di {{5}}!
-   (1=nome, 2=periodo, 3=credito guadagnato, 4=credito totale, 5=stabilimento)
+3. **`spiaggiamia_subaffitto_confermato`** — Content SID `HXa9170abc05f727eab8fbd4cfa253779b`
+   (Text)
+   > Ciao {{1}}! ☂️ Buone notizie: il tuo ombrellone è stato affittato {{2}}. Da {{5}} hai guadagnato {{3}} di credito, per un totale di {{4}}. Buona estate!
+   - Variabili: 1=nome, 2=periodo, 3=credito guadagnato, 4=credito totale, 5=stabilimento
+   - Nota: `{{5}}` compare nel testo prima di `{{4}}`; i ContentVariables si mappano per
+     numero, non per ordine di apparizione.
 
-Estensioni future: ritiro coin, chiusura stagione, comunicazioni (cautela: marketing).
+Estensioni future: ritiro credito, chiusura stagione, comunicazioni (cautela: marketing).
 
-## 9. Come funziona Twilio (verificato, mag 2026)
+## 9. Come funziona Twilio (verificato, giu 2026)
 
-- **Test -> Sandbox**: numero condiviso, nessun numero proprio; dal telefono mandi
-  "join <codice>". Nel sandbox solo template pre-approvati.
+- **Account**: trial **upgradato a paid** (Active) — necessario perché i trial non possono
+  registrare WhatsApp Sender. Sandbox testata con successo (invio template demo ricevuto).
 - **Credenziali**: Account SID + Auth Token (secret su Supabase, MAI nel codice).
-- **Template**: Content Template Builder -> Content SID (`HX…`).
+- **Template**: Content Template Builder -> Content SID (`HX…`). I 3 SID sono in §8.
+- **Sender**: BYON via Self Sign-up (Console > Messaging > Senders > WhatsApp Senders),
+  numero non-Twilio (eSIM Iliad) verificato con OTP. Crea Meta Business Portfolio + WABA.
 - **Invio**: REST con `ContentSid` + `ContentVariables` (JSON `{"1":"…","2":"…"}`),
   `From`/`To` con prefisso `whatsapp:`. Endpoint
   `POST https://api.twilio.com/2010-04-01/Accounts/{SID}/Messages.json` (Basic Auth).
 - Numero in formato internazionale (+39…).
 
-## 10. Numero di produzione (non serve per il pilota)
+## 10. Numero del pilota e produzione
 
-- Pilota: Sandbox. Produzione: numero dedicato registrato come **WhatsApp Sender**
-  (headless via API, NON l'app WhatsApp Business). Raccomandato: numero Twilio dedicato.
-- Requisiti: NON già registrato su WhatsApp; deve ricevere SMS/voce per OTP (no VOIP).
-- Registrazione: Self Sign-Up nella Console (login Facebook + Meta Business) + verifica
-  business Meta. Display name "SpiaggiaMia" rivisto da Meta (se rifiutato: 250 msg/giorno).
+- **Pilota: BYON con eSIM dedicata** (Iliad, a nome Matteo). Numero registrato come
+  **WhatsApp Sender** via Self Sign-up (headless via API, NON l'app WhatsApp Business).
+- Requisiti numero: **mai registrato su WhatsApp** (non installarci l'app classica),
+  riceve **SMS/voce** per OTP (no VOIP/IVR).
+- Registrazione: Self Sign-Up nella Console (login Facebook + Meta Business Portfolio +
+  WABA). Display name "SpiaggiaMia" rivisto da Meta (se rifiutato: 250 msg/giorno).
+  Verifica business Meta completa = solo per alzare i limiti / produzione.
 - Stagionalità: numero senza traffico per ~30 gg viene bloccato (err. 63051) -> tenere
   un minimo di traffico periodico fuori stagione.
 
@@ -141,17 +162,22 @@ Estensioni future: ritiro coin, chiusura stagione, comunicazioni (cautela: marke
       consenso + telefono E.164 nel Tab "Ombrelloni e clienti".
 - [x] **5b. Preferenze nella dashboard stagionale** — FATTO, in `main`. Scheda "Notifiche"
       con numero + opt-in/revoca lato cliente.
-- [ ] **2. Setup Twilio** — account + Sandbox + Account SID/Auth Token. (Sessione Twilio.)
-- [ ] **3. Creare i 3 template** (testi pronti in `04_template_whatsapp_pronti_twilio.txt`)
-      nel Content Template Builder -> annotare i 3 **Content SID**. (Sessione Twilio.)
+- [x] **2. Setup Twilio** — FATTO (2 giu 2026). Account creato, **upgrade a paid** (Active),
+      Sandbox testata. Account SID/Auth Token disponibili (da salvare come secret Supabase
+      allo Step 4b).
+- [x] **3. Creare i 3 template** — FATTO (2 giu 2026). Creati in bozza nel Content Template
+      Builder, **Content SID annotati** (vedi §8). Submit for approval in attesa del Sender.
+- [ ] **2b. Registrare il WhatsApp Sender (BYON)** — IN ATTESA eSIM Iliad. Self Sign-up:
+      Meta Business Portfolio + WABA + verifica numero via OTP + display name "SpiaggiaMia".
+      Sblocca il submit for approval dei 3 template.
 - [ ] **4a. Tab WhatsApp (gestore)** — trasformare il placeholder `#comm-pane-whatsapp`
       nel pannello config: Content SID dei 3 template, numero mittente, stato, anteprima.
-      Config globale di sistema. (Accoppiato ai Content SID -> con Step 3.)
+      Config globale di sistema.
 - [ ] **4b. Edge Function `invia-whatsapp`** — gemella di `invia-email`; mappa `tipo` ->
-      template (Content SID dalla config §7), invia via Twilio, solo se telefono+consenso.
+      template (Content SID dalla config §7/§8), invia via Twilio, solo se telefono+consenso.
       Agganciata accanto agli invii email esistenti (invito in clienti.js + i punti di
       benvenuto e sub-affitto da mappare). Secret Twilio su Supabase.
-- [ ] **6. Produzione (post-pilota)** — numero Twilio dedicato + verifica business Meta.
+- [ ] **6. Produzione (post-pilota)** — numero dedicato + verifica business Meta completa.
 
 ## 12. Deliverable prodotti
 
@@ -160,14 +186,17 @@ Estensioni future: ritiro coin, chiusura stagione, comunicazioni (cautela: marke
   **Eseguito** (Step 5b, in main).
 - `03_consenso_whatsapp_anagrafica_gestore.txt` — consenso nel form modifica cliente.
   **Eseguito** (Step 5a, in main, PR #97).
-- `04_template_whatsapp_pronti_twilio.txt` — testi dei 3 template pronti da incollare nel
-  Content Template Builder (per lo Step 3). **Da usare in sessione Twilio.**
+- `04_template_whatsapp_pronti_twilio.txt` — testi dei 3 template (storico). I testi
+  **definitivi e i Content SID** sono ora in §8 (fonte di verità).
 
 ## 13. Riprendere da qui
 
-Stato: **tutto il lato codice indipendente da Twilio è completato** (Step 0, 1, 5a, 5b
-tutti in main). 
-Sessione Twilio (prossima): Step 2 (account + Sandbox + credenziali) e Step 3 (creare i 3
-template dal file 04 -> annotare i 3 Content SID). Con i Content SID si fanno, insieme,
-Step 4a (tab WhatsApp di configurazione) e Step 4b (Edge Function `invia-whatsapp` +
-aggancio ai punti invito/benvenuto/sub-affitto). Step 6 = produzione dopo il pilota.
+Stato (2 giu 2026): Step 0, 1, 5a, 5b in `main`. **Step 2 e 3 completati** lato Twilio:
+account upgradato a paid, Sandbox testata, 3 template creati in bozza con Content SID (§8).
+
+Prossimo blocco bloccante: **Step 2b — registrare il WhatsApp Sender (BYON)** appena la
+eSIM Iliad è attiva → sblocca il submit for approval dei 3 template (Utility, pochi minuti).
+
+In parallelo, indipendente dalla eSIM: **Step 4b (Edge Function `invia-whatsapp`)** e
+**Step 4a (tab WhatsApp di configurazione)**. I Content SID sono già noti (§8), quindi il
+codice si può preparare ora leggendo i SID dalla config. Step 6 = produzione dopo il pilota.
