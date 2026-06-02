@@ -1359,8 +1359,9 @@ async function finalizeBookingSelection() {
     for (const p of pairs) {
       const cliente = clientiList.find(c => c.ombrellone_id === p.omb.id);
       if (!cliente) continue;
-      if (!creditsByCliente.has(cliente.id)) creditsByCliente.set(cliente.id, { cliente, rows: [], delta: 0 });
+      if (!creditsByCliente.has(cliente.id)) creditsByCliente.set(cliente.id, { cliente, rows: [], dates: [], delta: 0 });
       const entry = creditsByCliente.get(cliente.id);
+      entry.dates.push(p.date);
       entry.rows.push({
         stabilimento_id: currentStabilimento.id,
         ombrellone_id: p.omb.id,
@@ -1406,7 +1407,7 @@ async function finalizeBookingSelection() {
           nota,
         }, currentStabilimento);
       }
-      const dates = entry.rows.map(r => r.data).sort();
+      const dates = [...entry.dates].sort();
       inviaWhatsapp('subaffitto_confermato', {
         cliente_id: cliente.id,
         periodo: formatPeriodo(dates),

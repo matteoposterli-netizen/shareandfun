@@ -605,7 +605,11 @@ async function confirmBulkInvite() {
     if (ok) {
       const { error: upErr } = await sb.from('clienti_stagionali').update({ invitato_at: now }).eq('id', c.id);
       if (upErr) { console.error('Update invitato_at fallito per', c.id, upErr); failed++; }
-      else { sent++; c.invitato_at = now; }
+      else {
+        sent++;
+        c.invitato_at = now;
+        inviaWhatsapp('invito', { cliente_id: c.id, token: c.invito_token }, currentStabilimento);
+      }
     } else failed++;
   }, (done, total) => renderProgressInAlert('bulk-invite-alert', 'Invio email…', done, total));
 
