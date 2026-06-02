@@ -733,6 +733,14 @@ function renderGestioneFiltered() {
   const righe = getFiltratiGestione();
   const totali = (ombrelloniList || []).length;
 
+  // Mostra/nasconde la colonna WA in base a wa_enabled
+  const waEnabled = !!currentStabilimento?.wa_enabled;
+  const thWa = document.getElementById('gestione-th-wa');
+  if (thWa) {
+    if (waEnabled) thWa.classList.remove('hidden');
+    else thWa.classList.add('hidden');
+  }
+
   const countLbl = document.getElementById('clienti-count-label');
   if (countLbl) {
     countLbl.textContent = righe.length === totali
@@ -744,7 +752,7 @@ function renderGestioneFiltered() {
     const empty = totali
       ? 'Nessuna riga corrisponde al filtro.'
       : 'Nessun ombrellone ancora. Aggiungine uno o importa un Excel.';
-    tb.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text-light);padding:24px">${empty}</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="${waEnabled ? 10 : 9}" style="text-align:center;color:var(--text-light);padding:24px">${empty}</td></tr>`;
     updateClientiBulkToolbar();
     syncCheckAllClienti(righe);
     return;
@@ -772,6 +780,19 @@ function renderGestioneFiltered() {
     const azioniInvito = cliente && !cliente.user_id
       ? `<button class="btn btn-outline btn-sm" onclick="invitaSingolo('${cliente.id}')" title="Invia invito" style="margin-right:4px">Invita</button>`
       : '';
+    // La cella WA — mostrata solo se wa_enabled, altrimenti nascosta per non spezzare il layout
+    const waCellHtml = waEnabled
+      ? (() => {
+          if (!cliente) return '<td style="text-align:center">–</td>';
+          if (cliente.telefono && cliente.whatsapp_consenso) {
+            return '<td style="text-align:center" title="Notifiche WA attive"><span style="color:var(--green);font-size:13px">✅</span></td>';
+          }
+          if (cliente.telefono && !cliente.whatsapp_consenso) {
+            return '<td style="text-align:center" title="Telefono presente, consenso non fornito"><span style="color:var(--text-light);font-size:12px">📵</span></td>';
+          }
+          return '<td style="text-align:center" title="Nessun numero di telefono"><span style="color:var(--text-light);font-size:12px">–</span></td>';
+        })()
+      : '<td class="hidden"></td>';
     return `<tr style="cursor:pointer" onclick="openViewOmbrelloneModal('${omb.id}')" title="Vedi dettagli ombrellone">
       <td onclick="event.stopPropagation()">${unifiedCheck}</td>
       <td colspan="2"><strong>${escapeHtml(omb.codice)}</strong>${inactiveBadge}</td>
@@ -779,6 +800,7 @@ function renderGestioneFiltered() {
       <td>${cliente ? `<strong>${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')}</strong>` : '<span style="color:var(--text-light)">–</span>'}</td>
       <td>${cliente ? escapeHtml(cliente.email || '') : '<span style="color:var(--text-light)">–</span>'}</td>
       <td>${cliente ? (escapeHtml(cliente.telefono || '') || '–') : '<span style="color:var(--text-light)">–</span>'}</td>
+      ${waCellHtml}
       <td>${pill}</td>
       <td style="white-space:nowrap" onclick="event.stopPropagation()">
         <button class="btn btn-outline btn-sm" onclick="openViewOmbrelloneModal('${omb.id}')" title="Vedi dettagli" style="margin-right:4px">👁️</button>
