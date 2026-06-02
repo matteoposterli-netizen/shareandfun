@@ -32,17 +32,18 @@ Tre momenti, ognuno inviato su email e/o WhatsApp secondo i contatti in anagrafi
 - **Un solo numero SpiaggiaMia per tutti i gestori** (attribuzione nel testo). Embedded
   Signup per numeri propri dei gestori rimandato a dopo il pilota.
 - **Config WhatsApp = di sistema/globale** (Content SID dei template + numero mittente):
-  unica per tutti, perché il numero è unico. Gestita dalla **tab WhatsApp** del pannello
-  gestore (vedi §7). NON per-stabilimento.
+  unica per tutti, perché il numero è unico. Vista (sola lettura) dalla **tab WhatsApp**
+  del pannello gestore (vedi §7). NON per-stabilimento, NON editabile da UI.
 - **Fallback:** WhatsApp parte solo per chi ha **telefono + consenso**; gli altri solo
   email. Nessun blocco all'onboarding.
 - **(2 giu 2026) Numero del pilota = BYON (Bring Your Own Number) con eSIM dedicata.**
   Verificato: gli account Twilio **trial NON possono registrare WhatsApp Sender** → fatto
   **upgrade a paid** (account ora Active, ~$20 fondi). I numeri **italiani su Twilio**
   richiedono un Regulatory Bundle (documenti + fino a 3 gg lavorativi) → aggirato scegliendo
-  il **BYON**: una **eSIM operatore italiano dedicata** (Iliad, a nome Matteo), mai usata
-  su WhatsApp, capace di ricevere SMS/voce per l'OTP. Il BYON evita il bundle Twilio ma NON
-  il livello Meta (serve comunque creare Meta Business Portfolio + WABA via Self Sign-up).
+  il **BYON**: una **eSIM operatore italiano dedicata** (Iliad, a nome Matteo, numero
+  `+393520426199` confermato), mai usata su WhatsApp, capace di ricevere SMS/voce per l'OTP.
+  Il BYON evita il bundle Twilio ma NON il livello Meta (serve comunque creare Meta Business
+  Portfolio + WABA via Self Sign-up).
 
 ## 4. Costi
 
@@ -70,12 +71,23 @@ Repo: `matteoposterli-netizen/shareandfun`. `CLAUDE.md` = architettura autorevol
 - **Email esistenti**: Edge Function `supabase/functions/invia-email/index.ts` (Resend),
   switch su `tipo`: benvenuto, attesa, approvazione, invito, credito_accreditato,
   credito_ritirato, chiusura_stagione, comunicazione, ombrellone_disattivato.
+- **WhatsApp (NUOVO, Step 4b, 2 giu 2026)**: Edge Function
+  `supabase/functions/invia-whatsapp/index.ts` — gemella di `invia-email`, invio via Twilio
+  Content API. Switch su `tipo`: `invito`, `benvenuto`, `subaffitto_confermato`. Legge
+  Content SID + numero sender dalla tabella `whatsapp_config`; auth da secret env
+  (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`). Guard E.164 su `telefono`; si fida del
+  chiamante per il consenso. Audit log via RPC `audit_log_write` (`entity_type:"whatsapp"`).
+- **Tabella `whatsapp_config` (NUOVO, Step 4b)**: riga unica (singleton). Campi
+  `sender_number`, `stato` ('sandbox'/'production'), `content_sid_invito`,
+  `content_sid_benvenuto`, `content_sid_subaffitto`, `updated_at`. RLS: sola lettura per
+  authenticated, scrittura solo service_role. Seedata con i 3 Content SID; `sender_number`
+  da popolare con `+393520426199` dopo lo Step 2b.
 - **Punti di invio chiave** (js/clienti.js): l'**invito** parte via
   `inviaEmail('invito', { email, nome, cognome, ombrellone, invite_link }, currentStabilimento, {oggetto,testo})`
   sia nell'import Excel (`confirmImportaExcelExecute`, se attivo `xlsx-invia-inviti`) sia
   nel bulk invite (`confirmBulkInvite`). Link invito: `${origin}/?invito=${token}`.
-  -> Qui andrà affiancato l'invio WhatsApp (Step 4b).
-  -> DA MAPPARE con la Edge Function: i punti dove oggi partono il **benvenuto**
+  -> Qui andrà affiancato l'invio WhatsApp (Step 4b-bis).
+  -> DA MAPPARE (Step 4b-bis): i punti dove oggi partono il **benvenuto**
      (registrazione/creazione password) e il **sub-affitto confermato** (conferma del
      gestore + accredito credito) — lì si aggancia l'invio WhatsApp corrispondente.
 - **Tabella `clienti_stagionali`**: `telefono` (modificabile dal gestore nel Tab
@@ -98,7 +110,8 @@ Repo: `matteoposterli-netizen/shareandfun`. `CLAUDE.md` = architettura autorevol
 Tutta la gestione WhatsApp va nella **tab WhatsApp** dentro Comunicazioni (`#comm-pane-whatsapp`,
 oggi placeholder). Sarà il pannello unico per:
 - i **Content SID** dei 3 template + numero mittente + stato (sandbox/produzione) =
-  "variabili di appoggio" (config globale di sistema);
+  "variabili di appoggio" (config globale di sistema, **sola lettura** — fonte: tabella
+  `whatsapp_config`);
 - l'**anteprima** dei 3 messaggi automatici con le loro variabili.
 NB: i 3 messaggi sono **automatici/transazionali** (partono dal backend all'evento), NON
 broadcast manuali. Il broadcast WhatsApp libero è fuori dal primo rilascio (marketing).
@@ -136,16 +149,18 @@ Estensioni future: ritiro credito, chiusura stagione, comunicazioni (cautela: ma
 - **Credenziali**: Account SID + Auth Token (secret su Supabase, MAI nel codice).
 - **Template**: Content Template Builder -> Content SID (`HX…`). I 3 SID sono in §8.
 - **Sender**: BYON via Self Sign-up (Console > Messaging > Senders > WhatsApp Senders),
-  numero non-Twilio (eSIM Iliad) verificato con OTP. Crea Meta Business Portfolio + WABA.
+  numero non-Twilio (eSIM Iliad `+393520426199`) verificato con OTP. Crea Meta Business
+  Portfolio + WABA.
 - **Invio**: REST con `ContentSid` + `ContentVariables` (JSON `{"1":"…","2":"…"}`),
   `From`/`To` con prefisso `whatsapp:`. Endpoint
   `POST https://api.twilio.com/2010-04-01/Accounts/{SID}/Messages.json` (Basic Auth).
-- Numero in formato internazionale (+39…).
+- Numero in formato internazionale E.164 senza spazi (`+39…`).
 
 ## 10. Numero del pilota e produzione
 
-- **Pilota: BYON con eSIM dedicata** (Iliad, a nome Matteo). Numero registrato come
-  **WhatsApp Sender** via Self Sign-up (headless via API, NON l'app WhatsApp Business).
+- **Pilota: BYON con eSIM dedicata** (Iliad, a nome Matteo, `+393520426199`). Numero da
+  registrare come **WhatsApp Sender** via Self Sign-up (headless via API, NON l'app
+  WhatsApp Business).
 - Requisiti numero: **mai registrato su WhatsApp** (non installarci l'app classica),
   riceve **SMS/voce** per OTP (no VOIP/IVR).
 - Registrazione: Self Sign-Up nella Console (login Facebook + Meta Business Portfolio +
@@ -163,20 +178,24 @@ Estensioni future: ritiro credito, chiusura stagione, comunicazioni (cautela: ma
 - [x] **5b. Preferenze nella dashboard stagionale** — FATTO, in `main`. Scheda "Notifiche"
       con numero + opt-in/revoca lato cliente.
 - [x] **2. Setup Twilio** — FATTO (2 giu 2026). Account creato, **upgrade a paid** (Active),
-      Sandbox testata. Account SID/Auth Token disponibili (da salvare come secret Supabase
-      allo Step 4b).
+      Sandbox testata. Account SID/Auth Token disponibili (da salvare come secret Supabase).
 - [x] **3. Creare i 3 template** — FATTO (2 giu 2026). Creati in bozza nel Content Template
       Builder, **Content SID annotati** (vedi §8). Submit for approval in attesa del Sender.
-- [ ] **2b. Registrare il WhatsApp Sender (BYON)** — IN ATTESA eSIM Iliad. Self Sign-up:
-      Meta Business Portfolio + WABA + verifica numero via OTP + display name "SpiaggiaMia".
-      Sblocca il submit for approval dei 3 template.
+- [x] **4b. Edge Function `invia-whatsapp` + tabella `whatsapp_config`** — FATTO (2 giu 2026).
+      Function e migration committate in `main`, migration applicata al DB. La function è
+      "spenta" (risponde 503) finché `sender_number` è vuoto. Aggancio ai punti di invio =
+      Step 4b-bis (separato). Vedi §6.
+- [ ] **2b. Registrare il WhatsApp Sender (BYON)** — eSIM Iliad ATTIVA (`+393520426199`
+      confermato). DA FARE: Self Sign-up (Meta Business Portfolio + WABA + verifica OTP +
+      display name "SpiaggiaMia"). Sblocca il submit for approval dei 3 template.
+      **È il prossimo passo bloccante alla ripresa.**
 - [ ] **4a. Tab WhatsApp (gestore)** — trasformare il placeholder `#comm-pane-whatsapp`
-      nel pannello config: Content SID dei 3 template, numero mittente, stato, anteprima.
-      Config globale di sistema.
-- [ ] **4b. Edge Function `invia-whatsapp`** — gemella di `invia-email`; mappa `tipo` ->
-      template (Content SID dalla config §7/§8), invia via Twilio, solo se telefono+consenso.
-      Agganciata accanto agli invii email esistenti (invito in clienti.js + i punti di
-      benvenuto e sub-affitto da mappare). Secret Twilio su Supabase.
+      nel pannello config (sola lettura): Content SID dei 3 template, numero mittente,
+      stato, anteprima. Fonte: tabella `whatsapp_config`.
+- [ ] **4b-bis. Aggancio ai punti di invio** — chiamare `invia-whatsapp` accanto agli invii
+      email esistenti (invito in js/clienti.js + i punti di benvenuto e sub-affitto da
+      mappare), solo se `telefono` + `whatsapp_consenso`. Da fare DOPO deploy+test della
+      function.
 - [ ] **6. Produzione (post-pilota)** — numero dedicato + verifica business Meta completa.
 
 ## 12. Deliverable prodotti
@@ -188,15 +207,21 @@ Estensioni future: ritiro credito, chiusura stagione, comunicazioni (cautela: ma
   **Eseguito** (Step 5a, in main, PR #97).
 - `04_template_whatsapp_pronti_twilio.txt` — testi dei 3 template (storico). I testi
   **definitivi e i Content SID** sono ora in §8 (fonte di verità).
+- `prompt_code_step4b_invia_whatsapp.txt` — prompt tab Code per migration `whatsapp_config`
+  + Edge Function `invia-whatsapp`. **Eseguito** (Step 4b, in main).
 
 ## 13. Riprendere da qui
 
-Stato (2 giu 2026): Step 0, 1, 5a, 5b in `main`. **Step 2 e 3 completati** lato Twilio:
-account upgradato a paid, Sandbox testata, 3 template creati in bozza con Content SID (§8).
+Stato (2 giu 2026): Step 0, 1, 5a, 5b, **2, 3, 4b** completati. Lato Twilio: account paid,
+Sandbox testata, 3 template in bozza con Content SID (§8). Lato codice: Edge Function
+`invia-whatsapp` + tabella `whatsapp_config` in `main` e migration applicata (function
+"spenta" finché `sender_number` vuoto). eSIM Iliad `+393520426199` attiva.
 
-Prossimo blocco bloccante: **Step 2b — registrare il WhatsApp Sender (BYON)** appena la
-eSIM Iliad è attiva → sblocca il submit for approval dei 3 template (Utility, pochi minuti).
-
-In parallelo, indipendente dalla eSIM: **Step 4b (Edge Function `invia-whatsapp`)** e
-**Step 4a (tab WhatsApp di configurazione)**. I Content SID sono già noti (§8), quindi il
-codice si può preparare ora leggendo i SID dalla config. Step 6 = produzione dopo il pilota.
+**Prossimo passo bloccante: Step 2b — registrare il WhatsApp Sender (BYON)** via Self
+Sign-up (Meta Business Portfolio + WABA + OTP + display name). Poi, in ordine:
+1. Submit for approval dei 3 template (si sblocca) → attendere "Approved".
+2. Impostare secret Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`) + popolare
+   `whatsapp_config.sender_number=+393520426199` e `stato='production'`.
+3. Deploy `invia-whatsapp` (se non già deployata) + test end-to-end di un invio reale.
+4. Step 4b-bis (aggancio ai punti invito/benvenuto/sub-affitto).
+5. Step 4a (tab WhatsApp di sola visualizzazione). Step 6 = produzione dopo il pilota.
