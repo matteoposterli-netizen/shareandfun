@@ -265,19 +265,31 @@ async function saveStabilimentoAccount() {
   const nome = (document.getElementById('account-stab-nome')?.value || '').trim();
   if (!nome) { showAlert('stab-account-alert', 'Il nome stabilimento è obbligatorio', 'error'); return; }
   if (!currentStabilimento?.id) return;
-  const nomeCredito = (document.getElementById('account-stab-nome-credito')?.value || '').trim() || 'Crediti';
-  const { error } = await sb.from('stabilimenti').update({ nome, nome_credito: nomeCredito }).eq('id', currentStabilimento.id);
+  const { error } = await sb.from('stabilimenti').update({ nome }).eq('id', currentStabilimento.id);
   if (error) { showAlert('stab-account-alert', error.message, 'error'); return; }
   currentStabilimento.nome = nome;
-  currentStabilimento.nome_credito = nomeCredito;
   const navNome = document.getElementById('manager-stab-nome');
   if (navNome) navNome.textContent = nome;
+  showAlert('stab-account-alert', 'Nome stabilimento aggiornato!', 'success');
+}
+
+async function saveNomeCredito() {
+  if (!currentStabilimento?.id) return;
+  const nomeCredito = (document.getElementById('account-stab-nome-credito')?.value || '').trim() || 'Crediti';
+  const { error } = await sb.from('stabilimenti').update({ nome_credito: nomeCredito }).eq('id', currentStabilimento.id);
+  if (error) { showAlert('nome-credito-alert', error.message, 'error'); return; }
+  currentStabilimento.nome_credito = nomeCredito;
   if (typeof refreshCoinLabels === 'function') refreshCoinLabels(currentStabilimento);
-  showAlert('stab-account-alert', 'Impostazioni account aggiornate con successo!', 'success');
+  // Aggiorna anche unit chip e label dei KPI della panoramica se presenti
+  document.querySelectorAll('[data-coin-unit]').forEach(el => { el.textContent = nomeCredito; });
+  document.querySelectorAll('[data-coin-unit-prefix]').forEach(el => { el.textContent = nomeCredito; });
+  showAlert('nome-credito-alert', '✓ Nome credito aggiornato!', 'success');
+  setTimeout(() => { const a = document.getElementById('nome-credito-alert'); if (a) a.innerHTML = ''; }, 3000);
 }
 
 window.loadStabilimentoAccount = loadStabilimentoAccount;
 window.saveStabilimentoAccount = saveStabilimentoAccount;
+window.saveNomeCredito = saveNomeCredito;
 
 /* ---------- WhatsApp subtab: load/save wa_enabled ---------- */
 

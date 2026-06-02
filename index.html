@@ -323,7 +323,7 @@
 
             <div class="pano-kpi-card" data-accent="green">
               <div class="pano-kpi-head">
-                <span class="pano-kpi-label">Coin distribuiti</span>
+                <span class="pano-kpi-label"><span data-coin-unit-prefix>Coin</span> distribuiti</span>
                 <span class="pano-kpi-delta" id="pano-kpi-distr-delta"></span>
               </div>
               <div class="pano-kpi-value-row">
@@ -335,7 +335,7 @@
 
             <div class="pano-kpi-card" data-accent="coral">
               <div class="pano-kpi-head">
-                <span class="pano-kpi-label">Coin spesi</span>
+                <span class="pano-kpi-label"><span data-coin-unit-prefix>Coin</span> spesi</span>
                 <span class="pano-kpi-delta" id="pano-kpi-spent-delta"></span>
               </div>
               <div class="pano-kpi-value-row">
@@ -933,22 +933,32 @@
                   <input type="text" id="account-stab-nome" class="form-input" placeholder="es. Bagno Azzurro" maxlength="100">
                 </div>
               </div>
-              <div class="form-group" style="margin-top:14px">
+              <button class="btn btn-primary btn-sm" onclick="saveStabilimentoAccount()">Salva nome stabilimento</button>
+            </div>
+          </div>
+
+          <!-- Nome del credito — box separato -->
+          <div class="card" style="margin-bottom:24px">
+            <div class="card-header">
+              <div>
+                <div class="card-title">🪙 Nome del credito</div>
+                <div class="card-subtitle">Il nome che i clienti vedono per i loro crediti (saldo, transazioni, email).</div>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="nome-credito-alert" style="margin-bottom:12px"></div>
+              <div class="form-group">
                 <label for="account-stab-nome-credito" style="font-weight:600;font-size:14px">
                   Nome del credito
-                  <span style="font-weight:400;color:var(--text-light);font-size:12px;margin-left:6px">
-                    (es. Crediti, Monete, Token, CoinMare…)
-                  </span>
                 </label>
-                <input type="text" id="account-stab-nome-credito" class="form-control"
+                <input type="text" id="account-stab-nome-credito" class="form-input"
                        placeholder="Crediti" maxlength="30"
                        style="margin-top:6px">
                 <div style="font-size:12px;color:var(--text-light);margin-top:4px">
-                  Questo nome appare ovunque al posto di "Crediti": nelle transazioni,
-                  nel saldo del cliente e nelle email.
+                  Es. Crediti, Monete, Token, CoinMare — massimo 30 caratteri.
                 </div>
               </div>
-              <button class="btn btn-primary btn-sm" onclick="saveStabilimentoAccount()">Salva nome stabilimento</button>
+              <button class="btn btn-primary btn-sm" onclick="saveNomeCredito()" style="margin-top:12px">Salva nome credito</button>
             </div>
           </div>
 
