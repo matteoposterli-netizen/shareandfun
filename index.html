@@ -453,7 +453,6 @@
         </div>
 
         <div id="gestione-sub-anagrafica" class="config-subpanel active">
-          <div id="gestione-alert" style="margin-bottom:8px"></div>
 
         <!-- ONBOARDING BANNER — visibile solo se zero ombrelloni -->
         <div id="onboarding-banner" class="onboarding-banner hidden">
@@ -511,9 +510,10 @@
               </select>
               <span id="clienti-count-label" style="font-size:13px;color:var(--text-light)"></span>
             </div>
+            <div id="gestione-alert" style="margin-bottom:8px"></div>
             <div id="clienti-bulk-toolbar" class="hidden" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
               <span id="clienti-selected-count" style="font-size:13px;color:var(--text-mid);font-weight:600"></span>
-              <button class="btn btn-primary btn-sm" onclick="bulkInviaInviti()">✉️ Invia inviti ai selezionati</button>
+              <button class="btn btn-primary btn-sm" onclick="bulkInviaInviti()">✉️ Invio in massa</button>
               <button class="btn btn-outline btn-sm" onclick="clearClientiSelection()">Deseleziona</button>
             </div>
           </div>
@@ -2726,7 +2726,7 @@ document.addEventListener('click', function(e) {
 <script src="js/router.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/setup.js"></script>
-<script src="js/manager.js?v=20260603f"></script>
+<script src="js/manager.js?v=20260603g"></script>
 <script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>
