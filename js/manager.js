@@ -777,8 +777,10 @@ function renderGestioneFiltered() {
     const clienteDataAttr = cliente ? ` data-cliente-id="${cliente.id}"` : '';
     const unifiedCheck = `<input type="checkbox" class="gestione-omb-check" data-omb="${omb.id}"${clienteDataAttr} ${isChecked ? 'checked' : ''} onchange="toggleGestioneUnified('${omb.id}', '${cliente?.id || ''}', this.checked)">`;
     const inactiveBadge = !omb.attivo ? ' <span class="badge-inactive">Non attivo</span>' : '';
-    const azioniInvito = cliente && !cliente.user_id
-      ? `<button class="btn btn-outline btn-sm" onclick="invitaSingolo('${cliente.id}')" title="Invia invito" style="margin-right:4px">Invita</button>`
+    // Menu ⋮ contestuale: appare solo se c'e' un cliente nella riga.
+    // Azioni dinamiche basate su registrato/non-registrato.
+    const azioniInvito = cliente
+      ? `<button class="btn-cliente-action" onclick="openClienteActionMenu(event, '${cliente.id}')" title="Azioni cliente" style="margin-right:4px">⋮</button>`
       : '';
     // La cella WA — mostrata solo se wa_enabled, altrimenti nascosta per non spezzare il layout
     const waCellHtml = waEnabled
@@ -878,6 +880,184 @@ function invitaSingolo(id) {
   if (!c) return;
   if (!c.invito_token) { alert('Token invito mancante, impossibile inviare.'); return; }
   openBulkInviteModal([id]);
+}
+
+// === FASE 3: Menu contestuale ⋮ per cliente ===
+let _openActionPopover = null;
+let _outsideClickListener = null;
+
+function openClienteActionMenu(event, clienteId) {
+  event.stopPropagation();
+  closeClienteActionMenu();
+  const cliente = clientiList.find(c => c.id === clienteId);
+  if (!cliente) return;
+
+  const btn = event.currentTarget;
+  const waEnabled = !!currentStabilimento?.wa_enabled;
+  const hasEmail = !!cliente.email;
+  const isSyntheticAuth = false; // L'email sintetica e' su auth.users, non c.email.
+                                  // Per i clienti registrati con user_id, controlliamo
+                                  // l'email del cliente: se assente, e' stato registrato
+                                  // solo via telefono -> tutte le email reset disabilitate.
+  const canEmail = hasEmail;
+  const canWA = waEnabled && !!cliente.telefono && !!cliente.whatsapp_consenso;
+
+  // Costruisce le voci del menu in base a registrato/non-registrato
+  const items = [];
+  if (!cliente.user_id) {
+    // Cliente NON registrato
+    items.push({ icon: '📋', label: 'Copia link invito', enabled: !!cliente.invito_token, action: `azioneCopyLinkInvito('${cliente.id}')` });
+    items.push({ icon: '📧', label: 'Invia invito via email', enabled: canEmail, action: `azioneInvitaEmail('${cliente.id}')`, tooltip: !canEmail ? 'Email non presente' : null });
+    items.push({ icon: '💬', label: 'Invia invito via WhatsApp', enabled: canWA, action: `azioneInvitaWA('${cliente.id}')`, tooltip: !canWA ? (!waEnabled ? 'WhatsApp non abilitato per lo stabilimento' : (!cliente.telefono ? 'Numero telefono assente' : 'Consenso WhatsApp non fornito')) : null });
+    items.push({ divider: true });
+    items.push({ icon: '🔄', label: 'Rigenera link invito', enabled: true, action: `azioneRigenerLink('${cliente.id}')` });
+  } else {
+    // Cliente REGISTRATO
+    const emailLabel = !canEmail ? 'Solo via WhatsApp — utente registrato senza email reale' : null;
+    items.push({ icon: '📧', label: 'Invia reset password via email', enabled: canEmail, action: `azioneResetEmail('${cliente.id}')`, tooltip: emailLabel });
+    items.push({ icon: '💬', label: 'Invia reset password via WhatsApp', enabled: canWA, action: `azioneResetWA('${cliente.id}')`, tooltip: !canWA ? (!waEnabled ? 'WhatsApp non abilitato per lo stabilimento' : (!cliente.telefono ? 'Numero telefono assente' : 'Consenso WhatsApp non fornito')) : null });
+  }
+
+  // HTML del popover
+  const pop = document.createElement('div');
+  pop.className = 'cliente-action-popover';
+  pop.innerHTML = items.map(it => {
+    if (it.divider) return '<div class="pop-divider"></div>';
+    const cls = it.enabled ? 'pop-item' : 'pop-item disabled';
+    const onclick = it.enabled ? `onclick="closeClienteActionMenu(); ${it.action}"` : '';
+    const title = it.tooltip ? `title="${escapeHtml(it.tooltip)}"` : '';
+    return `<div class="${cls}" ${onclick} ${title}>
+      <span class="pop-icon">${it.icon}</span>
+      <span>${escapeHtml(it.label)}</span>
+    </div>`;
+  }).join('');
+
+  document.body.appendChild(pop);
+  _openActionPopover = pop;
+
+  // Posiziona il popover rispetto al bottone, evitando overflow viewport
+  const rect = btn.getBoundingClientRect();
+  const popRect = pop.getBoundingClientRect();
+  const margin = 4;
+  let top = rect.bottom + window.scrollY + margin;
+  let left = rect.left + window.scrollX;
+  // Se sfora a destra, allinea a destra del bottone
+  if (left + popRect.width > window.innerWidth - 8) {
+    left = Math.max(8, rect.right + window.scrollX - popRect.width);
+  }
+  // Se sfora in basso, mostra sopra il bottone
+  if (rect.bottom + popRect.height > window.innerHeight - 8) {
+    top = Math.max(8, rect.top + window.scrollY - popRect.height - margin);
+  }
+  pop.style.top = `${top}px`;
+  pop.style.left = `${left}px`;
+
+  // Click-outside e Escape chiudono il menu
+  setTimeout(() => {
+    _outsideClickListener = (e) => {
+      if (_openActionPopover && !_openActionPopover.contains(e.target)) {
+        closeClienteActionMenu();
+      }
+    };
+    document.addEventListener('click', _outsideClickListener);
+    document.addEventListener('keydown', escapeClienteMenu);
+  }, 0);
+}
+
+function escapeClienteMenu(e) {
+  if (e.key === 'Escape') closeClienteActionMenu();
+}
+
+function closeClienteActionMenu() {
+  if (_openActionPopover) {
+    _openActionPopover.remove();
+    _openActionPopover = null;
+  }
+  if (_outsideClickListener) {
+    document.removeEventListener('click', _outsideClickListener);
+    _outsideClickListener = null;
+  }
+  document.removeEventListener('keydown', escapeClienteMenu);
+}
+
+// === Azioni del menu ===
+
+async function azioneCopyLinkInvito(clienteId) {
+  const c = clientiList.find(x => x.id === clienteId);
+  if (!c?.invito_token) { alert('Token invito mancante'); return; }
+  const link = `${window.location.origin}/?invito=${c.invito_token}`;
+  try {
+    await navigator.clipboard.writeText(link);
+    showAlert('gestione-alert', '✅ Link invito copiato negli appunti', 'success');
+  } catch {
+    // fallback
+    prompt('Copia il link manualmente:', link);
+  }
+}
+
+async function azioneInvitaEmail(clienteId) {
+  const c = clientiList.find(x => x.id === clienteId);
+  if (!c?.email || !c?.invito_token) return;
+  const inviteLink = `${window.location.origin}/?invito=${c.invito_token}`;
+  const omb = c.ombrellone_id ? (ombrelloniList || []).find(o => o.id === c.ombrellone_id) : null;
+  const ombStr = omb ? omb.codice : '';
+  const ok = await inviaEmail('invito', { email: c.email, nome: c.nome, cognome: c.cognome, ombrellone: ombStr, invite_link: inviteLink }, currentStabilimento);
+  if (ok) {
+    await sb.from('clienti_stagionali').update({ invitato_at: new Date().toISOString() }).eq('id', c.id);
+    showAlert('gestione-alert', `✅ Invito email inviato a ${c.email}`, 'success');
+    await loadManagerData();
+  } else {
+    showAlert('gestione-alert', '⚠️ Invio email fallito', 'error');
+  }
+}
+
+async function azioneInvitaWA(clienteId) {
+  const c = clientiList.find(x => x.id === clienteId);
+  if (!c?.invito_token) return;
+  const res = await inviaWhatsapp('invito', { cliente_id: c.id, token: c.invito_token }, currentStabilimento);
+  if (res?.ok) {
+    await sb.from('clienti_stagionali').update({ invitato_at: new Date().toISOString() }).eq('id', c.id);
+    showAlert('gestione-alert', `✅ Invito WhatsApp inviato a ${c.telefono}`, 'success');
+    await loadManagerData();
+  } else if (res?.skipped) {
+    showAlert('gestione-alert', `⚠️ WhatsApp saltato: ${res.skipped}`, 'error');
+  } else {
+    showAlert('gestione-alert', '⚠️ Invio WhatsApp fallito', 'error');
+  }
+}
+
+async function azioneRigenerLink(clienteId) {
+  if (!confirm('Rigenerare il link di invito? Il vecchio link non sarà più valido.')) return;
+  const { data, error } = await sb.rpc('rigenera_invito_token', { p_cliente_id: clienteId });
+  if (error) {
+    console.error(error);
+    showAlert('gestione-alert', `⚠️ Rigenerazione fallita: ${error.message}`, 'error');
+    return;
+  }
+  showAlert('gestione-alert', '✅ Nuovo link generato', 'success');
+  await loadManagerData();
+}
+
+async function azioneResetEmail(clienteId) {
+  const res = await richiediResetCliente(clienteId, 'email');
+  if (res?.ok) {
+    showAlert('gestione-alert', '✅ Email di reset password inviata', 'success');
+  } else if (res?.skipped === 'email_sintetica') {
+    showAlert('gestione-alert', '⚠️ Utente senza email reale — usa WhatsApp', 'error');
+  } else {
+    showAlert('gestione-alert', `⚠️ Invio reset fallito: ${res?.error || 'errore'}`, 'error');
+  }
+}
+
+async function azioneResetWA(clienteId) {
+  const res = await richiediResetCliente(clienteId, 'whatsapp');
+  if (res?.ok) {
+    showAlert('gestione-alert', '✅ WhatsApp di reset password inviato', 'success');
+  } else if (res?.skipped) {
+    showAlert('gestione-alert', `⚠️ WhatsApp saltato: ${res.skipped}`, 'error');
+  } else {
+    showAlert('gestione-alert', `⚠️ Invio fallito: ${res?.error || 'errore'}`, 'error');
+  }
 }
 
 async function refreshCreditoCliente() {

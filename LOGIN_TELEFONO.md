@@ -71,16 +71,34 @@ telefono.
       funzionato. Sblocca l'invio WA per clienti senza email
       (caso introdotto dalla Fase 2).
 
-### Fase 3 — Manager UI (TODO)
-- Menu ⋮ per ogni riga della tabella clienti (sezione Ombrelloni
-  e Clienti) con azioni:
-  - Cliente non registrato (`!user_id`): Copia link invito,
-    Invia invito email, Invia invito WhatsApp, Rigenera link
-  - Cliente registrato (`user_id NOT NULL`): Copia link reset,
-    Invia reset email, Invia reset WhatsApp
-- Bulk action estesa: gestione selezione mista (registrati + non),
-  label dinamica
-- File coinvolti: `js/manager.js`, `js/clienti.js`, `index.html`
+### Fase 3 — Manager UI (Menu contestuale ⋮ + reset password) ✅
+
+#### Backend
+- [x] Edge Function `richiedi-reset-cliente`: input
+      `{ cliente_id, canale }`; verifica ownership manager
+      (`proprietario_id` == `auth.uid()`); genera recovery link via
+      Admin API `generateLink({type:'recovery'})`; invia su email
+      (server-to-server a `invia-email`) o WhatsApp (riusa
+      `invia-whatsapp` tipo `recupero_password`). Risposta
+      dettagliata (no generic anti-enumeration: auth + ownership
+      proteggono gia').
+- [x] Tipo `reset_password` aggiunto a `invia-email` con template
+      HTML + CTA "Imposta nuova password" (campo `recovery_link`).
+
+#### Frontend
+- [x] Bottone ⋮ contestuale al posto di "[Invita]" nella tabella
+      "Ombrelloni e Clienti" (`js/manager.js openClienteActionMenu`)
+- [x] Popover inline con azioni dinamiche basate su stato cliente:
+      - non-registrato: Copia link · Invia invito email/WA · Rigenera
+      - registrato: Reset password email/WA
+- [x] Voci disabilitate con tooltip per casi: no email, no telefono,
+      no consenso WA, wa_disabled, email sintetica
+- [x] Bulk modale unificato: selezione mista invito/reset auto-split,
+      2 categorie di destinatari con badge INVITO/RESET, conteggi
+      separati nel summary (`bulk-dest-breakdown`)
+- [x] Helper `richiediResetCliente(clienteId, canale)` in `js/utils.js`
+- File coinvolti: `js/manager.js`, `js/clienti.js`, `js/utils.js`,
+  `styles.css`, `index.html`
 
 ## Note operative
 - Database UNICO di produzione (`btnyzzpibedkslhtiizu`).

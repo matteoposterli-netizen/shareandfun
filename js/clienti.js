@@ -655,8 +655,18 @@ function openBulkInviteModal(forcedIds = null) {
   const sourceIds = useSelection ? Array.from(selectedClienteIds) : forcedIds;
   if (!sourceIds.length) return;
   const sourceSet = new Set(sourceIds);
-  bulkInviteTargets = clientiList.filter(c => sourceSet.has(c.id) && !c.user_id && c.invito_token);
+  // Auto-split: per i non-registrati -> INVITO, per i registrati -> RESET PASSWORD.
+  // Servono cliente_id + (per gli invitati) un token. Per i reset basta user_id.
+  bulkInviteTargets = clientiList.filter(c =>
+    sourceSet.has(c.id) && (
+      (!c.user_id && c.invito_token) ||  // candidato invito
+      (!!c.user_id)                       // candidato reset
+    )
+  );
   const skipped = sourceIds.length - bulkInviteTargets.length;
+  // Calcola sotto-insiemi per la UX
+  const targetsInvito = bulkInviteTargets.filter(c => !c.user_id);
+  const targetsReset = bulkInviteTargets.filter(c => !!c.user_id);
 
   const waEnabled = !!currentStabilimento?.wa_enabled;
 
@@ -664,28 +674,40 @@ function openBulkInviteModal(forcedIds = null) {
   const listEl = document.getElementById('bulk-dest-list');
   if (bulkInviteTargets.length) {
     listEl.innerHTML = bulkInviteTargets.map(c => {
+      const isReset = !!c.user_id;
       const hasEmail = !!c.email;
       const hasWA = waEnabled && !!(c.telefono && c.whatsapp_consenso);
       const emailIcon = hasEmail
-        ? '<span style="color:var(--green);font-weight:600" title="Riceverà invito via email">✅ email</span>'
-        : '<span style="color:var(--red)" title="Manca email — invito email non partirà">⚠️ email mancante</span>';
+        ? `<span style="color:var(--green);font-weight:600" title="Riceverà ${isReset ? 'reset password' : 'invito'} via email">✅ email</span>`
+        : '<span style="color:var(--red)" title="Manca email — non partirà">⚠️ email mancante</span>';
       const waIcon = waEnabled
         ? (hasWA
-            ? '<span style="color:var(--green);font-weight:600" title="Riceverà notifica WhatsApp">✅ WhatsApp</span>'
+            ? `<span style="color:var(--green);font-weight:600" title="Riceverà ${isReset ? 'reset password' : 'invito'} via WhatsApp">✅ WhatsApp</span>`
             : (!c.telefono
                 ? '<span style="color:var(--text-light)" title="Numero telefono non inserito">⚠️ WA: senza numero</span>'
                 : '<span style="color:var(--text-light)" title="Consenso WhatsApp non fornito">⚠️ WA: no consenso</span>'))
         : '';
       const channels = [emailIcon, waIcon].filter(Boolean).join(' &nbsp;·&nbsp; ');
+      const tipoBadge = isReset
+        ? '<span style="background:#1B6CA8;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:8px;text-transform:uppercase;letter-spacing:.4px;margin-right:6px">Reset</span>'
+        : '<span style="background:#E07B54;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:8px;text-transform:uppercase;letter-spacing:.4px;margin-right:6px">Invito</span>';
       return `<div style="padding:4px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-        <span>• ${escapeHtml(c.nome || '')} ${escapeHtml(c.cognome || '')} — <span style="color:var(--ocean)">${escapeHtml(c.email || '(senza email)')}</span></span>
+        <span>${tipoBadge}${escapeHtml(c.nome || '')} ${escapeHtml(c.cognome || '')} — <span style="color:var(--ocean)">${escapeHtml(c.email || '(senza email)')}</span></span>
         <span style="font-size:11px;white-space:nowrap">${channels}</span>
       </div>`;
     }).join('');
   } else {
     listEl.innerHTML = '<div style="color:var(--red)">Nessun destinatario valido selezionato.</div>';
   }
+  // Conteggio con breakdown invito/reset
+  const countLabelParts = [];
+  if (targetsInvito.length) countLabelParts.push(`${targetsInvito.length} invit${targetsInvito.length === 1 ? 'o' : 'i'}`);
+  if (targetsReset.length) countLabelParts.push(`${targetsReset.length} reset password`);
   document.getElementById('bulk-dest-count').textContent = bulkInviteTargets.length;
+  const breakdownEl = document.getElementById('bulk-dest-breakdown');
+  if (breakdownEl) {
+    breakdownEl.textContent = countLabelParts.length ? `(${countLabelParts.join(' · ')})` : '';
+  }
 
   // Template email
   document.getElementById('bulk-invite-oggetto').value = currentStabilimento?.email_invito_oggetto || DEFAULT_EMAIL_TEMPLATES?.invito_oggetto || '';
@@ -770,7 +792,7 @@ function openBulkInviteModal(forcedIds = null) {
 
   const btn = document.getElementById('btn-bulk-invite');
   btn.disabled = !bulkInviteTargets.length;
-  btn.textContent = `Invia a ${bulkInviteTargets.length} clienti`;
+  btn.textContent = `Invia a ${bulkInviteTargets.length} client${bulkInviteTargets.length === 1 ? 'e' : 'i'}`;
 
   document.getElementById('modal-bulk-invite').classList.remove('hidden');
 }
@@ -786,57 +808,72 @@ async function confirmBulkInvite() {
 
   const ombById = {};
   (ombrelloniList || []).forEach(o => ombById[o.id] = o);
-  renderProgressInAlert('bulk-invite-alert', 'Invio email…', 0, bulkInviteTargets.length);
+  renderProgressInAlert('bulk-invite-alert', 'Invio inviti e reset…', 0, bulkInviteTargets.length);
 
   let sent = 0, failed = 0;
   const waEnabled = !!currentStabilimento?.wa_enabled;
   const now = new Date().toISOString();
-  await runWithConcurrency(bulkInviteTargets, 5, async (c) => {
-    const omb = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
-    const ombStr = omb ? omb.codice : '';
-    const inviteLink = `${window.location.origin}/?invito=${c.invito_token}`;
 
-    // Tentiamo TUTTI i canali applicabili. Successo del cliente
-    // = almeno un canale OK. Cosi' un cliente senza email ma con
-    // WA abilitato + telefono + consenso riceve comunque l'invito
-    // e viene contato come "inviato".
+  await runWithConcurrency(bulkInviteTargets, 5, async (c) => {
     let okEmail = false;
     let okWA = false;
 
-    if (c.email) {
-      okEmail = await retryUntilTrue(
-        () => inviaEmail('invito',
-          { email: c.email, nome: c.nome, cognome: c.cognome, ombrellone: ombStr, invite_link: inviteLink },
-          currentStabilimento,
-          { oggetto, testo }
-        ),
-        3, 500
-      );
-    }
+    if (!c.user_id) {
+      // === INVITO (cliente non registrato) ===
+      const omb = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
+      const ombStr = omb ? omb.codice : '';
+      const inviteLink = `${window.location.origin}/?invito=${c.invito_token}`;
 
-    const canWA = waEnabled && !!c.telefono && !!c.whatsapp_consenso;
-    if (canWA) {
-      const waRes = await inviaWhatsapp('invito',
-        { cliente_id: c.id, token: c.invito_token },
-        currentStabilimento
-      );
-      okWA = !!waRes?.ok;
-    }
-
-    if (okEmail || okWA) {
-      const { error: upErr } = await sb.from('clienti_stagionali').update({ invitato_at: now }).eq('id', c.id);
-      if (upErr) { console.error('Update invitato_at fallito per', c.id, upErr); failed++; }
-      else { sent++; c.invitato_at = now; }
+      if (c.email) {
+        okEmail = await retryUntilTrue(
+          () => inviaEmail('invito',
+            { email: c.email, nome: c.nome, cognome: c.cognome, ombrellone: ombStr, invite_link: inviteLink },
+            currentStabilimento,
+            { oggetto, testo }
+          ),
+          3, 500
+        );
+      }
+      const canWA = waEnabled && !!c.telefono && !!c.whatsapp_consenso;
+      if (canWA) {
+        const waRes = await inviaWhatsapp('invito',
+          { cliente_id: c.id, token: c.invito_token },
+          currentStabilimento
+        );
+        okWA = !!waRes?.ok;
+      }
+      if (okEmail || okWA) {
+        const { error: upErr } = await sb.from('clienti_stagionali').update({ invitato_at: now }).eq('id', c.id);
+        if (upErr) { console.error('Update invitato_at fallito per', c.id, upErr); failed++; }
+        else { sent++; c.invitato_at = now; }
+      } else {
+        console.warn(`Bulk invito ${c.id}: nessun canale ha funzionato`);
+        failed++;
+      }
     } else {
-      console.warn(`Bulk-invite ${c.id}: nessun canale ha funzionato (email=${c.email ? 'presente' : 'assente'}, WA=${canWA ? 'applicabile' : 'non applicabile'})`);
-      failed++;
+      // === RESET PASSWORD (cliente registrato) ===
+      if (c.email) {
+        const resE = await richiediResetCliente(c.id, 'email');
+        okEmail = !!resE?.ok;
+      }
+      const canWA = waEnabled && !!c.telefono && !!c.whatsapp_consenso;
+      if (canWA) {
+        const resW = await richiediResetCliente(c.id, 'whatsapp');
+        okWA = !!resW?.ok;
+      }
+      if (okEmail || okWA) {
+        sent++;
+      } else {
+        console.warn(`Bulk reset ${c.id}: nessun canale ha funzionato`);
+        failed++;
+      }
     }
-  }, (done, total) => renderProgressInAlert('bulk-invite-alert', 'Invio inviti…', done, total));
+  }, (done, total) => renderProgressInAlert('bulk-invite-alert', 'Invio inviti e reset…', done, total));
 
   if (typeof renderGestioneFiltered === 'function') renderGestioneFiltered();
 
   btn.disabled = false;
-  btn.textContent = `Invia a ${bulkInviteTargets.length} clienti`;
+  btn.textContent = `Invia a ${bulkInviteTargets.length} client${bulkInviteTargets.length === 1 ? 'e' : 'i'}`;
   if (!failed) {
     closeModal('modal-bulk-invite');
     if (bulkInviteFromSelection) selectedClienteIds.clear();
