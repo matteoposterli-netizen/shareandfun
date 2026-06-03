@@ -293,3 +293,37 @@ function emailSinteticaDaTelefono(telE164) {
   if (!digits) return null;
   return `${digits}@phone.spiaggiamia.it`;
 }
+
+// Chiama l'Edge Function richiedi-reset-cliente per inviare un reset
+// password manager-driven a un cliente registrato.
+// Ritorna { ok, sent_via?, skipped?, error? }.
+async function richiediResetCliente(clienteId, canale) {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) {
+      return { ok: false, error: 'no_session' };
+    }
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/richiedi-reset-cliente`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ cliente_id: clienteId, canale }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error(`richiedi-reset-cliente fallito (${canale}):`, data);
+      return { ok: false, error: data?.error || res.statusText };
+    }
+    if (data?.skipped) {
+      console.log(`richiedi-reset-cliente saltato (${canale}):`, data.skipped);
+      return { ok: false, skipped: data.skipped };
+    }
+    console.log(`richiedi-reset-cliente OK (${data.sent_via})`);
+    return { ok: true, sent_via: data.sent_via };
+  } catch (e) {
+    console.error(`richiedi-reset-cliente eccezione:`, e);
+    return { ok: false, error: e?.message || 'exception' };
+  }
+}

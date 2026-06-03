@@ -243,6 +243,22 @@ I clienti senza email sono sempre esclusi dal pool inviabile, ma il riepilogo de
     inviaEmail() passano gia' Authorization Bearer quando l'utente
     ha una sessione (verificato)
 
+- **03 giu 2026** — FASE 3 — Manager UI completa:
+  (a) Backend: nuova Edge Function `richiedi-reset-cliente`
+      (manager-driven reset password con ownership check +
+      `generateLink` Admin API). Nuovo tipo `reset_password` in
+      `invia-email` con template branded (campo `recovery_link`).
+      Deploy in prod: `invia-email` v103, `richiedi-reset-cliente`
+      v1 (entrambe verify_jwt=true).
+  (b) Frontend: menu ⋮ popover contestuale per cliente nella
+      tabella Gestione (`manager.js openClienteActionMenu`). Azioni
+      dinamiche per stato cliente. Bulk modale esteso per selezione
+      mista (clienti registrati + non-registrati) con auto-split
+      invito/reset (`js/clienti.js`). Helper `richiediResetCliente`
+      in `js/utils.js`. CSS `.cliente-action-popover` in `styles.css`.
+  (c) Niente migrations SQL. Riusa RPC `rigenera_invito_token`
+      (Fase 1). Vedi `LOGIN_TELEFONO.md` per il design completo.
+
 ## Mantenimento di questo file
 
 Quando una sessione introduce un cambiamento **strutturale** — nuova tabella, nuova colonna/FK rilevante, nuova RPC, nuova Edge Function, nuovo env var, nuova convenzione, cambio di workflow git — **aggiorna `CLAUDE.md` nella stessa sessione** (preferibilmente nello stesso commit del cambiamento).
