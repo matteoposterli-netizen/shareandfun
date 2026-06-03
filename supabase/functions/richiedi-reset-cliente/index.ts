@@ -164,6 +164,18 @@ Deno.serve(async (req) => {
   }
 
   // canale === 'whatsapp' (riusa tipo recupero_password gia' esistente)
+  // Estrae la sola query string del recovery link per il template WhatsApp:
+  // Meta richiede che il button URL del template abbia prefisso statico +
+  // variabile come suffisso/parametro, non l'URL intero come variabile pura.
+  // Il template Twilio ha URL fisso
+  //   https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify?{{4}}
+  // e {{4}} viene popolato con la sola query string del recovery link:
+  //   token=...&type=recovery&redirect_to=...
+  // L'URL ricomposto al runtime resta esattamente l'action_link Supabase
+  // originale, quindi il flusso di verify+redirect funziona come prima.
+  const recoveryUrl = new URL(recoveryLink);
+  const recoveryQuery = recoveryUrl.search.slice(1); // rimuove il '?' iniziale
+
   const waRes = await fetch(`${SUPABASE_URL}/functions/v1/invia-whatsapp`, {
     method: 'POST',
     headers: {
@@ -174,7 +186,7 @@ Deno.serve(async (req) => {
       tipo: 'recupero_password',
       stabilimento_id: stab.id,
       cliente_id: cliente.id,
-      link: recoveryLink,
+      link: recoveryQuery, // solo la query string (Meta requirement template URL)
     }),
   });
   const waData = await waRes.json().catch(() => ({}));
