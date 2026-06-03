@@ -40,7 +40,7 @@ function buildFromHeader(displayName: string | undefined): string {
 }
 
 interface EmailRequest {
-  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "chiusura_stagione" | "comunicazione" | "ombrellone_disattivato";
+  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "chiusura_stagione" | "comunicazione" | "ombrellone_disattivato" | "reset_password";
   email: string;
   nome: string;
   cognome?: string;
@@ -63,6 +63,8 @@ interface EmailRequest {
   // Testi personalizzati dall'owner
   oggetto_custom?: string;
   testo_custom?: string;
+  // Reset password (manager-driven, popolato da richiedi-reset-cliente)
+  recovery_link?: string;
 }
 
 interface EmailContentOpts {
@@ -212,7 +214,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Body non valido" }, 400);
   }
 
-  const { tipo, email, nome, cognome = "", stabilimento_id, stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, login_link, importo_formatted, saldo_formatted, nota, gg_disponibilita, gg_subaffittato, coin_ricevuti_formatted, coin_spesi_formatted, oggetto_custom, testo_custom } = body;
+  const { tipo, email, nome, cognome = "", stabilimento_id, stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, login_link, importo_formatted, saldo_formatted, nota, gg_disponibilita, gg_subaffittato, coin_ricevuti_formatted, coin_spesi_formatted, oggetto_custom, testo_custom, recovery_link } = body;
 
   if (!tipo || !email || !nome) {
     return jsonResponse({ error: "Parametri mancanti: tipo, email, nome" }, 400);
@@ -432,6 +434,33 @@ Deno.serve(async (req: Request) => {
       stabilimento_telefono,
       stabilimento_email,
       footer_extra: `Per qualsiasi domanda o chiarimento contatta direttamente <strong>${stabilimento_nome}</strong> ai recapiti qui sopra.`,
+    };
+
+  } else if (tipo === "reset_password") {
+    if (!recovery_link) {
+      return jsonResponse({ error: "recovery_link mancante per tipo reset_password" }, 400);
+    }
+    subject = oggetto_custom || `Reset password — ${stabilimento_nome}`;
+    const testoCustom = testo_custom
+      ? testo_custom.replace(/\n/g, "<br>")
+      : `Il gestore di <strong>${stabilimento_nome}</strong> ha richiesto un reset della tua password.<br>Clicca il pulsante qui sotto per impostare una nuova password. Il link è valido per un'ora.`;
+    opts = {
+      headerColor: "linear-gradient(135deg,#1B6CA8 0%,#2B8DC8 100%)",
+      headerEmoji: "🔑 🌊",
+      headerSub: `Reset password — ${stabilimento_nome}`,
+      nome,
+      testoPrincipale: `È stata richiesta una nuova password per il tuo account su <strong>SpiaggiaMia</strong>.`,
+      boxColor: "#E8F4FD",
+      boxBorderColor: "#4A9FD4",
+      boxTitoloColor: "#1B6CA8",
+      boxTitolo: "🔐 Imposta nuova password",
+      boxTesto: testoCustom,
+      ctaLabel: "Imposta nuova password →",
+      ctaLink: recovery_link,
+      stabilimento_nome,
+      stabilimento_telefono,
+      stabilimento_email,
+      footer_extra: `Se non hai richiesto questo reset, contatta direttamente <strong>${stabilimento_nome}</strong>. Il link e' valido per un'ora.`,
     };
 
   } else {
