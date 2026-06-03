@@ -6,6 +6,20 @@ const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "SpiaggiaMia <noreply@spiaggiam
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
+// Headers CORS uniformi su tutte le response. Necessari su tutte le
+// risposte POST: senza, browser da origini come https://www.spiaggiamia.com
+// bloccano la fetch nonostante il server risponda 200 OK.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
+};
+const JSON_HEADERS = { ...CORS_HEADERS, "Content-Type": "application/json" };
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
+}
+
 // Domini freemail noti: settare Reply-To su un freemail diverso dal From
 // fa scattare la regola SpamAssassin FREEMAIL_FORGED_REPLYTO (-2.5).
 // In quel caso il Reply-To resta sul From (noreply@spiaggiamia.com) e i
@@ -166,36 +180,24 @@ function buildEmailHtml(opts: EmailContentOpts): string {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-      },
-    });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   let body: EmailRequest;
   try {
     body = await req.json();
   } catch {
-    return new Response(JSON.stringify({ error: "Body non valido" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "Body non valido" }, 400);
   }
 
   const { tipo, email, nome, cognome = "", stabilimento_id, stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, login_link, importo_formatted, saldo_formatted, nota, gg_disponibilita, gg_subaffittato, coin_ricevuti_formatted, coin_spesi_formatted, oggetto_custom, testo_custom } = body;
 
   if (!tipo || !email || !nome) {
-    return new Response(JSON.stringify({ error: "Parametri mancanti: tipo, email, nome" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "Parametri mancanti: tipo, email, nome" }, 400);
   }
 
   let subject: string;
@@ -367,10 +369,7 @@ Deno.serve(async (req: Request) => {
 
   } else if (tipo === "comunicazione") {
     if (!oggetto_custom || !testo_custom) {
-      return new Response(JSON.stringify({ error: "Per il tipo 'comunicazione' oggetto_custom e testo_custom sono obbligatori" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      });
+      return jsonResponse({ error: "Per il tipo 'comunicazione' oggetto_custom e testo_custom sono obbligatori" }, 400);
     }
     subject = oggetto_custom;
     const corpoHtml = testo_custom.replace(/\n/g, "<br>");
@@ -418,10 +417,7 @@ Deno.serve(async (req: Request) => {
     };
 
   } else {
-    return new Response(JSON.stringify({ error: "Tipo non valido" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "Tipo non valido" }, 400);
   }
 
   const html = buildEmailHtml(opts);
@@ -429,10 +425,7 @@ Deno.serve(async (req: Request) => {
 
   if (!RESEND_API_KEY) {
     console.error("RESEND_API_KEY non configurata — email non inviata");
-    return new Response(JSON.stringify({ error: "RESEND_API_KEY non configurata sul server" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-    });
+    return jsonResponse({ error: "RESEND_API_KEY non configurata sul server" }, 500);
   }
 
   const unsubscribeMailto = stabilimento_email || "noreply@spiaggiamia.com";
@@ -462,10 +455,7 @@ Deno.serve(async (req: Request) => {
   if (!res.ok) {
     const err = await res.text();
     console.error("Resend error:", err);
-    return new Response(JSON.stringify({ error: err }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-    });
+    return jsonResponse({ error: err }, 500);
   }
 
   const data = await res.json();
@@ -500,7 +490,5 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  return new Response(JSON.stringify({ success: true, id: data.id }), {
-    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-  });
+  return jsonResponse({ success: true, id: data.id }, 200);
 });

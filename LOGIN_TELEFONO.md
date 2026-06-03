@@ -57,6 +57,12 @@ telefono.
 - [x] Helper JS `isEmailLike()`, `emailSinteticaDaTelefono()`
 - [x] File coinvolti: `index.html`, `js/auth.js`, `js/utils.js`
 - PR `feat/login-email-telefono-fase2-frontend`. Deployata automaticamente via Vercel al merge.
+- [x] Hotfix post-merge: CORS uniformato su `invia-whatsapp`
+      e `invia-email` (Allow-Origin in tutte le response, non
+      solo nel preflight); rollback in `completeInviteRegistration`
+      se la RPC `completa_registrazione_invito` o l'insert
+      `profiles` fallisce (evita orfani auth.users senza
+      segnalazione all'utente).
 
 ### Fase 3 — Manager UI (TODO)
 - Menu ⋮ per ogni riga della tabella clienti (sezione Ombrelloni
@@ -83,6 +89,10 @@ telefono.
   rifiuta (HTTP 403) qualsiasi chiamata che non sia server-to-server
   con service-role key. L'unico chiamante legittimo e' la Edge
   Function `recupero-password`.
+- Le Edge Function `invia-whatsapp` e `invia-email` rispondono
+  con `Access-Control-Allow-Origin: *` su ogni response (POST
+  e preflight). Sicuro: response non contengono dati sensibili,
+  autenticazione resta garantita dal check JWT interno.
 
 ## Compatibilità
 - I 103 clienti esistenti hanno tutti email vera → zero impatto

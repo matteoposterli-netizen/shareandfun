@@ -215,6 +215,16 @@ I clienti senza email sono sempre esclusi dal pool inviabile, ma il riepilogo de
 
 - **03 giu 2026** — FASE 2 frontend login email/telefono completata: form login e forgot con campo combinato "email o telefono" (id rinominati `login-email`→`login-identifier`, `forgot-email`→`forgot-identifier`; aggiornato anche il prefill `?login=` in `js/main.js` e lo script `scripts/login-4accounts.js`), pagina invito con telefono sempre visibile ("(non impostato)" se manca), `completeInviteRegistration` genera email sintetica `<numero>@phone.spiaggiamia.it` per clienti senza email reale e salta l'email di benvenuto in quel caso. Nuovi helper `isEmailLike`/`emailSinteticaDaTelefono` in `js/utils.js`. `doLogin` disambigua email/telefono e usa RPC `risolvi_login_da_telefono`; `doForgotPassword` sceglie canale email (Supabase native) vs telefono (Edge Function `recupero-password`). PR `feat/login-email-telefono-fase2-frontend`. Da fare: Fase 3 (manager UI con menu ⋮ per riga cliente + bulk action estesa).
 
+- **03 giu 2026** — HOTFIX post Fase 2 login email/telefono:
+  (a) CORS uniformato su invia-whatsapp e invia-email (helper
+      jsonResponse, Allow-Origin in tutte le response). Risolve
+      errori "Failed to fetch" da https://www.spiaggiamia.com.
+  (b) completeInviteRegistration in js/auth.js ora destruttura
+      { error } su profiles.insert e completa_registrazione_invito,
+      fa rollback (delete profile, unblock_invito_email, signOut)
+      e mostra alert se uno step fallisce. Niente piu' dashboard
+      rotta silenziosa.
+
 ## Mantenimento di questo file
 
 Quando una sessione introduce un cambiamento **strutturale** — nuova tabella, nuova colonna/FK rilevante, nuova RPC, nuova Edge Function, nuovo env var, nuova convenzione, cambio di workflow git — **aggiorna `CLAUDE.md` nella stessa sessione** (preferibilmente nello stesso commit del cambiamento).

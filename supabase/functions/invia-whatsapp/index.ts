@@ -23,6 +23,23 @@ const WA_SID_RECUPERO    = Deno.env.get("WA_SID_RECUPERO")    ?? "";
 const SUPABASE_URL        = Deno.env.get("SUPABASE_URL")            ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
+// Headers CORS uniformi su tutte le response. Allow-Origin: * e' sicuro
+// perche' le response non contengono dati sensibili e la function richiede
+// gia' verify_jwt: true (gateway) + check JWT interno (servirole o utente
+// autenticato). Senza questi headers nelle response POST, browser da
+// origini come https://www.spiaggiamia.com bloccano la fetch lato client
+// nonostante il server risponda 200 OK.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
+};
+const JSON_HEADERS = { ...CORS_HEADERS, "Content-Type": "application/json" };
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
+}
+
 interface WaRequest {
   tipo: "invito" | "benvenuto" | "subaffitto_confermato" | "recupero_password";
   stabilimento_id: string;
@@ -88,20 +105,20 @@ async function twilioSend(to: string, contentSid: string, contentVariables: Reco
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type" } });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   let payload: WaRequest;
   try {
     payload = await req.json();
   } catch {
-    return new Response(JSON.stringify({ error: "JSON non valido" }), { status: 400 });
+    return jsonResponse({ error: "JSON non valido" }, 400);
   }
 
   const { tipo, stabilimento_id, cliente_id, token, periodo, coin_guadagnati, coin_totali, link } = payload;
 
   if (!tipo || !stabilimento_id || !cliente_id) {
-    return new Response(JSON.stringify({ error: "Parametri mancanti" }), { status: 400 });
+    return jsonResponse({ error: "Parametri mancanti" }, 400);
   }
 
   // Verifica JWT (la funzione richiede un utente autenticato o service role).
@@ -115,7 +132,7 @@ Deno.serve(async (req) => {
     if (jwt !== SUPABASE_SERVICE_KEY) {
       const { error: authErr } = await anonClient.auth.getUser(jwt);
       if (authErr) {
-        return new Response(JSON.stringify({ error: "Non autorizzato" }), { status: 401 });
+        return jsonResponse({ error: "Non autorizzato" }, 401);
       }
     }
   }
@@ -126,10 +143,7 @@ Deno.serve(async (req) => {
   // ammesso SOLO se la chiamata arriva con service-role key, cioè SOLO
   // dalla Edge Function "recupero-password" (server-to-server).
   if (tipo === "recupero_password" && jwt !== SUPABASE_SERVICE_KEY) {
-    return new Response(
-      JSON.stringify({ error: "tipo riservato a chiamate server-to-server" }),
-      { status: 403, headers: { "Content-Type": "application/json" } }
-    );
+    return jsonResponse({ error: "tipo riservato a chiamate server-to-server" }, 403);
   }
 
   // Carica lo stabilimento (wa_enabled + nome) con service role.
@@ -140,11 +154,11 @@ Deno.serve(async (req) => {
     .single();
 
   if (stabErr || !stab) {
-    return new Response(JSON.stringify({ error: "Stabilimento non trovato" }), { status: 404 });
+    return jsonResponse({ error: "Stabilimento non trovato" }, 404);
   }
 
   if (!stab.wa_enabled) {
-    return new Response(JSON.stringify({ ok: false, skipped: "wa_disabled" }), { status: 200 });
+    return jsonResponse({ ok: false, skipped: "wa_disabled" }, 200);
   }
 
   // Carica il cliente (telefono + consenso + nome).
@@ -155,18 +169,18 @@ Deno.serve(async (req) => {
     .single();
 
   if (cliErr || !cliente) {
-    return new Response(JSON.stringify({ error: "Cliente non trovato" }), { status: 404 });
+    return jsonResponse({ error: "Cliente non trovato" }, 404);
   }
 
   // Il recupero password è una comunicazione di servizio richiesta esplicitamente
   // dall'utente: non rientra nei consensi marketing, quindi bypassa il controllo.
   if (tipo !== "recupero_password" && !cliente.whatsapp_consenso) {
-    return new Response(JSON.stringify({ ok: false, skipped: "no_consenso" }), { status: 200 });
+    return jsonResponse({ ok: false, skipped: "no_consenso" }, 200);
   }
 
   const phone = normalizePhone(cliente.telefono);
   if (!phone) {
-    return new Response(JSON.stringify({ ok: false, skipped: "telefono_non_valido" }), { status: 200 });
+    return jsonResponse({ ok: false, skipped: "telefono_non_valido" }, 200);
   }
 
   const nome = cliente.nome || "";
@@ -176,7 +190,7 @@ Deno.serve(async (req) => {
   let contentVariables: Record<string, string>;
 
   if (tipo === "invito") {
-    if (!token) return new Response(JSON.stringify({ error: "token mancante" }), { status: 400 });
+    if (!token) return jsonResponse({ error: "token mancante" }, 400);
     contentSid = WA_SID_INVITO;
     contentVariables = {
       "1": nome,
@@ -193,7 +207,7 @@ Deno.serve(async (req) => {
     };
   } else if (tipo === "subaffitto_confermato") {
     if (!periodo || !coin_guadagnati || !coin_totali) {
-      return new Response(JSON.stringify({ error: "Parametri sub-affitto mancanti" }), { status: 400 });
+      return jsonResponse({ error: "Parametri sub-affitto mancanti" }, 400);
     }
     contentSid = WA_SID_SUBAFFITTO;
     contentVariables = {
@@ -204,13 +218,10 @@ Deno.serve(async (req) => {
       "5": stabilimentoNome,
     };
   } else if (tipo === "recupero_password") {
-    if (!link) return new Response(JSON.stringify({ error: "link mancante" }), { status: 400 });
+    if (!link) return jsonResponse({ error: "link mancante" }, 400);
     // Template Meta non ancora approvato: graceful skip senza errore.
     if (!WA_SID_RECUPERO) {
-      return new Response(JSON.stringify({ ok: false, skipped: "template_recupero_non_configurato" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
+      return jsonResponse({ ok: false, skipped: "template_recupero_non_configurato" }, 200);
     }
     contentSid = WA_SID_RECUPERO;
     contentVariables = {
@@ -220,14 +231,11 @@ Deno.serve(async (req) => {
       "4": link,             // recovery URL
     };
   } else {
-    return new Response(JSON.stringify({ error: "tipo non valido" }), { status: 400 });
+    return jsonResponse({ error: "tipo non valido" }, 400);
   }
 
   const result = await twilioSend(phone, contentSid, contentVariables);
 
   console.log(`WA ${tipo} → ${phone}: ${JSON.stringify(result)}`);
-  return new Response(JSON.stringify(result), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
+  return jsonResponse(result, 200);
 });
