@@ -527,17 +527,75 @@ async function confirmImportaExcelExecute() {
 
   let sent = 0, failed = 0;
   if (inviaInviti) {
-    await runWithConcurrency(targets, 5, async (t) => {
+    // Targets: clienti con email (gia' presenti in `targets`)
+    // + clienti SENZA email appena importati ma con telefono +
+    // consenso WA (recuperati dal DB perche' `clientiNoEmail` non
+    // ha gli id post-insert; li peschiamo dal risultato di
+    // `insertedNoEmail` se disponibile, altrimenti via select).
+    const waEnabled = !!currentStabilimento?.wa_enabled;
+
+    // Per i clienti senza email importati: ne abbiamo gli id solo
+    // se l'insert ha avuto successo. Per semplicita' rileggiamo
+    // dal DB usando telefono + stabilimento (chiave naturale).
+    let noEmailTargets = [];
+    if (waEnabled && clientiNoEmail.length) {
+      const phones = clientiNoEmail
+        .map(r => (r.telefono || '').trim())
+        .filter(Boolean);
+      if (phones.length) {
+        const { data: noEmailRows } = await sb.from('clienti_stagionali')
+          .select('id,nome,cognome,telefono,whatsapp_consenso,invito_token,ombrellone_id')
+          .eq('stabilimento_id', currentStabilimento.id)
+          .is('email', null)
+          .in('telefono', phones);
+        noEmailTargets = (noEmailRows || []).filter(r =>
+          r.telefono && r.whatsapp_consenso && r.invito_token
+        );
+      }
+    }
+
+    const allTargets = [
+      ...targets.map(t => ({ ...t, _kind: 'email' })),
+      ...noEmailTargets.map(r => ({
+        id: r.id,
+        email: null,
+        nome: r.nome,
+        cognome: r.cognome,
+        telefono: r.telefono,
+        whatsapp_consenso: r.whatsapp_consenso,
+        token: r.invito_token,
+        ombrellone: '',
+        _kind: 'wa-only',
+      })),
+    ];
+
+    await runWithConcurrency(allTargets, 5, async (t) => {
       const inviteLink = `${window.location.origin}/?invito=${t.token}`;
-      const ok = await retryUntilTrue(
-        () => inviaEmail('invito', { email: t.email, nome: t.nome, cognome: t.cognome, ombrellone: t.ombrellone, invite_link: inviteLink }, currentStabilimento),
-        3, 500
-      );
-      if (ok) {
-        sent++;
-        if (t.id) inviaWhatsapp('invito', { cliente_id: t.id, token: t.token }, currentStabilimento);
-      } else failed++;
-    }, (done, total) => renderProgressInAlert('xlsx-alert', 'Invio email…', done, total));
+      let okEmail = false;
+      let okWA = false;
+
+      if (t.email) {
+        okEmail = await retryUntilTrue(
+          () => inviaEmail('invito',
+            { email: t.email, nome: t.nome, cognome: t.cognome, ombrellone: t.ombrellone, invite_link: inviteLink },
+            currentStabilimento
+          ),
+          3, 500
+        );
+      }
+
+      const canWA = waEnabled && !!t.telefono && !!t.whatsapp_consenso;
+      if (canWA) {
+        const waRes = await inviaWhatsapp('invito',
+          { cliente_id: t.id, token: t.token },
+          currentStabilimento
+        );
+        okWA = !!waRes?.ok;
+      }
+
+      if (okEmail || okWA) sent++;
+      else failed++;
+    }, (done, total) => renderProgressInAlert('xlsx-alert', 'Invio inviti…', done, total));
   }
 
   await coalesceImportAudit(auditSince, {
@@ -731,29 +789,49 @@ async function confirmBulkInvite() {
   renderProgressInAlert('bulk-invite-alert', 'Invio email…', 0, bulkInviteTargets.length);
 
   let sent = 0, failed = 0;
+  const waEnabled = !!currentStabilimento?.wa_enabled;
   const now = new Date().toISOString();
   await runWithConcurrency(bulkInviteTargets, 5, async (c) => {
     const omb = c.ombrellone_id ? ombById[c.ombrellone_id] : null;
     const ombStr = omb ? omb.codice : '';
     const inviteLink = `${window.location.origin}/?invito=${c.invito_token}`;
-    const ok = await retryUntilTrue(
-      () => inviaEmail('invito',
-        { email: c.email, nome: c.nome, cognome: c.cognome, ombrellone: ombStr, invite_link: inviteLink },
-        currentStabilimento,
-        { oggetto, testo }
-      ),
-      3, 500
-    );
-    if (ok) {
+
+    // Tentiamo TUTTI i canali applicabili. Successo del cliente
+    // = almeno un canale OK. Cosi' un cliente senza email ma con
+    // WA abilitato + telefono + consenso riceve comunque l'invito
+    // e viene contato come "inviato".
+    let okEmail = false;
+    let okWA = false;
+
+    if (c.email) {
+      okEmail = await retryUntilTrue(
+        () => inviaEmail('invito',
+          { email: c.email, nome: c.nome, cognome: c.cognome, ombrellone: ombStr, invite_link: inviteLink },
+          currentStabilimento,
+          { oggetto, testo }
+        ),
+        3, 500
+      );
+    }
+
+    const canWA = waEnabled && !!c.telefono && !!c.whatsapp_consenso;
+    if (canWA) {
+      const waRes = await inviaWhatsapp('invito',
+        { cliente_id: c.id, token: c.invito_token },
+        currentStabilimento
+      );
+      okWA = !!waRes?.ok;
+    }
+
+    if (okEmail || okWA) {
       const { error: upErr } = await sb.from('clienti_stagionali').update({ invitato_at: now }).eq('id', c.id);
       if (upErr) { console.error('Update invitato_at fallito per', c.id, upErr); failed++; }
-      else {
-        sent++;
-        c.invitato_at = now;
-        inviaWhatsapp('invito', { cliente_id: c.id, token: c.invito_token }, currentStabilimento);
-      }
-    } else failed++;
-  }, (done, total) => renderProgressInAlert('bulk-invite-alert', 'Invio email…', done, total));
+      else { sent++; c.invitato_at = now; }
+    } else {
+      console.warn(`Bulk-invite ${c.id}: nessun canale ha funzionato (email=${c.email ? 'presente' : 'assente'}, WA=${canWA ? 'applicabile' : 'non applicabile'})`);
+      failed++;
+    }
+  }, (done, total) => renderProgressInAlert('bulk-invite-alert', 'Invio inviti…', done, total));
 
   if (typeof renderGestioneFiltered === 'function') renderGestioneFiltered();
 

@@ -246,10 +246,7 @@ async function completeInviteRegistration() {
   const btn = document.getElementById('btn-invito');
   btn.disabled = true; btn.textContent = 'Registrazione in corso...';
 
-  // Determina l'email da usare per la signUp:
-  //  - se il cliente ha un'email reale: quella
-  //  - altrimenti, costruisce un'email sintetica dal telefono
-  //    (alias tecnico, non inviabile)
+  // Determina l'email da usare per la signUp.
   let signUpEmail = currentInviteData.email || null;
   if (!signUpEmail) {
     const telE164 = currentInviteData.telefono
@@ -258,9 +255,6 @@ async function completeInviteRegistration() {
     signUpEmail = emailSinteticaDaTelefono(telE164);
   }
   if (!signUpEmail) {
-    // Pre-condizione difensiva: il manager ha creato il cliente senza
-    // email e senza telefono. Non dovrebbe accadere dalla UI manager,
-    // ma proteggiamo l'utente con un messaggio chiaro.
     showAlert('invito-alert',
       'Il tuo account non ha né email né telefono. Contatta lo stabilimento per completare i dati.',
       'error');
@@ -268,6 +262,7 @@ async function completeInviteRegistration() {
     return;
   }
 
+  // 1) signUp
   let { data, error } = await sb.auth.signUp({ email: signUpEmail, password: pwd });
   if (error && /already registered/i.test(error.message || '')) {
     const { data: unblocked } = await sb.rpc('unblock_invito_email', { p_token: currentInviteToken });
@@ -285,39 +280,68 @@ async function completeInviteRegistration() {
   }
   currentUser = data.user;
 
-  await sb.from('profiles').insert({
+  // Helper di rollback: usato se uno degli step successivi fallisce.
+  // Slogga l'utente appena creato, prova a cancellare il profile e
+  // pulire l'auth.user via unblock_invito_email (idempotente).
+  const rollback = async (alertMessage) => {
+    try { await sb.from('profiles').delete().eq('id', currentUser.id); } catch (e) { console.warn('rollback profile delete failed', e); }
+    try { await sb.rpc('unblock_invito_email', { p_token: currentInviteToken }); } catch (e) { console.warn('rollback unblock failed', e); }
+    try { await sb.auth.signOut(); } catch (e) { console.warn('rollback signOut failed', e); }
+    currentUser = null; currentProfile = null;
+    showAlert('invito-alert', alertMessage, 'error');
+    btn.disabled = false; btn.textContent = 'Accedi a SpiaggiaMia →';
+  };
+
+  // 2) Inserimento profile
+  const { error: profErr } = await sb.from('profiles').insert({
     id: currentUser.id,
     nome: currentInviteData.nome,
     cognome: currentInviteData.cognome,
     ruolo: 'stagionale',
   });
-  await sb.rpc('completa_registrazione_invito', { p_token: currentInviteToken, p_user_id: currentUser.id });
+  if (profErr) {
+    console.error('completeInviteRegistration: profile insert error', profErr);
+    await rollback('Errore nella creazione del profilo. Riprova o contatta lo stabilimento.');
+    return;
+  }
 
+  // 3) Collegamento clienti_stagionali via RPC (SECURITY DEFINER)
+  // Destrutturiamo SEMPRE { data, error } cosi' che eventuali errori
+  // (es. duplicate key sull'index telefono) non passino inosservati.
+  const { data: rpcOk, error: rpcErr } = await sb.rpc('completa_registrazione_invito', {
+    p_token: currentInviteToken,
+    p_user_id: currentUser.id,
+  });
+  if (rpcErr || rpcOk !== true) {
+    console.error('completeInviteRegistration: RPC failed', rpcErr, 'returned=', rpcOk);
+    const msg = rpcErr && /duplicate key|uniq_telefono/i.test(rpcErr.message || '')
+      ? 'Il numero di telefono associato al tuo invito è già in uso da un altro cliente. Contatta lo stabilimento per risolvere.'
+      : 'Impossibile completare la registrazione. Contatta lo stabilimento.';
+    await rollback(msg);
+    return;
+  }
+
+  // 4) Notifica benvenuto (fire-and-forget, errori non bloccanti)
   const { data: stab } = await sb.from('stabilimenti')
     .select('id,nome,telefono,email,wa_enabled,email_benvenuto_oggetto,email_benvenuto_testo')
     .eq('id', currentInviteData.stabilimento_id).single();
   const ombLabel = currentInviteData.ombrellone_codice || null;
-
-  // Login link: usa l'email reale se c'e', altrimenti il telefono
-  // visualizzabile (formato E.164 dal trigger backend).
   const loginIdentifier = currentInviteData.email || currentInviteData.telefono || signUpEmail;
   const loginLink = `${window.location.origin}/?login=${encodeURIComponent(loginIdentifier)}`;
 
-  // L'email di benvenuto parte solo se il cliente ha email reale.
-  // Per i clienti con solo telefono, il messaggio di benvenuto e'
-  // affidato al canale WhatsApp (inviaWhatsapp gestisce il consenso
-  // e l'eventuale assenza del template Meta).
   if (currentInviteData.email) {
-    await inviaEmail('benvenuto', {
+    inviaEmail('benvenuto', {
       email: currentInviteData.email,
       nome: currentInviteData.nome,
       cognome: currentInviteData.cognome,
       ombrellone: ombLabel,
       login_link: loginLink,
-    }, stab);
+    }, stab).catch(e => console.warn('benvenuto email error (non blocking)', e));
   }
-  inviaWhatsapp('benvenuto', { cliente_id: currentInviteData.id }, stab);
+  // inviaWhatsapp gestisce internamente i casi wa_enabled/consenso/telefono
+  try { inviaWhatsapp('benvenuto', { cliente_id: currentInviteData.id }, stab); } catch (e) { console.warn('benvenuto WA error (non blocking)', e); }
 
+  // 5) Carica profile aggiornato e completa il routing
   const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
   currentProfile = profile;
   updateNav();

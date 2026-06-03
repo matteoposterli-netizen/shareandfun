@@ -235,14 +235,17 @@ function formatPeriodo(dates) {
     : `dal ${first.getDate()} ${mF} al ${last.getDate()} ${mL}`;
 }
 
-// Invia una notifica WhatsApp via Edge Function invia-whatsapp (fire-and-forget).
+// Invia una notifica WhatsApp via Edge Function invia-whatsapp.
+// Ritorna sempre un oggetto { ok: boolean, skipped?: string, error?: string }
+// per permettere ai chiamanti di sapere se l'invio e' andato a buon fine.
+// Retrocompatibile con i chiamanti "fire-and-forget" che ignorano il return.
 // Parametri per tipo:
 //   invito              → params: { cliente_id, token }
 //   benvenuto           → params: { cliente_id }
 //   subaffitto_confermato → params: { cliente_id, periodo, coin_guadagnati, coin_totali }
 async function inviaWhatsapp(tipo, params, stab) {
   try {
-    if (!stab?.wa_enabled) return;
+    if (!stab?.wa_enabled) return { ok: false, skipped: 'wa_disabled' };
     const { data: { session } } = await sb.auth.getSession();
     const headers = { 'Content-Type': 'application/json' };
     if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
@@ -252,12 +255,20 @@ async function inviaWhatsapp(tipo, params, stab) {
       headers,
       body: JSON.stringify(body),
     });
-    const data = await res.json();
-    if (!res.ok) console.error(`WA ${tipo} fallito:`, data);
-    else if (data?.skipped) console.log(`WA ${tipo} saltato:`, data.skipped);
-    else console.log(`WA ${tipo} inviato`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error(`WA ${tipo} fallito:`, data);
+      return { ok: false, error: data?.error || res.statusText || 'http_error' };
+    }
+    if (data?.skipped) {
+      console.log(`WA ${tipo} saltato:`, data.skipped);
+      return { ok: false, skipped: data.skipped };
+    }
+    console.log(`WA ${tipo} inviato`);
+    return { ok: true };
   } catch (e) {
     console.error(`WA ${tipo} eccezione:`, e);
+    return { ok: false, error: e?.message || 'exception' };
   }
 }
 
