@@ -29,7 +29,7 @@ async function loadStagionaleData() {
   const firstName = currentProfile?.nome || cliente.nome || '';
   document.getElementById('stag-nome').textContent = firstName;
   document.getElementById('stag-ombrellone').textContent = omb
-    ? `☂️ Ombrellone ${omb.codice} · ${stab?.nome || ''}${stab?.citta ? ' · ' + stab.citta : ''}`
+    ? `☂️ Ombrellone ${omb.codice} · ${stab?.nome || ''}`
     : 'Nessun ombrellone associato. Contatta il tuo stabilimento.';
   document.getElementById('stag-credito').textContent = formatCoin(cliente.credito_saldo, stab);
   const badgeEl = document.querySelector('#view-stagionale .stag-coin-badge');
