@@ -130,13 +130,13 @@ Deno.serve(async (req) => {
     }),
   }).catch(e => console.warn("audit log reset_password_richiesto failed", e));
 
-  // Invio sul canale richiesto (server-to-server con service-role-key)
+  // Invio sul canale richiesto: usa SEMPRE il JWT del manager originale
+  // (non SERVICE_KEY) per la chiamata server-to-server, perche' la
+  // SUPABASE_SERVICE_ROLE_KEY env var non e' disponibile/valida nella
+  // function (passa un bearer vuoto al gateway -> 401). Le due function
+  // chiamate (invia-email e invia-whatsapp) sono state aggiornate per
+  // accettare jwt manager + ownership check.
   if (canale === 'email') {
-    // Usa il JWT del manager originale (non service-key) per la chiamata
-    // server-to-server a invia-email. Risolve un 401 osservato quando
-    // SUPABASE_SERVICE_ROLE_KEY env non e' valida/disponibile nella
-    // function. La function invia-email accetta utenti autenticati →
-    // il JWT del manager passa il gateway verify_jwt e il check interno.
     const emailRes = await fetch(`${SUPABASE_URL}/functions/v1/invia-email`, {
       method: 'POST',
       headers: {
@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
   const waRes = await fetch(`${SUPABASE_URL}/functions/v1/invia-whatsapp`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+      'Authorization': `Bearer ${jwt}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
