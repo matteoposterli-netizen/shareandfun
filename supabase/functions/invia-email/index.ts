@@ -187,6 +187,24 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
+  // Verifica JWT: funzione richiede un utente autenticato (cosi' che il JWT
+  // venga validato dal gateway con verify_jwt: true) oppure una chiamata
+  // server-to-server con SUPABASE_SERVICE_ROLE_KEY. Stesso pattern di
+  // invia-whatsapp. Senza questo check (e con verify_jwt: false), la function
+  // sarebbe un open relay che chiunque puo' usare per inviare email tramite
+  // Resend impersonando spiaggiamia.com.
+  const jwt = req.headers.get("Authorization")?.replace("Bearer ", "") ?? "";
+  if (!jwt) {
+    return jsonResponse({ error: "Non autorizzato" }, 401);
+  }
+  if (jwt !== SUPABASE_SERVICE_KEY) {
+    const supaClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    const { error: authErr } = await supaClient.auth.getUser(jwt);
+    if (authErr) {
+      return jsonResponse({ error: "Non autorizzato" }, 401);
+    }
+  }
+
   let body: EmailRequest;
   try {
     body = await req.json();

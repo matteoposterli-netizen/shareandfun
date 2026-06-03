@@ -232,6 +232,17 @@ I clienti senza email sono sempre esclusi dal pool inviabile, ma il riepilogo de
       js/utils.js ritorna ora { ok, skipped?, error? } per
       permettere ai chiamanti di leggere il risultato.
 
+- **03 giu 2026** — FIX C — chiusura open relay invia-email:
+  - supabase/config.toml: verify_jwt = true (era false)
+  - supabase/functions/invia-email/index.ts: aggiunto check JWT
+    pattern identico a invia-whatsapp (accetta utenti autenticati OR
+    service-role-key per chiamate server-to-server)
+  - chiude vettore di spam/phishing che impersonava spiaggiamia.com
+    tramite chiamate non autenticate a Resend via la function
+  - nessuna regressione attesa: tutte le 9 invocazioni client di
+    inviaEmail() passano gia' Authorization Bearer quando l'utente
+    ha una sessione (verificato)
+
 ## Mantenimento di questo file
 
 Quando una sessione introduce un cambiamento **strutturale** — nuova tabella, nuova colonna/FK rilevante, nuova RPC, nuova Edge Function, nuovo env var, nuova convenzione, cambio di workflow git — **aggiorna `CLAUDE.md` nella stessa sessione** (preferibilmente nello stesso commit del cambiamento).
