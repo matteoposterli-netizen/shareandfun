@@ -49,13 +49,14 @@ telefono.
       (chiusura vettore phishing scoperto in review). Vedi commit
       di hardening sulla PR #100.
 
-### Fase 2 — Frontend login + recupero + registrazione (TODO)
-- Form login con campo combinato "email o telefono"
-- Pagina forgot password con campo combinato
-- Pagina invito: mostra sempre il telefono (con "(non impostato)"
+### Fase 2 — Frontend login + recupero + registrazione (FATTO)
+- [x] Form login con campo combinato "email o telefono"
+- [x] Pagina forgot password con campo combinato
+- [x] Pagina invito: mostra sempre il telefono (con "(non impostato)"
   se manca, in sola lettura)
-- Helper JS `isEmailLike()`, `emailSinteticaDaTelefono()`
-- File coinvolti: `index.html`, `js/auth.js`, `js/utils.js`
+- [x] Helper JS `isEmailLike()`, `emailSinteticaDaTelefono()`
+- [x] File coinvolti: `index.html`, `js/auth.js`, `js/utils.js`
+- PR `feat/login-email-telefono-fase2-frontend`. Deployata automaticamente via Vercel al merge.
 
 ### Fase 3 — Manager UI (TODO)
 - Menu ⋮ per ogni riga della tabella clienti (sezione Ombrelloni

@@ -38,7 +38,7 @@ async function loginOne(browser, index, { email, password }) {
   await page.goto(url, { waitUntil: 'domcontentloaded' });
 
   await page.waitForSelector('#login-password', { timeout: 15000 });
-  await page.fill('#login-email', email);
+  await page.fill('#login-identifier', email);
   await page.fill('#login-password', password);
   await page.click('#btn-login');
 
