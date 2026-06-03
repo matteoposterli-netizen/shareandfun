@@ -121,40 +121,46 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Parametri mancanti" }, 400);
   }
 
-  // Verifica JWT (la funzione richiede un utente autenticato o service role).
+  // Verifica JWT: accetta sia service-role key (chiamate server-to-server)
+  // sia user-JWT (chiamate manager-driven via richiedi-reset-cliente o UI).
   const jwt = req.headers.get("Authorization")?.replace("Bearer ", "") ?? "";
   const anonClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-  if (jwt) {
-    // Chiamata server-to-server (es. dalla Edge Function recupero-password):
-    // la service role key è già una credenziale fidata e non rappresenta un
-    // utente, quindi auth.getUser() fallirebbe. La accettiamo direttamente.
-    if (jwt !== SUPABASE_SERVICE_KEY) {
-      const { error: authErr } = await anonClient.auth.getUser(jwt);
-      if (authErr) {
-        return jsonResponse({ error: "Non autorizzato" }, 401);
-      }
+  let callerUserId: string | null = null;
+  const isServiceRole = !!jwt && jwt === SUPABASE_SERVICE_KEY;
+  if (jwt && !isServiceRole) {
+    // Chiamata di un utente autenticato: verifica la session via Supabase Auth.
+    const { data: ud, error: authErr } = await anonClient.auth.getUser(jwt);
+    if (authErr || !ud?.user) {
+      return jsonResponse({ error: "Non autorizzato" }, 401);
     }
+    callerUserId = ud.user.id;
   }
 
-  // Sicurezza: il tipo "recupero_password" accetta "link" arbitrario nel
-  // payload e bypassa il consenso WA. Per evitare che un utente autenticato
-  // qualsiasi possa inviare WA "ufficiali" con URL malevoli, questo tipo è
-  // ammesso SOLO se la chiamata arriva con service-role key, cioè SOLO
-  // dalla Edge Function "recupero-password" (server-to-server).
-  if (tipo === "recupero_password" && jwt !== SUPABASE_SERVICE_KEY) {
-    return jsonResponse({ error: "tipo riservato a chiamate server-to-server" }, 403);
-  }
-
-  // Carica lo stabilimento (wa_enabled + nome) con service role.
+  // Carica lo stabilimento (wa_enabled + nome + proprietario per ownership).
   const { data: stab, error: stabErr } = await anonClient
     .from("stabilimenti")
-    .select("id, nome, wa_enabled")
+    .select("id, nome, wa_enabled, proprietario_id")
     .eq("id", stabilimento_id)
     .single();
 
   if (stabErr || !stab) {
     return jsonResponse({ error: "Stabilimento non trovato" }, 404);
+  }
+
+  // Sicurezza: il tipo "recupero_password" accetta "link" arbitrario nel
+  // payload e bypassa il consenso WA. Per evitare che un utente autenticato
+  // qualsiasi possa inviare WA "ufficiali" con URL malevoli ai clienti di
+  // altri stabilimenti, accettiamo:
+  // - chiamate server-to-server con SERVICE_KEY (es. recupero-password
+  //   self-service generic), oppure
+  // - chiamate da un manager autenticato che e' proprietario dello
+  //   stabilimento (richiedi-reset-cliente manager-driven). In questo caso
+  //   ownership check sostituisce SERVICE_KEY come trust boundary.
+  if (tipo === "recupero_password" && !isServiceRole) {
+    if (!callerUserId || stab.proprietario_id !== callerUserId) {
+      return jsonResponse({ error: "Non sei il proprietario di questo stabilimento" }, 403);
+    }
   }
 
   if (!stab.wa_enabled) {
