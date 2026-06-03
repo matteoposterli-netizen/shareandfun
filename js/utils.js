@@ -74,7 +74,7 @@ function showAlert(containerId, msg, type) {
   if (!el) return;
   if (!msg) { el.innerHTML = ''; return; }
   el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
-  if (type === 'success') setTimeout(() => { el.innerHTML = ''; }, 3000);
+  if (type === 'success') setTimeout(() => { el.innerHTML = ''; }, 5000);
 }
 
 function coinName(stab) {
