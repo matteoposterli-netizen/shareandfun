@@ -4,21 +4,27 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // Credenziali Twilio — impostare come segreti nella Supabase Dashboard:
 //   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
 //   TWILIO_WA_FROM       → es. "whatsapp:+391234567890"
-//   WA_SID_INVITO        → Content SID HX... del template invito
-//   WA_SID_BENVENUTO     → Content SID HX... del template benvenuto
-//   WA_SID_SUBAFFITTO    → Content SID HX... del template sub-affitto confermato
+//   WA_SID_INVITO        → Content SID HX... del template invito (esistente)
+//   WA_SID_BENVENUTO     → Content SID HX... del template benvenuto (esistente)
+//   WA_SID_SUBAFFITTO    → Content SID HX... del template sub-affitto confermato (esistente)
+//   WA_SID_RECUPERO      → Content SID HX... del template recupero password
+//                          (NUOVA — da impostare quando Meta approva il template
+//                           "recupero_password" su Twilio. Finché non è valorizzata,
+//                           il tipo recupero_password risponde graceful con
+//                           { skipped: "template_recupero_non_configurato" }.)
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") ?? "";
 const TWILIO_AUTH_TOKEN  = Deno.env.get("TWILIO_AUTH_TOKEN")  ?? "";
 const TWILIO_WA_FROM     = Deno.env.get("TWILIO_WA_FROM")     ?? "";
 const WA_SID_INVITO      = Deno.env.get("WA_SID_INVITO")      ?? "";
 const WA_SID_BENVENUTO   = Deno.env.get("WA_SID_BENVENUTO")   ?? "";
 const WA_SID_SUBAFFITTO  = Deno.env.get("WA_SID_SUBAFFITTO")  ?? "";
+const WA_SID_RECUPERO    = Deno.env.get("WA_SID_RECUPERO")    ?? "";
 
 const SUPABASE_URL        = Deno.env.get("SUPABASE_URL")            ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 interface WaRequest {
-  tipo: "invito" | "benvenuto" | "subaffitto_confermato";
+  tipo: "invito" | "benvenuto" | "subaffitto_confermato" | "recupero_password";
   stabilimento_id: string;
   cliente_id: string;
   // invito
@@ -27,6 +33,8 @@ interface WaRequest {
   periodo?: string;
   coin_guadagnati?: string;
   coin_totali?: string;
+  // recupero_password
+  link?: string;
 }
 
 // Normalizza un numero di telefono italiano al formato E.164 (+39XXXXXXXXXX).
@@ -90,7 +98,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "JSON non valido" }), { status: 400 });
   }
 
-  const { tipo, stabilimento_id, cliente_id, token, periodo, coin_guadagnati, coin_totali } = payload;
+  const { tipo, stabilimento_id, cliente_id, token, periodo, coin_guadagnati, coin_totali, link } = payload;
 
   if (!tipo || !stabilimento_id || !cliente_id) {
     return new Response(JSON.stringify({ error: "Parametri mancanti" }), { status: 400 });
@@ -101,9 +109,14 @@ Deno.serve(async (req) => {
   const anonClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
   if (jwt) {
-    const { error: authErr } = await anonClient.auth.getUser(jwt);
-    if (authErr) {
-      return new Response(JSON.stringify({ error: "Non autorizzato" }), { status: 401 });
+    // Chiamata server-to-server (es. dalla Edge Function recupero-password):
+    // la service role key è già una credenziale fidata e non rappresenta un
+    // utente, quindi auth.getUser() fallirebbe. La accettiamo direttamente.
+    if (jwt !== SUPABASE_SERVICE_KEY) {
+      const { error: authErr } = await anonClient.auth.getUser(jwt);
+      if (authErr) {
+        return new Response(JSON.stringify({ error: "Non autorizzato" }), { status: 401 });
+      }
     }
   }
 
@@ -133,7 +146,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Cliente non trovato" }), { status: 404 });
   }
 
-  if (!cliente.whatsapp_consenso) {
+  // Il recupero password è una comunicazione di servizio richiesta esplicitamente
+  // dall'utente: non rientra nei consensi marketing, quindi bypassa il controllo.
+  if (tipo !== "recupero_password" && !cliente.whatsapp_consenso) {
     return new Response(JSON.stringify({ ok: false, skipped: "no_consenso" }), { status: 200 });
   }
 
@@ -175,6 +190,22 @@ Deno.serve(async (req) => {
       "3": coin_guadagnati,
       "4": coin_totali,
       "5": stabilimentoNome,
+    };
+  } else if (tipo === "recupero_password") {
+    if (!link) return new Response(JSON.stringify({ error: "link mancante" }), { status: 400 });
+    // Template Meta non ancora approvato: graceful skip senza errore.
+    if (!WA_SID_RECUPERO) {
+      return new Response(JSON.stringify({ ok: false, skipped: "template_recupero_non_configurato" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    contentSid = WA_SID_RECUPERO;
+    contentVariables = {
+      "1": stabilimentoNome, // header
+      "2": nome,
+      "3": stabilimentoNome, // body
+      "4": link,             // recovery URL
     };
   } else {
     return new Response(JSON.stringify({ error: "tipo non valido" }), { status: 400 });
