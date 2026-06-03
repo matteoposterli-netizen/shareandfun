@@ -120,6 +120,18 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Sicurezza: il tipo "recupero_password" accetta "link" arbitrario nel
+  // payload e bypassa il consenso WA. Per evitare che un utente autenticato
+  // qualsiasi possa inviare WA "ufficiali" con URL malevoli, questo tipo è
+  // ammesso SOLO se la chiamata arriva con service-role key, cioè SOLO
+  // dalla Edge Function "recupero-password" (server-to-server).
+  if (tipo === "recupero_password" && jwt !== SUPABASE_SERVICE_KEY) {
+    return new Response(
+      JSON.stringify({ error: "tipo riservato a chiamate server-to-server" }),
+      { status: 403, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   // Carica lo stabilimento (wa_enabled + nome) con service role.
   const { data: stab, error: stabErr } = await anonClient
     .from("stabilimenti")

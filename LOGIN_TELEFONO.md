@@ -44,6 +44,10 @@ telefono.
 - [ ] **TODO esterno**: creare e sottomettere a Meta il template
       WhatsApp "recupero_password" (utility). Quando approvato,
       configurare env var `WA_SID_RECUPERO` su Supabase.
+- [x] **Hardening sicurezza pre-merge**: il tipo `recupero_password`
+      di `invia-whatsapp` accetta SOLO chiamate con service-role key
+      (chiusura vettore phishing scoperto in review). Vedi commit
+      di hardening sulla PR #100.
 
 ### Fase 2 — Frontend login + recupero + registrazione (TODO)
 - Form login con campo combinato "email o telefono"
@@ -74,6 +78,10 @@ telefono.
 - La env var del nuovo template segue la convenzione esistente
   (`WA_SID_INVITO`/`WA_SID_BENVENUTO`/`WA_SID_SUBAFFITTO`) e si
   chiama `WA_SID_RECUPERO` (non `WHATSAPP_TEMPLATE_RECUPERO_SID`).
+- La Edge Function `invia-whatsapp` con `tipo=recupero_password`
+  rifiuta (HTTP 403) qualsiasi chiamata che non sia server-to-server
+  con service-role key. L'unico chiamante legittimo e' la Edge
+  Function `recupero-password`.
 
 ## Compatibilità
 - I 103 clienti esistenti hanno tutti email vera → zero impatto
