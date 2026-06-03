@@ -63,6 +63,13 @@ telefono.
       se la RPC `completa_registrazione_invito` o l'insert
       `profiles` fallisce (evita orfani auth.users senza
       segnalazione all'utente).
+- [x] Hotfix bulk-invite + import Excel: inviaWhatsapp ora
+      ritorna `{ ok, skipped?, error? }` (retrocompatibile);
+      `confirmBulkInvite` e il blocco `if (inviaInviti)` di
+      `confirmImportaExcelExecute` ora tentano tutti i canali
+      applicabili e contano "inviato" se almeno UNO ha
+      funzionato. Sblocca l'invio WA per clienti senza email
+      (caso introdotto dalla Fase 2).
 
 ### Fase 3 — Manager UI (TODO)
 - Menu ⋮ per ogni riga della tabella clienti (sezione Ombrelloni

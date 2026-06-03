@@ -224,6 +224,13 @@ I clienti senza email sono sempre esclusi dal pool inviabile, ma il riepilogo de
       fa rollback (delete profile, unblock_invito_email, signOut)
       e mostra alert se uno step fallisce. Niente piu' dashboard
       rotta silenziosa.
+  (c) confirmBulkInvite e confirmImportaExcelExecute in js/clienti.js
+      ora gestiscono multi-canale: tentano email (se presente) +
+      WA (se applicabile) per ogni cliente, e contano "inviato" se
+      almeno UNO funziona. Sblocca l'invio WhatsApp per clienti
+      senza email (Andrea Lombardi e simili). inviaWhatsapp in
+      js/utils.js ritorna ora { ok, skipped?, error? } per
+      permettere ai chiamanti di leggere il risultato.
 
 ## Mantenimento di questo file
 
