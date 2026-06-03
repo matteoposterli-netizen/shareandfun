@@ -3521,12 +3521,22 @@ function clearGestioneSelection() {
 }
 
 function bulkInviaInviti() {
+  // Raccoglie i cliente_id collegati agli ombrelloni selezionati,
+  // SENZA filtrare per registrato/non-registrato (lo fa il modale).
   const ids = Array.from(gestioneSelection);
   const clienteIds = ids.map(ombId => {
-    const c = (clientiList || []).find(cl => !cl.rifiutato && cl.ombrellone_id === ombId && !cl.user_id);
+    const c = (clientiList || []).find(cl => !cl.rifiutato && cl.ombrellone_id === ombId);
     return c ? c.id : null;
   }).filter(Boolean);
-  if (!clienteIds.length) { alert('Nessun cliente da invitare tra gli ombrelloni selezionati.'); return; }
+  // Aggiunge anche eventuali selezioni esplicite via checkbox cliente
+  // (selectedClienteIds) che potrebbero non avere ombrellone associato
+  selectedClienteIds.forEach(cid => {
+    if (!clienteIds.includes(cid)) clienteIds.push(cid);
+  });
+  if (!clienteIds.length) {
+    alert('Nessun cliente da invitare o resettare tra gli ombrelloni selezionati.');
+    return;
+  }
   openBulkInviteModal(clienteIds);
 }
 
