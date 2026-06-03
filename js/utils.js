@@ -260,3 +260,25 @@ async function inviaWhatsapp(tipo, params, stab) {
     console.error(`WA ${tipo} eccezione:`, e);
   }
 }
+
+// Distingue un input utente come email o telefono.
+// Regola semplice e robusta: contiene '@' -> email; altrimenti tel.
+// Casi di whitespace/empty: considerati non-email (l'eventuale
+// normalizzazione telefono ritornera' stringa vuota e il login
+// fallira' con "Credenziali errate", coerente con UX desiderata).
+function isEmailLike(s) {
+  return typeof s === 'string' && s.includes('@');
+}
+
+// Costruisce un'email sintetica deterministica a partire da un
+// telefono in formato E.164. Usata in fase di completamento invito
+// quando il cliente non ha un'email reale: diventa l'identificatore
+// tecnico su auth.users. NON e' un'email inviabile, e' solo un alias.
+// Esempio: "+393201234567" -> "393201234567@phone.spiaggiamia.it"
+function emailSinteticaDaTelefono(telE164) {
+  if (!telE164) return null;
+  // Rimuove il "+" iniziale ed eventuali caratteri non-digit residui
+  const digits = String(telE164).replace(/^\+/, '').replace(/\D/g, '');
+  if (!digits) return null;
+  return `${digits}@phone.spiaggiamia.it`;
+}

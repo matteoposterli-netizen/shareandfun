@@ -1,13 +1,46 @@
 async function doLogin() {
-  const email = document.getElementById('login-email').value.trim();
+  const idRaw = document.getElementById('login-identifier').value.trim();
   const password = document.getElementById('login-password').value;
   const btn = document.getElementById('btn-login');
-  if (!email || !password) { showAlert('login-alert', 'Compila tutti i campi', 'error'); return; }
-  btn.disabled = true; btn.textContent = 'Accesso in corso...';
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) { showAlert('login-alert', 'Email o password errati', 'error'); btn.disabled = false; btn.textContent = 'Accedi'; return; }
+  if (!idRaw || !password) {
+    showAlert('login-alert', 'Compila tutti i campi', 'error');
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Accesso in corso...';
+
+  // Disambiguazione: email se contiene '@', altrimenti telefono.
+  // Per il telefono usiamo la RPC backend per risalire all'email
+  // auth (vera o sintetica) e poi facciamo signIn con quella.
+  let emailDaUsare = null;
+  if (isEmailLike(idRaw)) {
+    emailDaUsare = idRaw;
+  } else {
+    const tel = normalizzaTelefonoIT(idRaw);
+    if (!tel) {
+      showAlert('login-alert', 'Email o password errati', 'error');
+      btn.disabled = false; btn.textContent = 'Accedi';
+      return;
+    }
+    const { data: emailLookup, error: lookupErr } = await sb.rpc('risolvi_login_da_telefono', { p_telefono: tel });
+    if (lookupErr || !emailLookup) {
+      // Messaggio sempre generico per evitare enumeration
+      showAlert('login-alert', 'Email o password errati', 'error');
+      btn.disabled = false; btn.textContent = 'Accedi';
+      return;
+    }
+    emailDaUsare = emailLookup;
+  }
+
+  const { data, error } = await sb.auth.signInWithPassword({ email: emailDaUsare, password });
+  if (error) {
+    showAlert('login-alert', 'Email o password errati', 'error');
+    btn.disabled = false; btn.textContent = 'Accedi';
+    return;
+  }
   currentUser = data.user;
   await loadUserAndRoute();
+
   // Log del login SOLO per proprietari (gli stagionali non sono tracciati).
   if (currentProfile?.ruolo === 'proprietario' && currentStabilimento?.id) {
     try {
@@ -15,12 +48,13 @@ async function doLogin() {
         p_stabilimento_id: currentStabilimento.id,
         p_entity_type: 'auth',
         p_action: 'login',
-        p_description: `Login proprietario: ${email}`,
-        p_metadata: { email, at: new Date().toISOString() },
+        p_description: `Login proprietario: ${emailDaUsare}`,
+        p_metadata: { email: emailDaUsare, at: new Date().toISOString() },
       });
     } catch (e) { console.error('audit login failed', e); }
   }
-  btn.disabled = false; btn.textContent = 'Accedi';
+  btn.disabled = false;
+  btn.textContent = 'Accedi';
 }
 
 async function doRegister() {
@@ -74,16 +108,68 @@ async function doRegister() {
 }
 
 async function doForgotPassword() {
-  const email = document.getElementById('forgot-email').value.trim();
+  const idRaw = document.getElementById('forgot-identifier').value.trim();
   const btn = document.getElementById('btn-forgot');
-  if (!email) { showAlert('forgot-alert', 'Inserisci la tua email', 'error'); return; }
-  btn.disabled = true; btn.textContent = 'Invio in corso...';
-  const redirectTo = `${window.location.origin}${window.location.pathname}?reset=1`;
-  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
-  btn.disabled = false; btn.textContent = 'Invia link di recupero';
-  if (error) { showAlert('forgot-alert', error.message || 'Errore durante l’invio dell’email', 'error'); return; }
-  showAlert('forgot-alert', 'Se l’email è registrata, riceverai a breve un link per reimpostare la password. Controlla anche lo spam.', 'success');
-  document.getElementById('forgot-email').value = '';
+  if (!idRaw) {
+    showAlert('forgot-alert', 'Inserisci la tua email o il numero di telefono', 'error');
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Invio in corso...';
+
+  // Ramo email: usa il flusso nativo Supabase (manda mail con link).
+  // Ramo telefono: chiama la Edge Function "recupero-password" che
+  // genera il magic link via Admin API e lo invia via WhatsApp.
+  // In entrambi i casi mostriamo un messaggio generico al ritorno.
+  try {
+    if (isEmailLike(idRaw)) {
+      const redirectTo = `${window.location.origin}${window.location.pathname}?reset=1`;
+      const { error } = await sb.auth.resetPasswordForEmail(idRaw, { redirectTo });
+      if (error) {
+        // Anche su errore manteniamo un messaggio generico per
+        // non rivelare l'esistenza/inesistenza dell'account.
+        console.warn('resetPasswordForEmail error', error);
+      }
+    } else {
+      const tel = normalizzaTelefonoIT(idRaw);
+      if (!tel) {
+        // Input non parsabile: comunque mostriamo il messaggio generico
+        // per coerenza UX (l'utente capisce di aver sbagliato).
+        showAlert('forgot-alert',
+          'Se l\'identificativo è registrato, riceverai a breve un link per reimpostare la password. Controlla anche lo spam (se hai inserito un\'email) o WhatsApp (se hai inserito un numero).',
+          'success');
+        document.getElementById('forgot-identifier').value = '';
+        btn.disabled = false; btn.textContent = 'Invia link di recupero';
+        return;
+      }
+      // Chiama la Edge Function recupero-password
+      const { data: { session } } = await sb.auth.getSession();
+      const headers = { 'Content-Type': 'application/json' };
+      // Non e' necessario un JWT utente: la function accetta anon
+      // (gestisce internamente la sicurezza via service-role per
+      // l'invio WA, e la risposta e' sempre generica).
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/recupero-password`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ identificatore: tel, canale: 'telefono' }),
+        });
+      } catch (e) {
+        console.warn('recupero-password fetch error', e);
+      }
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Invia link di recupero';
+  }
+
+  showAlert('forgot-alert',
+    'Se l\'identificativo è registrato, riceverai a breve un link per reimpostare la password. Controlla anche lo spam (se hai inserito un\'email) o WhatsApp (se hai inserito un numero).',
+    'success');
+  document.getElementById('forgot-identifier').value = '';
 }
 
 async function doResetPassword() {
@@ -119,13 +205,26 @@ async function showInvitoView(token) {
   currentInviteData = data[0];
   document.getElementById('invito-title').textContent = `Benvenuto, ${currentInviteData.nome}!`;
   document.getElementById('invito-sub').textContent = `Sei stato invitato da ${currentInviteData.stabilimento_nome}. Imposta la tua password per accedere.`;
+
+  // Mostriamo SEMPRE email e telefono. Se manca uno dei due, lo
+  // segnaliamo esplicitamente come "(non impostato)" cosi' il cliente
+  // sa di poter accedere solo con l'altro identificatore.
+  const emailVal = currentInviteData.email
+    ? currentInviteData.email
+    : '<span style="color:var(--text-light)">(non impostata)</span>';
+  const telVal = currentInviteData.telefono
+    ? currentInviteData.telefono
+    : '<span style="color:var(--text-light)">(non impostato)</span>';
+
   const rows = [
     `<div style="font-weight:600;color:var(--text-dark);margin-bottom:8px">${currentInviteData.nome} ${currentInviteData.cognome}</div>`,
-    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">📧 <span>${currentInviteData.email}</span></div>`,
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">📧 <span>${emailVal}</span></div>`,
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">📞 <span>${telVal}</span></div>`,
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">🏖️ <span>${currentInviteData.stabilimento_nome}</span></div>`,
   ];
-  if (currentInviteData.telefono) rows.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">📞 <span>${currentInviteData.telefono}</span></div>`);
-  rows.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">🏖️ <span>${currentInviteData.stabilimento_nome}</span></div>`);
-  if (currentInviteData.ombrellone_codice) rows.push(`<div style="display:flex;align-items:center;gap:8px">☂️ <span>Ombrellone: ${currentInviteData.ombrellone_codice}</span></div>`);
+  if (currentInviteData.ombrellone_codice) {
+    rows.push(`<div style="display:flex;align-items:center;gap:8px">☂️ <span>Ombrellone: ${currentInviteData.ombrellone_codice}</span></div>`);
+  }
   document.getElementById('invito-info').innerHTML = rows.join('');
   document.getElementById('invito-password').value = '';
   document.getElementById('invito-password2').value = '';
@@ -136,33 +235,89 @@ async function completeInviteRegistration() {
   if (!currentInviteData || !currentInviteToken) return;
   const pwd = document.getElementById('invito-password').value;
   const pwd2 = document.getElementById('invito-password2').value;
-  if (pwd.length < 6) { showAlert('invito-alert', 'La password deve avere almeno 6 caratteri', 'error'); return; }
-  if (pwd !== pwd2) { showAlert('invito-alert', 'Le password non coincidono', 'error'); return; }
+  if (pwd.length < 6) {
+    showAlert('invito-alert', 'La password deve avere almeno 6 caratteri', 'error');
+    return;
+  }
+  if (pwd !== pwd2) {
+    showAlert('invito-alert', 'Le password non coincidono', 'error');
+    return;
+  }
   const btn = document.getElementById('btn-invito');
   btn.disabled = true; btn.textContent = 'Registrazione in corso...';
-  let { data, error } = await sb.auth.signUp({ email: currentInviteData.email, password: pwd });
+
+  // Determina l'email da usare per la signUp:
+  //  - se il cliente ha un'email reale: quella
+  //  - altrimenti, costruisce un'email sintetica dal telefono
+  //    (alias tecnico, non inviabile)
+  let signUpEmail = currentInviteData.email || null;
+  if (!signUpEmail) {
+    const telE164 = currentInviteData.telefono
+      ? normalizzaTelefonoIT(currentInviteData.telefono)
+      : null;
+    signUpEmail = emailSinteticaDaTelefono(telE164);
+  }
+  if (!signUpEmail) {
+    // Pre-condizione difensiva: il manager ha creato il cliente senza
+    // email e senza telefono. Non dovrebbe accadere dalla UI manager,
+    // ma proteggiamo l'utente con un messaggio chiaro.
+    showAlert('invito-alert',
+      'Il tuo account non ha né email né telefono. Contatta lo stabilimento per completare i dati.',
+      'error');
+    btn.disabled = false; btn.textContent = 'Accedi a SpiaggiaMia →';
+    return;
+  }
+
+  let { data, error } = await sb.auth.signUp({ email: signUpEmail, password: pwd });
   if (error && /already registered/i.test(error.message || '')) {
     const { data: unblocked } = await sb.rpc('unblock_invito_email', { p_token: currentInviteToken });
     if (unblocked) {
-      ({ data, error } = await sb.auth.signUp({ email: currentInviteData.email, password: pwd }));
+      ({ data, error } = await sb.auth.signUp({ email: signUpEmail, password: pwd }));
     }
   }
   if (error) {
     const msg = /already registered/i.test(error.message || '')
-      ? 'Questo indirizzo email risulta già associato a un account precedente che non è stato ripulito. Contatta lo stabilimento per sbloccare la registrazione.'
+      ? 'Questo identificativo risulta già associato a un account precedente che non è stato ripulito. Contatta lo stabilimento per sbloccare la registrazione.'
       : error.message;
     showAlert('invito-alert', msg, 'error');
     btn.disabled = false; btn.textContent = 'Accedi a SpiaggiaMia →';
     return;
   }
   currentUser = data.user;
-  await sb.from('profiles').insert({ id: currentUser.id, nome: currentInviteData.nome, cognome: currentInviteData.cognome, ruolo: 'stagionale' });
+
+  await sb.from('profiles').insert({
+    id: currentUser.id,
+    nome: currentInviteData.nome,
+    cognome: currentInviteData.cognome,
+    ruolo: 'stagionale',
+  });
   await sb.rpc('completa_registrazione_invito', { p_token: currentInviteToken, p_user_id: currentUser.id });
-  const { data: stab } = await sb.from('stabilimenti').select('id,nome,telefono,email,wa_enabled,email_benvenuto_oggetto,email_benvenuto_testo').eq('id', currentInviteData.stabilimento_id).single();
+
+  const { data: stab } = await sb.from('stabilimenti')
+    .select('id,nome,telefono,email,wa_enabled,email_benvenuto_oggetto,email_benvenuto_testo')
+    .eq('id', currentInviteData.stabilimento_id).single();
   const ombLabel = currentInviteData.ombrellone_codice || null;
-  const loginLink = `${window.location.origin}/?login=${encodeURIComponent(currentInviteData.email)}`;
-  await inviaEmail('benvenuto', { email: currentInviteData.email, nome: currentInviteData.nome, cognome: currentInviteData.cognome, ombrellone: ombLabel, login_link: loginLink }, stab);
+
+  // Login link: usa l'email reale se c'e', altrimenti il telefono
+  // visualizzabile (formato E.164 dal trigger backend).
+  const loginIdentifier = currentInviteData.email || currentInviteData.telefono || signUpEmail;
+  const loginLink = `${window.location.origin}/?login=${encodeURIComponent(loginIdentifier)}`;
+
+  // L'email di benvenuto parte solo se il cliente ha email reale.
+  // Per i clienti con solo telefono, il messaggio di benvenuto e'
+  // affidato al canale WhatsApp (inviaWhatsapp gestisce il consenso
+  // e l'eventuale assenza del template Meta).
+  if (currentInviteData.email) {
+    await inviaEmail('benvenuto', {
+      email: currentInviteData.email,
+      nome: currentInviteData.nome,
+      cognome: currentInviteData.cognome,
+      ombrellone: ombLabel,
+      login_link: loginLink,
+    }, stab);
+  }
   inviaWhatsapp('benvenuto', { cliente_id: currentInviteData.id }, stab);
+
   const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
   currentProfile = profile;
   updateNav();

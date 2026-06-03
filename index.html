@@ -95,6 +95,9 @@
       <div class="auth-sub" id="invito-sub">Sei stato invitato. Imposta la tua password per accedere.</div>
       <div id="invito-alert"></div>
       <div id="invito-info" style="background:var(--sand);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:20px;font-size:13px;color:var(--text-mid)"></div>
+      <div style="font-size:12px;color:var(--text-light);margin:-8px 0 18px;padding:0 4px;line-height:1.5">
+        💡 Imposta la password che vorrai usare. Da qui in poi potrai accedere usando <strong>l'email</strong> o <strong>il numero di telefono</strong> qui sopra.
+      </div>
       <div class="form-group">
         <label class="form-label">Password</label>
         <div class="password-wrap">
@@ -131,8 +134,8 @@
         <div class="auth-sub">Accedi al tuo account</div>
         <div id="login-alert"></div>
         <div class="form-group">
-          <label class="form-label">Email</label>
-          <input type="email" id="login-email" class="form-input" placeholder="mario@example.com">
+          <label class="form-label">Email o numero di telefono</label>
+          <input type="text" id="login-identifier" class="form-input" placeholder="mario@example.com oppure +39 333 1234567" autocomplete="username" inputmode="text">
         </div>
         <div class="form-group">
           <label class="form-label">Password</label>
@@ -151,11 +154,11 @@
       <!-- FORGOT PASSWORD -->
       <div id="auth-forgot" class="hidden">
         <div class="auth-title">Recupera password</div>
-        <div class="auth-sub">Inserisci la tua email: ti invieremo un link per impostare una nuova password. Funziona sia per i proprietari di stabilimento sia per i clienti stagionali.</div>
+        <div class="auth-sub">Inserisci la tua email o il tuo numero di telefono. Ti invieremo un link per impostare una nuova password — via email se hai inserito l'email, via WhatsApp se hai inserito il telefono.</div>
         <div id="forgot-alert"></div>
         <div class="form-group">
-          <label class="form-label">Email</label>
-          <input type="email" id="forgot-email" class="form-input" placeholder="mario@example.com" autocomplete="email">
+          <label class="form-label">Email o numero di telefono</label>
+          <input type="text" id="forgot-identifier" class="form-input" placeholder="mario@example.com oppure +39 333 1234567" autocomplete="username">
         </div>
         <button class="btn btn-primary btn-full" onclick="doForgotPassword()" id="btn-forgot">Invia link di recupero</button>
         <div class="auth-switch">Ti sei ricordato? <a onclick="toggleAuth('login')">Torna al login</a></div>

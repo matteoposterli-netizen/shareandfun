@@ -35,7 +35,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     await sb.auth.signOut();
     currentUser = null; currentProfile = null; currentStabilimento = null;
     updateNav();
-    const emailInput = document.getElementById('login-email');
+    const emailInput = document.getElementById('login-identifier');
     if (emailInput && loginEmail) emailInput.value = loginEmail;
     window.history.replaceState({}, '', window.location.pathname);
     showView('auth', 'login');
