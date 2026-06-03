@@ -1,25 +1,31 @@
 # SpiaggiaMia — Integrazione notifiche WhatsApp (stato e piano)
 
 Documento di riferimento per la knowledge base del progetto.
-Ultimo aggiornamento: 2 giugno 2026 (dopo test reale end-to-end).
+Ultimo aggiornamento: 3 giugno 2026 (post-Fase 3 + iterazione template recupero_password).
 
 ## STATO ATTUALE (TL;DR)
 
-**Integrazione completa e funzionante end-to-end. Bloccata solo dall'approvazione
-Meta del template business-initiated.**
+**Integrazione tecnica completa e funzionante end-to-end. Bloccata SOLO da Meta
+sull'approvazione business-initiated dei template.**
 
-- ✅ Frontend → Edge Function → Twilio: catena verificata in produzione (POST 200,
-  execution ~1.8s, conferma chiamata reale a Twilio)
+- ✅ Frontend → Edge Function → Twilio: catena verificata in produzione
 - ✅ Twilio Sender `+393520426199` ONLINE, display name "SpiaggiaMia"
-- ✅ Tutti i 3 template approvati per **WhatsApp user initiated**
-- ⏳ Tutti i 3 template ancora **PENDING** per **WhatsApp business initiated**
-  (necessario per inviare proattivamente a chi non ha mai scritto al numero)
-- ❌ Errore Twilio attuale: **63016 "Outside messaging window"** — sintomo classico
-  di template business-initiated non ancora abilitato
+- ✅ Profilo WhatsApp Business compilato (descrizione, indirizzo, email, sito web)
+- ✅ Reset password manager-driven (Fase 3) — funziona via email, WA in attesa
+- ⏳ **Template invito/benvenuto/subaffitto**: in pending Meta da 48h+ per
+  "WhatsApp business initiated" → aperto ticket Twilio Support il 3 giu 2026
+- ❌ **Template recupero_password v1**: REJECTED da Meta per
+  `subCode=2388299, userMessage=Variables can't be at the start or end of the template`
+  → ricreato come v2 con body fix, in pending review
+- ❌ **Business verification Meta**: NON procedibile (Matteo è persona fisica
+  senza P.IVA registrata). Conseguenze: limite 250 conv/24h, review template più
+  stringente. Non blocker assoluto per MVP.
 
-**Tempo di attesa Meta**: 6-48h tipiche per WABA appena creati. Quando il box
-"WhatsApp business initiated" diventerà verde su tutti e 3 i template, il WhatsApp
-partirà automaticamente al primo evento.
+**Insight critico confermato dal Meta Business Manager**: nei "Insights" del
+numero +393520426199 si vede `Messaggi inviati: 0, Messaggi consegnati: 0, Costi
+stimati: $0`. Significa che NESSUNO dei WA "inviati" finora dal sistema è davvero
+arrivato sui cellulari dei clienti — Twilio li ha presi in carico (HTTP 200) ma
+Meta li ha bloccati al gateway perché i template sono in pending.
 
 ## 1. Obiettivo
 
@@ -27,166 +33,231 @@ WhatsApp funziona **in parallelo all'email**: per ogni evento il sistema invia s
 email e/o WhatsApp a seconda di telefono + consenso del cliente. Tono WhatsApp
 informale. Primo rilascio: notifiche transazionali verso clienti **stagionali**.
 
-## 2. Flusso/eventi (3 messaggi automatici)
+## 2. Flusso/eventi (4 messaggi automatici)
 
-1. **Invito** — gestore invita il cliente; link per creare la password.
-2. **Benvenuto** — quando il cliente completa la registrazione (`auth.js`).
-3. **Sub-affitto confermato** — quando il gestore conferma un sub-affitto: periodo
-   + credito guadagnato + credito totale.
+1. **Invito** — gestore invita il cliente; link per creare la password
+2. **Benvenuto** — quando il cliente completa la registrazione (`auth.js`)
+3. **Sub-affitto confermato** — gestore conferma sub-affitto: periodo + credito
+4. **Recupero password** — Fase 3, manager-driven via menu ⋮ o bulk modal
+   (`richiedi-reset-cliente`)
 
-WhatsApp è un dispatcher fire-and-forget accanto a `inviaEmail`. L'errore WA non
+WhatsApp è dispatcher fire-and-forget accanto a `inviaEmail`. L'errore WA non
 blocca mai email o flusso DB.
 
-## 3. Architettura (gestione centralizzata admin)
+## 3. Architettura
 
-Messaggi uguali per tutti i gestori, non personalizzabili dalla UI. Tab WhatsApp
-del gestore in sola lettura.
-
-- **Edge Function `invia-whatsapp`** (`supabase/functions/invia-whatsapp/index.ts`):
+- **Edge Function `invia-whatsapp`** (v10 al 3 giu 2026):
   - Credenziali e Content SID **da env var** (Supabase secrets), niente tabella DB
-  - Riceve `{ tipo, stabilimento_id, cliente_id, ...params }`, fa lookup autonomo
-    di cliente e stabilimento
+  - Accetta sia chiamate server-to-server con SERVICE_KEY sia user-JWT (per
+    `recupero_password` con ownership check sul proprietario dello stabilimento)
   - Skip silenzioso se `wa_enabled=false`, `whatsapp_consenso=false`, o telefono
     non E.164 valido
-- **Helper frontend** `inviaWhatsapp(tipo, params, stab)` in `js/utils.js`:
-  fire-and-forget; si ferma se `stab?.wa_enabled` falso (evita chiamate inutili)
+- **Edge Function `richiedi-reset-cliente`** (v4 al 3 giu 2026, Fase 3):
+  - Manager-driven: genera recovery link via Admin API, sceglie canale (email/WA),
+    invia tramite invia-email o invia-whatsapp
+  - Passa il JWT del manager (non SERVICE_KEY) per le chiamate interne — risolve
+    401 osservato in prod quando SUPABASE_SERVICE_ROLE_KEY env var non è
+    disponibile/valida nel runtime della function
+  - Per WA: estrae solo la query string del recovery link (`recoveryUrl.search`)
+    e la passa come variabile `{{4}}` — il template Twilio ha prefisso URL fisso
+    `https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify?{{4}}`
+- **Helper frontend** `inviaWhatsapp(tipo, params, stab)` in `js/utils.js`
+- **Helper frontend** `richiediResetCliente(clienteId, canale)` in `js/utils.js`
 - **Toggle per-stabilimento**: `stabilimenti.wa_enabled` (boolean, default false)
 - **Consenso per-cliente**: `clienti_stagionali.whatsapp_consenso` +
   `whatsapp_consenso_at`
-- **Secret Supabase**: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
+- **Secret Supabase richiesti**: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
   `TWILIO_WA_FROM=whatsapp:+393520426199`, `WA_SID_INVITO`, `WA_SID_BENVENUTO`,
-  `WA_SID_SUBAFFITTO`
+  `WA_SID_SUBAFFITTO`, `WA_SID_RECUPERO` (quest'ultima da settare quando v2 è
+  approvato)
 
 ## 4. Template Twilio (Content SID definitivi)
 
 Categoria **Utility**, lingua **Italian**.
 
 1. **`spiaggiamia_invito_stagionale`** — SID `HXa6ec64d24da74f0d8348c7e180d727e8`
-   (Call To Action con bottone URL)
+   - Call To Action con bottone URL
    - Variabili body: 1=nome, 2=stabilimento
    - Bottone URL dinamico: token invito (chiave `button_1_url_0`)
+   - Status Meta: ⏳ pending business-initiated (>48h, ticket aperto Twilio)
 
 2. **`spiaggiamia_benvenuto_stagionale`** — SID `HXf42d6a56208f5e790550d1e38a9f54a3`
-   (Text)
+   - Text
    - Variabili: 1=nome, 2=stabilimento
+   - Status Meta: ⏳ pending business-initiated (>48h)
 
 3. **`spiaggiamia_subaffitto_confermato`** — SID `HXa9170abc05f727eab8fbd4cfa253779b`
-   (Text)
-   - Variabili: 1=nome, 2=periodo, 3=credito guadagnato, 4=credito totale,
-     5=stabilimento
+   - Text
+   - Variabili: 1=nome, 2=periodo, 3=credito guadagnato, 4=credito totale, 5=stabilimento
+   - Status Meta: ⏳ pending business-initiated (>48h)
+
+4. **`spiaggiamia_recupero_password`** (v1) — SID `HXe0b44b18fae266c18cabe3973a5f708f`
+   - Call To Action con bottone URL
+   - Status Meta: ❌ **REJECTED** il 3 giu 2026
+   - Rejection reason: `code=100, subCode=2388299, userMessage=Variables can't be
+     at the start or end of the template`
+   - Causa: il body terminava con `"... contatta direttamente {{3}}."` — Meta
+     considera il `.` non testo sufficiente, vede `{{3}}` come variabile finale
+   - Stato: cancellato da Twilio, sostituito dal v2
+
+5. **`spiaggiamia_recupero_password_v2`** — SID **TBD** (creato il 3 giu 2026)
+   - Call To Action con bottone URL
+   - Body fixato per evitare variabili in posizioni terminali:
+     ```
+     Reset password per {{1}}
+
+     Ciao {{2}}, è stata richiesta una nuova password per il tuo account
+     gestito da {{3}}.
+
+     Tocca il pulsante qui sotto per impostarla. Il link è valido per un'ora.
+
+     Se non hai richiesto tu, ignora questo messaggio o contatta lo stabilimento.
+     ```
+   - Variabili body: 1=stabilimento (intro), 2=nome cliente, 3=stabilimento (body)
+   - Button URL: `https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify?{{4}}`
+   - Variabile {{4}}: solo la query string del recovery link Supabase (token,
+     type, redirect_to). NON l'URL completo (Meta richiede prefisso URL fisso)
+   - Status Meta: ⏳ pending submission del 3 giu 2026
 
 ## 5. Numero pilota: BYON eSIM Iliad
 
-- Numero **`+393520426199`**, dedicato a SpiaggiaMia, mai usato su WhatsApp prima
+- Numero **`+393520426199`**, dedicato a SpiaggiaMia
 - Account Twilio paid (Active)
-- Sender ONLINE con display name "SpiaggiaMia"
+- Sender ONLINE con display name "SpiaggiaMia" approvato
 - Twilio WABA ID: 1658468622079031
 - Meta Business Manager ID: 982498484190082
+- Profilo business compilato il 3 giu 2026: descrizione, indirizzo, email, sito
+  web. Categoria: "Servizi locali"
 
 ## 6. Vincoli Meta
 
-- **250 conversazioni business-initiated / 24h** finché la business verification Meta
-  non è completata (post-pilota)
+- **250 conversazioni business-initiated / 24h** finché la business verification
+  Meta non è completata
+- **Business verification**: NON procedibile per persone fisiche senza P.IVA.
+  Quando il business avrà i primi pagamenti reali, valutare apertura P.IVA
+  forfettaria → sblocca verification → 1k+ conv/24h
 - **Quality rating "Unavailable"** finora — normale per sender appena registrato
 
-## 7. Test reale eseguito (2 giu 2026, ~21:30-21:47 CEST)
+## 7. Storia delle iterazioni di approval
 
-Setup test:
-- Stabilimento **Universo** (UUID `2c82f99e-992e-4935-9aa7-9d0bd94d9799`):
-  `wa_enabled=true`
-- Cliente **Riccardo Marino** (UUID `9fa41ea5-d050-4a03-a9f0-7b4a464255ee`),
-  ombrellone 48: telefono `+393299088725`, `whatsapp_consenso=true`
+### Tentativo 1 (giugno 2026): submission iniziale
+3 template (invito, benvenuto, subaffitto) sottomessi per WhatsApp approval Meta
+con categoria Utility. Tutti accettati come user-initiated immediatamente. Tutti
+**pending** come business-initiated.
 
-Risultato: 3 invii di invito tentati. Risposta Twilio per tutti:
-**Error 63016 — Outside messaging window. For WhatsApp, use a Message Template
-instead**.
+### Tentativo 2 (3 giugno 2026): recupero_password v1
+Sottomesso con body:
+```
+Reset password – {{1}}
 
-Diagnosi: la chiamata API sta passando correttamente `ContentSid`, ma Twilio rifiuta
-perché il template non è ancora abilitato per business-initiated. La catena tecnica
-funziona; manca solo l'OK Meta.
+Ciao {{2}}, è stata richiesta una nuova password per il tuo account SpiaggiaMia
+gestito da {{3}}. ... Se non hai richiesto tu il reset, contatta direttamente {{3}}.
+```
+**Rejected** con motivo `Variables can't be at the start or end of the template`.
+Recuperato il motivo via PowerShell + Twilio API:
+```powershell
+Invoke-RestMethod -Uri "https://content.twilio.com/v1/Content/{SID}/ApprovalRequests" -Headers $headers
+```
 
-Verifiche fatte nel debug:
-- Edge Function logs: 2 invocazioni POST 200, exec ~798ms e ~1815ms (compatibili
-  con chiamata reale a Twilio)
-- Network DevTools: chiamata `/functions/v1/invia-whatsapp` con status 200
-- Twilio Console → Monitor → Messaging Logs: tutti i 3 tentativi "Undelivered"
-  con errore 63016
-- Twilio Console → Senders: SpiaggiaMia ONLINE
-- Twilio Console → Templates: tutti e 3 con "WhatsApp user initiated" verde,
-  "WhatsApp business initiated" ancora grigio (pending)
+### Tentativo 3 (3 giugno 2026): recupero_password v2
+Sottomesso con body fixato (testo statico alla fine, non variabili). In attesa.
 
-## 8. Bug trovato e fissato durante il debug
+### Ticket Twilio Support (3 giugno 2026)
+Aperto da Matteo per segnalare che i template invito/benvenuto/subaffitto sono
+pending Meta da >48h, fuori dai SLA tipici (6-24h).
 
-`currentStabilimento` viene caricato al login del gestore (in `router.js`,
-`select('*')`). Se il gestore modifica `wa_enabled` dal DB SQL (non dalla UI),
-la variabile in memoria browser resta stale fino al refresh. **Workaround**:
-hard refresh dopo cambio `wa_enabled`. **Fix futuro**: aggiornare
-`currentStabilimento` localmente quando il toggle dal pannello Comunicazioni viene
-salvato.
+## 8. Fase 3 — Reset password manager-driven
+
+Completata in main il 3 giu 2026. PR #104 + #105 + #106 + commit standalone.
+
+- Frontend: menu ⋮ contestuale al posto di "[Invita]" in tabella Ombrelloni/Clienti
+- 6 azioni: copia link, invito email/WA, rigenera link, reset email/WA
+- Bulk modale unificato: accetta selezione mista (registrati + non-registrati),
+  auto-split INVITO vs RESET con badge colorati
+- Backend: nuova Edge Function `richiedi-reset-cliente` (manager-driven con
+  ownership check)
+- Esteso `invia-email` con tipo `reset_password` (template HTML + CTA)
+
+Test reset password via **email**: ✅ funziona end-to-end (testato cliente
+Matteo Posterli ombrellone 100, email reale).
+
+Test reset password via **WhatsApp**: tecnicamente parte (HTTP 200, alert success
+✅), MA il messaggio NON arriva sul cellulare perché il template Meta non è
+ancora approvato. Verifica nel Meta Business Manager → Insights: 0 messaggi
+consegnati.
 
 ## 9. STATO DEGLI STEP
 
 - [x] **0. Strategia / provider Twilio / architettura** — definite
-- [x] **1. Migration consenso** — `whatsapp_consenso` + `whatsapp_consenso_at` su
-      `clienti_stagionali`
+- [x] **1. Migration consenso** — `whatsapp_consenso` + `whatsapp_consenso_at`
 - [x] **5a. Consenso in anagrafica gestore** — checkbox nel form modifica cliente
 - [x] **5b. Preferenze dashboard stagionale** — scheda "Notifiche"
-- [x] **2. Setup Twilio** — account paid, Sandbox testata, secret configurati
+- [x] **2. Setup Twilio** — account paid, secret configurati
 - [x] **2b. WhatsApp Sender BYON** — eSIM Iliad `+393520426199` ONLINE
-- [x] **3. Template** — 3 template creati con Content SID
+- [x] **3. Template invito/benvenuto/subaffitto** — creati con Content SID
 - [x] **4a. Tab WhatsApp gestore** — sub-tab Configurazioni + tab Comunicazioni
-      (sola lettura)
-- [x] **4b. Edge Function `invia-whatsapp`** — v5 ACTIVE in produzione
-- [x] **4b-bis. Agganci agli eventi** — tutti completi:
-  - Invito da modal "Aggiungi cliente" (`manager.js → saveCliente`)
-  - Invito via import Excel (`clienti.js → confirmImportaExcelExecute`)
-  - Invito via bulk invite (`clienti.js → confirmBulkInvite`)
-  - Invito singolo da icona ✉️ (passa per `invitaSingolo` → bulk modal → agganciato)
-  - Benvenuto (`auth.js → completeInviteRegistration`)
-  - Sub-affitto confermato (`manager.js → finalizeBookingSelection`, con fix
-    bug latente raccolta date)
-- [x] **Cleanup `whatsapp_config`** — migration drop applicata, tabella eliminata
-- [x] **Test end-to-end frontend → function → Twilio** — eseguito 2 giu 2026,
-      catena funzionante
-- [ ] **Approvazione Meta business-initiated dei 3 template** — in corso, attesa
-      tipica 6-48h, bloccante per il delivery effettivo
-- [ ] **6. Produzione post-pilota** — business verification Meta per superare 250
-      conv/24h
+- [x] **4b. Edge Function `invia-whatsapp`** — v10 ACTIVE (3 giu 2026, accetta
+      manager-auth + ownership per recupero_password)
+- [x] **4b-bis. Agganci agli eventi** — tutti completi (invito, benvenuto, subaffitto)
+- [x] **Cleanup `whatsapp_config`** — tabella eliminata
+- [x] **Fase 3 — Reset password manager-driven** — completa, in main
+- [x] **richiedi-reset-cliente Edge Function** — v4 ACTIVE (3 giu 2026)
+- [x] **Profilo WhatsApp Business completo** — descrizione, indirizzo, email, sito
+- [x] **Recupero password v1 sottomesso** — rejected per "variables at start/end"
+- [x] **Recupero password v2 sottomesso** — pending review Meta
+- [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto**
+- [ ] **Approvazione Meta recupero_password v2**
+- [ ] **WA_SID_RECUPERO settato su Supabase Secrets** (post-approval v2)
+- [ ] **Test end-to-end WA recupero password** sul cellulare (post-approval)
+- [ ] **Business verification Meta** — bloccata da mancanza P.IVA (long term)
 
-## 10. UUID stabilimenti (riferimento)
+## 10. Come riprendere il test (quando Meta approva)
+
+**Quando i 4 template diventano verdi per business-initiated:**
+
+1. **Per i 3 template invito/benvenuto/subaffitto**: nessun cambio codice
+   necessario, Edge Functions già pronte → al primo evento (invito/benvenuto/
+   subaffitto) i WA dovrebbero partire automaticamente
+
+2. **Per recupero_password v2**:
+   - Copia il **nuovo Content SID** del v2 da Twilio Console
+   - Supabase Dashboard → Edge Functions → Secrets → aggiungi/aggiorna
+     `WA_SID_RECUPERO` = `HX...` (v2 SID)
+   - Nessun redeploy necessario (env var lette al runtime)
+   - Test browser: ⋮ su Nicola Rizzo (ombrellone 104) → "Invia reset password
+     via WhatsApp" → atteso WA sul cellulare con button "Imposta nuova password"
+
+3. **Verifica delivery reale**: dopo qualsiasi test WA, controlla Meta Business
+   Manager → WhatsApp Manager → Numeri di telefono → click sul numero → tab
+   Insights → "Tutti i messaggi" → deve aumentare "Messaggi inviati" e
+   "Messaggi consegnati" (NON solo "ricevuti"). Se restano a 0, Meta ha
+   bloccato il template. Se aumentano, è arrivato.
+
+## 11. Per nuove sessioni Claude
+
+Leggi questo file con `get_file_contents` per orientarti. Punti chiave:
+- Tutta l'infrastruttura tecnica è in main e in produzione
+- Edge functions deployate: `invia-whatsapp` v10, `richiedi-reset-cliente` v4
+- Manca solo l'approvazione Meta dei template (asincrona, fuori controllo)
+- Per recupero_password specifico: serve attendere v2 approval + settare
+  `WA_SID_RECUPERO` su Supabase Secrets
+
+Verifica status template su:
+- https://console.twilio.com/us1/develop/sms/content-template-builder
+- Cerca i 4 template `spiaggiamia_*`
+- "WhatsApp business initiated" verde = ok, può essere usato
+
+## 12. UUID stabilimenti (riferimento)
 
 | Nome | UUID | wa_enabled |
 |------|------|------------|
-| dede | `5f0cf433-eaf7-4b8b-9da6-a87d972abdda` | false |
 | Universo (test in corso) | `2c82f99e-992e-4935-9aa7-9d0bd94d9799` | true |
+| dede | `5f0cf433-eaf7-4b8b-9da6-a87d972abdda` | false |
 
-## 11. Come riprendere il test (quando Meta approva)
+## 13. Clienti di test pilota
 
-**Quando il template business-initiated diventa verde su tutti e 3:**
-
-1. Verifica template approvati: Twilio Console → Content Template Builder → tutti
-   con entrambi i pallini verdi (user-initiated + business-initiated)
-
-2. Riprova un evento qualunque (sub-affitto è il più rapido):
-   - Login come gestore di Universo
-   - Vai su "Gestisci Prenotazioni"
-   - Seleziona ombrellone 48 + un giorno
-   - Finalizza prenotazione
-
-3. Riccardo Marino (telefono +393299088725) dovrebbe ricevere il messaggio WhatsApp
-   nel giro di pochi secondi.
-
-4. Se ancora errore: aprire ticket Twilio Support.
-
-## 12. Riprendere da qui (per nuove sessioni Claude)
-
-Quando riapri una chat, leggi questo file con `get_file_contents`. La configurazione
-WhatsApp è **completa**. L'unica cosa che manca è l'approvazione Meta dei template,
-che è fuori dal nostro controllo. Tutto il codice e l'infrastruttura è già in main
-e in produzione.
-
-Per verificare se Meta ha approvato:
-- Pagina template Twilio: https://console.twilio.com/us1/develop/sms/content-template-builder
-- Cerca i 3 template `spiaggiamia_*` e guarda se "WhatsApp business initiated" è verde
-
-Se sì → si testa. Se ancora no → si aspetta.
+| Nome | Ombrellone | Telefono | WA consenso | Note |
+|------|------------|----------|-------------|------|
+| Matteo Posterli | 100 | +393299088725 | false | Registrato, email reale |
+| Nicola Rizzo | 104 | +393339876543 | true | Registrato, email sintetica |
+| Andrea Lombardi | 105 | +393299088725 | true | Non registrato |
