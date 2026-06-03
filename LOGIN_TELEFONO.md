@@ -35,6 +35,10 @@ telefono.
   - unique index parziale `uniq_telefono_clienti_registrati`
   - RPC `risolvi_login_da_telefono(text) -> text`
   - RPC `rigenera_invito_token(uuid) -> uuid`
+- [x] SQL migration `20260603130000_login_telefono_hardening.sql`
+      (post-advisor): `SET search_path = public` sui due helper,
+      `REVOKE EXECUTE FROM PUBLIC/anon` su `rigenera_invito_token`
+      (solo `authenticated`), pulizia telefoni `''` → NULL.
 - [x] Edge Function nuova `recupero-password`
 - [x] Estensione `invia-whatsapp` per tipo `recupero_password`
 - [ ] **TODO esterno**: creare e sottomettere a Meta il template
