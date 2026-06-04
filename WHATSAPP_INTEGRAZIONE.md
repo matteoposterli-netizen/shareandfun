@@ -1,23 +1,28 @@
 # SpiaggiaMia — Integrazione notifiche WhatsApp (stato e piano)
 
 Documento di riferimento per la knowledge base del progetto.
-Ultimo aggiornamento: 4 giugno 2026 (ricreazione template + edge functions diagnostiche)
+Ultimo aggiornamento: 4 giugno 2026 (post-verifica: 3 stagionali in pending Meta; auto-riclassificati MARKETING)
 
 ## STATO ATTUALE (TL;DR)
 
 **Integrazione tecnica completa e funzionante end-to-end. Bloccata SOLO da Meta
-sull'approvazione business-initiated dei template.**
+sull'approvazione finale dei template.**
 
 - ✅ Frontend → Edge Function → Twilio: catena verificata in produzione
 - ✅ Twilio Sender `+393520426199` ONLINE, display name "SpiaggiaMia"
 - ✅ Profilo WhatsApp Business compilato (descrizione, indirizzo, email, sito web)
 - ✅ Reset password manager-driven (Fase 3) — funziona via email, WA in attesa
-- ⏳ **Template invito/benvenuto/subaffitto**: in pending Meta da 48h+ per
-  "WhatsApp business initiated" → aperto ticket Twilio Support il 3 giu 2026
+- 🟡 **Template invito/benvenuto/subaffitto**: ricreati 4 giu (i vecchi erano
+  bloccati lato Twilio in `received` da 2+ giorni, mai inoltrati a Meta).
+  I nuovi sono in **pending** Meta (verificato il 4 giu via `check-template-status`).
+  ⚠️ Meta li ha auto-riclassificati come **MARKETING** invece di UTILITY:
+  post-approval andrà richiesto il downgrade a UTILITY su Meta WhatsApp Manager
+  (`allow_category_change: true`).
+- 🟡 **Template recupero_password v3** (SID `HX64ef2eb0...`): in **pending**
+  review Meta. Resta `UTILITY` (contenuto chiaramente transazionale).
 - ❌ **Template recupero_password v1**: REJECTED da Meta per
   `subCode=2388299, userMessage=Variables can't be at the start or end of the template`
-  → ricreato (v2 → v3 con body fix). Il **v3** (SID `HX64ef2eb0...`) è in
-  **pending** review Meta (verificato 4 giu via check-template-status)
+  → cancellato, sostituito da v2 (poi v3).
 - ❌ **Business verification Meta**: NON procedibile (Matteo è persona fisica
   senza P.IVA registrata). Conseguenze: limite 250 conv/24h, review template più
   stringente. Non blocker assoluto per MVP.
@@ -70,10 +75,14 @@ blocca mai email o flusso DB.
 - **Secret Supabase richiesti**: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
   `TWILIO_WA_FROM=whatsapp:+393520426199`, `WA_SID_INVITO`, `WA_SID_BENVENUTO`,
   `WA_SID_SUBAFFITTO`, `WA_SID_RECUPERO` (quest'ultima da settare quando il v3 è
-  approvato → `HX64ef2eb0f7aa4497e97963116ea8b2f2`)
+  approvato → `HX64ef2eb0f7aa4497e97963116ea8b2f2`). I 3 SID stagionali sono
+  stati aggiornati il 4 giu 2026 con i nuovi valori post-ricreazione (vedi
+  sezione 4).
 - **Edge Function `check-template-status`** (creata 4 giu 2026): read-only,
   chiama Twilio Content API v2/ContentAndApprovals e restituisce status
   approval di tutti i template `spiaggiamia_*`. verify_jwt=true.
+  Uso rapido da console browser loggato:
+  `await sb.functions.invoke('check-template-status').then(r => console.table(r.data.templates))`
 - **Edge Function `recreate-whatsapp-templates`** (creata 4 giu 2026):
   delete + recreate identico + submit per i 3 template stagionali quando
   bloccati in `received` lato Twilio. Richiede POST con body
@@ -81,28 +90,34 @@ blocca mai email o flusso DB.
 
 ## 4. Template Twilio (Content SID definitivi)
 
-Categoria **Utility**, lingua **Italian**.
+Lingua **Italian**. Categoria sottoposta **UTILITY** in tutti i casi, ma Meta ha
+auto-riclassificato i 3 stagionali a **MARKETING** al passaggio in pending.
+Il `recupero_password_v3` è rimasto UTILITY (contenuto chiaramente transazionale).
 
 1. **`spiaggiamia_invito_stagionale`** — SID `HXcf66089cb849dfcd69bfec8bd5dffe71`
    (ricreato 4 giu 2026; vecchio SID `HXa6ec64d24da74f0d8348c7e180d727e8` cancellato)
    - Call To Action con bottone URL
    - Variabili body: 1=nome, 2=stabilimento
    - Bottone URL dinamico: token invito (chiave `button_1_url_0`)
-   - Status Twilio/Meta: 🔵 **received** (ricreato + ri-sottomesso 4 giu via
-     recreate-whatsapp-templates; ticket aperto Twilio. Riverificare con
-     check-template-status per il passaggio a pending)
+   - Status: 🟡 **pending** (verificato 4 giu h 16:54 UTC via check-template-status)
+   - ⚠️ Categoria assegnata da Meta: **MARKETING** (sottomesso come UTILITY).
+     `allow_category_change: true` → richiedere downgrade post-approval.
 
 2. **`spiaggiamia_benvenuto_stagionale`** — SID `HXf3231107ecd0bf19e6737cdc53dfd0d7`
    (ricreato 4 giu 2026; vecchio SID `HXf42d6a56208f5e790550d1e38a9f54a3` cancellato)
    - Text
    - Variabili: 1=nome, 2=stabilimento
-   - Status Twilio/Meta: 🔵 **received** (ricreato + ri-sottomesso 4 giu)
+   - Status: 🟡 **pending** (verificato 4 giu h 16:54 UTC)
+   - ⚠️ Categoria assegnata da Meta: **MARKETING** (sottomesso come UTILITY).
+     `allow_category_change: true` → richiedere downgrade post-approval.
 
 3. **`spiaggiamia_subaffitto_confermato`** — SID `HX08068906ff6ec2ee2286405506accd6a`
    (ricreato 4 giu 2026; vecchio SID `HXa9170abc05f727eab8fbd4cfa253779b` cancellato)
    - Text
    - Variabili: 1=nome, 2=periodo, 3=credito guadagnato, 4=credito totale, 5=stabilimento
-   - Status Twilio/Meta: 🔵 **received** (ricreato + ri-sottomesso 4 giu)
+   - Status: 🟡 **pending** (verificato 4 giu h 16:54 UTC)
+   - ⚠️ Categoria assegnata da Meta: **MARKETING** (sottomesso come UTILITY).
+     `allow_category_change: true` → richiedere downgrade post-approval.
 
 4. **`spiaggiamia_recupero_password`** (v1) — SID `HXe0b44b18fae266c18cabe3973a5f708f`
    - Call To Action con bottone URL
@@ -134,7 +149,9 @@ Categoria **Utility**, lingua **Italian**.
    - Button URL: `https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify?{{4}}`
    - Variabile {{4}}: solo la query string del recovery link Supabase (token,
      type, redirect_to). NON l'URL completo (Meta richiede prefisso URL fisso)
-   - Status Twilio/Meta: 🟡 **pending** (verificato 4 giu via check-template-status)
+   - Status: 🟡 **pending** (verificato 4 giu via check-template-status)
+   - Categoria: **UTILITY** (Meta NON l'ha riclassificato, contenuto chiaramente
+     transazionale)
    - ⚠️ Quando approvato: settare `WA_SID_RECUPERO=HX64ef2eb0f7aa4497e97963116ea8b2f2`
      su Supabase Secrets
 
@@ -156,6 +173,14 @@ Categoria **Utility**, lingua **Italian**.
   Quando il business avrà i primi pagamenti reali, valutare apertura P.IVA
   forfettaria → sblocca verification → 1k+ conv/24h
 - **Quality rating "Unavailable"** finora — normale per sender appena registrato
+- **Categoria template auto-classificata da Meta**: anche se sottoponi un template
+  come UTILITY, Meta legge il body e può riclassificarlo (vedi i 3 stagionali
+  diventati MARKETING). Implicazioni: costo per messaggio in EU ~4-5x superiore
+  per MARKETING vs UTILITY. Se vuoi forzare UTILITY: il flag
+  `allow_category_change: true` (presente nei template Twilio) permette di
+  richiedere il downgrade post-approval da Meta WhatsApp Manager. In alternativa
+  si può modificare il body per renderlo più chiaramente transazionale
+  (es. iniziare con "Notifica automatica: …").
 
 ## 7. Storia delle iterazioni di approval
 
@@ -188,8 +213,12 @@ pending Meta da >48h, fuori dai SLA tipici (6-24h).
 ### Tentativo 4 (4 giugno 2026): ricreazione stagionali
 Verificato su Meta WhatsApp Manager che i 3 template stagionali (`invito`,
 `benvenuto`, `subaffitto`) non erano mai stati inoltrati da Twilio a Meta
-(status `received` da 2+ giorni). Tramite la nuova Edge Function
-`recreate-whatsapp-templates`, cancellati e ricreati identici. Nuovi SID:
+(status `received` da 2+ giorni — su Meta non comparivano affatto). Diagnosi
+confermata interpretando correttamente gli status Twilio: `received` =
+sottoposto a Twilio ma non ancora inoltrato a Meta; `pending` = già a Meta.
+
+Tramite la nuova Edge Function `recreate-whatsapp-templates`, cancellati e
+ricreati identici. Nuovi SID:
 - `spiaggiamia_invito_stagionale` → `HXcf66089cb849dfcd69bfec8bd5dffe71`
   (vecchio `HXa6ec64d24da74f0d8348c7e180d727e8`)
 - `spiaggiamia_benvenuto_stagionale` → `HXf3231107ecd0bf19e6737cdc53dfd0d7`
@@ -197,9 +226,29 @@ Verificato su Meta WhatsApp Manager che i 3 template stagionali (`invito`,
 - `spiaggiamia_subaffitto_confermato` → `HX08068906ff6ec2ee2286405506accd6a`
   (vecchio `HXa9170abc05f727eab8fbd4cfa253779b`)
 
-Status post-ricreazione: `received` (ri-sottomessi 4 giu h 16:40-16:41 UTC).
-Da riverificare con `check-template-status` a 2-5 min per il passaggio a
-`pending` (= Meta li sta esaminando).
+Status post-ricreazione: `received` (ri-sottomessi 4 giu h 16:40-16:41 UTC),
+poi **passati a `pending` entro ~13 minuti** (verificato h 16:54 UTC via
+`check-template-status` → conferma che il blocco precedente era specifico
+delle vecchie submission, non un problema account-wide).
+
+⚠️ **Imprevisto**: Meta ha auto-riclassificato i 3 template da `UTILITY`
+(categoria sottoposta dallo script) a `MARKETING`. Implicazioni:
+- Costo per messaggio in EU significativamente più alto (~4-5x rispetto a UTILITY)
+- Il `recupero_password_v3` è rimasto UTILITY (probabilmente perché il
+  contenuto "reset password" è inequivocabilmente transazionale)
+- I 3 stagionali contengono "benvenuto", "invitato", "guadagnato crediti" →
+  il classificatore Meta li ha visti come marketing
+
+**Strategia post-approval**: una volta che Meta approva, su
+**Meta WhatsApp Manager → Modelli di messaggio → ciascuno dei 3** richiedere
+il downgrade categoria a `UTILITY` (`allow_category_change: true` lo permette).
+Motivare con: *"Transactional notification for seasonal beach client lifecycle,
+not promotional"*. Se Meta rifiuta, valutare modifica body per renderlo più
+chiaramente transazionale (es. iniziare con "Notifica automatica: …").
+
+**Secret Supabase aggiornati il 4 giu**: i 3 `WA_SID_INVITO`, `WA_SID_BENVENUTO`,
+`WA_SID_SUBAFFITTO` puntano ora ai nuovi SID. `invia-whatsapp` opererà sui
+nuovi template al primo evento utile post-approval.
 
 ## 8. Fase 3 — Reset password manager-driven
 
@@ -243,8 +292,11 @@ consegnati.
 - [x] **Edge Function check-template-status** (read-only) — 4 giu 2026
 - [x] **Edge Function recreate-whatsapp-templates** — 4 giu 2026
 - [x] **Ricreazione template stagionali** — 4 giu 2026
-- [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto** (status: received, ricreati 4 giu)
-- [ ] **Approvazione Meta recupero_password v3** (SID `HX64ef2eb0...`, status: pending)
+- [x] **Secret Supabase aggiornati con nuovi SID** — `WA_SID_INVITO`, `WA_SID_BENVENUTO`, `WA_SID_SUBAFFITTO` (4 giu 2026)
+- [x] **Verifica passaggio a pending Meta** — i 3 stagionali in pending ~13min dopo ricreazione (4 giu h 16:54 UTC)
+- [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto** (status: pending, ricreati 4 giu, categoria assegnata MARKETING)
+- [ ] **Approvazione Meta recupero_password v3** (SID `HX64ef2eb0...`, status: pending, categoria UTILITY)
+- [ ] **Downgrade categoria MARKETING → UTILITY** per i 3 stagionali (post-approval, via Meta WhatsApp Manager)
 - [ ] **WA_SID_RECUPERO settato su Supabase Secrets** (post-approval v3)
 - [ ] **Test end-to-end WA recupero password** sul cellulare (post-approval)
 - [ ] **Business verification Meta** — bloccata da mancanza P.IVA (long term)
@@ -254,8 +306,10 @@ consegnati.
 **Quando i 4 template diventano verdi per business-initiated:**
 
 1. **Per i 3 template invito/benvenuto/subaffitto**: nessun cambio codice
-   necessario, Edge Functions già pronte → al primo evento (invito/benvenuto/
-   subaffitto) i WA dovrebbero partire automaticamente
+   necessario, Edge Functions già pronte e secret aggiornati → al primo
+   evento (invito/benvenuto/subaffitto) i WA dovrebbero partire automaticamente.
+   ⚠️ Subito dopo l'approval, valutare richiesta downgrade categoria
+   `MARKETING → UTILITY` su Meta WhatsApp Manager.
 
 2. **Per recupero_password v3** (SID `HX64ef2eb0f7aa4497e97963116ea8b2f2`):
    - Supabase Dashboard → Edge Functions → Secrets → aggiungi/aggiorna
@@ -274,17 +328,23 @@ consegnati.
 
 Leggi questo file con `get_file_contents` per orientarti. Punti chiave:
 - Tutta l'infrastruttura tecnica è in main e in produzione
-- Edge functions deployate: `invia-whatsapp` v10, `richiedi-reset-cliente` v4
+- Edge functions deployate: `invia-whatsapp` v10, `richiedi-reset-cliente` v4,
+  `check-template-status`, `recreate-whatsapp-templates`
 - Manca solo l'approvazione Meta dei template (asincrona, fuori controllo)
 - Per recupero_password specifico: serve attendere v3 approval + settare
   `WA_SID_RECUPERO=HX64ef2eb0f7aa4497e97963116ea8b2f2` su Supabase Secrets
+- Per i 3 stagionali: post-approval, richiedere downgrade categoria
+  `MARKETING → UTILITY` su Meta WhatsApp Manager (per ridurre costo per messaggio)
 
-Verifica status template su:
+Verifica status template:
 - Edge Function `check-template-status` (read-only, da console browser loggato
   manager: `sb.functions.invoke('check-template-status')`) — modo più rapido
 - https://console.twilio.com/us1/develop/sms/content-template-builder
-- Cerca i 4 template `spiaggiamia_*`
-- "WhatsApp business initiated" verde = ok, può essere usato
+- https://business.facebook.com/latest/whatsapp_manager/message_templates
+- Cerca i template `spiaggiamia_*`
+- Status Twilio: `unsubmitted → received → pending → approved/rejected`
+  (`received` = Twilio ce l'ha ma non l'ha ancora inoltrato a Meta;
+  `pending` = già a Meta in review)
 
 ## 12. UUID stabilimenti (riferimento)
 
