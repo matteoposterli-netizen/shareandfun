@@ -69,7 +69,7 @@ function normalizePhone(raw: string | null | undefined): string | null {
 }
 
 // Invia un messaggio WhatsApp via Twilio Programmable Messaging (Content Templates).
-async function twilioSend(to: string, contentSid: string, contentVariables: Record<string, string>): Promise<{ ok: boolean; error?: string }> {
+async function twilioSend(to: string, contentSid: string, contentVariables: Record<string, string>): Promise<{ ok: boolean; error?: string; twilio_sid?: string }> {
   if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_WA_FROM) {
     return { ok: false, error: "Twilio credentials non configurate" };
   }
@@ -80,11 +80,18 @@ async function twilioSend(to: string, contentSid: string, contentVariables: Reco
   const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
   const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
 
+  // StatusCallback: Twilio chiama questo URL ad ogni cambio di stato del
+  // messaggio (queued → sent → delivered o → failed/undelivered). Il
+  // webhook aggiorna la riga corrispondente in wa_messages_log, cosi'
+  // l'app sa se il messaggio e' davvero stato consegnato.
+  const statusCallbackUrl = `${SUPABASE_URL}/functions/v1/twilio-wa-status-webhook`;
+
   const body = new URLSearchParams({
     From: TWILIO_WA_FROM,
     To: `whatsapp:${to}`,
     ContentSid: contentSid,
     ContentVariables: JSON.stringify(contentVariables),
+    StatusCallback: statusCallbackUrl,
   });
 
   const res = await fetch(url, {
@@ -100,7 +107,11 @@ async function twilioSend(to: string, contentSid: string, contentVariables: Reco
     const txt = await res.text();
     return { ok: false, error: `Twilio ${res.status}: ${txt.slice(0, 200)}` };
   }
-  return { ok: true };
+  // Parse response per estrarre il MessageSid (twilio_sid) restituito.
+  // Serve per linkare il webhook callback successivo alla riga in
+  // wa_messages_log.
+  const respData = await res.json().catch(() => ({}));
+  return { ok: true, twilio_sid: respData.sid };
 }
 
 Deno.serve(async (req) => {
@@ -241,6 +252,26 @@ Deno.serve(async (req) => {
   }
 
   const result = await twilioSend(phone, contentSid, contentVariables);
+
+  // Se l'invio Twilio e' andato a buon fine, logga la riga in
+  // wa_messages_log. Il webhook twilio-wa-status-webhook aggiornera'
+  // poi la riga con gli status successivi (sent, delivered, failed...).
+  if (result.ok && result.twilio_sid) {
+    const { error: insErr } = await anonClient
+      .from("wa_messages_log")
+      .insert({
+        twilio_sid: result.twilio_sid,
+        stabilimento_id: stab.id,
+        cliente_id: cliente.id,
+        tipo,
+        to_number: phone,
+        status: "queued",
+      });
+    if (insErr) {
+      // Non bloccante: l'invio e' gia' partito, il log e' best-effort.
+      console.error("wa_messages_log insert failed", insErr);
+    }
+  }
 
   console.log(`WA ${tipo} → ${phone}: ${JSON.stringify(result)}`);
   return jsonResponse(result, 200);

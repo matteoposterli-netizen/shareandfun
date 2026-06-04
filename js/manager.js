@@ -1017,7 +1017,7 @@ async function azioneInvitaWA(clienteId) {
   const res = await inviaWhatsapp('invito', { cliente_id: c.id, token: c.invito_token }, currentStabilimento);
   if (res?.ok) {
     await sb.from('clienti_stagionali').update({ invitato_at: new Date().toISOString() }).eq('id', c.id);
-    showAlert('gestione-alert', `✅ Invito WhatsApp inviato a ${c.telefono}`, 'success');
+    showAlert('gestione-alert', `✉️ Richiesta invito WhatsApp inviata a ${c.telefono}`, 'success');
     await loadManagerData();
   } else if (res?.skipped) {
     showAlert('gestione-alert', `⚠️ WhatsApp saltato: ${res.skipped}`, 'error');
@@ -1052,7 +1052,7 @@ async function azioneResetEmail(clienteId) {
 async function azioneResetWA(clienteId) {
   const res = await richiediResetCliente(clienteId, 'whatsapp');
   if (res?.ok) {
-    showAlert('gestione-alert', '✅ WhatsApp di reset password inviato', 'success');
+    showAlert('gestione-alert', '✉️ Richiesta reset password WhatsApp inviata', 'success');
   } else if (res?.skipped) {
     showAlert('gestione-alert', `⚠️ WhatsApp saltato: ${res.skipped}`, 'error');
   } else {
