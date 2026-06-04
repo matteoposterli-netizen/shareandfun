@@ -809,24 +809,20 @@ function renderGestioneFiltered() {
   }
 
   tb.innerHTML = righe.map(({ omb, cliente }) => {
-    const stato = dispStato(omb.id);
     const clStato = clienteStato(cliente);
+    // Stato riga: nessun cliente assegnato = "Libero"; con cliente = stato registrazione.
     const pill = cliente
       ? (clStato === 'attivo'
           ? '<span class="pill pill-green">Cliente attivo</span>'
           : clStato === 'invitato'
             ? '<span class="pill pill-yellow">Invito inviato</span>'
             : '<span class="pill pill-gray">Mai invitato</span>')
-      : (stato === 'libero'
-          ? '<span class="pill pill-green">Libero oggi</span>'
-          : stato === 'sub_affittato'
-            ? '<span class="pill pill-yellow">Sub-affittato</span>'
-            : '<span class="pill pill-gray">Senza cliente</span>');
+      : '<span class="pill pill-green">Libero</span>';
     // Checkbox unificata: seleziona ombrellone (bulk disattiva) + cliente (bulk invita)
     const isChecked = gestioneSelection.has(omb.id) || (cliente && selectedClienteIds.has(cliente.id));
     const clienteDataAttr = cliente ? ` data-cliente-id="${cliente.id}"` : '';
     const unifiedCheck = `<input type="checkbox" class="gestione-omb-check" data-omb="${omb.id}"${clienteDataAttr} ${isChecked ? 'checked' : ''} onchange="toggleGestioneUnified('${omb.id}', '${cliente?.id || ''}', this.checked)">`;
-    const inactiveBadge = !omb.attivo ? ' <span class="badge-inactive">Non attivo</span>' : '';
+    const inactiveBadge = !omb.attivo ? '<div><span class="badge-inactive">Non attivo</span></div>' : '';
     // Menu ⋮ contestuale: appare solo se c'e' un cliente nella riga.
     // Azioni dinamiche basate su registrato/non-registrato.
     const azioniInvito = cliente
