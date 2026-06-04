@@ -1,7 +1,7 @@
 # SpiaggiaMia — Integrazione notifiche WhatsApp (stato e piano)
 
 Documento di riferimento per la knowledge base del progetto.
-Ultimo aggiornamento: 4 giugno 2026 (Edge Function check-template-status; post-Fase 3 + iterazione template recupero_password).
+Ultimo aggiornamento: 4 giugno 2026 (ricreazione template + edge functions diagnostiche)
 
 ## STATO ATTUALE (TL;DR)
 
@@ -71,31 +71,38 @@ blocca mai email o flusso DB.
   `TWILIO_WA_FROM=whatsapp:+393520426199`, `WA_SID_INVITO`, `WA_SID_BENVENUTO`,
   `WA_SID_SUBAFFITTO`, `WA_SID_RECUPERO` (quest'ultima da settare quando il v3 è
   approvato → `HX64ef2eb0f7aa4497e97963116ea8b2f2`)
-- **Edge Function `check-template-status`** (creata 4 giu 2026):
-  read-only, chiama Twilio Content API `/v2/ContentAndApprovals` e restituisce
-  status approval di tutti i template `spiaggiamia_*`. Utile per check rapido
-  senza maneggiare credenziali in locale. verify_jwt=true.
+- **Edge Function `check-template-status`** (creata 4 giu 2026): read-only,
+  chiama Twilio Content API v2/ContentAndApprovals e restituisce status
+  approval di tutti i template `spiaggiamia_*`. verify_jwt=true.
+- **Edge Function `recreate-whatsapp-templates`** (creata 4 giu 2026):
+  delete + recreate identico + submit per i 3 template stagionali quando
+  bloccati in `received` lato Twilio. Richiede POST con body
+  `{ "confirm": "yes-delete-and-recreate" }`. verify_jwt=true.
 
 ## 4. Template Twilio (Content SID definitivi)
 
 Categoria **Utility**, lingua **Italian**.
 
-1. **`spiaggiamia_invito_stagionale`** — SID `HXa6ec64d24da74f0d8348c7e180d727e8`
+1. **`spiaggiamia_invito_stagionale`** — SID `HXcf66089cb849dfcd69bfec8bd5dffe71`
+   (ricreato 4 giu 2026; vecchio SID `HXa6ec64d24da74f0d8348c7e180d727e8` cancellato)
    - Call To Action con bottone URL
    - Variabili body: 1=nome, 2=stabilimento
    - Bottone URL dinamico: token invito (chiave `button_1_url_0`)
-   - Status Twilio/Meta: 🔵 **received** (in review, verificato 4 giu via
-     check-template-status; ticket aperto Twilio)
+   - Status Twilio/Meta: 🔵 **received** (ricreato + ri-sottomesso 4 giu via
+     recreate-whatsapp-templates; ticket aperto Twilio. Riverificare con
+     check-template-status per il passaggio a pending)
 
-2. **`spiaggiamia_benvenuto_stagionale`** — SID `HXf42d6a56208f5e790550d1e38a9f54a3`
+2. **`spiaggiamia_benvenuto_stagionale`** — SID `HXf3231107ecd0bf19e6737cdc53dfd0d7`
+   (ricreato 4 giu 2026; vecchio SID `HXf42d6a56208f5e790550d1e38a9f54a3` cancellato)
    - Text
    - Variabili: 1=nome, 2=stabilimento
-   - Status Twilio/Meta: 🔵 **received** (in review, verificato 4 giu)
+   - Status Twilio/Meta: 🔵 **received** (ricreato + ri-sottomesso 4 giu)
 
-3. **`spiaggiamia_subaffitto_confermato`** — SID `HXa9170abc05f727eab8fbd4cfa253779b`
+3. **`spiaggiamia_subaffitto_confermato`** — SID `HX08068906ff6ec2ee2286405506accd6a`
+   (ricreato 4 giu 2026; vecchio SID `HXa9170abc05f727eab8fbd4cfa253779b` cancellato)
    - Text
    - Variabili: 1=nome, 2=periodo, 3=credito guadagnato, 4=credito totale, 5=stabilimento
-   - Status Twilio/Meta: 🔵 **received** (in review, verificato 4 giu)
+   - Status Twilio/Meta: 🔵 **received** (ricreato + ri-sottomesso 4 giu)
 
 4. **`spiaggiamia_recupero_password`** (v1) — SID `HXe0b44b18fae266c18cabe3973a5f708f`
    - Call To Action con bottone URL
@@ -178,6 +185,22 @@ Sottomesso con body fixato (testo statico alla fine, non variabili). In attesa.
 Aperto da Matteo per segnalare che i template invito/benvenuto/subaffitto sono
 pending Meta da >48h, fuori dai SLA tipici (6-24h).
 
+### Tentativo 4 (4 giugno 2026): ricreazione stagionali
+Verificato su Meta WhatsApp Manager che i 3 template stagionali (`invito`,
+`benvenuto`, `subaffitto`) non erano mai stati inoltrati da Twilio a Meta
+(status `received` da 2+ giorni). Tramite la nuova Edge Function
+`recreate-whatsapp-templates`, cancellati e ricreati identici. Nuovi SID:
+- `spiaggiamia_invito_stagionale` → `HXcf66089cb849dfcd69bfec8bd5dffe71`
+  (vecchio `HXa6ec64d24da74f0d8348c7e180d727e8`)
+- `spiaggiamia_benvenuto_stagionale` → `HXf3231107ecd0bf19e6737cdc53dfd0d7`
+  (vecchio `HXf42d6a56208f5e790550d1e38a9f54a3`)
+- `spiaggiamia_subaffitto_confermato` → `HX08068906ff6ec2ee2286405506accd6a`
+  (vecchio `HXa9170abc05f727eab8fbd4cfa253779b`)
+
+Status post-ricreazione: `received` (ri-sottomessi 4 giu h 16:40-16:41 UTC).
+Da riverificare con `check-template-status` a 2-5 min per il passaggio a
+`pending` (= Meta li sta esaminando).
+
 ## 8. Fase 3 — Reset password manager-driven
 
 Completata in main il 3 giu 2026. PR #104 + #105 + #106 + commit standalone.
@@ -217,8 +240,10 @@ consegnati.
 - [x] **Profilo WhatsApp Business completo** — descrizione, indirizzo, email, sito
 - [x] **Recupero password v1 sottomesso** — rejected per "variables at start/end"
 - [x] **Recupero password v3 sottomesso** — pending review Meta (v2 superato)
-- [x] **Edge Function check-template-status** — read-only Twilio approval status (4 giu 2026)
-- [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto** (status: received)
+- [x] **Edge Function check-template-status** (read-only) — 4 giu 2026
+- [x] **Edge Function recreate-whatsapp-templates** — 4 giu 2026
+- [x] **Ricreazione template stagionali** — 4 giu 2026
+- [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto** (status: received, ricreati 4 giu)
 - [ ] **Approvazione Meta recupero_password v3** (SID `HX64ef2eb0...`, status: pending)
 - [ ] **WA_SID_RECUPERO settato su Supabase Secrets** (post-approval v3)
 - [ ] **Test end-to-end WA recupero password** sul cellulare (post-approval)
