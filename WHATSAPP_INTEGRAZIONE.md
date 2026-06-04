@@ -158,6 +158,46 @@ Il `recupero_password_v3` è rimasto UTILITY (contenuto chiaramente transazional
    - ⚠️ Quando approvato: settare `WA_SID_RECUPERO=HX64ef2eb0f7aa4497e97963116ea8b2f2`
      su Supabase Secrets
 
+### Template UTILITY backup (creati 4 giugno 2026)
+Set di 9 template di backup creati per offrire un'alternativa ai 3 template stagionali
+attualmente in appeal MARKETING. Tutti sottoposti come UTILITY con
+`allow_category_change: true`. Logica: 3 livelli di calore (safe / medium / warm) per
+ognuno dei 3 eventi (accesso / registrazione / operazione). Body ottimizzati dopo
+lettura della policy Meta (incipit transazionale, niente parole-trigger MARKETING,
+emoji limitate a contesto stato/servizio).
+
+Creati via Edge Function `create-utility-backup-templates` (POST body
+`{ "confirm": "yes-create-utility-backups" }`, verify_jwt=true). I SID si popolano
+all'invocazione — la tabella sotto va completata coi valori dall'output.
+
+| Friendly name | Evento | Livello | SID | Status iniziale |
+|---|---|---|---|---|
+| spiaggiamia_accesso_safe | accesso | safe | _(da popolare dopo invocazione)_ | pending/received |
+| spiaggiamia_accesso_medium | accesso | medium | _(da popolare dopo invocazione)_ | pending/received |
+| spiaggiamia_accesso_warm | accesso | warm | _(da popolare dopo invocazione)_ | pending/received |
+| spiaggiamia_registrazione_safe | registrazione | safe | _(da popolare dopo invocazione)_ | pending/received |
+| spiaggiamia_registrazione_medium | registrazione | medium | _(da popolare dopo invocazione)_ | pending/received |
+| spiaggiamia_registrazione_warm | registrazione | warm | _(da popolare dopo invocazione)_ | pending/received |
+| spiaggiamia_operazione_safe | operazione | safe | _(da popolare dopo invocazione)_ | pending/received |
+| spiaggiamia_operazione_medium | operazione | medium | _(da popolare dopo invocazione)_ | pending/received |
+| spiaggiamia_operazione_warm | operazione | warm | _(da popolare dopo invocazione)_ | pending/received |
+
+**Quando swappare**: se appeal categoria dei 3 attuali "stagionali" viene respinto
+(esito "Invariati"), settare su Supabase Secrets:
+- WA_SID_INVITO = <SID accesso_safe o accesso_warm a discrezione>
+- WA_SID_BENVENUTO = <SID registrazione_safe o registrazione_warm>
+- WA_SID_SUBAFFITTO = <SID operazione_safe o operazione_warm>
+
+⚠️ **Nota cambio signature variabili per A, B e C** (i backup usano numerazione
+variabile globale per il bottone, diversa dai 3 stagionali attuali):
+- I template `accesso_*` hanno il bottone su {{3}} = token invito (i 3 stagionali
+  attuali passano il token con chiave ContentVariables `button_1_url_0`)
+- I template `registrazione_*` hanno 3 variabili totali (era 2): aggiunta {{3}} = email URL-encoded per il bottone
+- I template `operazione_*` hanno 6 variabili totali (era 5): aggiunta {{6}} = email URL-encoded per il bottone
+- Se viene swappato il secret, `invia-whatsapp` v10 deve essere aggiornato per passare
+  le variabili bottone aggiuntive ({{3}} per accesso/registrazione, {{6}} per
+  operazione). È OPEN ITEM, da fare prima dello swap.
+
 ## 5. Numero pilota: BYON eSIM Iliad
 
 - Numero **`+393520426199`**, dedicato a SpiaggiaMia
@@ -289,6 +329,24 @@ dall'appeal: se Meta approva i template prima della decisione sull'appeal,
 diventano operativi (anche se come MARKETING) e l'eventuale riclassificazione
 a UTILITY post-appeal avviene senza dover rifare l'approval.
 
+### Tentativo 6 (4 giugno 2026): set di 9 template UTILITY backup
+Creato il set parallelo via nuova Edge Function `create-utility-backup-templates`.
+Razionale: dopo lettura policy Meta ufficiale (Template Categorization), ottimizzato il
+calore in 3 livelli (safe/medium/warm) e introdotto bottone "Accedi alla tua area" su
+registrazione e operazione (con pattern URL `https://spiaggiamia.com/?login={{N}}`,
+gestito dal frontend in `js/main.js`).
+
+Tutti e 9 sottomessi come UTILITY con `allow_category_change: true`. Atteso esito Meta
+in 24-72h. Il set serve come piano B nel caso l'appeal categoria sui 3 attuali stagionali
+venga respinto.
+
+Insight policy chiave applicati:
+- Body con incipit transazionale ("Conferma", "Riepilogo", "Attivazione")
+- Riferimenti espliciti a dati transazionali (stabilimento, periodo, saldo)
+- ZERO parole-trigger MARKETING ("Benvenuto", "Buona estate/spiaggia", celebrativi)
+- Emoji limitate a ✅ 🏖️ ☀️ (escluse 🎉 💰 ✨ 🚀)
+- Nessuna variabile in posizioni terminali di header/body
+
 ## 8. Fase 3 — Reset password manager-driven
 
 Completata in main il 3 giu 2026. PR #104 + #105 + #106 + commit standalone.
@@ -335,6 +393,9 @@ consegnati.
 - [x] **Verifica passaggio a pending Meta** — i 3 stagionali in pending ~13min dopo ricreazione (4 giu h 16:54 UTC)
 - [x] **Appeal categoria sottomesso per i 3 stagionali** — via Meta WhatsApp Manager / Aggiornamenti categoria modelli (4 giu 2026 h ~17:20 UTC)
 - [ ] **Esito appeal categoria 3 stagionali** — atteso 24-72h (Ripristinati = UTILITY ✅ o Invariati = MARKETING). Se Invariati, valutare modifica body.
+- [x] **9 template UTILITY backup submittati** (4 giu 2026) — safe/medium/warm × 3 eventi, via Edge Function `create-utility-backup-templates`
+- [ ] **Esito approval Meta per i 9 backup** — atteso 24-72h
+- [ ] **Aggiornamento `invia-whatsapp` per nuove signature A/B/C** — solo se si swappano
 - [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto** (status: pending, ricreati 4 giu)
 - [ ] **Approvazione Meta recupero_password v3** (SID `HX64ef2eb0...`, status: pending, categoria UTILITY)
 - [ ] **WA_SID_RECUPERO settato su Supabase Secrets** (post-approval v3)
@@ -383,6 +444,10 @@ Leggi questo file con `get_file_contents` per orientarti. Punti chiave:
   `WA_SID_RECUPERO=HX64ef2eb0f7aa4497e97963116ea8b2f2` su Supabase Secrets
 - Per i 3 stagionali: appeal categoria già sottomesso il 4 giu — attendere
   esito (24-72h). Se accolto torna UTILITY senza ulteriori azioni.
+- Set di 9 template UTILITY backup disponibile da 4 giu 2026. Se l'appeal dei 3
+  stagionali viene respinto, swap dei secret WA_SID_* ai SID di
+  accesso_*/registrazione_*/operazione_* (richiede update di invia-whatsapp per le
+  variabili bottone aggiuntive su A/B/C).
 
 Verifica status template:
 - Edge Function `check-template-status` (read-only, da console browser loggato
