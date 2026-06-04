@@ -503,7 +503,7 @@
               <input type="search" id="clienti-filter" class="form-input" placeholder="Cerca codice, nome, email…" style="width:260px;padding:6px 10px;font-size:13px" oninput="renderGestioneFiltered()">
               <select id="clienti-stato-filter" class="form-select" style="width:auto;padding:6px 10px;font-size:13px" onchange="renderGestioneFiltered()">
                 <option value="">Tutti</option>
-                <option value="senza">Senza cliente</option>
+                <option value="senza">Libero</option>
                 <option value="mai">Mai invitato</option>
                 <option value="invitato">Invito inviato</option>
                 <option value="attivo">Cliente attivo</option>
@@ -541,7 +541,7 @@
           <div class="table-wrap data-table-wrapper"><table class="data-table data-table-compact">
             <thead><tr>
               <th style="width:36px"><input type="checkbox" id="clienti-check-all" onchange="toggleAllClienti(this.checked)"></th>
-              <th style="width:1%;white-space:nowrap">Ombrellone</th><th style="min-width:90px">Credito/gg</th><th style="min-width:120px">Nome cliente</th><th style="min-width:160px">Email</th><th style="min-width:120px">Telefono</th><th style="min-width:60px;text-align:center" id="gestione-th-wa" class="hidden">💬 WA</th><th style="min-width:80px">Stato</th><th style="min-width:100px">Azioni</th>
+              <th style="width:1%;white-space:nowrap;letter-spacing:.3px">Ombrellone</th><th style="min-width:90px">Credito/gg</th><th style="min-width:120px">Nome cliente</th><th style="min-width:160px">Email</th><th style="min-width:120px">Telefono</th><th style="min-width:60px;text-align:center" id="gestione-th-wa" class="hidden">💬 WA</th><th style="min-width:80px">Stato</th><th style="min-width:100px">Azioni</th>
             </tr></thead>
             <tbody id="gestione-table"></tbody>
           </table></div>
@@ -2726,7 +2726,7 @@ document.addEventListener('click', function(e) {
 <script src="js/router.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/setup.js"></script>
-<script src="js/manager.js?v=20260604a"></script>
+<script src="js/manager.js?v=20260604b"></script>
 <script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>
