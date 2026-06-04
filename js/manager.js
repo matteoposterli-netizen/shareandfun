@@ -1972,6 +1972,20 @@ function renderPrenotazioni() {
   renderPrenotazioniTabella(ordered, { from, to });
 }
 
+// Estrae versione breve del nome prenotazione per la vista Tabella.
+// Input atteso: "{NomeStab} — {dd/mm/aa} {hh:mm} · #{CODICE}[ — {NomeCustom}]"
+// Output: "{dd/mm/aa} · {NomeCustom||#CODICE}"
+// Fallback: ritorna il nome originale se il pattern non matcha.
+function formatPrenNameShort(nome) {
+  if (!nome) return '';
+  const m = nome.match(/—\s*(\d{2}\/\d{2}\/\d{2})\s+\d{2}:\d{2}\s*·\s*(#\w+)(?:\s*—\s*(.+))?$/);
+  if (!m) return nome;
+  const data = m[1];
+  const code = m[2];
+  const custom = m[3] ? m[3].trim() : '';
+  return `${data} · ${custom || code}`;
+}
+
 function renderPrenotazioniTabella(ordered, filterRange) {
   const tabEl = document.getElementById('prenotazioni-tabella');
   if (!tabEl) return;
@@ -2066,10 +2080,11 @@ function renderPrenotazioniTabella(ordered, filterRange) {
 
   const rowsHtml = groupsWithCells.map(({ g, gi, byDay }) => {
     const title = g.nome
-      ? escapeHtml(g.nome)
+      ? escapeHtml(formatPrenNameShort(g.nome))
       : '<span style="color:var(--text-light);font-style:italic">Senza nome</span>';
+    const titleTooltip = g.nome ? escapeHtmlAttr(g.nome) : 'Senza nome';
 
-    const summaryCell = `<th class="pren-tab-row-th" onclick="openPrenDettagliModal('g-${gi}')">
+    const summaryCell = `<th class="pren-tab-row-th" onclick="openPrenDettagliModal('g-${gi}')" title="${titleTooltip}">
       <div class="pren-tab-row-title">📖 ${title}</div>
     </th>`;
 
