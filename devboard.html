@@ -215,6 +215,9 @@ function DevBoard() {
         ))}
       </div>
 
+      {/* WhatsApp Templates Tools (mobile-friendly admin) */}
+      <WaTemplateTools />
+
       {/* Quick Todo */}
       <QuickTodo />
 
@@ -283,6 +286,124 @@ function DevBoard() {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WaTemplateTools() {
+  const [output, setOutput] = useState("");
+  const [loading, setLoading] = useState("");
+  const [collapsed, setCollapsed] = useState(false);
+  const [lastAction, setLastAction] = useState(() => {
+    try { return localStorage.getItem("saf-wa-tools-last") || ""; } catch { return ""; }
+  });
+
+  function setLast(label) {
+    const stamp = `${label} — ${new Date().toLocaleString("it-IT")}`;
+    setLastAction(stamp);
+    try { localStorage.setItem("saf-wa-tools-last", stamp); } catch {}
+  }
+
+  async function invokeCreateBackup() {
+    const ok = window.confirm(
+      "⚠️ Crea 9 nuovi template WhatsApp su Twilio e li sottomette a Meta per approvazione.\n\n" +
+      "NON ripetere se è già stata fatta (creeresti duplicati).\n\nContinuare?"
+    );
+    if (!ok) return;
+    setLoading("create");
+    setOutput("Invocazione in corso...");
+    try {
+      const r = await window.sb.functions.invoke("create-utility-backup-templates", {
+        body: { confirm: "yes-create-utility-backups" }
+      });
+      if (r.error) {
+        setOutput("ERRORE: " + JSON.stringify(r.error, null, 2));
+      } else {
+        setOutput(JSON.stringify(r.data, null, 2));
+        setLast("Create backup templates");
+      }
+    } catch (e) {
+      setOutput("ECCEZIONE: " + (e && e.message ? e.message : String(e)));
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function invokeCheckStatus() {
+    setLoading("status");
+    setOutput("Recupero status template...");
+    try {
+      const r = await window.sb.functions.invoke("check-template-status");
+      if (r.error) {
+        setOutput("ERRORE: " + JSON.stringify(r.error, null, 2));
+      } else {
+        setOutput(JSON.stringify(r.data, null, 2));
+        setLast("Check template status");
+      }
+    } catch (e) {
+      setOutput("ECCEZIONE: " + (e && e.message ? e.message : String(e)));
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function copyOutput() {
+    if (!output) return;
+    try {
+      await navigator.clipboard.writeText(output);
+      const orig = output;
+      setOutput("📋 Copiato negli appunti!\n\n— — —\n\n" + orig);
+      setTimeout(() => setOutput(orig), 1500);
+    } catch (e) {
+      window.alert("Impossibile copiare automaticamente. Seleziona manualmente l'output.");
+    }
+  }
+
+  function clearOutput() { setOutput(""); }
+
+  const busy = !!loading;
+
+  return (
+    <div style={{ padding: "16px 24px 0" }}>
+      <div style={{ background: "white", borderRadius: 12, padding: 14, boxShadow: "0 2px 12px rgba(14,165,233,0.08)", border: "1px solid #bae6fd" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: collapsed ? 0 : 10, cursor: "pointer" }} onClick={() => setCollapsed(c => !c)}>
+          <span style={{ fontSize: 16 }}>💬</span>
+          <span style={{ fontWeight: "bold", color: "#0369a1", fontSize: 14 }}>WhatsApp Templates Tools</span>
+          {lastAction && <span style={{ color: "#94a3b8", fontSize: 11 }}>· ultimo: {lastAction}</span>}
+          <span style={{ marginLeft: "auto", color: "#94a3b8", fontSize: 12 }}>{collapsed ? "▸" : "▾"}</span>
+        </div>
+        {!collapsed && (
+          <div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+              <button onClick={invokeCreateBackup} disabled={busy}
+                style={{ background: loading === "create" ? "#cbd5e1" : "linear-gradient(90deg, #0369a1, #0ea5e9)", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", cursor: busy ? "not-allowed" : "pointer", fontWeight: "bold", fontSize: 12 }}>
+                {loading === "create" ? "Creazione..." : "Crea 9 backup templates"}
+              </button>
+              <button onClick={invokeCheckStatus} disabled={busy}
+                style={{ background: loading === "status" ? "#cbd5e1" : "#10b981", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", cursor: busy ? "not-allowed" : "pointer", fontWeight: "bold", fontSize: 12 }}>
+                {loading === "status" ? "Verifica..." : "Check template status"}
+              </button>
+              {output && (
+                <>
+                  <button onClick={copyOutput} disabled={busy}
+                    style={{ background: "#f59e0b", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontWeight: "bold", fontSize: 12 }}>
+                    Copia output
+                  </button>
+                  <button onClick={clearOutput} disabled={busy}
+                    style={{ background: "#f1f5f9", color: "#64748b", border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontWeight: "bold", fontSize: 12 }}>
+                    Pulisci
+                  </button>
+                </>
+              )}
+            </div>
+            {output && (
+              <pre style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: 10, fontSize: 11, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "#1e293b", maxHeight: "60vh", overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {output}
+              </pre>
+            )}
           </div>
         )}
       </div>
