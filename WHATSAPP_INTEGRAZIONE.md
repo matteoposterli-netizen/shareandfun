@@ -1,7 +1,7 @@
 # SpiaggiaMia — Integrazione notifiche WhatsApp (stato e piano)
 
 Documento di riferimento per la knowledge base del progetto.
-Ultimo aggiornamento: 3 giugno 2026 (post-Fase 3 + iterazione template recupero_password).
+Ultimo aggiornamento: 4 giugno 2026 (Edge Function check-template-status; post-Fase 3 + iterazione template recupero_password).
 
 ## STATO ATTUALE (TL;DR)
 
@@ -70,6 +70,10 @@ blocca mai email o flusso DB.
   `TWILIO_WA_FROM=whatsapp:+393520426199`, `WA_SID_INVITO`, `WA_SID_BENVENUTO`,
   `WA_SID_SUBAFFITTO`, `WA_SID_RECUPERO` (quest'ultima da settare quando v2 è
   approvato)
+- **Edge Function `check-template-status`** (creata 4 giu 2026):
+  read-only, chiama Twilio Content API `/v2/ContentAndApprovals` e restituisce
+  status approval di tutti i template `spiaggiamia_*`. Utile per check rapido
+  senza maneggiare credenziali in locale. verify_jwt=true.
 
 ## 4. Template Twilio (Content SID definitivi)
 
@@ -205,6 +209,7 @@ consegnati.
 - [x] **Profilo WhatsApp Business completo** — descrizione, indirizzo, email, sito
 - [x] **Recupero password v1 sottomesso** — rejected per "variables at start/end"
 - [x] **Recupero password v2 sottomesso** — pending review Meta
+- [x] **Edge Function check-template-status** — read-only Twilio approval status (4 giu 2026)
 - [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto**
 - [ ] **Approvazione Meta recupero_password v2**
 - [ ] **WA_SID_RECUPERO settato su Supabase Secrets** (post-approval v2)
