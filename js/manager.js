@@ -604,25 +604,75 @@ function toggleMapOmbSelection(omb, stato) {
 }
 
 function computeBookingCoverage() {
-  if (!currentMapRange) return { pairs: [], coveredDays: new Set(), missingDays: [], totalCredit: 0 };
+  if (!currentMapRange) {
+    return { pairs: [], coveredDays: new Set(), missingDays: [], totalCredit: 0, usedOmbIds: new Set() };
+  }
   const { dispByOmbDate, dates } = currentMapRange;
+
+  // 1) Per ogni omb selezionato: quanti giorni del range è libero
+  const dayCountByOmb = new Map();
+  for (const ombId of bookingSelection) {
+    if (!ombrelloniList.find(o => o.id === ombId)) continue;
+    const ombDisp = dispByOmbDate[ombId] || {};
+    let count = 0;
+    for (const d of dates) {
+      if (ombDisp[d] === 'libero') count++;
+    }
+    dayCountByOmb.set(ombId, count);
+  }
+
+  // 2) Per ogni giorno: lista degli omb selezionati liberi quel giorno
+  const availPerDay = new Map();
+  for (const d of dates) {
+    const list = [];
+    for (const ombId of bookingSelection) {
+      if (!ombrelloniList.find(o => o.id === ombId)) continue;
+      if ((dispByOmbDate[ombId] || {})[d] === 'libero') list.push(ombId);
+    }
+    availPerDay.set(d, list);
+  }
+
+  // 3) Ordina i giorni per scarsità crescente (meno opzioni prima);
+  //    a parità, data ascendente.
+  const datesByScarcity = [...dates].sort((a, b) => {
+    const la = availPerDay.get(a).length;
+    const lb = availPerDay.get(b).length;
+    if (la !== lb) return la - lb;
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+
+  // 4) Greedy: per ogni giorno scegli l'omb meno flessibile (count più basso),
+  //    tiebreak su codice ombrellone ascendente.
   const pairs = [];
   const coveredDays = new Set();
+  const usedOmbIds = new Set();
   let totalCredit = 0;
-  for (const ombId of bookingSelection) {
-    const omb = ombrelloniList.find(o => o.id === ombId);
+
+  for (const d of datesByScarcity) {
+    const candidates = availPerDay.get(d) || [];
+    if (!candidates.length) continue;
+    const sorted = candidates.slice().sort((a, b) => {
+      const ca = dayCountByOmb.get(a) || 0;
+      const cb = dayCountByOmb.get(b) || 0;
+      if (ca !== cb) return ca - cb;
+      const oa = ombrelloniList.find(o => o.id === a);
+      const ob = ombrelloniList.find(o => o.id === b);
+      return (oa?.codice || '').localeCompare(ob?.codice || '', 'it');
+    });
+    const chosenId = sorted[0];
+    const omb = ombrelloniList.find(o => o.id === chosenId);
     if (!omb) continue;
-    const ombDisp = dispByOmbDate[ombId] || {};
-    for (const d of dates) {
-      if (ombDisp[d] === 'libero') {
-        pairs.push({ omb, date: d });
-        coveredDays.add(d);
-        totalCredit += parseFloat(omb.credito_giornaliero || 0);
-      }
-    }
+    pairs.push({ omb, date: d });
+    coveredDays.add(d);
+    usedOmbIds.add(chosenId);
+    totalCredit += parseFloat(omb.credito_giornaliero || 0);
   }
+
+  // 5) Ordina i pair finali per data ascendente (UI coerente)
+  pairs.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+
   const missingDays = dates.filter(d => !coveredDays.has(d));
-  return { pairs, coveredDays, missingDays, totalCredit };
+  return { pairs, coveredDays, missingDays, totalCredit, usedOmbIds };
 }
 
 function renderBookingSelectionPanel() {
@@ -1490,7 +1540,7 @@ function generateDefaultBookingName() {
 
 function openFinalizeBookingModal() {
   if (!currentMapRange || bookingSelection.size === 0) return;
-  const { pairs, missingDays, totalCredit } = computeBookingCoverage();
+  const { pairs, missingDays, totalCredit, usedOmbIds } = computeBookingCoverage();
   if (missingDays.length > 0 || pairs.length === 0) return;
 
   const { dates } = currentMapRange;
@@ -1498,18 +1548,42 @@ function openFinalizeBookingModal() {
     const dt = new Date(d + 'T00:00:00');
     return dt.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
   };
-  const periodo = dates.length === 1 ? fmtDay(dates[0]) : `${fmtDay(dates[0])} → ${fmtDay(dates[dates.length - 1])}`;
-  const nOmb = bookingSelection.size;
-  const ombList = Array.from(bookingSelection).map(id => {
+  const periodo = dates.length === 1
+    ? fmtDay(dates[0])
+    : `${fmtDay(dates[0])} → ${fmtDay(dates[dates.length - 1])}`;
+
+  const nSelezionati = bookingSelection.size;
+  const nUsati = usedOmbIds.size;
+
+  const ombUsatiList = Array.from(usedOmbIds).map(id => {
     const o = ombrelloniList.find(x => x.id === id);
     return o ? o.codice : '';
-  }).filter(Boolean).join(', ');
+  }).filter(Boolean);
+  ombUsatiList.sort((a, b) => a.localeCompare(b, 'it'));
+
+  const ombNonUsati = Array.from(bookingSelection)
+    .filter(id => !usedOmbIds.has(id))
+    .map(id => {
+      const o = ombrelloniList.find(x => x.id === id);
+      return o ? o.codice : '';
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, 'it'));
+
+  const ombUsatiStr = ombUsatiList.join(', ');
+  const avvisoExtra = ombNonUsati.length
+    ? `<div style="margin-top:8px;padding:8px 10px;background:#fff8e1;border-left:3px solid #f59e0b;border-radius:4px;font-size:13px">
+         ⚠ Hai selezionato <strong>${nSelezionati}</strong> ombrelloni, ne userò <strong>${nUsati}</strong> per coprire ${pairs.length} giorn${pairs.length === 1 ? 'o' : 'i'}.
+         <br>Non necessari: <strong>${escapeHtml(ombNonUsati.join(', '))}</strong>
+       </div>`
+    : '';
 
   const summary = `
     <div><strong>Periodo:</strong> ${periodo}</div>
-    <div style="margin-top:4px"><strong>Ombrelloni (${nOmb}):</strong> ${ombList}</div>
+    <div style="margin-top:4px"><strong>Ombrelloni usati (${nUsati}):</strong> ${escapeHtml(ombUsatiStr)}</div>
     <div style="margin-top:4px"><strong>Sub-affitti totali:</strong> ${pairs.length}</div>
     <div style="margin-top:4px"><strong>Credito totale:</strong> ${formatCoin(totalCredit.toFixed(2), currentStabilimento)}</div>
+    ${avvisoExtra}
   `;
   document.getElementById('finalize-booking-summary').innerHTML = summary;
   document.getElementById('finalize-booking-nome').value = '';
