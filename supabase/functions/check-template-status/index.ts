@@ -1,11 +1,19 @@
 // Edge Function: check-template-status
 // Interroga Twilio Content API per ottenere lo status di approval dei template
-// WhatsApp spiaggiamia_*. Richiede autenticazione utente (verify_jwt default).
+// WhatsApp spiaggiamia_*, e ritorna anche lo stato dei secret WA_SID_*
+// attualmente settati (read-only). Richiede autenticazione utente (verify_jwt).
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
+
+const SECRET_KEYS = [
+  "WA_SID_INVITO",
+  "WA_SID_BENVENUTO",
+  "WA_SID_SUBAFFITTO",
+  "WA_SID_RECUPERO",
+];
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -85,12 +93,56 @@ serve(async (req) => {
         (order[a.status] ?? 99) - (order[b.status] ?? 99),
     );
 
+    // secrets_check: per ogni WA_SID_* esponi il valore + il template
+    // corrispondente trovato nella lista. I SID Twilio non sono sensibili.
+    const sidIndex: Record<string, any> = {};
+    for (const t of templates) {
+      sidIndex[t.sid] = t;
+    }
+    const secretsCheck: Record<string, any> = {};
+    for (const key of SECRET_KEYS) {
+      const val = Deno.env.get(key);
+      if (!val) {
+        secretsCheck[key] = {
+          value: null,
+          operational: false,
+          warning: "Secret NON settato",
+        };
+        continue;
+      }
+      const match = sidIndex[val];
+      if (!match) {
+        secretsCheck[key] = {
+          value: val,
+          matches_template: null,
+          template_status: null,
+          template_category: null,
+          operational: false,
+          warning:
+            "Il SID nel secret NON corrisponde a nessun template spiaggiamia_*",
+        };
+        continue;
+      }
+      const operational = match.status === "approved";
+      secretsCheck[key] = {
+        value: val,
+        matches_template: match.template,
+        template_status: match.status,
+        template_category: match.category,
+        operational,
+        warning: operational
+          ? null
+          : `Template in stato '${match.status}' - non ancora operativo`,
+      };
+    }
+
     return new Response(
       JSON.stringify(
         {
           fetched_at: new Date().toISOString(),
           count: templates.length,
           templates,
+          secrets_check: secretsCheck,
         },
         null,
         2,
