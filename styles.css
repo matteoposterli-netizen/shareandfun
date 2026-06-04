@@ -978,6 +978,11 @@ body.view-stagionale .topnav, body:has(#view-stagionale.active) .topnav { displa
 .pren-tab-cell-label { display: inline-block; text-transform: uppercase; }
 .pren-tab-cell-badge { display: inline-block; margin-left: 3px; background: rgba(255, 255, 255, 0.3); border-radius: 6px; padding: 0 4px; font-size: 10px; }
 .pren-tab-cell.multi { background: repeating-linear-gradient(45deg, var(--coral, #E07B54) 0 6px, #C95E36 6px 12px); }
+/* Su mobile restringe la colonna "Prenotazione" per mostrare piu' giorni della griglia */
+@media (max-width: 600px) {
+  .pren-tab-corner-th, .pren-tab-row-th { min-width: 140px; width: 140px; padding: 8px 8px !important; }
+  .pren-tab-row-title { font-size: 13px; }
+}
 
 .sidebar-altro-items { display: none; flex-direction: column; gap: 2px; padding-left: 0; overflow: hidden; }
 .sidebar-altro-items.open { display: flex; }
