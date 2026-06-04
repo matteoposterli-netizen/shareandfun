@@ -16,7 +16,8 @@ sull'approvazione business-initiated dei template.**
   "WhatsApp business initiated" → aperto ticket Twilio Support il 3 giu 2026
 - ❌ **Template recupero_password v1**: REJECTED da Meta per
   `subCode=2388299, userMessage=Variables can't be at the start or end of the template`
-  → ricreato come v2 con body fix, in pending review
+  → ricreato (v2 → v3 con body fix). Il **v3** (SID `HX64ef2eb0...`) è in
+  **pending** review Meta (verificato 4 giu via check-template-status)
 - ❌ **Business verification Meta**: NON procedibile (Matteo è persona fisica
   senza P.IVA registrata). Conseguenze: limite 250 conv/24h, review template più
   stringente. Non blocker assoluto per MVP.
@@ -68,8 +69,8 @@ blocca mai email o flusso DB.
   `whatsapp_consenso_at`
 - **Secret Supabase richiesti**: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
   `TWILIO_WA_FROM=whatsapp:+393520426199`, `WA_SID_INVITO`, `WA_SID_BENVENUTO`,
-  `WA_SID_SUBAFFITTO`, `WA_SID_RECUPERO` (quest'ultima da settare quando v2 è
-  approvato)
+  `WA_SID_SUBAFFITTO`, `WA_SID_RECUPERO` (quest'ultima da settare quando il v3 è
+  approvato → `HX64ef2eb0f7aa4497e97963116ea8b2f2`)
 - **Edge Function `check-template-status`** (creata 4 giu 2026):
   read-only, chiama Twilio Content API `/v2/ContentAndApprovals` e restituisce
   status approval di tutti i template `spiaggiamia_*`. Utile per check rapido
@@ -83,17 +84,18 @@ Categoria **Utility**, lingua **Italian**.
    - Call To Action con bottone URL
    - Variabili body: 1=nome, 2=stabilimento
    - Bottone URL dinamico: token invito (chiave `button_1_url_0`)
-   - Status Meta: ⏳ pending business-initiated (>48h, ticket aperto Twilio)
+   - Status Twilio/Meta: 🔵 **received** (in review, verificato 4 giu via
+     check-template-status; ticket aperto Twilio)
 
 2. **`spiaggiamia_benvenuto_stagionale`** — SID `HXf42d6a56208f5e790550d1e38a9f54a3`
    - Text
    - Variabili: 1=nome, 2=stabilimento
-   - Status Meta: ⏳ pending business-initiated (>48h)
+   - Status Twilio/Meta: 🔵 **received** (in review, verificato 4 giu)
 
 3. **`spiaggiamia_subaffitto_confermato`** — SID `HXa9170abc05f727eab8fbd4cfa253779b`
    - Text
    - Variabili: 1=nome, 2=periodo, 3=credito guadagnato, 4=credito totale, 5=stabilimento
-   - Status Meta: ⏳ pending business-initiated (>48h)
+   - Status Twilio/Meta: 🔵 **received** (in review, verificato 4 giu)
 
 4. **`spiaggiamia_recupero_password`** (v1) — SID `HXe0b44b18fae266c18cabe3973a5f708f`
    - Call To Action con bottone URL
@@ -104,7 +106,11 @@ Categoria **Utility**, lingua **Italian**.
      considera il `.` non testo sufficiente, vede `{{3}}` come variabile finale
    - Stato: cancellato da Twilio, sostituito dal v2
 
-5. **`spiaggiamia_recupero_password_v2`** — SID **TBD** (creato il 3 giu 2026)
+5. **`spiaggiamia_recupero_password_v2`** — superato dal v3, non più presente su
+   Twilio (la query check-template-status del 4 giu non lo restituisce)
+
+6. **`spiaggiamia_recupero_password_v3`** — SID `HX64ef2eb0f7aa4497e97963116ea8b2f2`
+   (creato il 3 giu 2026, h 21:35 UTC)
    - Call To Action con bottone URL
    - Body fixato per evitare variabili in posizioni terminali:
      ```
@@ -121,7 +127,9 @@ Categoria **Utility**, lingua **Italian**.
    - Button URL: `https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify?{{4}}`
    - Variabile {{4}}: solo la query string del recovery link Supabase (token,
      type, redirect_to). NON l'URL completo (Meta richiede prefisso URL fisso)
-   - Status Meta: ⏳ pending submission del 3 giu 2026
+   - Status Twilio/Meta: 🟡 **pending** (verificato 4 giu via check-template-status)
+   - ⚠️ Quando approvato: settare `WA_SID_RECUPERO=HX64ef2eb0f7aa4497e97963116ea8b2f2`
+     su Supabase Secrets
 
 ## 5. Numero pilota: BYON eSIM Iliad
 
@@ -208,11 +216,11 @@ consegnati.
 - [x] **richiedi-reset-cliente Edge Function** — v4 ACTIVE (3 giu 2026)
 - [x] **Profilo WhatsApp Business completo** — descrizione, indirizzo, email, sito
 - [x] **Recupero password v1 sottomesso** — rejected per "variables at start/end"
-- [x] **Recupero password v2 sottomesso** — pending review Meta
+- [x] **Recupero password v3 sottomesso** — pending review Meta (v2 superato)
 - [x] **Edge Function check-template-status** — read-only Twilio approval status (4 giu 2026)
-- [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto**
-- [ ] **Approvazione Meta recupero_password v2**
-- [ ] **WA_SID_RECUPERO settato su Supabase Secrets** (post-approval v2)
+- [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto** (status: received)
+- [ ] **Approvazione Meta recupero_password v3** (SID `HX64ef2eb0...`, status: pending)
+- [ ] **WA_SID_RECUPERO settato su Supabase Secrets** (post-approval v3)
 - [ ] **Test end-to-end WA recupero password** sul cellulare (post-approval)
 - [ ] **Business verification Meta** — bloccata da mancanza P.IVA (long term)
 
@@ -224,10 +232,9 @@ consegnati.
    necessario, Edge Functions già pronte → al primo evento (invito/benvenuto/
    subaffitto) i WA dovrebbero partire automaticamente
 
-2. **Per recupero_password v2**:
-   - Copia il **nuovo Content SID** del v2 da Twilio Console
+2. **Per recupero_password v3** (SID `HX64ef2eb0f7aa4497e97963116ea8b2f2`):
    - Supabase Dashboard → Edge Functions → Secrets → aggiungi/aggiorna
-     `WA_SID_RECUPERO` = `HX...` (v2 SID)
+     `WA_SID_RECUPERO` = `HX64ef2eb0f7aa4497e97963116ea8b2f2`
    - Nessun redeploy necessario (env var lette al runtime)
    - Test browser: ⋮ su Nicola Rizzo (ombrellone 104) → "Invia reset password
      via WhatsApp" → atteso WA sul cellulare con button "Imposta nuova password"
@@ -244,10 +251,12 @@ Leggi questo file con `get_file_contents` per orientarti. Punti chiave:
 - Tutta l'infrastruttura tecnica è in main e in produzione
 - Edge functions deployate: `invia-whatsapp` v10, `richiedi-reset-cliente` v4
 - Manca solo l'approvazione Meta dei template (asincrona, fuori controllo)
-- Per recupero_password specifico: serve attendere v2 approval + settare
-  `WA_SID_RECUPERO` su Supabase Secrets
+- Per recupero_password specifico: serve attendere v3 approval + settare
+  `WA_SID_RECUPERO=HX64ef2eb0f7aa4497e97963116ea8b2f2` su Supabase Secrets
 
 Verifica status template su:
+- Edge Function `check-template-status` (read-only, da console browser loggato
+  manager: `sb.functions.invoke('check-template-status')`) — modo più rapido
 - https://console.twilio.com/us1/develop/sms/content-template-builder
 - Cerca i 4 template `spiaggiamia_*`
 - "WhatsApp business initiated" verde = ok, può essere usato
