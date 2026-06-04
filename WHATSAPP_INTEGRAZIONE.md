@@ -1,7 +1,7 @@
 # SpiaggiaMia — Integrazione notifiche WhatsApp (stato e piano)
 
 Documento di riferimento per la knowledge base del progetto.
-Ultimo aggiornamento: 4 giugno 2026 (appeal categoria sottomesso per i 3 stagionali — esito atteso entro 24-72h)
+Ultimo aggiornamento: 4 giugno 2026 (9 template UTILITY backup sottomessi h 21:36 UTC, in attesa approval Meta — esito atteso 24-72h)
 
 ## STATO ATTUALE (TL;DR)
 
@@ -22,6 +22,10 @@ sull'approvazione finale dei template.**
 - 🟡 **Template recupero_password v3** (SID `HX64ef2eb0...`): in **pending**
   review Meta. Resta `UTILITY` (contenuto chiaramente transazionale, no appeal
   necessario).
+- 🟡 **9 template UTILITY backup** (safe/medium/warm × 3 eventi): sottomessi
+  4 giu h 21:36 UTC come UTILITY con `allow_category_change: true`. Status
+  iniziale Twilio: tutti `received`. In attesa inoltro Meta + classificazione.
+  SID popolati in sezione 4.
 - ❌ **Template recupero_password v1**: REJECTED da Meta per
   `subCode=2388299, userMessage=Variables can't be at the start or end of the template`
   → cancellato, sostituito da v2 (poi v3).
@@ -89,6 +93,13 @@ blocca mai email o flusso DB.
   delete + recreate identico + submit per i 3 template stagionali quando
   bloccati in `received` lato Twilio. Richiede POST con body
   `{ "confirm": "yes-delete-and-recreate" }`. verify_jwt=true.
+- **Edge Function `create-utility-backup-templates`** (creata 4 giu 2026):
+  crea e sottomette 9 template UTILITY backup (safe/medium/warm × 3 eventi)
+  in single shot. Richiede POST con body `{ "confirm": "yes-create-utility-backups" }`.
+  Pre-step integrato: legge il template `spiaggiamia_invito_stagionale` esistente
+  per verificare il pattern URL del bottone (output `invito_button_reference`).
+  verify_jwt=true. Anche accessibile via bottoni nel `devboard.html`
+  (sezione "WhatsApp Templates Tools", mobile-friendly).
 
 ## 4. Template Twilio (Content SID definitivi)
 
@@ -102,6 +113,7 @@ Il `recupero_password_v3` è rimasto UTILITY (contenuto chiaramente transazional
    - Call To Action con bottone URL
    - Variabili body: 1=nome, 2=stabilimento
    - Bottone URL dinamico: token invito (chiave `button_1_url_0`)
+   - URL pattern verificato 4 giu h 21:36 UTC: `https://spiaggiamia.com/?invito={{3}}`
    - Status approval: 🟡 **pending** (verificato 4 giu h 16:54 UTC)
    - Categoria assegnata da Meta: **MARKETING** (sottomesso come UTILITY).
    - 🔄 **Appeal categoria sottomesso 4 giu** — esito atteso 24-72h.
@@ -157,6 +169,47 @@ Il `recupero_password_v3` è rimasto UTILITY (contenuto chiaramente transazional
      transazionale)
    - ⚠️ Quando approvato: settare `WA_SID_RECUPERO=HX64ef2eb0f7aa4497e97963116ea8b2f2`
      su Supabase Secrets
+
+### Template UTILITY backup (creati 4 giugno 2026 h 21:36 UTC)
+Set di 9 template di backup creati per offrire un'alternativa ai 3 template stagionali
+attualmente in appeal MARKETING. Tutti sottoposti come UTILITY con
+`allow_category_change: true`. Logica: 3 livelli di calore (safe / medium / warm) per
+ognuno dei 3 eventi (accesso / registrazione / operazione). Body ottimizzati dopo
+lettura della policy Meta (incipit transazionale, niente parole-trigger MARKETING,
+emoji limitate a contesto stato/servizio).
+
+Creati via Edge Function `create-utility-backup-templates` (POST body
+`{ "confirm": "yes-create-utility-backups" }`, verify_jwt=true). Invocazione iniziale
+fatta 4 giu h 21:36 UTC dal devboard.html. Pre-step pattern URL invito verificato:
+`https://spiaggiamia.com/?invito={{3}}` (allineato col template `spiaggiamia_invito_stagionale` esistente).
+
+| Friendly name | Evento | Livello | SID | Status iniziale |
+|---|---|---|---|---|
+| spiaggiamia_accesso_safe | accesso | safe | `HX482b55b886fb9719dac87795b61b37a1` | received |
+| spiaggiamia_accesso_medium | accesso | medium | `HXe499683276d00a22dd991762baa2dc91` | received |
+| spiaggiamia_accesso_warm | accesso | warm | `HXd1aa8cdf29a288f417f2de46634dd2a6` | received |
+| spiaggiamia_registrazione_safe | registrazione | safe | `HXe72b5b349616eb0b901e6e6a6e162c7a` | received |
+| spiaggiamia_registrazione_medium | registrazione | medium | `HX83ee028cd853653a0dbc8dc4cfe8e54c` | received |
+| spiaggiamia_registrazione_warm | registrazione | warm | `HXa462e50691efc451ee445dcbf14a731c` | received |
+| spiaggiamia_operazione_safe | operazione | safe | `HX3004b49698e33e8c07667c546e1848e4` | received |
+| spiaggiamia_operazione_medium | operazione | medium | `HXdff730c3df8bea037efb5ee38c000cf3` | received |
+| spiaggiamia_operazione_warm | operazione | warm | `HXac7ccf9dea0b5fc4ccc2952ed18c8084` | received |
+
+**Quando swappare**: se appeal categoria dei 3 attuali "stagionali" viene respinto
+(esito "Invariati"), settare su Supabase Secrets:
+- WA_SID_INVITO = <SID accesso_safe o accesso_warm a discrezione>
+- WA_SID_BENVENUTO = <SID registrazione_safe o registrazione_warm>
+- WA_SID_SUBAFFITTO = <SID operazione_safe o operazione_warm>
+
+⚠️ **Nota cambio signature variabili per A, B e C** (i backup usano numerazione
+variabile globale per il bottone, diversa dai 3 stagionali attuali):
+- I template `accesso_*` hanno il bottone su {{3}} = token invito (i 3 stagionali
+  attuali passano il token con chiave ContentVariables `button_1_url_0`)
+- I template `registrazione_*` hanno 3 variabili totali (era 2): aggiunta {{3}} = email URL-encoded per il bottone
+- I template `operazione_*` hanno 6 variabili totali (era 5): aggiunta {{6}} = email URL-encoded per il bottone
+- Se viene swappato il secret, `invia-whatsapp` v10 deve essere aggiornato per passare
+  le variabili bottone aggiuntive ({{3}} per accesso/registrazione, {{6}} per
+  operazione). È OPEN ITEM, da fare prima dello swap.
 
 ## 5. Numero pilota: BYON eSIM Iliad
 
@@ -289,6 +342,32 @@ dall'appeal: se Meta approva i template prima della decisione sull'appeal,
 diventano operativi (anche se come MARKETING) e l'eventuale riclassificazione
 a UTILITY post-appeal avviene senza dover rifare l'approval.
 
+### Tentativo 6 (4 giugno 2026 h 21:36 UTC): set di 9 template UTILITY backup
+Creato il set parallelo via nuova Edge Function `create-utility-backup-templates`.
+Razionale: dopo lettura policy Meta ufficiale (Template Categorization), ottimizzato il
+calore in 3 livelli (safe/medium/warm) e introdotto bottone "Accedi alla tua area" su
+registrazione e operazione (con pattern URL `https://spiaggiamia.com/?login={{N}}`,
+gestito dal frontend in `js/main.js`).
+
+Tutti e 9 sottomessi come UTILITY con `allow_category_change: true` e status iniziale
+`received` (output: `summary.ok=9, failed=0`). Atteso esito Meta in 24-72h. Il set
+serve come piano B nel caso l'appeal categoria sui 3 attuali stagionali venga respinto.
+
+Pre-step verification: il pattern URL del bottone "accesso" letto dal template
+esistente `spiaggiamia_invito_stagionale` (`https://spiaggiamia.com/?invito={{3}}`)
+coincide con quello atteso per il gruppo A. Nessuna divergenza host/parametro.
+
+Insight policy chiave applicati:
+- Body con incipit transazionale ("Conferma", "Riepilogo", "Attivazione")
+- Riferimenti espliciti a dati transazionali (stabilimento, periodo, saldo)
+- ZERO parole-trigger MARKETING ("Benvenuto", "Buona estate/spiaggia", celebrativi)
+- Emoji limitate a ✅ 🏖️ ☀️ (escluse 🎉 💰 ✨ 🚀)
+- Nessuna variabile in posizioni terminali di header/body
+
+Strumento di invocazione mobile-friendly: la nuova sezione "WhatsApp Templates Tools"
+nel `devboard.html` espone bottoni per invocare `create-utility-backup-templates`
+e `check-template-status` direttamente da cellulare (dove Chrome non ha DevTools).
+
 ## 8. Fase 3 — Reset password manager-driven
 
 Completata in main il 3 giu 2026. PR #104 + #105 + #106 + commit standalone.
@@ -335,6 +414,11 @@ consegnati.
 - [x] **Verifica passaggio a pending Meta** — i 3 stagionali in pending ~13min dopo ricreazione (4 giu h 16:54 UTC)
 - [x] **Appeal categoria sottomesso per i 3 stagionali** — via Meta WhatsApp Manager / Aggiornamenti categoria modelli (4 giu 2026 h ~17:20 UTC)
 - [ ] **Esito appeal categoria 3 stagionali** — atteso 24-72h (Ripristinati = UTILITY ✅ o Invariati = MARKETING). Se Invariati, valutare modifica body.
+- [x] **Edge Function `create-utility-backup-templates`** — deployata 4 giu 2026 v1 ACTIVE
+- [x] **9 template UTILITY backup creati e submittati** — 4 giu 2026 h 21:36 UTC, output `summary.ok=9 failed=0`, tutti `received`. SID popolati in sezione 4.
+- [x] **DevBoard mobile-friendly per invocazioni admin** — aggiunta sezione "WhatsApp Templates Tools" in `devboard.html` (4 giu 2026)
+- [ ] **Esito approval Meta per i 9 backup** — atteso 24-72h
+- [ ] **Aggiornamento `invia-whatsapp` per nuove signature A/B/C** — solo se si swappano
 - [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto** (status: pending, ricreati 4 giu)
 - [ ] **Approvazione Meta recupero_password v3** (SID `HX64ef2eb0...`, status: pending, categoria UTILITY)
 - [ ] **WA_SID_RECUPERO settato su Supabase Secrets** (post-approval v3)
@@ -359,6 +443,10 @@ consegnati.
    vanno toccati. In alternativa, accettare il costo MARKETING per i primi
    mesi e ri-valutare quando il volume cresce.
 
+   **Alternativa migliore**: swap dei secret WA_SID_* ai SID dei 9 backup
+   (sezione 4 sotto-sezione "Template UTILITY backup"). Richiede update
+   `invia-whatsapp` per le nuove signature (1 variabile in più su B/C).
+
 3. **Per recupero_password v3** (SID `HX64ef2eb0f7aa4497e97963116ea8b2f2`):
    - Supabase Dashboard → Edge Functions → Secrets → aggiungi/aggiorna
      `WA_SID_RECUPERO` = `HX64ef2eb0f7aa4497e97963116ea8b2f2`
@@ -377,12 +465,19 @@ consegnati.
 Leggi questo file con `get_file_contents` per orientarti. Punti chiave:
 - Tutta l'infrastruttura tecnica è in main e in produzione
 - Edge functions deployate: `invia-whatsapp` v10, `richiedi-reset-cliente` v4,
-  `check-template-status`, `recreate-whatsapp-templates`
+  `check-template-status`, `recreate-whatsapp-templates`, `create-utility-backup-templates`
 - Manca solo l'approvazione Meta dei template (asincrona, fuori controllo)
 - Per recupero_password specifico: serve attendere v3 approval + settare
   `WA_SID_RECUPERO=HX64ef2eb0f7aa4497e97963116ea8b2f2` su Supabase Secrets
 - Per i 3 stagionali: appeal categoria già sottomesso il 4 giu — attendere
   esito (24-72h). Se accolto torna UTILITY senza ulteriori azioni.
+- Set di 9 template UTILITY backup disponibile da 4 giu 2026 h 21:36 UTC. SID
+  popolati in sezione 4. Se l'appeal dei 3 stagionali viene respinto, swap dei
+  secret WA_SID_* ai SID di accesso_*/registrazione_*/operazione_* (richiede
+  update di invia-whatsapp per le variabili bottone aggiuntive su A/B/C).
+- DevBoard mobile-friendly: `spiaggiamia.com/devboard.html` ha la sezione
+  "WhatsApp Templates Tools" per invocare `create-utility-backup-templates` e
+  `check-template-status` da cellulare con un tap.
 
 Verifica status template:
 - Edge Function `check-template-status` (read-only, da console browser loggato
