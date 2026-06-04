@@ -33,6 +33,7 @@ Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono ren
 | `audit_log` | Log delle modifiche fatte sullo stabilimento (INSERT/UPDATE/DELETE su tutte le tabelle business + login proprietario + email inviate + import batch + backup/reset/restore stagione). Populato via trigger `_audit_row_trigger` (SECURITY DEFINER) e RPC `audit_log_write` / `audit_coalesce_import`. RLS: proprietario vede solo i propri eventi, admin vede tutto. Retention 30 giorni via job `pg_cron` "audit-log-retention" (03:00 daily). `entity_type` include `regola_stato` (override di calendario) e `backup_stagione` (eventi `create_backup`/`reset`/`restore`). Vedi sezione "Audit log". |
 | `regole_stato_ombrelloni` | Override di stato del calendario per range di date dello stabilimento. Tipi: `chiusura_speciale` (bagno chiuso, sub-affitti annullati automaticamente), `sempre_libero` (ombrelloni forzati subaffittabili, lo stagionale non può ritirarli), `mai_libero` (lo stagionale non può dichiarare libero). Granularità: stabilimento intero. La **chiusura stagionale** è derivata da `stabilimenti.data_*_stagione` e NON sta in questa tabella. Trigger audit `audit_regole_stato`. Modifiche solo via RPC `crea_regola_stato` / `elimina_regola_stato`. |
 | `stagioni_backup` | Snapshot JSONB dello stato dello stabilimento (ombrelloni + clienti + disponibilità + transazioni) generato automaticamente prima di ogni reset stagione (oppure on-demand). RLS: proprietario vede solo i propri backup; nessuna policy INSERT/UPDATE/DELETE per il proprietario, le scritture passano dalle RPC SECURITY DEFINER (`crea_backup_stagione`, `reset_stagione`, `ripristina_backup`). FIFO cap 10 per stabilimento (gestito dentro `crea_backup_stagione`). |
+| `wa_messages_log` (`20260603220000_wa_messages_log.sql`) | Log dei messaggi WhatsApp inviati via Twilio per delivery tracking reale. Colonne: `twilio_sid` (text UNIQUE NOT NULL — il MessageSid Twilio), `stabilimento_id`/`cliente_id` (FK ON DELETE SET NULL), `tipo`, `to_number`, `status` (default `queued`; valori Twilio `queued`/`sent`/`delivered`/`read`/`failed`/`undelivered`), `error_code` (int), `error_message`, `created_at`/`updated_at`. Indici su `(stabilimento_id, created_at DESC)`, `(cliente_id, created_at DESC)` e parziale su `status WHERE status IN ('failed','undelivered')`. RLS: SELECT solo per il proprietario dello stabilimento (`wa_messages_log_select_owner`); nessuna policy INSERT/UPDATE → scritture solo via service_role (Edge Functions `invia-whatsapp` al primo invio con `status='queued'`, e `twilio-wa-status-webhook` per gli aggiornamenti di stato). |
 
 RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select auth.uid())` per performance. In aggiunta, ogni tabella business ha un set di policy `*_admin_*` che concedono accesso totale agli utenti presenti in `public.admins` (controllato via `public.is_admin(uid)` — SECURITY DEFINER). L'intero schema `public` (tabelle, FK, indexes, RLS, policies, RPC) è catturato come baseline in `supabase/migrations/20260420000000_baseline.sql`; migrazioni future vanno come file addizionali con timestamp successivo.
 
@@ -89,7 +90,9 @@ RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select au
   - `benvenuto` — messaggio di benvenuto post-registrazione. Params: `cliente_id`.
   - `subaffitto_confermato` — notifica guadagno coin. Params: `cliente_id`, `periodo`, `coin_guadagnati`, `coin_totali`.
   - `recupero_password` — link di reset password via WhatsApp. Params: `cliente_id`, `link` (recovery URL). Variabili template: `{{1}}`=stabilimento (header), `{{2}}`=nome, `{{3}}`=stabilimento (body), `{{4}}`=link. **Bypassa** il controllo `whatsapp_consenso` (è comunicazione di servizio). Se `WA_SID_RECUPERO` non è valorizzata risponde `{ skipped: "template_recupero_non_configurato" }`.
-  Precondizioni (verificate dalla function): `stabilimenti.wa_enabled = true`, `clienti_stagionali.whatsapp_consenso = true` (tranne `recupero_password`), `telefono` valido (normalizzato in E.164 da `normalizePhone()`). Se una precondizione non è soddisfatta risponde `{ ok: false, skipped: "<reason>" }` senza errore. Le chiamate avvengono in fire-and-forget da `inviaWhatsapp()` in `js/utils.js` dopo il rispettivo `inviaEmail`.
+  Precondizioni (verificate dalla function): `stabilimenti.wa_enabled = true`, `clienti_stagionali.whatsapp_consenso = true` (tranne `recupero_password`), `telefono` valido (normalizzato in E.164 da `normalizePhone()`). Se una precondizione non è soddisfatta risponde `{ ok: false, skipped: "<reason>" }` senza errore. Le chiamate avvengono in fire-and-forget da `inviaWhatsapp()` in `js/utils.js` dopo il rispettivo `inviaEmail`. **Delivery tracking** (`20260603220000`): ogni POST a Twilio include `StatusCallback` → `<SUPABASE_URL>/functions/v1/twilio-wa-status-webhook`; `twilioSend` ritorna anche `twilio_sid` (MessageSid) e, su invio riuscito, la function inserisce una riga `wa_messages_log` con `status='queued'` (best-effort, insert fallito non blocca l'invio).
+
+- `twilio-wa-status-webhook` — riceve i webhook di stato di Twilio (form-urlencoded POST) ad ogni cambio status di un messaggio WhatsApp (`queued`→`sent`→`delivered` o →`failed`/`undelivered`) e aggiorna la riga corrispondente in `wa_messages_log` (match su `twilio_sid`). `verify_jwt = false` (Twilio non manda JWT — vedi `supabase/config.toml`); la sicurezza è basata sulla verifica firma HMAC-SHA1 di `X-Twilio-Signature` con `TWILIO_AUTH_TOKEN`. **NOTA primo deploy**: la verifica firma è in modalità *log-only* (mismatch loggato via `console.warn` ma non rifiutato) — da rendere bloccante (`return 401`) dopo aver confermato nei log che la firma matcha sempre. GET ritorna health check. Risponde sempre `200` (anche per sid sconosciuti / no-op) per evitare retry inutili di Twilio. Env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `TWILIO_AUTH_TOKEN`.
 
 - `recupero-password` — gestisce SOLO il ramo telefono del recupero password (il ramo email è lato client via `sb.auth.resetPasswordForEmail()`). Input `{ identificatore, canale: 'telefono' }`; risposta sempre generica `{ ok: true }` (no enumeration). Flusso: normalizza telefono → trova cliente registrato → `auth.admin.getUserById` per l'email auth (vera o sintetica) → `auth.admin.generateLink({type:'recovery'})` con redirect `APP_URL/?reset=1` → invia via `invia-whatsapp` tipo `recupero_password`. Env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL` (default `https://spiaggiamia.com`).
   **Variabile bottone invito**: in Twilio il bottone CTA ha numerazione variabili indipendente dal body. L'Edge Function usa `"button_1_url_0": token` in ContentVariables — verificare il comportamento con i SID reali e aggiustare se necessario (alternativa: chiave `"3"` se Twilio numera globalmente).
@@ -258,6 +261,24 @@ I clienti senza email sono sempre esclusi dal pool inviabile, ma il riepilogo de
       in `js/utils.js`. CSS `.cliente-action-popover` in `styles.css`.
   (c) Niente migrations SQL. Riusa RPC `rigenera_invito_token`
       (Fase 1). Vedi `LOGIN_TELEFONO.md` per il design completo.
+
+- **04 giu 2026** — Task B + Task C (WhatsApp delivery tracking):
+  (a) Task B: cache-buster `?v=20260603i` su `utils.js`/`auth.js`/
+      `manager.js`/`clienti.js` in `index.html` (manager.js da `g`→`i`)
+      per propagare subito le modifiche delle Fasi 2/3.
+  (b) Task C: tabella `wa_messages_log` (migration `20260603220000`),
+      nuova Edge Function `twilio-wa-status-webhook` (verify_jwt=false,
+      verifica firma HMAC log-only al primo deploy), `invia-whatsapp`
+      modificata per includere `StatusCallback` + log riga al primo
+      invio. Alert frontend più conservativi (manager.js
+      `azioneInvitaWA`/`azioneResetWA`: "✅ inviato"→"✉️ Richiesta
+      inviata"; gli alert email e bulk-misti restano invariati).
+      Cache-buster manager.js/clienti.js bumpati a `?v=20260603j`.
+      Problema risolto: Twilio risponde 200 anche per messaggi che
+      Meta poi blocca, generando falsi "✅ inviato" mentre Meta
+      Insights mostra 0 consegne.
+      **TODO post-test**: rendere bloccante la verifica firma HMAC
+      nel webhook (oggi log-only).
 
 ## Mantenimento di questo file
 
