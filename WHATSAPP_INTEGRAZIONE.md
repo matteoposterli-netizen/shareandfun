@@ -1,7 +1,7 @@
 # SpiaggiaMia — Integrazione notifiche WhatsApp (stato e piano)
 
 Documento di riferimento per la knowledge base del progetto.
-Ultimo aggiornamento: 4 giugno 2026 (post-verifica: 3 stagionali in pending Meta; auto-riclassificati MARKETING)
+Ultimo aggiornamento: 4 giugno 2026 (appeal categoria sottomesso per i 3 stagionali — esito atteso entro 24-72h)
 
 ## STATO ATTUALE (TL;DR)
 
@@ -14,12 +14,14 @@ sull'approvazione finale dei template.**
 - ✅ Reset password manager-driven (Fase 3) — funziona via email, WA in attesa
 - 🟡 **Template invito/benvenuto/subaffitto**: ricreati 4 giu (i vecchi erano
   bloccati lato Twilio in `received` da 2+ giorni, mai inoltrati a Meta).
-  I nuovi sono in **pending** Meta (verificato il 4 giu via `check-template-status`).
-  ⚠️ Meta li ha auto-riclassificati come **MARKETING** invece di UTILITY:
-  post-approval andrà richiesto il downgrade a UTILITY su Meta WhatsApp Manager
-  (`allow_category_change: true`).
+  I nuovi sono in **pending** Meta. ⚠️ Meta li ha auto-riclassificati come
+  **MARKETING** invece di UTILITY (sottoposti come UTILITY). **Appeal categoria
+  sottomesso il 4 giu** su Meta Business Manager → Aggiornamenti categoria
+  modelli → "Richiedi revisione" (un click, no motivazione testuale richiesta).
+  Esito atteso entro 24-72h: Ripristinati (= UTILITY) o Invariati (= MARKETING).
 - 🟡 **Template recupero_password v3** (SID `HX64ef2eb0...`): in **pending**
-  review Meta. Resta `UTILITY` (contenuto chiaramente transazionale).
+  review Meta. Resta `UTILITY` (contenuto chiaramente transazionale, no appeal
+  necessario).
 - ❌ **Template recupero_password v1**: REJECTED da Meta per
   `subCode=2388299, userMessage=Variables can't be at the start or end of the template`
   → cancellato, sostituito da v2 (poi v3).
@@ -93,31 +95,32 @@ blocca mai email o flusso DB.
 Lingua **Italian**. Categoria sottoposta **UTILITY** in tutti i casi, ma Meta ha
 auto-riclassificato i 3 stagionali a **MARKETING** al passaggio in pending.
 Il `recupero_password_v3` è rimasto UTILITY (contenuto chiaramente transazionale).
+**Appeal categoria sottomesso il 4 giu 2026 per i 3 stagionali**.
 
 1. **`spiaggiamia_invito_stagionale`** — SID `HXcf66089cb849dfcd69bfec8bd5dffe71`
    (ricreato 4 giu 2026; vecchio SID `HXa6ec64d24da74f0d8348c7e180d727e8` cancellato)
    - Call To Action con bottone URL
    - Variabili body: 1=nome, 2=stabilimento
    - Bottone URL dinamico: token invito (chiave `button_1_url_0`)
-   - Status: 🟡 **pending** (verificato 4 giu h 16:54 UTC via check-template-status)
-   - ⚠️ Categoria assegnata da Meta: **MARKETING** (sottomesso come UTILITY).
-     `allow_category_change: true` → richiedere downgrade post-approval.
+   - Status approval: 🟡 **pending** (verificato 4 giu h 16:54 UTC)
+   - Categoria assegnata da Meta: **MARKETING** (sottomesso come UTILITY).
+   - 🔄 **Appeal categoria sottomesso 4 giu** — esito atteso 24-72h.
 
 2. **`spiaggiamia_benvenuto_stagionale`** — SID `HXf3231107ecd0bf19e6737cdc53dfd0d7`
    (ricreato 4 giu 2026; vecchio SID `HXf42d6a56208f5e790550d1e38a9f54a3` cancellato)
    - Text
    - Variabili: 1=nome, 2=stabilimento
-   - Status: 🟡 **pending** (verificato 4 giu h 16:54 UTC)
-   - ⚠️ Categoria assegnata da Meta: **MARKETING** (sottomesso come UTILITY).
-     `allow_category_change: true` → richiedere downgrade post-approval.
+   - Status approval: 🟡 **pending** (verificato 4 giu h 16:54 UTC)
+   - Categoria assegnata da Meta: **MARKETING** (sottomesso come UTILITY).
+   - 🔄 **Appeal categoria sottomesso 4 giu** — esito atteso 24-72h.
 
 3. **`spiaggiamia_subaffitto_confermato`** — SID `HX08068906ff6ec2ee2286405506accd6a`
    (ricreato 4 giu 2026; vecchio SID `HXa9170abc05f727eab8fbd4cfa253779b` cancellato)
    - Text
    - Variabili: 1=nome, 2=periodo, 3=credito guadagnato, 4=credito totale, 5=stabilimento
-   - Status: 🟡 **pending** (verificato 4 giu h 16:54 UTC)
-   - ⚠️ Categoria assegnata da Meta: **MARKETING** (sottomesso come UTILITY).
-     `allow_category_change: true` → richiedere downgrade post-approval.
+   - Status approval: 🟡 **pending** (verificato 4 giu h 16:54 UTC)
+   - Categoria assegnata da Meta: **MARKETING** (sottomesso come UTILITY).
+   - 🔄 **Appeal categoria sottomesso 4 giu** — esito atteso 24-72h.
 
 4. **`spiaggiamia_recupero_password`** (v1) — SID `HXe0b44b18fae266c18cabe3973a5f708f`
    - Call To Action con bottone URL
@@ -181,6 +184,25 @@ Il `recupero_password_v3` è rimasto UTILITY (contenuto chiaramente transazional
   richiedere il downgrade post-approval da Meta WhatsApp Manager. In alternativa
   si può modificare il body per renderlo più chiaramente transazionale
   (es. iniziare con "Notifica automatica: …").
+- **Workflow appeal categoria** (testato e funzionante il 4 giu 2026):
+  1. Meta Business Manager → seleziona business "SpiaggiaMia" → Account WhatsApp
+  2. Nel banner giallo "X modelli sono stati ricategorizzati come di marketing"
+     cliccare "Controlla gli aggiornamenti delle categorie in Home dell'assistenza
+     per le aziende"
+  3. Sidebar → "Aggiornamenti categoria modelli" → tab "Available for review"
+  4. Spuntare i template da appellare (preferibilmente uno alla volta per
+     tracking individuale) e cliccare il pulsante blu **"Richiedi revisione"**
+     in alto. NON cliccare "Vedi dettagli" perché porta solo a "Modifica modello"
+     (un flusso diverso, per editare il body).
+  5. Conferma con popup "Successfully submitted appeal!" — **nessuna motivazione
+     testuale richiesta**, il contesto è implicito dalla pagina (= sto contestando
+     la riclassificazione di categoria).
+  6. Template passa da tab "Available for review" → tab "In fase di controllo"
+     con stato `Pending`. Esito atteso entro 24-72h:
+     - **Ripristinati** → ✅ accolto, torna UTILITY
+     - **Invariati** → ❌ rigettato, resta MARKETING (a quel punto valutare
+       modifica body o accettare il costo MARKETING)
+  7. Scadenza del diritto di appeal: 60 giorni dall'auto-riclassificazione.
 
 ## 7. Storia delle iterazioni di approval
 
@@ -239,16 +261,33 @@ delle vecchie submission, non un problema account-wide).
 - I 3 stagionali contengono "benvenuto", "invitato", "guadagnato crediti" →
   il classificatore Meta li ha visti come marketing
 
-**Strategia post-approval**: una volta che Meta approva, su
-**Meta WhatsApp Manager → Modelli di messaggio → ciascuno dei 3** richiedere
-il downgrade categoria a `UTILITY` (`allow_category_change: true` lo permette).
-Motivare con: *"Transactional notification for seasonal beach client lifecycle,
-not promotional"*. Se Meta rifiuta, valutare modifica body per renderlo più
-chiaramente transazionale (es. iniziare con "Notifica automatica: …").
-
 **Secret Supabase aggiornati il 4 giu**: i 3 `WA_SID_INVITO`, `WA_SID_BENVENUTO`,
 `WA_SID_SUBAFFITTO` puntano ora ai nuovi SID. `invia-whatsapp` opererà sui
 nuovi template al primo evento utile post-approval.
+
+### Tentativo 5 (4 giugno 2026, post-ricreazione): appeal categoria stagionali
+Per contestare la riclassificazione MARKETING dei 3 template stagionali,
+sottomesso appeal tramite **Meta Business Manager → Aggiornamenti categoria
+modelli → tab "Available for review" → "Richiedi revisione"** per ciascuno dei
+3 template (sequenza: subaffitto, benvenuto, invito).
+
+**Scoperta utile per future occasioni**: NON è richiesta motivazione testuale —
+basta selezionare + cliccare "Richiedi revisione". Il contesto è implicito
+dalla pagina (= "sto contestando la riclassificazione di categoria del/i
+template selezionato/i"). Conferma immediata via popup "Successfully submitted
+appeal!". Template spostati dalla tab "Available for review" alla tab
+"In fase di controllo" con stato `Pending` (lato appeal).
+
+Esito atteso entro 24-72h:
+- **Ripristinati** → ✅ Meta accoglie, categoria torna UTILITY
+- **Invariati** → ❌ Meta conferma MARKETING. In quel caso, valutare modifica
+  body (prefisso "Notifica automatica: …") e re-submission del template, oppure
+  accettare il costo MARKETING per i primi mesi.
+
+Il processo di approval business-initiated continua indipendentemente
+dall'appeal: se Meta approva i template prima della decisione sull'appeal,
+diventano operativi (anche se come MARKETING) e l'eventuale riclassificazione
+a UTILITY post-appeal avviene senza dover rifare l'approval.
 
 ## 8. Fase 3 — Reset password manager-driven
 
@@ -294,9 +333,10 @@ consegnati.
 - [x] **Ricreazione template stagionali** — 4 giu 2026
 - [x] **Secret Supabase aggiornati con nuovi SID** — `WA_SID_INVITO`, `WA_SID_BENVENUTO`, `WA_SID_SUBAFFITTO` (4 giu 2026)
 - [x] **Verifica passaggio a pending Meta** — i 3 stagionali in pending ~13min dopo ricreazione (4 giu h 16:54 UTC)
-- [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto** (status: pending, ricreati 4 giu, categoria assegnata MARKETING)
+- [x] **Appeal categoria sottomesso per i 3 stagionali** — via Meta WhatsApp Manager / Aggiornamenti categoria modelli (4 giu 2026 h ~17:20 UTC)
+- [ ] **Esito appeal categoria 3 stagionali** — atteso 24-72h (Ripristinati = UTILITY ✅ o Invariati = MARKETING). Se Invariati, valutare modifica body.
+- [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto** (status: pending, ricreati 4 giu)
 - [ ] **Approvazione Meta recupero_password v3** (SID `HX64ef2eb0...`, status: pending, categoria UTILITY)
-- [ ] **Downgrade categoria MARKETING → UTILITY** per i 3 stagionali (post-approval, via Meta WhatsApp Manager)
 - [ ] **WA_SID_RECUPERO settato su Supabase Secrets** (post-approval v3)
 - [ ] **Test end-to-end WA recupero password** sul cellulare (post-approval)
 - [ ] **Business verification Meta** — bloccata da mancanza P.IVA (long term)
@@ -308,17 +348,25 @@ consegnati.
 1. **Per i 3 template invito/benvenuto/subaffitto**: nessun cambio codice
    necessario, Edge Functions già pronte e secret aggiornati → al primo
    evento (invito/benvenuto/subaffitto) i WA dovrebbero partire automaticamente.
-   ⚠️ Subito dopo l'approval, valutare richiesta downgrade categoria
-   `MARKETING → UTILITY` su Meta WhatsApp Manager.
+   ⚠️ Categoria al momento: MARKETING (con appeal in corso del 4 giu). Se
+   l'appeal viene accolto, diventa UTILITY automaticamente — nessuna azione
+   richiesta lato codice.
 
-2. **Per recupero_password v3** (SID `HX64ef2eb0f7aa4497e97963116ea8b2f2`):
+2. **Se l'appeal categoria del 4 giu è "Invariati" (rigettato)**: valutare
+   modifica body con prefisso `"Notifica automatica: [tipo evento]\n\n"` in
+   testa, poi re-submission. Il SID resta invariato (la modifica fa ripartire
+   l'approval ma non cambia l'identificativo), quindi i secret Supabase non
+   vanno toccati. In alternativa, accettare il costo MARKETING per i primi
+   mesi e ri-valutare quando il volume cresce.
+
+3. **Per recupero_password v3** (SID `HX64ef2eb0f7aa4497e97963116ea8b2f2`):
    - Supabase Dashboard → Edge Functions → Secrets → aggiungi/aggiorna
      `WA_SID_RECUPERO` = `HX64ef2eb0f7aa4497e97963116ea8b2f2`
    - Nessun redeploy necessario (env var lette al runtime)
    - Test browser: ⋮ su Nicola Rizzo (ombrellone 104) → "Invia reset password
      via WhatsApp" → atteso WA sul cellulare con button "Imposta nuova password"
 
-3. **Verifica delivery reale**: dopo qualsiasi test WA, controlla Meta Business
+4. **Verifica delivery reale**: dopo qualsiasi test WA, controlla Meta Business
    Manager → WhatsApp Manager → Numeri di telefono → click sul numero → tab
    Insights → "Tutti i messaggi" → deve aumentare "Messaggi inviati" e
    "Messaggi consegnati" (NON solo "ricevuti"). Se restano a 0, Meta ha
@@ -333,8 +381,8 @@ Leggi questo file con `get_file_contents` per orientarti. Punti chiave:
 - Manca solo l'approvazione Meta dei template (asincrona, fuori controllo)
 - Per recupero_password specifico: serve attendere v3 approval + settare
   `WA_SID_RECUPERO=HX64ef2eb0f7aa4497e97963116ea8b2f2` su Supabase Secrets
-- Per i 3 stagionali: post-approval, richiedere downgrade categoria
-  `MARKETING → UTILITY` su Meta WhatsApp Manager (per ridurre costo per messaggio)
+- Per i 3 stagionali: appeal categoria già sottomesso il 4 giu — attendere
+  esito (24-72h). Se accolto torna UTILITY senza ulteriori azioni.
 
 Verifica status template:
 - Edge Function `check-template-status` (read-only, da console browser loggato
@@ -345,6 +393,8 @@ Verifica status template:
 - Status Twilio: `unsubmitted → received → pending → approved/rejected`
   (`received` = Twilio ce l'ha ma non l'ha ancora inoltrato a Meta;
   `pending` = già a Meta in review)
+- Per esito appeal categoria: Meta Business Manager → SpiaggiaMia → Account
+  WhatsApp → Aggiornamenti categoria modelli → tab "Ripristinati" o "Invariati"
 
 ## 12. UUID stabilimenti (riferimento)
 
