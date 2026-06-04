@@ -285,7 +285,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .booking-missing { font-size: 13px; color: #9C3B1F; background: #fff; border: 1px dashed var(--coral); border-radius: 6px; padding: 8px 10px; margin: 8px 0; }
 .booking-complete { font-size: 13px; color: var(--green); font-weight: 600; margin: 8px 0; }
 .booking-panel-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-.sea-label, .bar-label { display: flex; align-items: center; gap: 12px; width: 100%; font-size: 10px; font-weight: 700; letter-spacing: 5px; text-transform: uppercase; padding: 6px 0; }
+.sea-label, .bar-label { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; font-size: 10px; font-weight: 700; letter-spacing: 5px; text-transform: uppercase; padding: 6px 0; }
 .sea-label::before, .sea-label::after, .bar-label::before, .bar-label::after { content: ''; flex: 1 1 0; min-width: 16px; border-top: 1.5px dashed currentColor; }
 .sea-label { color: var(--ocean-mid); margin-top: 14px; }
 .bar-label { color: var(--coral); margin-bottom: 14px; }

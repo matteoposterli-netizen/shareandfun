@@ -802,7 +802,7 @@ function renderGestioneFiltered() {
     const empty = totali
       ? 'Nessuna riga corrisponde al filtro.'
       : 'Nessun ombrellone ancora. Aggiungine uno o importa un Excel.';
-    tb.innerHTML = `<tr><td colspan="${waEnabled ? 10 : 9}" style="text-align:center;color:var(--text-light);padding:24px">${empty}</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="${waEnabled ? 9 : 8}" style="text-align:center;color:var(--text-light);padding:24px">${empty}</td></tr>`;
     updateClientiBulkToolbar();
     syncCheckAllClienti(righe);
     return;
@@ -847,7 +847,7 @@ function renderGestioneFiltered() {
       : '<td class="hidden"></td>';
     return `<tr style="cursor:pointer" onclick="openViewOmbrelloneModal('${omb.id}')" title="Vedi dettagli ombrellone">
       <td onclick="event.stopPropagation()">${unifiedCheck}</td>
-      <td colspan="2"><strong>${escapeHtml(omb.codice)}</strong>${inactiveBadge}</td>
+      <td><strong>${escapeHtml(omb.codice)}</strong>${inactiveBadge}</td>
       <td>${formatCoin(omb.credito_giornaliero)}</td>
       <td>${cliente ? `<strong>${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')}</strong>` : '<span style="color:var(--text-light)">–</span>'}</td>
       <td>${cliente ? escapeHtml(cliente.email || '') : '<span style="color:var(--text-light)">–</span>'}</td>
