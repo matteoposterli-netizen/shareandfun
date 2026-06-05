@@ -164,17 +164,32 @@ Deno.serve(async (req) => {
   }
 
   // canale === 'whatsapp' (riusa tipo recupero_password gia' esistente)
-  // Estrae la sola query string del recovery link per il template WhatsApp:
-  // Meta richiede che il button URL del template abbia prefisso statico +
-  // variabile come suffisso/parametro, non l'URL intero come variabile pura.
-  // Il template Twilio ha URL fisso
-  //   https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify?{{4}}
-  // e {{4}} viene popolato con la sola query string del recovery link:
-  //   token=...&type=recovery&redirect_to=...
-  // L'URL ricomposto al runtime resta esattamente l'action_link Supabase
-  // originale, quindi il flusso di verify+redirect funziona come prima.
+  // Estrae la query string COMPLETA (incluso '?') del recovery link per
+  // il template WhatsApp.
+  //
+  // BUGFIX 5 giu 2026: il template Meta-approved
+  // 'spiaggiamia_recupero_password_v3' ha button URL
+  //   https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify{{4}}
+  // SENZA il '?' tra 'verify' e '{{4}}' (Meta lo rimuove durante
+  // l'approval normalizzando l'URL, oppure non e' mai stato salvato).
+  // Prima del fix passavamo recoveryUrl.search.slice(1) (senza '?'),
+  // assumendo che il template avesse '?' davanti a {{4}}. Risultato:
+  // URL ricomposto malformato 'verifytoken=...' (senza '?') -> Supabase
+  // rispondeva 404 page not found al click del bottone.
+  //
+  // Diagnosi confermata da URL effettivo del bottone copiato dal
+  // cellulare:
+  //   https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verifytoken=
+  //   1df0204e...&type=recovery&redirect_to=https%3A%2F%2F...
+  // (notare 'verifytoken' attaccato senza '?').
+  //
+  // Fix: passiamo recoveryUrl.search (con '?' iniziale). Il template
+  // ricompone l'URL corretto 'verify' + '?token=...&type=recovery&...'
+  // che e' esattamente l'action_link Supabase originale. Notare che
+  // Meta NON URL-encoda '=' e '&' della variabile (confermato dall'URL
+  // del bottone), quindi non serve ridisegnare con short-link.
   const recoveryUrl = new URL(recoveryLink);
-  const recoveryQuery = recoveryUrl.search.slice(1); // rimuove il '?' iniziale
+  const recoveryQuery = recoveryUrl.search; // include '?' iniziale (vedi BUGFIX 5 giu 2026 sopra)
 
   const waRes = await fetch(`${SUPABASE_URL}/functions/v1/invia-whatsapp`, {
     method: 'POST',
@@ -186,7 +201,7 @@ Deno.serve(async (req) => {
       tipo: 'recupero_password',
       stabilimento_id: stab.id,
       cliente_id: cliente.id,
-      link: recoveryQuery, // solo la query string (Meta requirement template URL)
+      link: recoveryQuery, // query string con '?' iniziale (Meta requirement template URL)
     }),
   });
   const waData = await waRes.json().catch(() => ({}));
