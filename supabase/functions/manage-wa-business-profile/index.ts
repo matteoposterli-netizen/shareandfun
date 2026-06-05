@@ -13,8 +13,8 @@
 //       "about":       "...",
 //       "address":     "...",
 //       "description": "...",
-//       "emails":      ["..."],
-//       "websites":    ["https://spiaggiamia.com"],
+//       "emails":      [{ "email": "...", "label": "Email" }],
+//       "websites":    [{ "website": "https://spiaggiamia.com", "label": "Website" }],
 //       "vertical":    "TRAVEL",   // enum Twilio
 //       "logo_url":    "https://spiaggiamia.com/assets/wa-profile-picture.jpg"
 //     }
@@ -53,13 +53,18 @@ function jsonResp(payload: unknown, status = 200) {
   });
 }
 
+// Estrae l'email dell'utente che ha chiamato la funzione.
+// Pattern corretto per Supabase Edge Functions: prendere il JWT dall'header
+// Authorization e passarlo direttamente a getUser(token), non al createClient.
+// Il pattern createClient con global.headers fa firmare la chiamata con l'anon key
+// invece del JWT utente, e supa.auth.getUser() ritorna null.
 async function getCallerEmail(req: Request): Promise<string | null> {
-  const authHeader = req.headers.get("Authorization");
+  const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
   if (!authHeader) return null;
-  const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data, error } = await supa.auth.getUser();
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return null;
+  const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data, error } = await supa.auth.getUser(token);
   if (error || !data?.user) return null;
   return data.user.email ?? null;
 }
