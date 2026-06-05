@@ -1,17 +1,26 @@
 # SpiaggiaMia — Integrazione notifiche WhatsApp (stato e piano)
 
 Documento di riferimento per la knowledge base del progetto.
-Ultimo aggiornamento: 4 giugno 2026 (9 template UTILITY backup sottomessi h 21:36 UTC, in attesa approval Meta — esito atteso 24-72h)
+Ultimo aggiornamento: 5 giugno 2026 — BUGFIX URL `?` mancante nel template
+recupero_password v3 (vedi sezione 7 - Tentativo 7). Reset password via WA ora
+funzionante end-to-end dopo deploy edge function `richiedi-reset-cliente`.
 
 ## STATO ATTUALE (TL;DR)
 
-**Integrazione tecnica completa e funzionante end-to-end. Bloccata SOLO da Meta
-sull'approvazione finale dei template.**
+**Reset password via WhatsApp: FUNZIONANTE end-to-end (5 giu 2026).** Il
+template `spiaggiamia_recupero_password_v3` è stato approvato da Meta tra il
+4 e il 5 giugno, il messaggio arriva correttamente sul cellulare. Bug nel
+codice `richiedi-reset-cliente` (URL `?` mancante) trovato e fixato il
+5 giu. Restano in attesa di approval Meta i 3 template stagionali
+(invito/benvenuto/subaffitto) e i 9 template UTILITY backup.
 
 - ✅ Frontend → Edge Function → Twilio: catena verificata in produzione
 - ✅ Twilio Sender `+393520426199` ONLINE, display name "SpiaggiaMia"
 - ✅ Profilo WhatsApp Business compilato (descrizione, indirizzo, email, sito web)
-- ✅ Reset password manager-driven (Fase 3) — funziona via email, WA in attesa
+- ✅ Reset password manager-driven (Fase 3) — funziona via email
+- ✅ **Reset password via WhatsApp — FUNZIONANTE** (post-bugfix 5 giu 2026)
+- ✅ Template `recupero_password_v3` APPROVATO Meta (categoria UTILITY)
+- ✅ `WA_SID_RECUPERO` settato su Supabase Secrets (`HX64ef2eb0...`)
 - 🟡 **Template invito/benvenuto/subaffitto**: ricreati 4 giu (i vecchi erano
   bloccati lato Twilio in `received` da 2+ giorni, mai inoltrati a Meta).
   I nuovi sono in **pending** Meta. ⚠️ Meta li ha auto-riclassificati come
@@ -19,9 +28,6 @@ sull'approvazione finale dei template.**
   sottomesso il 4 giu** su Meta Business Manager → Aggiornamenti categoria
   modelli → "Richiedi revisione" (un click, no motivazione testuale richiesta).
   Esito atteso entro 24-72h: Ripristinati (= UTILITY) o Invariati (= MARKETING).
-- 🟡 **Template recupero_password v3** (SID `HX64ef2eb0...`): in **pending**
-  review Meta. Resta `UTILITY` (contenuto chiaramente transazionale, no appeal
-  necessario).
 - 🟡 **9 template UTILITY backup** (safe/medium/warm × 3 eventi): sottomessi
   4 giu h 21:36 UTC come UTILITY con `allow_category_change: true`. Status
   iniziale Twilio: tutti `received`. In attesa inoltro Meta + classificazione.
@@ -32,12 +38,6 @@ sull'approvazione finale dei template.**
 - ❌ **Business verification Meta**: NON procedibile (Matteo è persona fisica
   senza P.IVA registrata). Conseguenze: limite 250 conv/24h, review template più
   stringente. Non blocker assoluto per MVP.
-
-**Insight critico confermato dal Meta Business Manager**: nei "Insights" del
-numero +393520426199 si vede `Messaggi inviati: 0, Messaggi consegnati: 0, Costi
-stimati: $0`. Significa che NESSUNO dei WA "inviati" finora dal sistema è davvero
-arrivato sui cellulari dei clienti — Twilio li ha presi in carico (HTTP 200) ma
-Meta li ha bloccati al gateway perché i template sono in pending.
 
 ## 1. Obiettivo
 
@@ -64,15 +64,17 @@ blocca mai email o flusso DB.
     `recupero_password` con ownership check sul proprietario dello stabilimento)
   - Skip silenzioso se `wa_enabled=false`, `whatsapp_consenso=false`, o telefono
     non E.164 valido
-- **Edge Function `richiedi-reset-cliente`** (v4 al 3 giu 2026, Fase 3):
+- **Edge Function `richiedi-reset-cliente`** (v5 al 5 giu 2026, Fase 3 + bugfix URL):
   - Manager-driven: genera recovery link via Admin API, sceglie canale (email/WA),
     invia tramite invia-email o invia-whatsapp
   - Passa il JWT del manager (non SERVICE_KEY) per le chiamate interne — risolve
     401 osservato in prod quando SUPABASE_SERVICE_ROLE_KEY env var non è
     disponibile/valida nel runtime della function
-  - Per WA: estrae solo la query string del recovery link (`recoveryUrl.search`)
-    e la passa come variabile `{{4}}` — il template Twilio ha prefisso URL fisso
-    `https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify?{{4}}`
+  - Per WA: estrae la **query string completa (incluso `?` iniziale)** del
+    recovery link e la passa come variabile `{{4}}` — il template Twilio ha
+    prefisso URL fisso `https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify{{4}}`
+    (notare: SENZA `?` tra `verify` e `{{4}}` — Meta lo rimuove durante
+    l'approval normalizzando l'URL). Il `?` è quindi parte della variabile.
 - **Helper frontend** `inviaWhatsapp(tipo, params, stab)` in `js/utils.js`
 - **Helper frontend** `richiediResetCliente(clienteId, canale)` in `js/utils.js`
 - **Toggle per-stabilimento**: `stabilimenti.wa_enabled` (boolean, default false)
@@ -80,10 +82,8 @@ blocca mai email o flusso DB.
   `whatsapp_consenso_at`
 - **Secret Supabase richiesti**: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
   `TWILIO_WA_FROM=whatsapp:+393520426199`, `WA_SID_INVITO`, `WA_SID_BENVENUTO`,
-  `WA_SID_SUBAFFITTO`, `WA_SID_RECUPERO` (quest'ultima da settare quando il v3 è
-  approvato → `HX64ef2eb0f7aa4497e97963116ea8b2f2`). I 3 SID stagionali sono
-  stati aggiornati il 4 giu 2026 con i nuovi valori post-ricreazione (vedi
-  sezione 4).
+  `WA_SID_SUBAFFITTO`, `WA_SID_RECUPERO`. Quest'ultima settata il 4-5 giu 2026
+  a `HX64ef2eb0f7aa4497e97963116ea8b2f2` (template approvato Meta).
 - **Edge Function `check-template-status`** (creata 4 giu 2026): read-only,
   chiama Twilio Content API v2/ContentAndApprovals e restituisce status
   approval di tutti i template `spiaggiamia_*`. verify_jwt=true.
@@ -161,14 +161,18 @@ Il `recupero_password_v3` è rimasto UTILITY (contenuto chiaramente transazional
      Se non hai richiesto tu, ignora questo messaggio o contatta lo stabilimento.
      ```
    - Variabili body: 1=stabilimento (intro), 2=nome cliente, 3=stabilimento (body)
-   - Button URL: `https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify?{{4}}`
-   - Variabile {{4}}: solo la query string del recovery link Supabase (token,
-     type, redirect_to). NON l'URL completo (Meta richiede prefisso URL fisso)
-   - Status: 🟡 **pending** (verificato 4 giu via check-template-status)
+   - Button URL **APPROVED** (verificato empiricamente 5 giu 2026 da URL del
+     bottone copiato dal cellulare): `https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify{{4}}`
+     **(SENZA `?` tra `verify` e `{{4}}`)**. ⚠️ Meta ha rimosso/normalizzato
+     il `?` durante l'approval. La variabile {{4}} DEVE quindi iniziare con `?`
+     per ricomporre l'URL corretto. Vedi BUGFIX 5 giu 2026 in
+     `richiedi-reset-cliente/index.ts`.
+   - Variabile {{4}}: la query string COMPLETA del recovery link Supabase,
+     incluso `?` iniziale (`?token=...&type=recovery&redirect_to=...`).
+   - Status: ✅ **APPROVED** Meta (verificato 5 giu 2026 - messaggio arrivato e
+     bottone funzionante post-bugfix codice)
    - Categoria: **UTILITY** (Meta NON l'ha riclassificato, contenuto chiaramente
      transazionale)
-   - ⚠️ Quando approvato: settare `WA_SID_RECUPERO=HX64ef2eb0f7aa4497e97963116ea8b2f2`
-     su Supabase Secrets
 
 ### Template UTILITY backup (creati 4 giugno 2026 h 21:36 UTC)
 Set di 9 template di backup creati per offrire un'alternativa ai 3 template stagionali
@@ -237,6 +241,12 @@ variabile globale per il bottone, diversa dai 3 stagionali attuali):
   richiedere il downgrade post-approval da Meta WhatsApp Manager. In alternativa
   si può modificare il body per renderlo più chiaramente transazionale
   (es. iniziare con "Notifica automatica: …").
+- ⚠️ **Normalizzazione URL del button**: Meta può rimuovere o modificare
+  caratteri "speciali" nell'URL del bottone durante l'approval. Verificato 5 giu
+  2026: il `?` tra path e `{{variabile}}` viene rimosso (`verify?{{4}}` →
+  `verify{{4}}`). Soluzione: includere il `?` nel valore della variabile, non
+  hardcodarlo nel template URL. Altri caratteri di query (`=`, `&`) sono invece
+  preservati nel valore della variabile (NON URL-encoded da Meta).
 - **Workflow appeal categoria** (testato e funzionante il 4 giu 2026):
   1. Meta Business Manager → seleziona business "SpiaggiaMia" → Account WhatsApp
   2. Nel banner giallo "X modelli sono stati ricategorizzati come di marketing"
@@ -368,25 +378,66 @@ Strumento di invocazione mobile-friendly: la nuova sezione "WhatsApp Templates T
 nel `devboard.html` espone bottoni per invocare `create-utility-backup-templates`
 e `check-template-status` direttamente da cellulare (dove Chrome non ha DevTools).
 
+### Tentativo 7 (5 giugno 2026): bugfix URL `?` mancante nel template recupero_password v3
+
+**Sintomo**: Matteo riceve regolarmente il messaggio WA "Reset password per
+Universo" sul cellulare. Clicca il bottone "Imposta nuova password" → si apre
+una pagina **404 page not found** sul dominio `btnyzzpibedkslhtiizu.supabase.co`.
+
+**Diagnosi** (via long-press sul bottone WA + copia link):
+URL del bottone effettivo:
+```
+https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verifytoken=1df0204e8b3882c3152fa3d9a95c3d614d6d0d54a5829b7cbc1dbb2f&type=recovery&redirect_to=https%3A%2F%2Fspiaggiamia.com%2F%3Freset%3D1
+```
+Manca il **`?`** tra `verify` e `token=...` (notare `verifytoken` attaccato).
+Path inesistente su Supabase → 404.
+
+**Root cause**: il template Meta-approved
+`spiaggiamia_recupero_password_v3` (SID `HX64ef2eb0...`) ha button URL
+salvato/approvato come `https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify{{4}}`
+SENZA il `?` prima di `{{4}}`. Meta normalizza l'URL durante l'approval e
+rimuove caratteri "speciali" come `?` tra path e variabile, oppure il `?` non
+è mai stato salvato. La doc precedente assumeva il template avesse `verify?{{4}}`
+(con `?`) e il codice in `richiedi-reset-cliente/index.ts` passava la query
+string SENZA `?` iniziale (`recoveryUrl.search.slice(1)`). Risultato: i due
+"senza `?`" si combinano → URL malformato.
+
+**Empiricamente confermato**: Meta NON URL-encoda `=` e `&` nel valore della
+variabile (visibili in chiaro nell'URL del bottone), ma altera/rimuove altri
+caratteri "speciali" come `?` nel template URL. Quindi non serve un short-link
+o redesign — basta spostare il `?` da template a valore variabile.
+
+**Fix** (commit `29c649e1` del 5 giu 2026 in `richiedi-reset-cliente/index.ts`):
+```diff
+-  const recoveryQuery = recoveryUrl.search.slice(1); // rimuove il '?' iniziale
++  const recoveryQuery = recoveryUrl.search; // include '?' iniziale (template ha "verify{{4}}" senza '?')
+```
+Deploy: `supabase functions deploy richiedi-reset-cliente`. Versione runtime
+attesa: v5.
+
+**Lezione**: quando si verifica il flusso WA end-to-end con button URL,
+**SEMPRE** fare long-press sul bottone in WhatsApp per copiare l'URL effettivo
+e confrontarlo con quello atteso. La doc del template (lato Twilio) può
+divergere dall'URL effettivamente approvato e renderizzato da Meta.
+
 ## 8. Fase 3 — Reset password manager-driven
 
 Completata in main il 3 giu 2026. PR #104 + #105 + #106 + commit standalone.
+Bugfix URL aggiunto il 5 giu 2026 (vedi Tentativo 7 sezione 7).
 
 - Frontend: menu ⋮ contestuale al posto di "[Invita]" in tabella Ombrelloni/Clienti
 - 6 azioni: copia link, invito email/WA, rigenera link, reset email/WA
 - Bulk modale unificato: accetta selezione mista (registrati + non-registrati),
   auto-split INVITO vs RESET con badge colorati
-- Backend: nuova Edge Function `richiedi-reset-cliente` (manager-driven con
-  ownership check)
+- Backend: Edge Function `richiedi-reset-cliente` (manager-driven con
+  ownership check + bugfix URL `?` mancante 5 giu)
 - Esteso `invia-email` con tipo `reset_password` (template HTML + CTA)
 
 Test reset password via **email**: ✅ funziona end-to-end (testato cliente
 Matteo Posterli ombrellone 100, email reale).
 
-Test reset password via **WhatsApp**: tecnicamente parte (HTTP 200, alert success
-✅), MA il messaggio NON arriva sul cellulare perché il template Meta non è
-ancora approvato. Verifica nel Meta Business Manager → Insights: 0 messaggi
-consegnati.
+Test reset password via **WhatsApp**: ✅ funziona end-to-end post-bugfix del
+5 giu 2026 (template approvato Meta + URL ricomposto correttamente).
 
 ## 9. STATO DEGLI STEP
 
@@ -403,16 +454,19 @@ consegnati.
 - [x] **4b-bis. Agganci agli eventi** — tutti completi (invito, benvenuto, subaffitto)
 - [x] **Cleanup `whatsapp_config`** — tabella eliminata
 - [x] **Fase 3 — Reset password manager-driven** — completa, in main
-- [x] **richiedi-reset-cliente Edge Function** — v4 ACTIVE (3 giu 2026)
+- [x] **richiedi-reset-cliente Edge Function** — v5 (post-bugfix 5 giu 2026)
 - [x] **Profilo WhatsApp Business completo** — descrizione, indirizzo, email, sito
 - [x] **Recupero password v1 sottomesso** — rejected per "variables at start/end"
-- [x] **Recupero password v3 sottomesso** — pending review Meta (v2 superato)
+- [x] **Recupero password v3 sottomesso e approvato Meta** — 5 giu 2026 (categoria UTILITY)
+- [x] **WA_SID_RECUPERO settato su Supabase Secrets** (`HX64ef2eb0...`)
 - [x] **Edge Function check-template-status** (read-only) — 4 giu 2026
 - [x] **Edge Function recreate-whatsapp-templates** — 4 giu 2026
 - [x] **Ricreazione template stagionali** — 4 giu 2026
 - [x] **Secret Supabase aggiornati con nuovi SID** — `WA_SID_INVITO`, `WA_SID_BENVENUTO`, `WA_SID_SUBAFFITTO` (4 giu 2026)
 - [x] **Verifica passaggio a pending Meta** — i 3 stagionali in pending ~13min dopo ricreazione (4 giu h 16:54 UTC)
 - [x] **Appeal categoria sottomesso per i 3 stagionali** — via Meta WhatsApp Manager / Aggiornamenti categoria modelli (4 giu 2026 h ~17:20 UTC)
+- [x] **Bugfix URL `?` mancante in richiedi-reset-cliente** — commit `29c649e1` del 5 giu 2026
+- [x] **Test end-to-end WA recupero password** sul cellulare — ✅ funzionante post-bugfix
 - [ ] **Esito appeal categoria 3 stagionali** — atteso 24-72h (Ripristinati = UTILITY ✅ o Invariati = MARKETING). Se Invariati, valutare modifica body.
 - [x] **Edge Function `create-utility-backup-templates`** — deployata 4 giu 2026 v1 ACTIVE
 - [x] **9 template UTILITY backup creati e submittati** — 4 giu 2026 h 21:36 UTC, output `summary.ok=9 failed=0`, tutti `received`. SID popolati in sezione 4.
@@ -420,57 +474,49 @@ consegnati.
 - [ ] **Esito approval Meta per i 9 backup** — atteso 24-72h
 - [ ] **Aggiornamento `invia-whatsapp` per nuove signature A/B/C** — solo se si swappano
 - [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto** (status: pending, ricreati 4 giu)
-- [ ] **Approvazione Meta recupero_password v3** (SID `HX64ef2eb0...`, status: pending, categoria UTILITY)
-- [ ] **WA_SID_RECUPERO settato su Supabase Secrets** (post-approval v3)
-- [ ] **Test end-to-end WA recupero password** sul cellulare (post-approval)
 - [ ] **Business verification Meta** — bloccata da mancanza P.IVA (long term)
 
 ## 10. Come riprendere il test (quando Meta approva)
 
-**Quando i 4 template diventano verdi per business-initiated:**
+**Per i 3 template invito/benvenuto/subaffitto** (ancora pending):
+nessun cambio codice necessario, Edge Functions già pronte e secret aggiornati →
+al primo evento (invito/benvenuto/subaffitto) i WA dovrebbero partire
+automaticamente. ⚠️ Categoria al momento: MARKETING (con appeal in corso del 4
+giu). Se l'appeal viene accolto, diventa UTILITY automaticamente — nessuna
+azione richiesta lato codice.
 
-1. **Per i 3 template invito/benvenuto/subaffitto**: nessun cambio codice
-   necessario, Edge Functions già pronte e secret aggiornati → al primo
-   evento (invito/benvenuto/subaffitto) i WA dovrebbero partire automaticamente.
-   ⚠️ Categoria al momento: MARKETING (con appeal in corso del 4 giu). Se
-   l'appeal viene accolto, diventa UTILITY automaticamente — nessuna azione
-   richiesta lato codice.
+**Se l'appeal categoria del 4 giu è "Invariati" (rigettato)**: valutare
+modifica body con prefisso `"Notifica automatica: [tipo evento]\n\n"` in testa,
+poi re-submission. Il SID resta invariato, quindi i secret Supabase non vanno
+toccati. In alternativa, accettare il costo MARKETING per i primi mesi.
 
-2. **Se l'appeal categoria del 4 giu è "Invariati" (rigettato)**: valutare
-   modifica body con prefisso `"Notifica automatica: [tipo evento]\n\n"` in
-   testa, poi re-submission. Il SID resta invariato (la modifica fa ripartire
-   l'approval ma non cambia l'identificativo), quindi i secret Supabase non
-   vanno toccati. In alternativa, accettare il costo MARKETING per i primi
-   mesi e ri-valutare quando il volume cresce.
+**Alternativa migliore**: swap dei secret WA_SID_* ai SID dei 9 backup
+(sezione 4 sotto-sezione "Template UTILITY backup"). Richiede update
+`invia-whatsapp` per le nuove signature (1 variabile in più su B/C).
 
-   **Alternativa migliore**: swap dei secret WA_SID_* ai SID dei 9 backup
-   (sezione 4 sotto-sezione "Template UTILITY backup"). Richiede update
-   `invia-whatsapp` per le nuove signature (1 variabile in più su B/C).
+**Verifica delivery reale**: dopo qualsiasi test WA, controlla Meta Business
+Manager → WhatsApp Manager → Numeri di telefono → click sul numero → tab
+Insights → "Tutti i messaggi" → deve aumentare "Messaggi inviati" e
+"Messaggi consegnati" (NON solo "ricevuti"). Se restano a 0, Meta ha
+bloccato il template. Se aumentano, è arrivato.
 
-3. **Per recupero_password v3** (SID `HX64ef2eb0f7aa4497e97963116ea8b2f2`):
-   - Supabase Dashboard → Edge Functions → Secrets → aggiungi/aggiorna
-     `WA_SID_RECUPERO` = `HX64ef2eb0f7aa4497e97963116ea8b2f2`
-   - Nessun redeploy necessario (env var lette al runtime)
-   - Test browser: ⋮ su Nicola Rizzo (ombrellone 104) → "Invia reset password
-     via WhatsApp" → atteso WA sul cellulare con button "Imposta nuova password"
-
-4. **Verifica delivery reale**: dopo qualsiasi test WA, controlla Meta Business
-   Manager → WhatsApp Manager → Numeri di telefono → click sul numero → tab
-   Insights → "Tutti i messaggi" → deve aumentare "Messaggi inviati" e
-   "Messaggi consegnati" (NON solo "ricevuti"). Se restano a 0, Meta ha
-   bloccato il template. Se aumentano, è arrivato.
+**⚠️ Test button URL**: sempre fare long-press sul bottone WA per copiare
+l'URL effettivo, e verificare che corrisponda al pattern atteso. Meta può
+normalizzare l'URL durante l'approval rimuovendo caratteri speciali (vedi
+bugfix `?` del 5 giu 2026 in sezione 7 - Tentativo 7).
 
 ## 11. Per nuove sessioni Claude
 
 Leggi questo file con `get_file_contents` per orientarti. Punti chiave:
 - Tutta l'infrastruttura tecnica è in main e in produzione
-- Edge functions deployate: `invia-whatsapp` v10, `richiedi-reset-cliente` v4,
-  `check-template-status`, `recreate-whatsapp-templates`, `create-utility-backup-templates`
-- Manca solo l'approvazione Meta dei template (asincrona, fuori controllo)
-- Per recupero_password specifico: serve attendere v3 approval + settare
-  `WA_SID_RECUPERO=HX64ef2eb0f7aa4497e97963116ea8b2f2` su Supabase Secrets
-- Per i 3 stagionali: appeal categoria già sottomesso il 4 giu — attendere
-  esito (24-72h). Se accolto torna UTILITY senza ulteriori azioni.
+- Edge functions deployate: `invia-whatsapp` v10, `richiedi-reset-cliente` v5
+  (post-bugfix 5 giu), `check-template-status`, `recreate-whatsapp-templates`,
+  `create-utility-backup-templates`
+- **Reset password via WhatsApp: ✅ FUNZIONANTE end-to-end** (post-bugfix 5 giu)
+- Restano open solo:
+  - approval Meta dei 3 template stagionali (asincrona, fuori controllo)
+  - esito appeal categoria UTILITY dei 3 stagionali (24-72h da 4 giu)
+  - approval Meta dei 9 template UTILITY backup
 - Set di 9 template UTILITY backup disponibile da 4 giu 2026 h 21:36 UTC. SID
   popolati in sezione 4. Se l'appeal dei 3 stagionali viene respinto, swap dei
   secret WA_SID_* ai SID di accesso_*/registrazione_*/operazione_* (richiede
