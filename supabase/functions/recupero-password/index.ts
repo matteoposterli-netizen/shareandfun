@@ -106,7 +106,25 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
     }
 
-    // 5) Invio via invia-whatsapp (tipo nuovo: recupero_password)
+    // 5) Invio via invia-whatsapp (tipo: recupero_password)
+    //
+    // BUGFIX 5 giu 2026 (parallelo a quello di richiedi-reset-cliente): il
+    // template Meta-approved 'spiaggiamia_recupero_password_v3' ha button
+    // URL "https://...supabase.co/auth/v1/verify{{4}}" (SENZA '?' tra
+    // 'verify' e '{{4}}'). Prima del fix passavamo l'intero recoveryLink
+    // (URL completo) come variabile {{4}}: risultato ricomposto era
+    // 'verifyhttps://...supabase.co/auth/v1/verify?token=...' (doppio
+    // schema/path) -> browser apriva pagina bianca o 404. Fix: estrarre la
+    // sola query string del recoveryLink, includendo il '?' iniziale, e
+    // passarla come {{4}}. Il template ricompone l'URL corretto
+    // 'verify' + '?token=...&type=recovery&redirect_to=...' che e'
+    // esattamente l'action_link Supabase originale. Notare che Meta NON
+    // URL-encoda '=' e '&' della variabile (confermato empiricamente
+    // dall'URL del bottone copiato dal cellulare), quindi non serve
+    // ridisegnare con short-link.
+    const recoveryUrl = new URL(recoveryLink);
+    const recoveryQuery = recoveryUrl.search; // include '?' iniziale
+
     const waRes = await fetch(`${SUPABASE_URL}/functions/v1/invia-whatsapp`, {
       method: "POST",
       headers: {
@@ -120,7 +138,7 @@ Deno.serve(async (req: Request) => {
         telefono: cliente.telefono,
         nome: cliente.nome,
         cognome: cliente.cognome,
-        link: recoveryLink,
+        link: recoveryQuery, // query string con '?' iniziale (vedi BUGFIX 5 giu 2026 sopra)
         stabilimento_nome: stab.nome,
       }),
     });
