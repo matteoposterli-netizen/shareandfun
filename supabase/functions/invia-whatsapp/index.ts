@@ -25,10 +25,10 @@ const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 // Headers CORS uniformi su tutte le response. Allow-Origin: * e' sicuro
 // perche' le response non contengono dati sensibili e la function richiede
-// gia' verify_jwt: true (gateway) + check JWT interno (servirole o utente
-// autenticato). Senza questi headers nelle response POST, browser da
-// origini come https://www.spiaggiamia.com bloccano la fetch lato client
-// nonostante il server risponda 200 OK.
+// autenticazione esplicita nel codice (vedi guard 401 piu' sotto). Senza
+// questi headers nelle response POST, browser da origini come
+// https://www.spiaggiamia.com bloccano la fetch lato client nonostante il
+// server risponda 200 OK.
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -123,6 +123,24 @@ Deno.serve(async (req) => {
 
   // Verifica JWT: accetta sia service-role key (chiamate server-to-server)
   // sia user-JWT (chiamate manager-driven via richiedi-reset-cliente o UI).
+  //
+  // BUGFIX 5 giu 2026 / Tentativo 11: la function ha verify_jwt=false al
+  // livello di gateway (vedi supabase/config.toml). Necessario perche' la
+  // chiamata server-to-server da recupero-password passa
+  // `Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}` e la env var ora
+  // contiene una chiave nuovo formato `sb_secret_*` (NON JWT), che il
+  // gateway con verify_jwt=true rifiutava con
+  // UNAUTHORIZED_INVALID_JWT_FORMAT. Conferma testuale doc Supabase:
+  // "The new API keys are not JWTs. Edge Functions only support JWT
+  //  verification via the anon and service_role JWT-based API keys."
+  //
+  // La sicurezza e' ora garantita ESCLUSIVAMENTE dal codice qui sotto:
+  // 1. isServiceRole: confronto string equality con SUPABASE_SERVICE_KEY
+  //    env var. Funziona con qualsiasi formato (JWT legacy o sb_secret_*)
+  //    perche' confronta valori esatti.
+  // 2. Per user JWT: validazione via supa.auth.getUser(jwt).
+  // 3. Guard 401 obbligatorio: senza service-role NE user JWT valido,
+  //    la chiamata e' rifiutata (vedi sotto).
   const jwt = req.headers.get("Authorization")?.replace("Bearer ", "") ?? "";
   const anonClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
@@ -135,6 +153,14 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Non autorizzato" }, 401);
     }
     callerUserId = ud.user.id;
+  }
+
+  // SECURITY GUARD (necessario con verify_jwt=false al gateway):
+  // Senza service-role NE user JWT valido, la chiamata e' anonima.
+  // Rifiutiamo esplicitamente per evitare che un attaccante possa
+  // spammare invii WA verso clienti registrati conoscendo solo gli UUID.
+  if (!isServiceRole && !callerUserId) {
+    return jsonResponse({ error: "Autenticazione richiesta (service-role o user JWT valido)" }, 401);
   }
 
   // Carica lo stabilimento (wa_enabled + nome + proprietario per ownership).
