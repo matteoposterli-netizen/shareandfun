@@ -179,12 +179,21 @@ async function inviaEmail(tipo, clienteData, stab, override) {
     testo_custom = substitutePlaceholders(testo_custom, placeholderData);
 
     const { data: { session } } = await sb.auth.getSession();
-    const headers = { 'Content-Type': 'application/json' };
-    if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/invia-email`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
+    if (!session?.access_token) {
+      // Senza session non possiamo autenticarci verso invia-email (verify_jwt=true).
+      // Per coerenza con il pattern post-T9 della saga 5 giu 2026, usiamo
+      // comunque sb.functions.invoke() che gestisce l'auth automaticamente.
+      // Se session manca, sb cade sulla chiave del client (sb_publishable_*)
+      // che NON e' JWT e verra' rifiutata dal gateway con 401 — comportamento
+      // corretto (no auth = no invio email).
+      console.warn(`Email ${tipo}: nessuna session, salto`);
+      return false;
+    }
+    // BUGFIX 5 giu 2026 / lezione Tentativo 9: sb.functions.invoke gestisce
+    // automaticamente l'Authorization header con la session corrente, evitando
+    // dimenticanze e allineando il codice al pattern usato in doForgotPassword.
+    const { data, error: invokeErr } = await sb.functions.invoke('invia-email', {
+      body: {
         tipo,
         email: clienteData.email,
         nome: clienteData.nome,
@@ -205,10 +214,9 @@ async function inviaEmail(tipo, clienteData, stab, override) {
         stabilimento_email: stab?.email || '',
         oggetto_custom,
         testo_custom,
-      })
+      },
     });
-    const data = await res.json();
-    if (!res.ok) { console.error(`Email ${tipo} fallita:`, data); return false; }
+    if (invokeErr) { console.error(`Email ${tipo} fallita:`, invokeErr); return false; }
     if (data?.warning) console.warn(`Email ${tipo}:`, data.warning);
     else console.log(`Email ${tipo} inviata:`, data);
     return true;
@@ -247,18 +255,23 @@ async function inviaWhatsapp(tipo, params, stab) {
   try {
     if (!stab?.wa_enabled) return { ok: false, skipped: 'wa_disabled' };
     const { data: { session } } = await sb.auth.getSession();
-    const headers = { 'Content-Type': 'application/json' };
-    if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+    if (!session?.access_token) {
+      // Coerente con il pattern post-T9: senza session non possiamo
+      // autenticarci verso invia-whatsapp. La function ha verify_jwt=false
+      // (post-T12) ma il suo guard 401 interno richiede comunque service-role
+      // OR user-JWT valido. Senza session il client cadrebbe sulla chiave
+      // sb_publishable_* che non passa il guard (non e' SERVICE_KEY e
+      // getUser fallisce) -> 401 silenzioso. Ritorniamo subito per chiarezza.
+      console.warn(`WA ${tipo}: nessuna session, salto`);
+      return { ok: false, skipped: 'no_session' };
+    }
+    // BUGFIX 5 giu 2026 / lezione Tentativo 9: sb.functions.invoke gestisce
+    // automaticamente l'Authorization header con la session corrente.
     const body = { tipo, stabilimento_id: stab.id, ...params };
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/invia-whatsapp`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      console.error(`WA ${tipo} fallito:`, data);
-      return { ok: false, error: data?.error || res.statusText || 'http_error' };
+    const { data, error: invokeErr } = await sb.functions.invoke('invia-whatsapp', { body });
+    if (invokeErr) {
+      console.error(`WA ${tipo} fallito:`, invokeErr);
+      return { ok: false, error: invokeErr?.message || 'invoke_error' };
     }
     if (data?.skipped) {
       console.log(`WA ${tipo} saltato:`, data.skipped);
@@ -297,6 +310,11 @@ function emailSinteticaDaTelefono(telE164) {
 // Chiama l'Edge Function richiedi-reset-cliente per inviare un reset
 // password manager-driven a un cliente registrato.
 // Ritorna { ok, sent_via?, skipped?, error? }.
+// NOTA: questo helper mantiene il pattern fetch raw (vs sb.functions.invoke)
+// perche' ha gia' il guard `no_session` esplicito che ritorna early. Il
+// pattern e' equivalente nella sostanza al sb.functions.invoke usato in
+// inviaEmail/inviaWhatsapp (entrambi richiedono session valida per
+// procedere). Lasciato come e' per minimizzare il diff post-saga 5 giu 2026.
 async function richiediResetCliente(clienteId, canale) {
   try {
     const { data: { session } } = await sb.auth.getSession();
