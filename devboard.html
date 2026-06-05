@@ -65,6 +65,8 @@
   const OWNER_EMAIL = 'matteo.posterli@gmail.com';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   window.sb = sb;
+  window.SUPABASE_URL = SUPABASE_URL;
+  window.SUPABASE_KEY = SUPABASE_KEY;
 
   const gateEl = document.getElementById('gate');
   const rootEl = document.getElementById('root');
@@ -146,6 +148,28 @@ async function doLogout() {
   location.reload();
 }
 
+// Wrapper per chiamare edge function con query string custom (supabase.functions.invoke
+// non supporta query params). Restituisce { ok, status, data }.
+async function callEdge(name, queryString, body) {
+  const session = (await window.sb.auth.getSession()).data.session;
+  if (!session) throw new Error("Sessione scaduta, fai nuovo login");
+  const qs = queryString ? `?${queryString}` : "";
+  const url = `${window.SUPABASE_URL}/functions/v1/${name}${qs}`;
+  const r = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+      "apikey": window.SUPABASE_KEY,
+    },
+    body: body ? JSON.stringify(body) : "{}",
+  });
+  const raw = await r.text();
+  let data = null;
+  try { data = JSON.parse(raw); } catch { data = raw; }
+  return { ok: r.ok, status: r.status, data };
+}
+
 function DevBoard() {
   const [notes, setNotes] = useState(load);
   const [input, setInput] = useState("");
@@ -217,6 +241,9 @@ function DevBoard() {
 
       {/* WhatsApp Templates Tools (mobile-friendly admin) */}
       <WaTemplateTools />
+
+      {/* WhatsApp Business Profile Tools */}
+      <WaBusinessProfileTools />
 
       {/* Quick Todo */}
       <QuickTodo />
@@ -403,6 +430,163 @@ function WaTemplateTools() {
               <pre style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: 10, fontSize: 11, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "#1e293b", maxHeight: "60vh", overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                 {output}
               </pre>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Profilo business WhatsApp (Twilio Senders API).
+// Bottoni: List senders (debug), Get profilo, Update profilo (con payload predefinito).
+function WaBusinessProfileTools() {
+  const [output, setOutput] = useState("");
+  const [loading, setLoading] = useState("");
+  const [collapsed, setCollapsed] = useState(true);
+  const [lastAction, setLastAction] = useState(() => {
+    try { return localStorage.getItem("saf-wa-profile-last") || ""; } catch { return ""; }
+  });
+
+  // Payload di default per l'update — modificabile inline.
+  const defaultPayload = JSON.stringify({
+    profile: {
+      about: "Stagione in spiaggia, organizzata.",
+      description: "SpiaggiaMia organizza il tuo ombrellone stagionale: prenotazioni, sub-affitti, crediti e comunicazioni in un'unica piattaforma.",
+      emails: ["matteo.posterli@gmail.com"],
+      websites: ["https://spiaggiamia.com"],
+      vertical: "TRAVEL",
+      logo_url: "https://spiaggiamia.com/assets/wa-profile-picture.jpg"
+    }
+  }, null, 2);
+  const [payloadText, setPayloadText] = useState(defaultPayload);
+
+  function setLast(label) {
+    const stamp = `${label} — ${new Date().toLocaleString("it-IT")}`;
+    setLastAction(stamp);
+    try { localStorage.setItem("saf-wa-profile-last", stamp); } catch {}
+  }
+
+  async function invokeList() {
+    setLoading("list");
+    setOutput("Elenco senders in corso...");
+    try {
+      const r = await callEdge("manage-wa-business-profile", "mode=list");
+      setOutput(JSON.stringify(r.data, null, 2));
+      setLast("List senders");
+    } catch (e) {
+      setOutput("ECCEZIONE: " + (e && e.message ? e.message : String(e)));
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function invokeGet() {
+    setLoading("get");
+    setOutput("Recupero profilo WA attuale...");
+    try {
+      const r = await callEdge("manage-wa-business-profile", "mode=get");
+      setOutput(JSON.stringify(r.data, null, 2));
+      setLast("Get WA profile");
+    } catch (e) {
+      setOutput("ECCEZIONE: " + (e && e.message ? e.message : String(e)));
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function invokeUpdate() {
+    let parsed;
+    try {
+      parsed = JSON.parse(payloadText);
+    } catch (e) {
+      window.alert("Payload non è JSON valido. Correggilo prima di inviare.\n\n" + (e && e.message ? e.message : ""));
+      return;
+    }
+    const ok = window.confirm(
+      "⚠️ Aggiorni il profilo business WhatsApp su Twilio/Meta con il payload mostrato.\n\n" +
+      "Sicuro di procedere?"
+    );
+    if (!ok) return;
+    setLoading("update");
+    setOutput("Aggiornamento profilo WA in corso...");
+    try {
+      const r = await callEdge("manage-wa-business-profile", "mode=update", parsed);
+      setOutput(JSON.stringify(r.data, null, 2));
+      setLast("Update WA profile");
+    } catch (e) {
+      setOutput("ECCEZIONE: " + (e && e.message ? e.message : String(e)));
+    } finally {
+      setLoading("");
+    }
+  }
+
+  function resetPayload() { setPayloadText(defaultPayload); }
+
+  async function copyOutput() {
+    if (!output) return;
+    try {
+      await navigator.clipboard.writeText(output);
+      const orig = output;
+      setOutput("📋 Copiato negli appunti!\n\n— — —\n\n" + orig);
+      setTimeout(() => setOutput(orig), 1500);
+    } catch (e) {
+      window.alert("Impossibile copiare automaticamente. Seleziona manualmente l'output.");
+    }
+  }
+
+  function clearOutput() { setOutput(""); }
+
+  const busy = !!loading;
+
+  return (
+    <div style={{ padding: "16px 24px 0" }}>
+      <div style={{ background: "white", borderRadius: 12, padding: 14, boxShadow: "0 2px 12px rgba(14,165,233,0.08)", border: "1px solid #bae6fd" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: collapsed ? 0 : 10, cursor: "pointer" }} onClick={() => setCollapsed(c => !c)}>
+          <span style={{ fontSize: 16 }}>👤</span>
+          <span style={{ fontWeight: "bold", color: "#0369a1", fontSize: 14 }}>WhatsApp Business Profile</span>
+          {lastAction && <span style={{ color: "#94a3b8", fontSize: 11 }}>· ultimo: {lastAction}</span>}
+          <span style={{ marginLeft: "auto", color: "#94a3b8", fontSize: 12 }}>{collapsed ? "▸" : "▾"}</span>
+        </div>
+        {!collapsed && (
+          <div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+              <button onClick={invokeGet} disabled={busy}
+                style={{ background: loading === "get" ? "#cbd5e1" : "#10b981", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", cursor: busy ? "not-allowed" : "pointer", fontWeight: "bold", fontSize: 12 }}>
+                {loading === "get" ? "Recupero..." : "Get WA profile"}
+              </button>
+              <button onClick={invokeList} disabled={busy}
+                style={{ background: loading === "list" ? "#cbd5e1" : "#64748b", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", cursor: busy ? "not-allowed" : "pointer", fontWeight: "bold", fontSize: 12 }}>
+                {loading === "list" ? "Elenco..." : "List senders (debug)"}
+              </button>
+              <button onClick={invokeUpdate} disabled={busy}
+                style={{ background: loading === "update" ? "#cbd5e1" : "linear-gradient(90deg, #0369a1, #0ea5e9)", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", cursor: busy ? "not-allowed" : "pointer", fontWeight: "bold", fontSize: 12 }}>
+                {loading === "update" ? "Aggiorno..." : "Update WA profile"}
+              </button>
+            </div>
+            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>
+              Payload per UPDATE (modificabile):
+              <button onClick={resetPayload} style={{ marginLeft: 8, background: "none", border: "none", color: "#0ea5e9", cursor: "pointer", fontSize: 11, textDecoration: "underline" }}>reset</button>
+            </div>
+            <textarea value={payloadText} onChange={e => setPayloadText(e.target.value)} rows={10}
+              spellCheck={false}
+              style={{ width: "100%", border: "1px solid #e2e8f0", borderRadius: 8, padding: 10, fontSize: 11, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "#1e293b", marginBottom: 10, resize: "vertical", outline: "none" }} />
+            {output && (
+              <>
+                <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                  <button onClick={copyOutput} disabled={busy}
+                    style={{ background: "#f59e0b", color: "white", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontWeight: "bold", fontSize: 11 }}>
+                    Copia output
+                  </button>
+                  <button onClick={clearOutput} disabled={busy}
+                    style={{ background: "#f1f5f9", color: "#64748b", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontWeight: "bold", fontSize: 11 }}>
+                    Pulisci
+                  </button>
+                </div>
+                <pre style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: 10, fontSize: 11, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "#1e293b", maxHeight: "60vh", overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                  {output}
+                </pre>
+              </>
             )}
           </div>
         )}
