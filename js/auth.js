@@ -142,23 +142,26 @@ async function doForgotPassword() {
         btn.disabled = false; btn.textContent = 'Invia link di recupero';
         return;
       }
-      // Chiama la Edge Function recupero-password
-      const { data: { session } } = await sb.auth.getSession();
-      const headers = { 'Content-Type': 'application/json' };
-      // Non e' necessario un JWT utente: la function accetta anon
-      // (gestisce internamente la sicurezza via service-role per
-      // l'invio WA, e la risposta e' sempre generica).
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
+      // Chiama la Edge Function recupero-password tramite il client
+      // supabase-js. Usiamo sb.functions.invoke() invece di fetch raw
+      // perche' gestisce automaticamente l'header Authorization:
+      // - Se l'utente e' loggato: usa session.access_token come Bearer
+      // - Altrimenti (caso tipico di "Password dimenticata?"): ricade
+      //   sulla anon key con cui sb e' stato istanziato.
+      //
+      // BUGFIX 5 giu 2026: la fetch raw precedente ometteva l'Authorization
+      // quando session era null, causando 401 dal gateway Supabase
+      // (verify_jwt=true richiede SEMPRE un JWT valido, anche solo la
+      // anon key). Confermato dai log Edge Function: tutti i POST a
+      // /recupero-password tornavano 401 con execution_time_ms ~155-615ms
+      // (gateway-level, prima dell'invocazione del codice della function).
       try {
-        await fetch(`${SUPABASE_URL}/functions/v1/recupero-password`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ identificatore: tel, canale: 'telefono' }),
+        const { error: invokeErr } = await sb.functions.invoke('recupero-password', {
+          body: { identificatore: tel, canale: 'telefono' },
         });
+        if (invokeErr) console.warn('recupero-password invoke error', invokeErr);
       } catch (e) {
-        console.warn('recupero-password fetch error', e);
+        console.warn('recupero-password invoke exception', e);
       }
     }
   } finally {
