@@ -1,24 +1,28 @@
 # SpiaggiaMia — Integrazione notifiche WhatsApp (stato e piano)
 
 Documento di riferimento per la knowledge base del progetto.
-Ultimo aggiornamento: 5 giugno 2026 — BUGFIX URL `?` mancante nel template
-recupero_password v3 (vedi sezione 7 - Tentativo 7). Reset password via WA ora
-funzionante end-to-end dopo deploy edge function `richiedi-reset-cliente`.
+Ultimo aggiornamento: 5 giugno 2026 — DOPPIO BUGFIX URL `?` mancante nel
+template recupero_password v3 (vedi sezione 7 - Tentativo 7). Sia il reset
+password manager-driven (`richiedi-reset-cliente`) sia il recupero password
+self-service (`recupero-password`) ora funzionanti end-to-end.
 
 ## STATO ATTUALE (TL;DR)
 
-**Reset password via WhatsApp: FUNZIONANTE end-to-end (5 giu 2026).** Il
-template `spiaggiamia_recupero_password_v3` è stato approvato da Meta tra il
+**Tutti i flussi password via WhatsApp: FUNZIONANTI end-to-end (5 giu 2026).**
+Il template `spiaggiamia_recupero_password_v3` è stato approvato da Meta tra il
 4 e il 5 giugno, il messaggio arriva correttamente sul cellulare. Bug nel
-codice `richiedi-reset-cliente` (URL `?` mancante) trovato e fixato il
-5 giu. Restano in attesa di approval Meta i 3 template stagionali
-(invito/benvenuto/subaffitto) e i 9 template UTILITY backup.
+codice (URL `?` mancante) trovato e fixato in DUE edge function distinte:
+`richiedi-reset-cliente` (manager-driven) e `recupero-password` (self-service
+dal link "Password dimenticata?" della pagina login). Restano in attesa di
+approval Meta i 3 template stagionali (invito/benvenuto/subaffitto) e i 9
+template UTILITY backup.
 
 - ✅ Frontend → Edge Function → Twilio: catena verificata in produzione
 - ✅ Twilio Sender `+393520426199` ONLINE, display name "SpiaggiaMia"
 - ✅ Profilo WhatsApp Business compilato (descrizione, indirizzo, email, sito web)
 - ✅ Reset password manager-driven (Fase 3) — funziona via email
-- ✅ **Reset password via WhatsApp — FUNZIONANTE** (post-bugfix 5 giu 2026)
+- ✅ **Reset password manager-driven via WhatsApp — FUNZIONANTE** (post-bugfix 5 giu 2026 in `richiedi-reset-cliente`)
+- ✅ **Recupero password self-service via WhatsApp — FUNZIONANTE** (post-bugfix 5 giu 2026 in `recupero-password`)
 - ✅ Template `recupero_password_v3` APPROVATO Meta (categoria UTILITY)
 - ✅ `WA_SID_RECUPERO` settato su Supabase Secrets (`HX64ef2eb0...`)
 - 🟡 **Template invito/benvenuto/subaffitto**: ricreati 4 giu (i vecchi erano
@@ -45,13 +49,18 @@ WhatsApp funziona **in parallelo all'email**: per ogni evento il sistema invia s
 email e/o WhatsApp a seconda di telefono + consenso del cliente. Tono WhatsApp
 informale. Primo rilascio: notifiche transazionali verso clienti **stagionali**.
 
-## 2. Flusso/eventi (4 messaggi automatici)
+## 2. Flusso/eventi (4 messaggi automatici + 1 self-service)
 
 1. **Invito** — gestore invita il cliente; link per creare la password
 2. **Benvenuto** — quando il cliente completa la registrazione (`auth.js`)
 3. **Sub-affitto confermato** — gestore conferma sub-affitto: periodo + credito
-4. **Recupero password** — Fase 3, manager-driven via menu ⋮ o bulk modal
+4. **Reset password manager-driven** — Fase 3, gestore tramite menu ⋮ o bulk modal
    (`richiedi-reset-cliente`)
+5. **Recupero password self-service** — cliente stagionale dalla pagina login
+   clicca "Password dimenticata?" e inserisce telefono (`recupero-password`).
+   Branch email è gestito client-side via `supabase.auth.resetPasswordForEmail()`,
+   branch telefono passa per la edge function `recupero-password` che genera
+   il recovery link e lo invia via `invia-whatsapp` tipo `recupero_password`.
 
 WhatsApp è dispatcher fire-and-forget accanto a `inviaEmail`. L'errore WA non
 blocca mai email o flusso DB.
@@ -60,11 +69,12 @@ blocca mai email o flusso DB.
 
 - **Edge Function `invia-whatsapp`** (v10 al 3 giu 2026):
   - Credenziali e Content SID **da env var** (Supabase secrets), niente tabella DB
-  - Accetta sia chiamate server-to-server con SERVICE_KEY sia user-JWT (per
-    `recupero_password` con ownership check sul proprietario dello stabilimento)
+  - Accetta sia chiamate server-to-server con SERVICE_KEY (es. `recupero-password`
+    self-service) sia user-JWT (per `recupero_password` con ownership check sul
+    proprietario dello stabilimento, es. `richiedi-reset-cliente` manager-driven)
   - Skip silenzioso se `wa_enabled=false`, `whatsapp_consenso=false`, o telefono
     non E.164 valido
-- **Edge Function `richiedi-reset-cliente`** (v5 al 5 giu 2026, Fase 3 + bugfix URL):
+- **Edge Function `richiedi-reset-cliente`** (v5/v12 al 5 giu 2026, Fase 3 + bugfix URL):
   - Manager-driven: genera recovery link via Admin API, sceglie canale (email/WA),
     invia tramite invia-email o invia-whatsapp
   - Passa il JWT del manager (non SERVICE_KEY) per le chiamate interne — risolve
@@ -75,6 +85,16 @@ blocca mai email o flusso DB.
     prefisso URL fisso `https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify{{4}}`
     (notare: SENZA `?` tra `verify` e `{{4}}` — Meta lo rimuove durante
     l'approval normalizzando l'URL). Il `?` è quindi parte della variabile.
+- **Edge Function `recupero-password`** (post-bugfix 5 giu 2026, self-service):
+  - Solo ramo telefono (ramo email gestito client-side via
+    `supabase.auth.resetPasswordForEmail()`)
+  - Risponde sempre `{ ok: true }` per evitare enumeration attack
+  - Trova cliente registrato → genera recovery link via Admin API → chiama
+    `invia-whatsapp` con SERVICE_KEY (server-to-server) e tipo `recupero_password`
+  - **Stesso pattern URL del manager-driven**: estrae `recoveryUrl.search` (con
+    `?` iniziale) e lo passa come variabile `link` → `invia-whatsapp` lo
+    inoltra come `{{4}}` al template Twilio. Il template ricompone l'URL
+    Supabase corretto.
 - **Helper frontend** `inviaWhatsapp(tipo, params, stab)` in `js/utils.js`
 - **Helper frontend** `richiediResetCliente(clienteId, canale)` in `js/utils.js`
 - **Toggle per-stabilimento**: `stabilimenti.wa_enabled` (boolean, default false)
@@ -166,11 +186,11 @@ Il `recupero_password_v3` è rimasto UTILITY (contenuto chiaramente transazional
      **(SENZA `?` tra `verify` e `{{4}}`)**. ⚠️ Meta ha rimosso/normalizzato
      il `?` durante l'approval. La variabile {{4}} DEVE quindi iniziare con `?`
      per ricomporre l'URL corretto. Vedi BUGFIX 5 giu 2026 in
-     `richiedi-reset-cliente/index.ts`.
+     `richiedi-reset-cliente/index.ts` e `recupero-password/index.ts`.
    - Variabile {{4}}: la query string COMPLETA del recovery link Supabase,
      incluso `?` iniziale (`?token=...&type=recovery&redirect_to=...`).
    - Status: ✅ **APPROVED** Meta (verificato 5 giu 2026 - messaggio arrivato e
-     bottone funzionante post-bugfix codice)
+     bottone funzionante post-bugfix codice in entrambe le edge function)
    - Categoria: **UTILITY** (Meta NON l'ha riclassificato, contenuto chiaramente
      transazionale)
 
@@ -378,13 +398,19 @@ Strumento di invocazione mobile-friendly: la nuova sezione "WhatsApp Templates T
 nel `devboard.html` espone bottoni per invocare `create-utility-backup-templates`
 e `check-template-status` direttamente da cellulare (dove Chrome non ha DevTools).
 
-### Tentativo 7 (5 giugno 2026): bugfix URL `?` mancante nel template recupero_password v3
+### Tentativo 7 (5 giugno 2026): doppio bugfix URL `?` mancante nel template recupero_password v3
 
-**Sintomo**: Matteo riceve regolarmente il messaggio WA "Reset password per
-Universo" sul cellulare. Clicca il bottone "Imposta nuova password" → si apre
-una pagina **404 page not found** sul dominio `btnyzzpibedkslhtiizu.supabase.co`.
+**Sintomo 1 (reset password manager-driven)**: Matteo riceve regolarmente il
+messaggio WA "Reset password per Universo" sul cellulare. Clicca il bottone
+"Imposta nuova password" → si apre una pagina **404 page not found** sul
+dominio `btnyzzpibedkslhtiizu.supabase.co`.
 
-**Diagnosi** (via long-press sul bottone WA + copia link):
+**Sintomo 2 (recupero password self-service)**: Matteo prova il flusso
+"Password dimenticata?" dalla pagina login → inserisce telefono → riceve
+messaggio WA. Clicca il bottone → **pagina bianca** (diverso sintomo dello
+stesso bug di base, ma con URL ricomposto ancora più malformato).
+
+**Diagnosi sintomo 1** (via long-press sul bottone WA + copia link):
 URL del bottone effettivo:
 ```
 https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verifytoken=1df0204e8b3882c3152fa3d9a95c3d614d6d0d54a5829b7cbc1dbb2f&type=recovery&redirect_to=https%3A%2F%2Fspiaggiamia.com%2F%3Freset%3D1
@@ -392,33 +418,55 @@ https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verifytoken=1df0204e8b3882c3152
 Manca il **`?`** tra `verify` e `token=...` (notare `verifytoken` attaccato).
 Path inesistente su Supabase → 404.
 
-**Root cause**: il template Meta-approved
+**Root cause comune ai due sintomi**: il template Meta-approved
 `spiaggiamia_recupero_password_v3` (SID `HX64ef2eb0...`) ha button URL
 salvato/approvato come `https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify{{4}}`
 SENZA il `?` prima di `{{4}}`. Meta normalizza l'URL durante l'approval e
 rimuove caratteri "speciali" come `?` tra path e variabile, oppure il `?` non
 è mai stato salvato. La doc precedente assumeva il template avesse `verify?{{4}}`
-(con `?`) e il codice in `richiedi-reset-cliente/index.ts` passava la query
-string SENZA `?` iniziale (`recoveryUrl.search.slice(1)`). Risultato: i due
-"senza `?`" si combinano → URL malformato.
+(con `?`). I due codici client passavano la query string in modo SBAGLIATO ma
+DIVERSO:
+- `richiedi-reset-cliente`: passava la query string SENZA `?` iniziale
+  (`recoveryUrl.search.slice(1)`) → URL ricomposto `verifytoken=...` → 404
+- `recupero-password`: passava l'INTERO `recoveryLink` (URL completo) →
+  URL ricomposto `verifyhttps://.../verify?token=...` (doppio schema/path)
+  → pagina bianca
 
 **Empiricamente confermato**: Meta NON URL-encoda `=` e `&` nel valore della
 variabile (visibili in chiaro nell'URL del bottone), ma altera/rimuove altri
 caratteri "speciali" come `?` nel template URL. Quindi non serve un short-link
 o redesign — basta spostare il `?` da template a valore variabile.
 
-**Fix** (commit `29c649e1` del 5 giu 2026 in `richiedi-reset-cliente/index.ts`):
+**Fix 1** (commit `29c649e1` del 5 giu 2026 in `richiedi-reset-cliente/index.ts`):
 ```diff
 -  const recoveryQuery = recoveryUrl.search.slice(1); // rimuove il '?' iniziale
 +  const recoveryQuery = recoveryUrl.search; // include '?' iniziale (template ha "verify{{4}}" senza '?')
 ```
-Deploy: `supabase functions deploy richiedi-reset-cliente`. Versione runtime
-attesa: v5.
+Deploy: `supabase functions deploy richiedi-reset-cliente`. Versione runtime: v12
+(la function aveva avuto vari deploy precedenti, ha incrementato da v11 a v12).
 
-**Lezione**: quando si verifica il flusso WA end-to-end con button URL,
-**SEMPRE** fare long-press sul bottone in WhatsApp per copiare l'URL effettivo
-e confrontarlo con quello atteso. La doc del template (lato Twilio) può
-divergere dall'URL effettivamente approvato e renderizzato da Meta.
+**Fix 2** (commit `69c66486` del 5 giu 2026 in `recupero-password/index.ts`):
+```diff
++  const recoveryUrl = new URL(recoveryLink);
++  const recoveryQuery = recoveryUrl.search; // include '?' iniziale
+   /* in body JSON.stringify */
+-  link: recoveryLink, // passava URL COMPLETO
++  link: recoveryQuery, // passa solo query string con '?'
+```
+Deploy: `supabase functions deploy recupero-password`. Versione runtime attesa:
+incremento da quella corrente.
+
+**Lezioni**:
+1. Quando si verifica il flusso WA end-to-end con button URL, **SEMPRE** fare
+   long-press sul bottone in WhatsApp per copiare l'URL effettivo e
+   confrontarlo con quello atteso. La doc del template (lato Twilio) può
+   divergere dall'URL effettivamente approvato e renderizzato da Meta.
+2. **Bug correlati in più edge function**: quando si trova un bug nell'invio
+   WA per tipo `recupero_password`, controllare TUTTE le edge function che
+   invocano `invia-whatsapp` con quel tipo. In questo caso sia
+   `richiedi-reset-cliente` (manager-driven) sia `recupero-password`
+   (self-service) condividevano la stessa root cause con manifestazioni
+   diverse.
 
 ## 8. Fase 3 — Reset password manager-driven
 
@@ -436,8 +484,12 @@ Bugfix URL aggiunto il 5 giu 2026 (vedi Tentativo 7 sezione 7).
 Test reset password via **email**: ✅ funziona end-to-end (testato cliente
 Matteo Posterli ombrellone 100, email reale).
 
-Test reset password via **WhatsApp**: ✅ funziona end-to-end post-bugfix del
-5 giu 2026 (template approvato Meta + URL ricomposto correttamente).
+Test reset password via **WhatsApp** (manager-driven, `richiedi-reset-cliente`):
+✅ funziona end-to-end post-bugfix del 5 giu 2026 (template approvato Meta +
+URL ricomposto correttamente).
+
+Test recupero password via **WhatsApp** (self-service, `recupero-password`):
+✅ atteso funzionante post-deploy del 5 giu 2026 (stesso fix applicato).
 
 ## 9. STATO DEGLI STEP
 
@@ -454,7 +506,8 @@ Test reset password via **WhatsApp**: ✅ funziona end-to-end post-bugfix del
 - [x] **4b-bis. Agganci agli eventi** — tutti completi (invito, benvenuto, subaffitto)
 - [x] **Cleanup `whatsapp_config`** — tabella eliminata
 - [x] **Fase 3 — Reset password manager-driven** — completa, in main
-- [x] **richiedi-reset-cliente Edge Function** — v5 (post-bugfix 5 giu 2026)
+- [x] **richiedi-reset-cliente Edge Function** — v12 (post-bugfix 5 giu 2026)
+- [x] **recupero-password Edge Function** — post-bugfix 5 giu 2026 (deploy richiesto)
 - [x] **Profilo WhatsApp Business completo** — descrizione, indirizzo, email, sito
 - [x] **Recupero password v1 sottomesso** — rejected per "variables at start/end"
 - [x] **Recupero password v3 sottomesso e approvato Meta** — 5 giu 2026 (categoria UTILITY)
@@ -465,8 +518,10 @@ Test reset password via **WhatsApp**: ✅ funziona end-to-end post-bugfix del
 - [x] **Secret Supabase aggiornati con nuovi SID** — `WA_SID_INVITO`, `WA_SID_BENVENUTO`, `WA_SID_SUBAFFITTO` (4 giu 2026)
 - [x] **Verifica passaggio a pending Meta** — i 3 stagionali in pending ~13min dopo ricreazione (4 giu h 16:54 UTC)
 - [x] **Appeal categoria sottomesso per i 3 stagionali** — via Meta WhatsApp Manager / Aggiornamenti categoria modelli (4 giu 2026 h ~17:20 UTC)
-- [x] **Bugfix URL `?` mancante in richiedi-reset-cliente** — commit `29c649e1` del 5 giu 2026
-- [x] **Test end-to-end WA recupero password** sul cellulare — ✅ funzionante post-bugfix
+- [x] **Bugfix URL `?` mancante in richiedi-reset-cliente** — commit `29c649e1` del 5 giu 2026, deploy v12
+- [x] **Bugfix URL `?` mancante in recupero-password (self-service)** — commit `69c66486` del 5 giu 2026
+- [x] **Test end-to-end WA reset password (manager-driven)** sul cellulare — ✅ funzionante post-bugfix
+- [ ] **Test end-to-end WA recupero password (self-service)** sul cellulare — atteso ✅ post-deploy fix 5 giu
 - [ ] **Esito appeal categoria 3 stagionali** — atteso 24-72h (Ripristinati = UTILITY ✅ o Invariati = MARKETING). Se Invariati, valutare modifica body.
 - [x] **Edge Function `create-utility-backup-templates`** — deployata 4 giu 2026 v1 ACTIVE
 - [x] **9 template UTILITY backup creati e submittati** — 4 giu 2026 h 21:36 UTC, output `summary.ok=9 failed=0`, tutti `received`. SID popolati in sezione 4.
@@ -509,10 +564,12 @@ bugfix `?` del 5 giu 2026 in sezione 7 - Tentativo 7).
 
 Leggi questo file con `get_file_contents` per orientarti. Punti chiave:
 - Tutta l'infrastruttura tecnica è in main e in produzione
-- Edge functions deployate: `invia-whatsapp` v10, `richiedi-reset-cliente` v5
-  (post-bugfix 5 giu), `check-template-status`, `recreate-whatsapp-templates`,
+- Edge functions deployate: `invia-whatsapp` v10, `richiedi-reset-cliente` v12
+  (post-bugfix 5 giu), `recupero-password` (post-bugfix 5 giu),
+  `check-template-status`, `recreate-whatsapp-templates`,
   `create-utility-backup-templates`
-- **Reset password via WhatsApp: ✅ FUNZIONANTE end-to-end** (post-bugfix 5 giu)
+- **Tutti i flussi password via WhatsApp: ✅ FUNZIONANTI end-to-end**
+  (post-bugfix 5 giu su entrambe le edge function)
 - Restano open solo:
   - approval Meta dei 3 template stagionali (asincrona, fuori controllo)
   - esito appeal categoria UTILITY dei 3 stagionali (24-72h da 4 giu)
