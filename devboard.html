@@ -170,6 +170,39 @@ async function callEdge(name, queryString, body) {
   return { ok: r.ok, status: r.status, data };
 }
 
+// Copia su clipboard con fallback robusto per Chrome Android.
+// 1) navigator.clipboard.writeText (modern, richiede HTTPS e a volte permessi)
+// 2) document.execCommand('copy') tramite textarea temporaneo (legacy ma piu' affidabile)
+async function copyToClipboard(text) {
+  if (!text) return { ok: false, reason: "empty" };
+  // Tentativo 1: API moderna
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return { ok: true, method: "clipboard" };
+    }
+  } catch (e) { /* fallback */ }
+  // Tentativo 2: textarea + execCommand
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.top = "0";
+    ta.style.left = "0";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return { ok, method: "execCommand" };
+  } catch (e) {
+    return { ok: false, reason: String(e && e.message || e) };
+  }
+}
+
 function DevBoard() {
   const [notes, setNotes] = useState(load);
   const [input, setInput] = useState("");
@@ -379,13 +412,13 @@ function WaTemplateTools() {
 
   async function copyOutput() {
     if (!output) return;
-    try {
-      await navigator.clipboard.writeText(output);
+    const res = await copyToClipboard(output);
+    if (res.ok) {
       const orig = output;
-      setOutput("📋 Copiato negli appunti!\n\n— — —\n\n" + orig);
+      setOutput(`📋 Copiato (${res.method})!\n\n— — —\n\n` + orig);
       setTimeout(() => setOutput(orig), 1500);
-    } catch (e) {
-      window.alert("Impossibile copiare automaticamente. Seleziona manualmente l'output.");
+    } else {
+      window.alert("Impossibile copiare automaticamente. Seleziona manualmente l'output con long-press.");
     }
   }
 
@@ -448,13 +481,19 @@ function WaBusinessProfileTools() {
     try { return localStorage.getItem("saf-wa-profile-last") || ""; } catch { return ""; }
   });
 
-  // Payload di default per l'update — modificabile inline.
+  // Payload di default per l'update. NOTA: la Twilio Senders API ritorna emails
+  // e websites come array di OGGETTI con label, non array di stringhe. Il payload
+  // di update deve rispettare la stessa shape.
   const defaultPayload = JSON.stringify({
     profile: {
       about: "Stagione in spiaggia, organizzata.",
       description: "SpiaggiaMia organizza il tuo ombrellone stagionale: prenotazioni, sub-affitti, crediti e comunicazioni in un'unica piattaforma.",
-      emails: ["matteo.posterli@gmail.com"],
-      websites: ["https://spiaggiamia.com"],
+      emails: [
+        { email: "matteo.posterli@gmail.com", label: "Email" }
+      ],
+      websites: [
+        { website: "https://spiaggiamia.com", label: "Website" }
+      ],
       vertical: "TRAVEL",
       logo_url: "https://spiaggiamia.com/assets/wa-profile-picture.jpg"
     }
@@ -525,13 +564,13 @@ function WaBusinessProfileTools() {
 
   async function copyOutput() {
     if (!output) return;
-    try {
-      await navigator.clipboard.writeText(output);
+    const res = await copyToClipboard(output);
+    if (res.ok) {
       const orig = output;
-      setOutput("📋 Copiato negli appunti!\n\n— — —\n\n" + orig);
+      setOutput(`📋 Copiato (${res.method})!\n\n— — —\n\n` + orig);
       setTimeout(() => setOutput(orig), 1500);
-    } catch (e) {
-      window.alert("Impossibile copiare automaticamente. Seleziona manualmente l'output.");
+    } else {
+      window.alert("Impossibile copiare automaticamente. Seleziona manualmente l'output con long-press.");
     }
   }
 
@@ -568,7 +607,7 @@ function WaBusinessProfileTools() {
               Payload per UPDATE (modificabile):
               <button onClick={resetPayload} style={{ marginLeft: 8, background: "none", border: "none", color: "#0ea5e9", cursor: "pointer", fontSize: 11, textDecoration: "underline" }}>reset</button>
             </div>
-            <textarea value={payloadText} onChange={e => setPayloadText(e.target.value)} rows={10}
+            <textarea value={payloadText} onChange={e => setPayloadText(e.target.value)} rows={12}
               spellCheck={false}
               style={{ width: "100%", border: "1px solid #e2e8f0", borderRadius: 8, padding: 10, fontSize: 11, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "#1e293b", marginBottom: 10, resize: "vertical", outline: "none" }} />
             {output && (
