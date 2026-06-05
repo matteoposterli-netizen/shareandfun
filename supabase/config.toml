@@ -22,3 +22,26 @@ verify_jwt = true
 # https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys
 [functions.recupero-password]
 verify_jwt = false
+
+# invia-whatsapp: chiamata sia da utenti loggati (frontend manager via
+# inviaWhatsapp helper, e da richiedi-reset-cliente con user-JWT del
+# manager) sia server-to-server da recupero-password con
+# Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}.
+#
+# La env var SUPABASE_SERVICE_ROLE_KEY ora contiene una chiave nuovo
+# formato `sb_secret_*` (NON JWT) per allinearsi alla migration delle
+# nuove chiavi Supabase. Il gateway con verify_jwt=true rifiutava la
+# chiamata server-to-server con UNAUTHORIZED_INVALID_JWT_FORMAT (visibile
+# nei log Dashboard come "recupero-password WA invio fallito").
+#
+# La sicurezza e' garantita dal codice (vedi guard 401 in index.ts):
+# - isServiceRole: string equality con SUPABASE_SERVICE_KEY env var,
+#   funziona con qualsiasi formato di chiave
+# - User JWT: validato via supa.auth.getUser(jwt) (ritorna 401 se invalido)
+# - Anonimo: nuovo guard 401 esplicito (rifiuta chiamate senza auth)
+# - Tipo recupero_password: ownership check sullo stabilimento per
+#   chiamate user-JWT, bypass per chiamate service-role
+#
+# Vedi BUGFIX 5 giu 2026 / Tentativo 11 in WHATSAPP_INTEGRAZIONE.md.
+[functions.invia-whatsapp]
+verify_jwt = false
