@@ -1,23 +1,28 @@
 # SpiaggiaMia — Integrazione notifiche WhatsApp (stato e piano)
 
 Documento di riferimento per la knowledge base del progetto.
-Ultimo aggiornamento: 5 giugno 2026 — logo brand SpiaggiaMia caricato con
-successo via Meta Business Manager UI (bypass API Twilio Senders per il
-campo `logo_url`). Profilo WhatsApp ora completo end-to-end. Vedi sezione 7
-- Tentativo 10.
+Ultimo aggiornamento: 5 giugno 2026 — flusso self-service "Password
+dimenticata?" via WhatsApp FUNZIONANTE end-to-end dopo saga di 4 bugfix
+in cascata (Tentativi 7, 9, 11, 12 in sezione 7). Root cause finale:
+nuove chiavi Supabase `sb_publishable_*` / `sb_secret_*` non-JWT
+incompatibili con `verify_jwt=true` al gateway delle Edge Function.
 
 ## STATO ATTUALE (TL;DR)
 
 **Tutti i flussi password via WhatsApp: FUNZIONANTI end-to-end (5 giu 2026).**
 Il template `spiaggiamia_recupero_password_v3` è stato approvato da Meta tra il
-4 e il 5 giugno, il messaggio arriva correttamente sul cellulare. Bug nel
-codice (URL `?` mancante) trovato e fixato in DUE edge function distinte:
-`richiedi-reset-cliente` (manager-driven) e `recupero-password` (self-service
-dal link "Password dimenticata?" della pagina login). **Inoltre** fixato un
-terzo bug nel frontend (`js/auth.js`) che faceva tornare 401 dal gateway sulla
-chiamata a `recupero-password` quando l'utente non era loggato. Restano in
-attesa di approval Meta i 3 template stagionali (invito/benvenuto/subaffitto)
-e i 9 template UTILITY backup.
+4 e il 5 giugno, il messaggio arriva correttamente sul cellulare. **Saga di 4
+bugfix in cascata risolta il 5 giu** (Tentativi 7, 9, 11, 12 — vedi sezione 7):
+- T7: URL `?` mancante nel template Meta-approved (backend
+  `richiedi-reset-cliente` + `recupero-password`)
+- T9: frontend `doForgotPassword` non passava Authorization (401 gateway)
+- T11: `verify_jwt=false` per `recupero-password` (chiave `sb_publishable_*`
+  non-JWT non passa il gateway)
+- T12: `verify_jwt=false` + security guard per `invia-whatsapp` (stesso
+  bug ma per la chiamata server-to-server con `sb_secret_*`)
+
+Restano in attesa di approval Meta i 3 template stagionali
+(invito/benvenuto/subaffitto) e i 9 template UTILITY backup.
 
 **Profilo business WhatsApp COMPLETO (5 giu 2026):** description, about,
 vertical "Travel and Transportation", email, sito web settati via API Twilio
@@ -77,8 +82,11 @@ blocca mai email o flusso DB.
 
 ## 3. Architettura
 
-- **Edge Function `invia-whatsapp`** (v10 al 3 giu 2026):
+- **Edge Function `invia-whatsapp`** (v18 al 5 giu 2026, post-Tentativo 12):
   - Credenziali e Content SID **da env var** (Supabase secrets), niente tabella DB
+  - **verify_jwt=false** lato gateway (config.toml). Sicurezza nel codice:
+    string-equality con SUPABASE_SERVICE_KEY env (formato-agnostic),
+    `getUser(jwt)` per user-JWT, guard 401 esplicito per anonimi
   - Accetta sia chiamate server-to-server con SERVICE_KEY (es. `recupero-password`
     self-service) sia user-JWT (per `recupero_password` con ownership check sul
     proprietario dello stabilimento, es. `richiedi-reset-cliente` manager-driven)
@@ -95,7 +103,7 @@ blocca mai email o flusso DB.
     prefisso URL fisso `https://btnyzzpibedkslhtiizu.supabase.co/auth/v1/verify{{4}}`
     (notare: SENZA `?` tra `verify` e `{{4}}` — Meta lo rimuove durante
     l'approval normalizzando l'URL). Il `?` è quindi parte della variabile.
-- **Edge Function `recupero-password`** (post-bugfix 5 giu 2026, self-service):
+- **Edge Function `recupero-password`** (v11 al 5 giu 2026, post-Tentativo 11):
   - Solo ramo telefono (ramo email gestito client-side via
     `supabase.auth.resetPasswordForEmail()`)
   - Risponde sempre `{ ok: true }` per evitare enumeration attack
@@ -105,8 +113,10 @@ blocca mai email o flusso DB.
     `?` iniziale) e lo passa come variabile `link` → `invia-whatsapp` lo
     inoltra come `{{4}}` al template Twilio. Il template ricompone l'URL
     Supabase corretto.
-  - **verify_jwt=true** lato gateway: il frontend deve chiamare con un JWT
-    valido (anon key è sufficiente). Vedi BUGFIX frontend 5 giu in Tentativo 9.
+  - **verify_jwt=false** lato gateway (config.toml). Necessario perché la
+    chiave del client `sb_publishable_*` non è JWT e il gateway con
+    verify_jwt=true la rifiuta sempre. Sicurezza nel codice: risposta
+    sempre generica anti-enumeration + SERVICE_KEY per Admin API.
 - **Edge Function `manage-wa-business-profile`** (creata 5 giu 2026, v3 ACTIVE):
   - Gestisce il profilo business WhatsApp via **Twilio Senders API v2**
     (`https://messaging.twilio.com/v2/Channels/Senders`)
@@ -291,7 +301,7 @@ variabile globale per il bottone, diversa dai 3 stagionali attuali):
   attuali passano il token con chiave ContentVariables `button_1_url_0`)
 - I template `registrazione_*` hanno 3 variabili totali (era 2): aggiunta {{3}} = email URL-encoded per il bottone
 - I template `operazione_*` hanno 6 variabili totali (era 5): aggiunta {{6}} = email URL-encoded per il bottone
-- Se viene swappato il secret, `invia-whatsapp` v10 deve essere aggiornato per passare
+- Se viene swappato il secret, `invia-whatsapp` v18 deve essere aggiornato per passare
   le variabili bottone aggiuntive ({{3}} per accesso/registrazione, {{6}} per
   operazione). È OPEN ITEM, da fare prima dello swap.
 
@@ -675,55 +685,21 @@ await fetch(`${SUPABASE_URL}/functions/v1/recupero-password`, { ... });
 ```
 Quando l'utente NON è loggato (caso tipico di "Password dimenticata?"),
 `session` è `null`, l'header `Authorization` non viene aggiunto → gateway
-Supabase risponde 401. Il commento nel codice ("la function accetta anon")
-era errato: il gateway con `verify_jwt: true` richiede SEMPRE un JWT valido,
-anche solo la anon key del progetto (non vuoto).
+Supabase risponde 401.
 
-Confermato dal cliente cercato nel DB: Matteo Posterli con telefono
-`+393299088725` è registrato (user_id != null), ha `whatsapp_consenso=true`,
-appartiene a Universo (`wa_enabled=true`). Quindi tutti i pre-check sarebbero
-passati se la function fosse stata invocata. Il fallimento era totalmente a
-livello di gateway.
-
-**Fix** (commit `def7f67b` del 5 giu 2026 in `js/auth.js`):
-```diff
--  const { data: { session } } = await sb.auth.getSession();
--  const headers = { 'Content-Type': 'application/json' };
--  if (session?.access_token) {
--    headers['Authorization'] = `Bearer ${session.access_token}`;
--  }
--  try {
--    await fetch(`${SUPABASE_URL}/functions/v1/recupero-password`, {
--      method: 'POST',
--      headers,
--      body: JSON.stringify({ identificatore: tel, canale: 'telefono' }),
--    });
--  } catch (e) {
--    console.warn('recupero-password fetch error', e);
--  }
-+  try {
-+    const { error: invokeErr } = await sb.functions.invoke('recupero-password', {
-+      body: { identificatore: tel, canale: 'telefono' },
-+    });
-+    if (invokeErr) console.warn('recupero-password invoke error', invokeErr);
-+  } catch (e) {
-+    console.warn('recupero-password invoke exception', e);
-+  }
-```
-
+**Fix** (commit `def7f67b` del 5 giu 2026 in `js/auth.js`): sostituita la
+fetch raw con `sb.functions.invoke('recupero-password', { body })`.
 `sb.functions.invoke()` gestisce automaticamente l'`Authorization`:
 - Se l'utente è loggato: usa `session.access_token`
 - Se NO: ricade sulla anon key con cui `sb` è stato istanziato
 
-**Niente deploy edge function necessario**: fix puramente frontend. Da
-aggiornare il cache buster `?v=...` in `index.html` per `js/auth.js` per
-forzare il refresh sui client. Pre-fix cache buster: `?v=20260603i`.
+**Niente deploy edge function necessario**: fix puramente frontend. Cache
+buster aggiornato (commit `048515a3`) a `?v=20260605a` per `js/auth.js` in
+`index.html` per forzare il refresh sui client.
 
-**Lezione**: quando un flusso "fire-and-forget" fallisce silenziosamente,
-NON fidarsi solo dell'UX di risposta generica. Controllare SEMPRE i log
-edge-function (`Supabase:get_logs` MCP) per vedere se la function è stata
-effettivamente raggiunta. Un 401 col 155ms di execution time è una signature
-classica di rifiuto a livello di gateway, prima dell'invocazione del codice.
+**NOTA**: questo fix da solo NON era sufficiente — la chiave `sb_publishable_*`
+del progetto non è un JWT e veniva comunque rifiutata dal gateway. Vedi
+Tentativo 11 per la root cause finale.
 
 ### Tentativo 10 (5 giugno 2026): logo brand caricato via Meta UI (workaround `logo_url` non propagato)
 
@@ -732,13 +708,6 @@ testuali del profilo popolati e visibili lato Meta), il **logo brand
 permaneva di default** ("S" arancione di Twilio). Il `logo_url` passato
 nell'API Twilio Senders era stato accettato con echo nel response (HTTP 202)
 ma silenziosamente non propagato a Meta. Nessun errore lato Twilio.
-
-**Tentativi falliti** (per documentazione, evitare di rifarli):
-1. Re-update via API con stesso `logo_url`: stesso comportamento (202 ok,
-   ma Meta non riceve il logo).
-2. Url su Vercel `https://spiaggiamia.com/assets/wa-profile-picture.jpg`
-   accessibile e valido (640×640 JPG, 27 KB). Meta probabilmente non riesce
-   a crawlare/fidarsi del dominio recente.
 
 **Workaround funzionante**: upload diretto via Meta Business Manager UI.
 
@@ -758,35 +727,160 @@ JPEG e ha estensione `.jpg`. Errore mostrato da Meta UI in caso di WebP:
 
 **Soluzione utilizzata**: rigenerato il logo come **v4 1080×1080 JPEG vero**
 con Python+PIL via tool Claude, fornito a Matteo come file scaricabile
-diretto (no conversione automatica). Differenze vs v3 (640×640 su Vercel):
-- Risoluzione raddoppiata (Meta riscalerà comunque a 640×640 mantenendo più
-  dettaglio post-compression)
-- Ombrellone leggermente più piccolo, raggio 26% del canvas (vs ~30% v3)
-  → resta dentro al crop circolare di WhatsApp senza tagli
-- Magic bytes `ffd8ff` confermati = JPEG/JFIF standard
-- 48.4 KB (sotto il limite Meta di 5 MB)
-- File NON versionato su GitHub (one-shot per Meta UI)
-
-Upload v4 nel Meta UI riuscito al primo tentativo. Propagazione al
-WhatsApp client: ~immediata (visibile aprendo la chat dal destinatario).
-
-**Insight architetturale**: la Twilio Senders API v2 supporta il campo
-`logo_url` nel payload `profile` (presente nello schema documentato), ma in
-pratica la propagazione a Meta è **inaffidabile** per sender non-verified.
-Possibili cause: timeout crawl di Meta sul dominio del client, sender senza
-business verification che gli sblocca certi campi, oppure semplicemente
-endpoint immaturo. Per il logo profilo affidarsi sempre alla UI Meta diretta.
-
-**Aggiornamento doc Tentativo 8**: il `logo_url` rimane nel payload default
-del devboard (`spiaggiamia.com/assets/wa-profile-picture.jpg`) per
-completezza dello schema, ma in produzione l'admin sa che il caricamento
-del logo deve passare per Meta UI. Aggiunta nota esplicita nel devboard
-(comment nel JSON).
+diretto (no conversione automatica). 48.4 KB. File NON versionato su
+GitHub (one-shot per Meta UI). Upload v4 nel Meta UI riuscito al primo
+tentativo. Propagazione al WhatsApp client: ~immediata.
 
 **Lezione generale**: quando un'API parte di una catena multi-vendor
 (qui: client → Twilio → Meta) accetta un payload con HTTP 200/202 ma senza
 feedback di errore downstream, NON fidarsi del response. Verificare sempre
 sul vendor finale (qui: Meta) tramite la sua UI o un canale separato.
+
+### Tentativo 11 (5 giugno 2026): `verify_jwt=false` per `recupero-password`
+
+**Sintomo**: dopo il fix Tentativo 9 (frontend `sb.functions.invoke`) + cache
+buster (`?v=20260605a`), gli smoke test continuavano a ritornare **401 al
+gateway** Edge Function. La function NON entrava mai nel codice
+(execution_time_ms ~90-150ms = signature di rifiuto gateway-level).
+
+**Diagnosi**: il progetto in `js/state.js` istanzia il client supabase con la
+**nuova chiave pubblicabile** Supabase:
+```javascript
+const SUPABASE_KEY = 'sb_publishable_7MGsfC7Pl9UAj76IphFMrw_Qk1II-DT';
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+```
+Le nuove chiavi (`sb_publishable_*` / `sb_secret_*`) introdotte da Supabase
+post-2024 **NON sono JWT** — sono identificatori opachi (come API key
+tradizionali). Quando il client supabase-js le passa automaticamente come
+`Authorization: Bearer sb_publishable_...`, il gateway con `verify_jwt=true`
+tenta di parsarle come JWT firmati → fallisce SEMPRE → 401.
+
+**Conferma testuale dalla doc Supabase**
+(https://supabase.com/docs/guides/functions/auth-headers):
+> "The new API keys are not JWTs. The platform check can't validate them.
+>  Edge Functions only support JWT verification via the anon and service_role
+>  JWT-based API keys. You will need to use the --no-verify-jwt option
+>  when using publishable and secret keys."
+
+**Fix** (commit `141d2832` del 5 giu 2026):
+```toml
+# supabase/config.toml
+[functions.recupero-password]
+verify_jwt = false
+```
+
+Sicurezza preservata dal codice della function:
+- Risposta sempre generica `{ ok: true }` (anti-enumeration)
+- Lookup ristretto a clienti registrati con `.not("user_id", "is", null)`
+- SERVICE_KEY interno per `auth.admin.generateLink` (Admin API) e invio WA
+- Skip silenzioso se WA disabilitato sullo stabilimento
+
+**Redeploy**: `supabase functions deploy recupero-password
+--no-verify-jwt`. Runtime v11. Confermato post-deploy: POST 200 in
+~1843ms (entra nel codice, generateLink success visibile nei log auth).
+
+**Implicazione per altre Edge Function**: tutte le function chiamate da
+utenti LOGGATI continuano a funzionare con `verify_jwt=true` perché il
+client passa il loro user-JWT (vero JWT firmato), che il gateway valida
+correttamente. Solo function chiamate **senza session** (caso "Password
+dimenticata?") cadono nel buco. Vedi anche Tentativo 12 per il caso
+identico con `invia-whatsapp` chiamato server-to-server con `sb_secret_*`.
+
+**Lezione**: prima di abilitare `verify_jwt=true` su una function
+pubblicamente chiamabile dal frontend, verificare se il client supabase
+del progetto è inizializzato con una chiave JWT legacy (`eyJ...`) o
+una nuova `sb_publishable_*`. Nel secondo caso, `verify_jwt=true` è
+incompatibile e va sempre messo a false.
+
+### Tentativo 12 (5 giugno 2026): `verify_jwt=false` + security guard per `invia-whatsapp`
+
+**Sintomo**: dopo Tentativo 11, smoke test self-service ancora fallisce
+(nessun WA arriva), ma stavolta `recupero-password` torna 200 OK in
+~1843ms (entra nel codice). I log auth confermano che `generateLink`
+viene chiamato con successo. Però `invia-whatsapp` non appare nei log
+edge-function: la function downstream non viene mai invocata con successo.
+
+**Diagnosi**: i log Dashboard di `recupero-password` (NOT i log MCP
+`get_logs` che mostra solo HTTP access) hanno rivelato il vero errore:
+
+```
+ERROR  recupero-password WA invio fallito
+       { code: "UNAUTHORIZED_INVALID_JWT_FORMAT", message: "Invalid JWT" }
+```
+
+Stesso identico bug del Tentativo 11 ma per `invia-whatsapp`:
+`recupero-password` chiama `invia-whatsapp` passando
+`Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}`. La env var
+`SUPABASE_SERVICE_ROLE_KEY` ora contiene una chiave nuovo formato
+`sb_secret_*` (NON JWT). Il gateway di `invia-whatsapp` con
+`verify_jwt=true` tenta di validarla come JWT → fallisce con
+`UNAUTHORIZED_INVALID_JWT_FORMAT`.
+
+**Fix in due parti**:
+
+**1. Security guard nel codice** (commit `2be6242f` del 5 giu 2026):
+necessario perché disabilitando `verify_jwt` il gateway non rifiuta più
+le chiamate anonime. Il codice della function deve fare il check
+internamente.
+
+```typescript
+// supabase/functions/invia-whatsapp/index.ts
+// dopo il check del JWT iniziale:
+if (!isServiceRole && !callerUserId) {
+  return jsonResponse(
+    { error: "Autenticazione richiesta (service-role o user JWT valido)" },
+    401
+  );
+}
+```
+
+Logica di autorizzazione conservata e ora più esplicita:
+- `isServiceRole = !!jwt && jwt === SUPABASE_SERVICE_KEY` — string
+  equality, funziona con qualsiasi formato (JWT legacy o `sb_secret_*`)
+- User JWT validato via `anonClient.auth.getUser(jwt)`
+- Anonimo (no Bearer): nuovo guard 401 esplicito
+- Tipo `recupero_password` con `!isServiceRole`: ownership check
+  sullo stabilimento (manager-driven con user-JWT)
+
+**2. Disabilita verify_jwt** (commit `cccb6409` del 5 giu 2026):
+```toml
+# supabase/config.toml
+[functions.invia-whatsapp]
+verify_jwt = false
+```
+
+**Redeploy**: `supabase functions deploy invia-whatsapp --no-verify-jwt`.
+
+Tutti i flussi esistenti continuano a funzionare:
+- `richiedi-reset-cliente` (manager-driven): passa user-JWT del manager
+  → `getUser` valida → ownership check ✅
+- `inviaWhatsapp` helper da frontend loggato (invito/benvenuto/subaffitto):
+  passa session.access_token (user JWT) → getUser valida ✅
+- `recupero-password` (server-to-server): passa SUPABASE_SERVICE_ROLE_KEY
+  → `isServiceRole=true` → bypass ownership ✅
+- Anonimo: nuovo guard 401 ✅
+
+**Post-deploy: WA ARRIVA SUL CELLULARE.** Saga del 5 giu 2026 chiusa.
+
+**Lezione architetturale generale**: in un progetto migrato alle nuove
+chiavi Supabase (`sb_publishable_*` / `sb_secret_*`), `verify_jwt=true`
+funziona SOLO se la function è chiamata esclusivamente con user-JWT
+validi (es. da utenti loggati). Qualsiasi function che riceve chiamate:
+- Da utenti non loggati con publishable key, OPPURE
+- Server-to-server con SERVICE_ROLE_KEY (env var che è ora `sb_secret_*`)
+
+DEVE avere `verify_jwt=false` + autorizzazione gestita esplicitamente
+nel codice (string equality per service-role + `getUser(jwt)` per
+user-JWT + guard 401 esplicito per anonimi).
+
+**Pattern di diagnosi gateway-vs-codice**:
+- 401 con `execution_time_ms` ~90-200ms: rifiuto al gateway PRIMA del
+  codice. Causa probabile: `verify_jwt=true` + chiave non-JWT.
+- 401 con `execution_time_ms` >500ms: ha eseguito il codice, l'auth
+  è fallita dentro. Causa probabile: ownership check o getUser fallito.
+- 200 ma niente log downstream del fetch successivo: chiamata uscente
+  rifiutata dal gateway downstream. Verifica nei log Dashboard
+  (`console.error`), non solo nei log MCP HTTP access.
 
 ## 8. Fase 3 — Reset password manager-driven
 
@@ -809,8 +903,11 @@ Test reset password via **WhatsApp** (manager-driven, `richiedi-reset-cliente`):
 URL ricomposto correttamente).
 
 Test recupero password via **WhatsApp** (self-service, `recupero-password`):
-✅ atteso funzionante post-fix Tentativo 9 (frontend `sb.functions.invoke`)
-del 5 giu 2026 + cache buster aggiornato.
+✅ FUNZIONANTE end-to-end (verificato 5 giu 2026 sera, post-saga 4 bugfix
+Tentativi 7+9+11+12). Stack completo: frontend `sb.functions.invoke()` →
+gateway con `verify_jwt=false` → `recupero-password` v11 → `auth.admin.
+generateLink` → fetch a `invia-whatsapp` v18 (`verify_jwt=false` + guard
+interno) → Twilio API → WA delivery.
 
 ## 9. STATO DEGLI STEP
 
@@ -822,20 +919,20 @@ del 5 giu 2026 + cache buster aggiornato.
 - [x] **2b. WhatsApp Sender BYON** — eSIM Iliad `+393520426199` ONLINE
 - [x] **3. Template invito/benvenuto/subaffitto** — creati con Content SID
 - [x] **4a. Tab WhatsApp gestore** — sub-tab Configurazioni + tab Comunicazioni
-- [x] **4b. Edge Function `invia-whatsapp`** — v10 ACTIVE (3 giu 2026, accetta
-      manager-auth + ownership per recupero_password)
+- [x] **4b. Edge Function `invia-whatsapp`** — v18 ACTIVE (5 giu 2026 post-T12,
+      verify_jwt=false + security guard)
 - [x] **4b-bis. Agganci agli eventi** — tutti completi (invito, benvenuto, subaffitto)
 - [x] **Cleanup `whatsapp_config`** — tabella eliminata
 - [x] **Fase 3 — Reset password manager-driven** — completa, in main
 - [x] **richiedi-reset-cliente Edge Function** — v12 (post-bugfix 5 giu 2026)
-- [x] **recupero-password Edge Function** — v10 (post-bugfix 5 giu 2026)
+- [x] **recupero-password Edge Function** — v11 (post-Tentativo 11 verify_jwt=false)
 - [x] **Profilo WhatsApp Business completo** — descrizione, about, vertical, email, sito
-- [x] **Logo brand SpiaggiaMia generato** — `assets/wa-profile-picture.jpg` v3 (commit `b7527413`) + v4 1080×1080 fuori-repo
+- [x] **Logo brand SpiaggiaMia generato** — `assets/wa-profile-picture.jpg` v3 + v4 1080×1080
 - [x] **Edge Function `manage-wa-business-profile`** — v3 ACTIVE (5 giu 2026)
 - [x] **DevBoard sezione "WhatsApp Business Profile"** — Get/List/Update con payload editabile (5 giu 2026)
-- [x] **Update campi testuali profilo business via API** — completato 5 giu 2026 h 07:35 UTC (about, description, emails, websites, vertical "Travel and Transportation")
-- [x] **Logo brand caricato via Meta UI** — 5 giu 2026 h ~10:09 italiano (workaround per `logo_url` API non propagato, vedi Tentativo 10)
-- [x] **Verifica visiva profilo business completo** sul cellulare destinatario — ✅ ground truth confermato
+- [x] **Update campi testuali profilo business via API** — completato 5 giu 2026 h 07:35 UTC
+- [x] **Logo brand caricato via Meta UI** — 5 giu 2026 (workaround Tentativo 10)
+- [x] **Verifica visiva profilo business completo** sul cellulare destinatario — ✅
 - [x] **Recupero password v1 sottomesso** — rejected per "variables at start/end"
 - [x] **Recupero password v3 sottomesso e approvato Meta** — 5 giu 2026 (categoria UTILITY)
 - [x] **WA_SID_RECUPERO settato su Supabase Secrets** (`HX64ef2eb0...`)
@@ -844,23 +941,24 @@ del 5 giu 2026 + cache buster aggiornato.
 - [x] **Ricreazione template stagionali** — 4 giu 2026
 - [x] **Secret Supabase aggiornati con nuovi SID** — `WA_SID_INVITO`, `WA_SID_BENVENUTO`, `WA_SID_SUBAFFITTO` (4 giu 2026)
 - [x] **Verifica passaggio a pending Meta** — i 3 stagionali in pending ~13min dopo ricreazione (4 giu h 16:54 UTC)
-- [x] **Appeal categoria sottomesso per i 3 stagionali** — via Meta WhatsApp Manager / Aggiornamenti categoria modelli (4 giu 2026 h ~17:20 UTC)
-- [x] **Bugfix URL `?` mancante in richiedi-reset-cliente** — commit `29c649e1` del 5 giu 2026, deploy v12
-- [x] **Bugfix URL `?` mancante in recupero-password (self-service)** — commit `69c66486` del 5 giu 2026, deploy v10
-- [x] **Bugfix frontend `doForgotPassword` (401 gateway)** — commit `def7f67b` del 5 giu 2026 (sostituita fetch raw con sb.functions.invoke)
-- [ ] **Cache buster `?v=20260605...` in index.html per js/auth.js** — da fare via Claude Code (file grande, non MCP)
-- [x] **Test end-to-end WA reset password (manager-driven)** sul cellulare — ✅ funzionante post-bugfix
-- [ ] **Test end-to-end WA recupero password (self-service)** sul cellulare — atteso ✅ post-fix Tentativo 9 + cache buster
-- [ ] **Esito appeal categoria 3 stagionali** — atteso 24-72h (Ripristinati = UTILITY ✅ o Invariati = MARKETING). Se Invariati, valutare modifica body.
-- [x] **Edge Function `create-utility-backup-templates`** — deployata 4 giu 2026 v1 ACTIVE
-- [x] **9 template UTILITY backup creati e submittati** — 4 giu 2026 h 21:36 UTC, output `summary.ok=9 failed=0`, tutti `received`. SID popolati in sezione 4.
-- [x] **DevBoard mobile-friendly per invocazioni admin** — aggiunta sezione "WhatsApp Templates Tools" in `devboard.html` (4 giu 2026) + sezione "WhatsApp Business Profile" (5 giu 2026)
+- [x] **Appeal categoria sottomesso per i 3 stagionali** — via Meta WhatsApp Manager (4 giu h ~17:20 UTC)
+- [x] **Bugfix URL `?` mancante in richiedi-reset-cliente** — commit `29c649e1` (Tentativo 7)
+- [x] **Bugfix URL `?` mancante in recupero-password** — commit `69c66486` (Tentativo 7)
+- [x] **Bugfix frontend `doForgotPassword`** — commit `def7f67b` (Tentativo 9)
+- [x] **Cache buster `?v=20260605a` in index.html** — commit `048515a3` (Claude Code)
+- [x] **Bugfix `verify_jwt=false` per `recupero-password`** — commit `141d2832` (Tentativo 11), redeploy v11
+- [x] **Bugfix `verify_jwt=false` + security guard per `invia-whatsapp`** — commit `2be6242f` + `cccb6409` (Tentativo 12), redeploy v18
+- [x] **Test end-to-end WA reset password (manager-driven)** sul cellulare — ✅
+- [x] **Test end-to-end WA recupero password (self-service)** sul cellulare — ✅
+- [ ] **Esito appeal categoria 3 stagionali** — atteso 24-72h
+- [x] **Edge Function `create-utility-backup-templates`** — deployata 4 giu 2026
+- [x] **9 template UTILITY backup creati e submittati** — 4 giu 2026 h 21:36 UTC
+- [x] **DevBoard mobile-friendly per invocazioni admin** — 4-5 giu 2026
 - [ ] **Esito approval Meta per i 9 backup** — atteso 24-72h
 - [ ] **Aggiornamento `invia-whatsapp` per nuove signature A/B/C** — solo se si swappano
-- [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto** (status: pending, ricreati 4 giu)
-- [ ] **Business verification Meta** — bloccata da mancanza P.IVA (long term).
-      Sbloccherebbe Official Business Account → display name "SpiaggiaMia"
-      sempre prominente nel header chat (oggi visibile solo tappando il numero)
+- [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto**
+- [ ] **Business verification Meta** — bloccata da mancanza P.IVA (long term)
+- [ ] **Pulizia 4 record duplicati telefono `+393299088725`** — prima di demo reali
 
 ## 10. Come riprendere il test (quando Meta approva)
 
@@ -893,84 +991,69 @@ bugfix `?` del 5 giu 2026 in sezione 7 - Tentativo 7).
 
 **⚠️ Test fire-and-forget**: quando un flusso ritorna sempre risposta
 generica (es. "Password dimenticata?" anti-enumeration), NON fidarsi
-dell'UX. Controllare i log della edge function con
-`Supabase:get_logs` per verificare che la function sia stata effettivamente
-raggiunta (status 200) e non rifiutata dal gateway con 401 (vedi
-Tentativo 9 sezione 7 — execution_time_ms 155-615ms = rifiuto gateway).
+dell'UX. Controllare i log della edge function con `Supabase:get_logs`
+MCP per HTTP access + Dashboard per console.log/error testuali.
 
 **Verifica visiva profilo business**: tappare il header del numero
 `+393520426199` nella chat WhatsApp dal destinatario. Dovrebbero comparire:
-logo ombrellone SpiaggiaMia (avatar), nome "SpiaggiaMia", about ("Stagione in
-spiaggia, organizzata."), description completa, email e sito cliccabili,
-categoria "Travel & Transportation". Se vedi ancora l'avatar di default
-("S" arancione), il logo va caricato via Meta UI (Tentativo 10), NON via
-re-update dell'API (che non funziona affidabilmente per il `logo_url`).
+logo ombrellone SpiaggiaMia (avatar), nome "SpiaggiaMia", about, description,
+email e sito cliccabili, categoria "Travel & Transportation". Se vedi ancora
+l'avatar di default ("S" arancione), il logo va caricato via Meta UI
+(Tentativo 10), NON via re-update dell'API.
 **NON fidarsi del `?mode=get` dell'edge function**: la Twilio Senders API
-v2 ha bug noti di cache, il GET può ritornare profilo vuoto anche quando
-Meta lo ha popolato. Source of truth = WhatsApp client.
+v2 ha bug noti di cache. Source of truth = WhatsApp client.
 
 ## 11. Per nuove sessioni Claude
 
 Leggi questo file con `get_file_contents` per orientarti. Punti chiave:
 - Tutta l'infrastruttura tecnica è in main e in produzione
-- Edge functions deployate: `invia-whatsapp` v10, `richiedi-reset-cliente` v12
-  (post-bugfix 5 giu), `recupero-password` v10 (post-bugfix 5 giu),
-  `check-template-status` v8, `recreate-whatsapp-templates`,
-  `create-utility-backup-templates`, `manage-wa-business-profile` v3
+- Edge functions deployate: `invia-whatsapp` v18 (verify_jwt=false post-T12),
+  `richiedi-reset-cliente` v12 (post-bugfix 5 giu), `recupero-password` v11
+  (verify_jwt=false post-T11), `check-template-status` v8,
+  `recreate-whatsapp-templates`, `create-utility-backup-templates`,
+  `manage-wa-business-profile` v3
 - **Tutti i flussi password via WhatsApp: ✅ FUNZIONANTI end-to-end**
-  (post-bugfix 5 giu: 2 backend + 1 frontend)
+  (post-saga 4 bugfix del 5 giu: Tentativi 7+9+11+12)
 - **Profilo business WA completo** con logo brand SpiaggiaMia (logo via Meta
   UI, resto via API Twilio Senders del 5 giu)
 - Restano open solo:
   - approval Meta dei 3 template stagionali (asincrona, fuori controllo)
   - esito appeal categoria UTILITY dei 3 stagionali (24-72h da 4 giu)
   - approval Meta dei 9 template UTILITY backup
-- Set di 9 template UTILITY backup disponibile da 4 giu 2026 h 21:36 UTC. SID
+  - pulizia 4 record duplicati `+393299088725` prima di demo
+- Set di 9 template UTILITY backup disponibile da 4 giu 2026. SID
   popolati in sezione 4. Se l'appeal dei 3 stagionali viene respinto, swap dei
-  secret WA_SID_* ai SID di accesso_*/registrazione_*/operazione_* (richiede
-  update di invia-whatsapp per le variabili bottone aggiuntive su A/B/C).
-- DevBoard mobile-friendly: `spiaggiamia.com/devboard.html` ha 2 sezioni admin:
-  - "💬 WhatsApp Templates Tools" per `create-utility-backup-templates` e
-    `check-template-status`
-  - "👤 WhatsApp Business Profile" per `manage-wa-business-profile`
-    (Get/List/Update profilo testuale — il logo NON usa questo flusso)
+  secret WA_SID_* ai SID di accesso_*/registrazione_*/operazione_*.
 
 Verifica status template:
-- Edge Function `check-template-status` (read-only, da console browser loggato
-  manager: `sb.functions.invoke('check-template-status')`) — modo più rapido
+- Edge Function `check-template-status` (read-only) — modo più rapido
 - https://console.twilio.com/us1/develop/sms/content-template-builder
 - https://business.facebook.com/latest/whatsapp_manager/message_templates
-- Cerca i template `spiaggiamia_*`
-- Status Twilio: `unsubmitted → received → pending → approved/rejected`
-  (`received` = Twilio ce l'ha ma non l'ha ancora inoltrato a Meta;
-  `pending` = già a Meta in review)
-- Per esito appeal categoria: Meta Business Manager → SpiaggiaMia → Account
-  WhatsApp → Aggiornamenti categoria modelli → tab "Ripristinati" o "Invariati"
 
 Verifica profilo business:
-- **Source of truth**: dal cellulare destinatario, aprire chat con
-  `+393520426199`, tappare header numero → profilo business con logo brand +
-  descrizione + sito + email + about + categoria
+- **Source of truth**: dal cellulare destinatario, tappare header numero
 - `manage-wa-business-profile?mode=get` può ritornare profilo vuoto pur
-  essendo popolato lato Meta (bug noto cache Twilio v2). NON usare come
-  verifica autoritativa.
-- Per modifiche al logo: SEMPRE via Meta Business Manager UI (Tentativo 10).
-  L'API Twilio accetta `logo_url` ma non lo propaga affidabilmente a Meta.
-- Per modifiche ai campi testuali (about, description, vertical, email,
-  websites): API Twilio funziona, devboard è OK.
+  essendo popolato lato Meta (bug noto cache Twilio v2)
+- Per modifiche al logo: SEMPRE via Meta Business Manager UI (Tentativo 10)
+- Per modifiche ai campi testuali: API Twilio funziona, devboard è OK
 
 Debug 401/403 inattesi:
 - `Supabase:get_logs` con service `edge-function` mostra status code e
-  execution_time_ms. Un 401 con ~150-600ms = rifiuto al gateway (manca/non
-  valido il JWT). Un 403 dentro il codice = check di ownership/admin fallito.
+  execution_time_ms. Un 401 con ~90-200ms = rifiuto al gateway. Un 401
+  con ~500-1000ms = entrato nel codice ma auth fallita internamente.
+- **Nuove chiavi Supabase (`sb_publishable_*` / `sb_secret_*`)**: queste
+  non sono JWT, NON passano `verify_jwt=true` al gateway. Funzionano solo
+  come `apikey` header o se `verify_jwt=false`. Vedi Tentativi 11+12.
 - Frontend deve sempre chiamare le edge function via `sb.functions.invoke()`
-  per garantire l'`Authorization` automatico (anon key se non loggato).
+  per garantire l'`Authorization` automatico.
+- Per i `console.log/error` dell'Edge Function: il MCP `Supabase:get_logs`
+  mostra solo HTTP access. I log testuali vanno cercati nel Dashboard:
+  `https://supabase.com/dashboard/project/{ref}/functions/{name}/logs`
 
 Vincoli formato immagini Meta:
 - Logo profilo: 640×640 minimo, 1080×1080 raccomandato, **JPEG vero**
   (no WebP). Chrome Android converte automaticamente `.jpg` → `.webp` quando
-  scarica da URL — se serve un JPEG affidabile per Meta UI upload,
-  rigenerarlo lato server o usare desktop con copia file diretto.
+  scarica da URL.
 - Cover/banner: 1920×1080, max 5 MB, JPEG/PNG.
 
 ## 12. UUID stabilimenti (riferimento)
