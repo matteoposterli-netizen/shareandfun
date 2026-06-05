@@ -481,9 +481,13 @@ function WaBusinessProfileTools() {
     try { return localStorage.getItem("saf-wa-profile-last") || ""; } catch { return ""; }
   });
 
-  // Payload di default per l'update. NOTA: la Twilio Senders API ritorna emails
-  // e websites come array di OGGETTI con label, non array di stringhe. Il payload
-  // di update deve rispettare la stessa shape.
+  // Payload di default per l'update.
+  // NOTA shape Twilio Senders API (osservata via GET):
+  // - emails: array di oggetti { email, label }, non stringhe
+  // - websites: array di oggetti { website, label }
+  // - vertical: deve essere il nome ESATTO dalla lista enum Twilio
+  //   (es. "Travel and Transportation", non "TRAVEL"). Riferimento:
+  //   https://www.twilio.com/docs/errors/63100
   const defaultPayload = JSON.stringify({
     profile: {
       about: "Stagione in spiaggia, organizzata.",
@@ -494,7 +498,7 @@ function WaBusinessProfileTools() {
       websites: [
         { website: "https://spiaggiamia.com", label: "Website" }
       ],
-      vertical: "TRAVEL",
+      vertical: "Travel and Transportation",
       logo_url: "https://spiaggiamia.com/assets/wa-profile-picture.jpg"
     }
   }, null, 2);
