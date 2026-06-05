@@ -1,9 +1,10 @@
 # SpiaggiaMia — Integrazione notifiche WhatsApp (stato e piano)
 
 Documento di riferimento per la knowledge base del progetto.
-Ultimo aggiornamento: 5 giugno 2026 — BUGFIX frontend `doForgotPassword`:
-sostituita fetch raw con `sb.functions.invoke()` per evitare 401 dal gateway
-Supabase quando l'utente non è loggato. Vedi sezione 7 - Tentativo 9.
+Ultimo aggiornamento: 5 giugno 2026 — logo brand SpiaggiaMia caricato con
+successo via Meta Business Manager UI (bypass API Twilio Senders per il
+campo `logo_url`). Profilo WhatsApp ora completo end-to-end. Vedi sezione 7
+- Tentativo 10.
 
 ## STATO ATTUALE (TL;DR)
 
@@ -18,16 +19,17 @@ chiamata a `recupero-password` quando l'utente non era loggato. Restano in
 attesa di approval Meta i 3 template stagionali (invito/benvenuto/subaffitto)
 e i 9 template UTILITY backup.
 
-**Profilo business WhatsApp aggiornato via API (5 giu 2026):** logo brand
-SpiaggiaMia (ombrellone giallo/bianco su gradient ocean) settato come avatar
-del numero +393520426199, plus description, vertical (Travel and
-Transportation), email, sito web — tutto via la nuova Edge Function
-`manage-wa-business-profile` (Twilio Senders API v2).
+**Profilo business WhatsApp COMPLETO (5 giu 2026):** description, about,
+vertical "Travel and Transportation", email, sito web settati via API Twilio
+(Edge Function `manage-wa-business-profile`); logo brand SpiaggiaMia
+(ombrellone giallo/bianco su gradient ocean) caricato via Meta Business
+Manager UI dopo che il `logo_url` via API non era stato propagato
+silenziosamente da Twilio→Meta. Vedi sezione 7 - Tentativi 8 e 10.
 
 - ✅ Frontend → Edge Function → Twilio: catena verificata in produzione
 - ✅ Twilio Sender `+393520426199` ONLINE, display name "SpiaggiaMia"
-- ✅ **Profilo WhatsApp Business aggiornato via API 5 giu 2026** (logo brand,
-  description, vertical, email, sito, about) — vedi Tentativo 8 sezione 7
+- ✅ **Profilo WhatsApp Business completo con logo brand** — 5 giu 2026
+  (hybrid: API per i campi testuali, UI Meta per la foto profilo)
 - ✅ Reset password manager-driven (Fase 3) — funziona via email
 - ✅ **Reset password manager-driven via WhatsApp — FUNZIONANTE** (post-bugfix 5 giu 2026 in `richiedi-reset-cliente`)
 - ✅ **Recupero password self-service via WhatsApp — FUNZIONANTE** (post-bugfix 5 giu 2026 in `recupero-password` + frontend `js/auth.js`)
@@ -113,10 +115,15 @@ blocca mai email o flusso DB.
       richiede `&Channel=whatsapp`** obbligatorio (errore 20001 senza)
     - `get` (default) — auto-detect del sender WA per `+393520426199`,
       ritorna profilo attuale, status (`ONLINE`/`ONLINE:UPDATING`), webhook,
-      configuration, WABA ID
+      configuration, WABA ID. ⚠️ **Limite noto**: il `get` può ritornare
+      profilo vuoto anche quando i campi sono effettivamente settati lato
+      Meta (cache stantia o endpoint immaturo della Twilio Senders API v2).
+      Verifica autoritativa sempre dal cellulare destinatario tappando il
+      header del numero, oppure da Meta Business Manager → WhatsApp Manager.
     - `update` — aggiorna campi profilo (about/address/description/emails/
       websites/vertical/logo_url/banner_url). Solo admin (check email caller).
-      Body JSON con chiave `profile`.
+      Body JSON con chiave `profile`. ⚠️ **`logo_url` non affidabile**: vedi
+      Tentativo 10 sezione 7 — per la foto profilo usare la UI Meta diretta.
   - **verify_jwt=true**. Per `update`, controllo aggiuntivo: estrae il token
     dall'header Authorization e lo passa direttamente a `supa.auth.getUser(token)`.
     ⚠️ Pattern noto: il pattern alternativo `createClient(URL, KEY, { global:
@@ -158,8 +165,10 @@ blocca mai email o flusso DB.
   4 giu 2026, 27.2 KB, 640×640 JPG): logo SpiaggiaMia per il profilo WhatsApp,
   ombrellone bianco/giallo a settori alternati con sole con glow caldo, su
   gradient verticale ocean #38bdf8 → #0ea5e9 → #0369a1. Generato via PIL.
-  Servito da Vercel a `https://spiaggiamia.com/assets/wa-profile-picture.jpg`
-  e usato come `logo_url` nell'update del profilo business.
+  Servito da Vercel a `https://spiaggiamia.com/assets/wa-profile-picture.jpg`.
+  Versione v4 (1080×1080, 48.4 KB, ombrellone leggermente più piccolo per
+  safe area circolare): generata fuori-repo e caricata direttamente in Meta
+  Business Manager — non versionata su GitHub.
 - **DevBoard mobile-friendly** `devboard.html`: dalle versioni del 4-5 giu 2026
   contiene 2 sezioni admin per gestione WA da cellulare (auth: solo
   matteo.posterli@gmail.com):
@@ -297,8 +306,6 @@ variabile globale per il bottone, diversa dai 3 stagionali attuali):
 - Profilo business compilato originariamente il 3 giu 2026 via Twilio Console
   (descrizione, indirizzo, email, sito web, categoria "Servizi locali"),
   **ricompilato via API 5 giu 2026** con:
-  - **logo brand** `https://spiaggiamia.com/assets/wa-profile-picture.jpg`
-    (ombrellone bianco/giallo + sole su gradient ocean)
   - **about**: "Stagione in spiaggia, organizzata."
   - **description**: "SpiaggiaMia organizza il tuo ombrellone stagionale:
     prenotazioni, sub-affitti, crediti e comunicazioni in un'unica piattaforma."
@@ -306,6 +313,16 @@ variabile globale per il bottone, diversa dai 3 stagionali attuali):
   - **websites**: `https://spiaggiamia.com`
   - **vertical**: `Travel and Transportation` (riclassificato dalla
     precedente "Servizi locali")
+- **Logo brand caricato via Meta Business Manager UI (5 giu 2026)**: il
+  campo `logo_url` passato all'API Twilio Senders è stato silenziosamente
+  ignorato/non propagato a Meta (vedi Tentativo 10 sezione 7). Workaround:
+  Meta Business Manager → WhatsApp Manager → Numeri di telefono → click sul
+  numero → Profilo → tab "Immagine del profilo" → Scegli file → upload del
+  JPEG. ⚠️ **Vincolo formato**: Meta richiede un JPEG vero. Chrome Android
+  converte automaticamente i file scaricati da URL `.jpg` in `.webp`, quindi
+  passare il file via percorso locale (es. scaricato come allegato chat).
+  Versione v4 del logo (1080×1080, ombrellone più piccolo per safe area
+  circolare) caricata con successo.
 - Display name "SpiaggiaMia" approvato a livello Twilio, ma **non sempre
   visibile come header chat** sul cellulare destinatario. Per averlo sempre
   prominente servirebbe l'**Official Business Account** Meta (badge spunta
@@ -367,6 +384,11 @@ variabile globale per il bottone, diversa dai 3 stagionali attuali):
   - Il response dell'update ha status `202 Accepted` (non 200) con
     `status: "ONLINE:UPDATING"` finché Meta non ha completato la propagazione.
     Successivo Get mostrerà `ONLINE` quando propagato (1-5 min tipicamente)
+  - ⚠️ **`logo_url` non affidabile**: l'API Twilio accetta il campo (202 OK
+    con `logo_url` echo nel response), ma Meta a valle può ignorarlo
+    silenziosamente. Lato Twilio non c'è feedback di errore. Pratica
+    funzionante (5 giu): caricare il logo via Meta Business Manager UI
+    direttamente. Vedi Tentativo 10 sezione 7.
 
 ## 7. Storia delle iterazioni di approval
 
@@ -600,13 +622,22 @@ Servito da Vercel a `https://spiaggiamia.com/assets/wa-profile-picture.jpg`.
 - Status response: HTTP 202 Accepted
 - `response.status: "ONLINE:UPDATING"` → propagazione Meta in corso
 - Tutti i 6 campi accettati: about, description, emails, websites, vertical,
-  logo_url
+  logo_url (echo)
 - Sender SID Twilio confermato: `XE332bf468c429bee57ea725b7fe0afb13`
 
-**Workflow per future modifiche del profilo**: aprire
+⚠️ **Discrepanza GET vs realtà Meta** (osservato post-update): successivi
+`?mode=get` ritornavano profilo "vuoto" (`about=""`, `description=""`, etc.)
+nonostante Twilio avesse confermato il 202 con i campi popolati. Verifica
+ground-truth dal cellulare destinatario tappando il header del numero ha
+mostrato il profilo correttamente popolato in Meta. Conclusione: la Twilio
+Senders API v2 `GET` ha cache/sync issue con Meta. La fonte di verità è
+sempre Meta (UI o WhatsApp client).
+
+**Workflow per future modifiche del profilo testuale**: aprire
 `spiaggiamia.com/devboard.html` → sezione "👤 WhatsApp Business Profile" →
 editare il textarea payload → "Update WA profile" → confermare popup. Niente
-PowerShell o curl manuali.
+PowerShell o curl manuali. Verificare il risultato direttamente sul cell
+(non sul `GET` dell'API che mente).
 
 **Limite display name nel header chat**: confermato 5 giu che il display name
 "SpiaggiaMia" approvato lato Twilio non garantisce la visualizzazione come
@@ -694,6 +725,69 @@ edge-function (`Supabase:get_logs` MCP) per vedere se la function è stata
 effettivamente raggiunta. Un 401 col 155ms di execution time è una signature
 classica di rifiuto a livello di gateway, prima dell'invocazione del codice.
 
+### Tentativo 10 (5 giugno 2026): logo brand caricato via Meta UI (workaround `logo_url` non propagato)
+
+**Razionale**: dopo l'update API riuscito del Tentativo 8 (tutti i campi
+testuali del profilo popolati e visibili lato Meta), il **logo brand
+permaneva di default** ("S" arancione di Twilio). Il `logo_url` passato
+nell'API Twilio Senders era stato accettato con echo nel response (HTTP 202)
+ma silenziosamente non propagato a Meta. Nessun errore lato Twilio.
+
+**Tentativi falliti** (per documentazione, evitare di rifarli):
+1. Re-update via API con stesso `logo_url`: stesso comportamento (202 ok,
+   ma Meta non riceve il logo).
+2. Url su Vercel `https://spiaggiamia.com/assets/wa-profile-picture.jpg`
+   accessibile e valido (640×640 JPG, 27 KB). Meta probabilmente non riesce
+   a crawlare/fidarsi del dominio recente.
+
+**Workaround funzionante**: upload diretto via Meta Business Manager UI.
+
+Procedura testata (h ~10:09 italiano del 5 giu):
+1. Vai su `business.facebook.com` → seleziona business "SpiaggiaMia"
+2. Sidebar → **WhatsApp Manager**
+3. Sezione **Numeri di telefono** → click su `+393520426199`
+4. Tab **Profilo** (in alto, accanto a Insights / Automazioni)
+5. Sezione **"Immagine del profilo"** → bottone **"Scegli file"**
+6. Selezionare il file JPEG da locale → Salva
+
+**⚠️ Vincolo formato scoperto**: Meta richiede un JPEG vero (estensione e
+contenuto). Chrome Android converte automaticamente in WebP i file scaricati
+da URL `.jpg` quando li salva in galleria — anche se l'URL originale serve
+JPEG e ha estensione `.jpg`. Errore mostrato da Meta UI in caso di WebP:
+"impossibile salvare, è richiesto un JPEG".
+
+**Soluzione utilizzata**: rigenerato il logo come **v4 1080×1080 JPEG vero**
+con Python+PIL via tool Claude, fornito a Matteo come file scaricabile
+diretto (no conversione automatica). Differenze vs v3 (640×640 su Vercel):
+- Risoluzione raddoppiata (Meta riscalerà comunque a 640×640 mantenendo più
+  dettaglio post-compression)
+- Ombrellone leggermente più piccolo, raggio 26% del canvas (vs ~30% v3)
+  → resta dentro al crop circolare di WhatsApp senza tagli
+- Magic bytes `ffd8ff` confermati = JPEG/JFIF standard
+- 48.4 KB (sotto il limite Meta di 5 MB)
+- File NON versionato su GitHub (one-shot per Meta UI)
+
+Upload v4 nel Meta UI riuscito al primo tentativo. Propagazione al
+WhatsApp client: ~immediata (visibile aprendo la chat dal destinatario).
+
+**Insight architetturale**: la Twilio Senders API v2 supporta il campo
+`logo_url` nel payload `profile` (presente nello schema documentato), ma in
+pratica la propagazione a Meta è **inaffidabile** per sender non-verified.
+Possibili cause: timeout crawl di Meta sul dominio del client, sender senza
+business verification che gli sblocca certi campi, oppure semplicemente
+endpoint immaturo. Per il logo profilo affidarsi sempre alla UI Meta diretta.
+
+**Aggiornamento doc Tentativo 8**: il `logo_url` rimane nel payload default
+del devboard (`spiaggiamia.com/assets/wa-profile-picture.jpg`) per
+completezza dello schema, ma in produzione l'admin sa che il caricamento
+del logo deve passare per Meta UI. Aggiunta nota esplicita nel devboard
+(comment nel JSON).
+
+**Lezione generale**: quando un'API parte di una catena multi-vendor
+(qui: client → Twilio → Meta) accetta un payload con HTTP 200/202 ma senza
+feedback di errore downstream, NON fidarsi del response. Verificare sempre
+sul vendor finale (qui: Meta) tramite la sua UI o un canale separato.
+
 ## 8. Fase 3 — Reset password manager-driven
 
 Completata in main il 3 giu 2026. PR #104 + #105 + #106 + commit standalone.
@@ -735,11 +829,13 @@ del 5 giu 2026 + cache buster aggiornato.
 - [x] **Fase 3 — Reset password manager-driven** — completa, in main
 - [x] **richiedi-reset-cliente Edge Function** — v12 (post-bugfix 5 giu 2026)
 - [x] **recupero-password Edge Function** — v10 (post-bugfix 5 giu 2026)
-- [x] **Profilo WhatsApp Business completo** — descrizione, indirizzo, email, sito
-- [x] **Logo brand SpiaggiaMia** — `assets/wa-profile-picture.jpg` (commit `b7527413`)
+- [x] **Profilo WhatsApp Business completo** — descrizione, about, vertical, email, sito
+- [x] **Logo brand SpiaggiaMia generato** — `assets/wa-profile-picture.jpg` v3 (commit `b7527413`) + v4 1080×1080 fuori-repo
 - [x] **Edge Function `manage-wa-business-profile`** — v3 ACTIVE (5 giu 2026)
 - [x] **DevBoard sezione "WhatsApp Business Profile"** — Get/List/Update con payload editabile (5 giu 2026)
-- [x] **Update profilo business via API** — completato 5 giu 2026 h 07:35 UTC (about, description, emails, websites, vertical "Travel and Transportation", logo_url)
+- [x] **Update campi testuali profilo business via API** — completato 5 giu 2026 h 07:35 UTC (about, description, emails, websites, vertical "Travel and Transportation")
+- [x] **Logo brand caricato via Meta UI** — 5 giu 2026 h ~10:09 italiano (workaround per `logo_url` API non propagato, vedi Tentativo 10)
+- [x] **Verifica visiva profilo business completo** sul cellulare destinatario — ✅ ground truth confermato
 - [x] **Recupero password v1 sottomesso** — rejected per "variables at start/end"
 - [x] **Recupero password v3 sottomesso e approvato Meta** — 5 giu 2026 (categoria UTILITY)
 - [x] **WA_SID_RECUPERO settato su Supabase Secrets** (`HX64ef2eb0...`)
@@ -755,7 +851,6 @@ del 5 giu 2026 + cache buster aggiornato.
 - [ ] **Cache buster `?v=20260605...` in index.html per js/auth.js** — da fare via Claude Code (file grande, non MCP)
 - [x] **Test end-to-end WA reset password (manager-driven)** sul cellulare — ✅ funzionante post-bugfix
 - [ ] **Test end-to-end WA recupero password (self-service)** sul cellulare — atteso ✅ post-fix Tentativo 9 + cache buster
-- [ ] **Verifica visiva logo brand** sul cellulare destinatario (tappare header numero) — attendere propagazione `ONLINE:UPDATING` → `ONLINE` (1-5 min dal 5 giu h 07:35 UTC)
 - [ ] **Esito appeal categoria 3 stagionali** — atteso 24-72h (Ripristinati = UTILITY ✅ o Invariati = MARKETING). Se Invariati, valutare modifica body.
 - [x] **Edge Function `create-utility-backup-templates`** — deployata 4 giu 2026 v1 ACTIVE
 - [x] **9 template UTILITY backup creati e submittati** — 4 giu 2026 h 21:36 UTC, output `summary.ok=9 failed=0`, tutti `received`. SID popolati in sezione 4.
@@ -808,9 +903,11 @@ Tentativo 9 sezione 7 — execution_time_ms 155-615ms = rifiuto gateway).
 logo ombrellone SpiaggiaMia (avatar), nome "SpiaggiaMia", about ("Stagione in
 spiaggia, organizzata."), description completa, email e sito cliccabili,
 categoria "Travel & Transportation". Se vedi ancora l'avatar di default
-("S" arancione) o categoria "Servizi locali", attendere ancora qualche minuto
-per propagazione `ONLINE:UPDATING` → `ONLINE` (verificare con
-`?mode=get` dal devboard).
+("S" arancione), il logo va caricato via Meta UI (Tentativo 10), NON via
+re-update dell'API (che non funziona affidabilmente per il `logo_url`).
+**NON fidarsi del `?mode=get` dell'edge function**: la Twilio Senders API
+v2 ha bug noti di cache, il GET può ritornare profilo vuoto anche quando
+Meta lo ha popolato. Source of truth = WhatsApp client.
 
 ## 11. Per nuove sessioni Claude
 
@@ -822,7 +919,8 @@ Leggi questo file con `get_file_contents` per orientarti. Punti chiave:
   `create-utility-backup-templates`, `manage-wa-business-profile` v3
 - **Tutti i flussi password via WhatsApp: ✅ FUNZIONANTI end-to-end**
   (post-bugfix 5 giu: 2 backend + 1 frontend)
-- **Profilo business WA aggiornato via API 5 giu** con logo brand SpiaggiaMia
+- **Profilo business WA completo** con logo brand SpiaggiaMia (logo via Meta
+  UI, resto via API Twilio Senders del 5 giu)
 - Restano open solo:
   - approval Meta dei 3 template stagionali (asincrona, fuori controllo)
   - esito appeal categoria UTILITY dei 3 stagionali (24-72h da 4 giu)
@@ -835,7 +933,7 @@ Leggi questo file con `get_file_contents` per orientarti. Punti chiave:
   - "💬 WhatsApp Templates Tools" per `create-utility-backup-templates` e
     `check-template-status`
   - "👤 WhatsApp Business Profile" per `manage-wa-business-profile`
-    (Get/List/Update profilo)
+    (Get/List/Update profilo testuale — il logo NON usa questo flusso)
 
 Verifica status template:
 - Edge Function `check-template-status` (read-only, da console browser loggato
@@ -850,12 +948,16 @@ Verifica status template:
   WhatsApp → Aggiornamenti categoria modelli → tab "Ripristinati" o "Invariati"
 
 Verifica profilo business:
-- Edge Function `manage-wa-business-profile?mode=get` (default mode) — ritorna
-  profilo completo con status (`ONLINE`/`ONLINE:UPDATING`), tutti i campi
-  attualmente impostati, sender SID Twilio, WABA ID. Sender SID atteso:
-  `XE332bf468c429bee57ea725b7fe0afb13`.
-- Dal cellulare destinatario: aprire chat con `+393520426199`, tappare header
-  numero → si apre profilo business con logo brand + descrizione + sito + email
+- **Source of truth**: dal cellulare destinatario, aprire chat con
+  `+393520426199`, tappare header numero → profilo business con logo brand +
+  descrizione + sito + email + about + categoria
+- `manage-wa-business-profile?mode=get` può ritornare profilo vuoto pur
+  essendo popolato lato Meta (bug noto cache Twilio v2). NON usare come
+  verifica autoritativa.
+- Per modifiche al logo: SEMPRE via Meta Business Manager UI (Tentativo 10).
+  L'API Twilio accetta `logo_url` ma non lo propaga affidabilmente a Meta.
+- Per modifiche ai campi testuali (about, description, vertical, email,
+  websites): API Twilio funziona, devboard è OK.
 
 Debug 401/403 inattesi:
 - `Supabase:get_logs` con service `edge-function` mostra status code e
@@ -863,6 +965,13 @@ Debug 401/403 inattesi:
   valido il JWT). Un 403 dentro il codice = check di ownership/admin fallito.
 - Frontend deve sempre chiamare le edge function via `sb.functions.invoke()`
   per garantire l'`Authorization` automatico (anon key se non loggato).
+
+Vincoli formato immagini Meta:
+- Logo profilo: 640×640 minimo, 1080×1080 raccomandato, **JPEG vero**
+  (no WebP). Chrome Android converte automaticamente `.jpg` → `.webp` quando
+  scarica da URL — se serve un JPEG affidabile per Meta UI upload,
+  rigenerarlo lato server o usare desktop con copia file diretto.
+- Cover/banner: 1920×1080, max 5 MB, JPEG/PNG.
 
 ## 12. UUID stabilimenti (riferimento)
 
