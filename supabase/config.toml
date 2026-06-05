@@ -5,3 +5,20 @@ verify_jwt = true
 
 [functions.create-utility-backup-templates]
 verify_jwt = true
+
+# recupero-password: chiamata dalla pagina "Password dimenticata?" della UI
+# da utenti NON loggati (self-service). Il progetto usa la nuova chiave
+# pubblicabile `sb_publishable_*` (non-JWT), che il gateway con
+# verify_jwt=true rifiuta sempre con 401 (la chiave non e' un JWT firmato).
+#
+# La sicurezza e' garantita dal codice:
+# - Risposta sempre generica { ok: true } (anti-enumeration)
+# - Validazione formato telefono + lookup clienti registrati
+# - Usa SERVICE_KEY interno per Admin API (generateLink) e invio WA
+#
+# Vedi BUGFIX 5 giu 2026 / Tentativo 10 in WHATSAPP_INTEGRAZIONE.md.
+# Riferimento doc Supabase:
+# https://supabase.com/docs/guides/functions/auth-headers
+# https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys
+[functions.recupero-password]
+verify_jwt = false
