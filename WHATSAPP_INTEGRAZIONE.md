@@ -1,10 +1,9 @@
 # SpiaggiaMia — Integrazione notifiche WhatsApp (stato e piano)
 
 Documento di riferimento per la knowledge base del progetto.
-Ultimo aggiornamento: 5 giugno 2026 — aggiornato profilo business WhatsApp via
-API Twilio Senders (logo brand custom, description, websites, vertical
-"Travel and Transportation"). Aggiunta Edge Function `manage-wa-business-profile`
-+ sezione devboard mobile-friendly. Vedi sezione 7 - Tentativo 8.
+Ultimo aggiornamento: 5 giugno 2026 — BUGFIX frontend `doForgotPassword`:
+sostituita fetch raw con `sb.functions.invoke()` per evitare 401 dal gateway
+Supabase quando l'utente non è loggato. Vedi sezione 7 - Tentativo 9.
 
 ## STATO ATTUALE (TL;DR)
 
@@ -13,9 +12,11 @@ Il template `spiaggiamia_recupero_password_v3` è stato approvato da Meta tra il
 4 e il 5 giugno, il messaggio arriva correttamente sul cellulare. Bug nel
 codice (URL `?` mancante) trovato e fixato in DUE edge function distinte:
 `richiedi-reset-cliente` (manager-driven) e `recupero-password` (self-service
-dal link "Password dimenticata?" della pagina login). Restano in attesa di
-approval Meta i 3 template stagionali (invito/benvenuto/subaffitto) e i 9
-template UTILITY backup.
+dal link "Password dimenticata?" della pagina login). **Inoltre** fixato un
+terzo bug nel frontend (`js/auth.js`) che faceva tornare 401 dal gateway sulla
+chiamata a `recupero-password` quando l'utente non era loggato. Restano in
+attesa di approval Meta i 3 template stagionali (invito/benvenuto/subaffitto)
+e i 9 template UTILITY backup.
 
 **Profilo business WhatsApp aggiornato via API (5 giu 2026):** logo brand
 SpiaggiaMia (ombrellone giallo/bianco su gradient ocean) settato come avatar
@@ -29,7 +30,7 @@ Transportation), email, sito web — tutto via la nuova Edge Function
   description, vertical, email, sito, about) — vedi Tentativo 8 sezione 7
 - ✅ Reset password manager-driven (Fase 3) — funziona via email
 - ✅ **Reset password manager-driven via WhatsApp — FUNZIONANTE** (post-bugfix 5 giu 2026 in `richiedi-reset-cliente`)
-- ✅ **Recupero password self-service via WhatsApp — FUNZIONANTE** (post-bugfix 5 giu 2026 in `recupero-password`)
+- ✅ **Recupero password self-service via WhatsApp — FUNZIONANTE** (post-bugfix 5 giu 2026 in `recupero-password` + frontend `js/auth.js`)
 - ✅ Template `recupero_password_v3` APPROVATO Meta (categoria UTILITY)
 - ✅ `WA_SID_RECUPERO` settato su Supabase Secrets (`HX64ef2eb0...`)
 - 🟡 **Template invito/benvenuto/subaffitto**: ricreati 4 giu (i vecchi erano
@@ -102,6 +103,8 @@ blocca mai email o flusso DB.
     `?` iniziale) e lo passa come variabile `link` → `invia-whatsapp` lo
     inoltra come `{{4}}` al template Twilio. Il template ricompone l'URL
     Supabase corretto.
+  - **verify_jwt=true** lato gateway: il frontend deve chiamare con un JWT
+    valido (anon key è sufficiente). Vedi BUGFIX frontend 5 giu in Tentativo 9.
 - **Edge Function `manage-wa-business-profile`** (creata 5 giu 2026, v3 ACTIVE):
   - Gestisce il profilo business WhatsApp via **Twilio Senders API v2**
     (`https://messaging.twilio.com/v2/Channels/Senders`)
@@ -123,6 +126,10 @@ blocca mai email o flusso DB.
     loggato. Fix in v3.
 - **Helper frontend** `inviaWhatsapp(tipo, params, stab)` in `js/utils.js`
 - **Helper frontend** `richiediResetCliente(clienteId, canale)` in `js/utils.js`
+- **Frontend `doForgotPassword`** in `js/auth.js` (post-bugfix 5 giu 2026):
+  usa `sb.functions.invoke('recupero-password', { body })` invece di fetch
+  raw. Il client supabase-js gestisce automaticamente l'Authorization (anon
+  key se non loggato). Vedi Tentativo 9 sezione 7.
 - **Toggle per-stabilimento**: `stabilimenti.wa_enabled` (boolean, default false)
 - **Consenso per-cliente**: `clienti_stagionali.whatsapp_consenso` +
   `whatsapp_consenso_at`
@@ -516,8 +523,7 @@ o redesign — basta spostare il `?` da template a valore variabile.
 -  const recoveryQuery = recoveryUrl.search.slice(1); // rimuove il '?' iniziale
 +  const recoveryQuery = recoveryUrl.search; // include '?' iniziale (template ha "verify{{4}}" senza '?')
 ```
-Deploy: `supabase functions deploy richiedi-reset-cliente`. Versione runtime: v12
-(la function aveva avuto vari deploy precedenti, ha incrementato da v11 a v12).
+Deploy: `supabase functions deploy richiedi-reset-cliente`. Versione runtime: v12.
 
 **Fix 2** (commit `69c66486` del 5 giu 2026 in `recupero-password/index.ts`):
 ```diff
@@ -527,8 +533,8 @@ Deploy: `supabase functions deploy richiedi-reset-cliente`. Versione runtime: v1
 -  link: recoveryLink, // passava URL COMPLETO
 +  link: recoveryQuery, // passa solo query string con '?'
 ```
-Deploy: `supabase functions deploy recupero-password`. Versione runtime attesa:
-incremento da quella corrente.
+Deploy: `supabase functions deploy recupero-password`. Versione runtime: v10
+(da v9).
 
 **Lezioni**:
 1. Quando si verifica il flusso WA end-to-end con button URL, **SEMPRE** fare
@@ -610,6 +616,84 @@ header chat sul cell destinatario. Necessario salvare il numero come contatto
 visibile sempre tappando il header del numero (azione naturale del destinatario
 per "vedere chi è").
 
+### Tentativo 9 (5 giugno 2026): bugfix frontend `doForgotPassword` — 401 gateway
+
+**Sintomo**: dopo aver deployato il fix v10 di `recupero-password` (Tentativo 7,
+Fix 2), Matteo prova il flusso self-service dal cellulare ("Password
+dimenticata?" → inserisce telefono Matteo Posterli `+393299088725` → click).
+**Nessun WhatsApp arriva**. UI mostra il messaggio generico previsto, ma
+silenziosamente la chiamata fallisce.
+
+**Diagnosi** (via `Supabase:get_logs` su edge-function):
+```
+POST | 401 | recupero-password v10 — 155ms
+POST | 401 | recupero-password v9  — 615ms  (anche prima del fix Tentativo 7)
+```
+La function NON entra mai nel codice: 401 immediato dal gateway Supabase
+(execution_time_ms 155-615ms = solo overhead di routing).
+
+**Root cause**: il frontend in `js/auth.js` (funzione `doForgotPassword`)
+chiamava `recupero-password` con fetch raw:
+```javascript
+const { data: { session } } = await sb.auth.getSession();
+const headers = { 'Content-Type': 'application/json' };
+if (session?.access_token) {
+  headers['Authorization'] = `Bearer ${session.access_token}`;
+}
+await fetch(`${SUPABASE_URL}/functions/v1/recupero-password`, { ... });
+```
+Quando l'utente NON è loggato (caso tipico di "Password dimenticata?"),
+`session` è `null`, l'header `Authorization` non viene aggiunto → gateway
+Supabase risponde 401. Il commento nel codice ("la function accetta anon")
+era errato: il gateway con `verify_jwt: true` richiede SEMPRE un JWT valido,
+anche solo la anon key del progetto (non vuoto).
+
+Confermato dal cliente cercato nel DB: Matteo Posterli con telefono
+`+393299088725` è registrato (user_id != null), ha `whatsapp_consenso=true`,
+appartiene a Universo (`wa_enabled=true`). Quindi tutti i pre-check sarebbero
+passati se la function fosse stata invocata. Il fallimento era totalmente a
+livello di gateway.
+
+**Fix** (commit `def7f67b` del 5 giu 2026 in `js/auth.js`):
+```diff
+-  const { data: { session } } = await sb.auth.getSession();
+-  const headers = { 'Content-Type': 'application/json' };
+-  if (session?.access_token) {
+-    headers['Authorization'] = `Bearer ${session.access_token}`;
+-  }
+-  try {
+-    await fetch(`${SUPABASE_URL}/functions/v1/recupero-password`, {
+-      method: 'POST',
+-      headers,
+-      body: JSON.stringify({ identificatore: tel, canale: 'telefono' }),
+-    });
+-  } catch (e) {
+-    console.warn('recupero-password fetch error', e);
+-  }
++  try {
++    const { error: invokeErr } = await sb.functions.invoke('recupero-password', {
++      body: { identificatore: tel, canale: 'telefono' },
++    });
++    if (invokeErr) console.warn('recupero-password invoke error', invokeErr);
++  } catch (e) {
++    console.warn('recupero-password invoke exception', e);
++  }
+```
+
+`sb.functions.invoke()` gestisce automaticamente l'`Authorization`:
+- Se l'utente è loggato: usa `session.access_token`
+- Se NO: ricade sulla anon key con cui `sb` è stato istanziato
+
+**Niente deploy edge function necessario**: fix puramente frontend. Da
+aggiornare il cache buster `?v=...` in `index.html` per `js/auth.js` per
+forzare il refresh sui client. Pre-fix cache buster: `?v=20260603i`.
+
+**Lezione**: quando un flusso "fire-and-forget" fallisce silenziosamente,
+NON fidarsi solo dell'UX di risposta generica. Controllare SEMPRE i log
+edge-function (`Supabase:get_logs` MCP) per vedere se la function è stata
+effettivamente raggiunta. Un 401 col 155ms di execution time è una signature
+classica di rifiuto a livello di gateway, prima dell'invocazione del codice.
+
 ## 8. Fase 3 — Reset password manager-driven
 
 Completata in main il 3 giu 2026. PR #104 + #105 + #106 + commit standalone.
@@ -631,7 +715,8 @@ Test reset password via **WhatsApp** (manager-driven, `richiedi-reset-cliente`):
 URL ricomposto correttamente).
 
 Test recupero password via **WhatsApp** (self-service, `recupero-password`):
-✅ atteso funzionante post-deploy del 5 giu 2026 (stesso fix applicato).
+✅ atteso funzionante post-fix Tentativo 9 (frontend `sb.functions.invoke`)
+del 5 giu 2026 + cache buster aggiornato.
 
 ## 9. STATO DEGLI STEP
 
@@ -649,7 +734,7 @@ Test recupero password via **WhatsApp** (self-service, `recupero-password`):
 - [x] **Cleanup `whatsapp_config`** — tabella eliminata
 - [x] **Fase 3 — Reset password manager-driven** — completa, in main
 - [x] **richiedi-reset-cliente Edge Function** — v12 (post-bugfix 5 giu 2026)
-- [x] **recupero-password Edge Function** — post-bugfix 5 giu 2026 (deploy richiesto)
+- [x] **recupero-password Edge Function** — v10 (post-bugfix 5 giu 2026)
 - [x] **Profilo WhatsApp Business completo** — descrizione, indirizzo, email, sito
 - [x] **Logo brand SpiaggiaMia** — `assets/wa-profile-picture.jpg` (commit `b7527413`)
 - [x] **Edge Function `manage-wa-business-profile`** — v3 ACTIVE (5 giu 2026)
@@ -665,9 +750,11 @@ Test recupero password via **WhatsApp** (self-service, `recupero-password`):
 - [x] **Verifica passaggio a pending Meta** — i 3 stagionali in pending ~13min dopo ricreazione (4 giu h 16:54 UTC)
 - [x] **Appeal categoria sottomesso per i 3 stagionali** — via Meta WhatsApp Manager / Aggiornamenti categoria modelli (4 giu 2026 h ~17:20 UTC)
 - [x] **Bugfix URL `?` mancante in richiedi-reset-cliente** — commit `29c649e1` del 5 giu 2026, deploy v12
-- [x] **Bugfix URL `?` mancante in recupero-password (self-service)** — commit `69c66486` del 5 giu 2026
+- [x] **Bugfix URL `?` mancante in recupero-password (self-service)** — commit `69c66486` del 5 giu 2026, deploy v10
+- [x] **Bugfix frontend `doForgotPassword` (401 gateway)** — commit `def7f67b` del 5 giu 2026 (sostituita fetch raw con sb.functions.invoke)
+- [ ] **Cache buster `?v=20260605...` in index.html per js/auth.js** — da fare via Claude Code (file grande, non MCP)
 - [x] **Test end-to-end WA reset password (manager-driven)** sul cellulare — ✅ funzionante post-bugfix
-- [ ] **Test end-to-end WA recupero password (self-service)** sul cellulare — atteso ✅ post-deploy fix 5 giu
+- [ ] **Test end-to-end WA recupero password (self-service)** sul cellulare — atteso ✅ post-fix Tentativo 9 + cache buster
 - [ ] **Verifica visiva logo brand** sul cellulare destinatario (tappare header numero) — attendere propagazione `ONLINE:UPDATING` → `ONLINE` (1-5 min dal 5 giu h 07:35 UTC)
 - [ ] **Esito appeal categoria 3 stagionali** — atteso 24-72h (Ripristinati = UTILITY ✅ o Invariati = MARKETING). Se Invariati, valutare modifica body.
 - [x] **Edge Function `create-utility-backup-templates`** — deployata 4 giu 2026 v1 ACTIVE
@@ -709,6 +796,13 @@ l'URL effettivo, e verificare che corrisponda al pattern atteso. Meta può
 normalizzare l'URL durante l'approval rimuovendo caratteri speciali (vedi
 bugfix `?` del 5 giu 2026 in sezione 7 - Tentativo 7).
 
+**⚠️ Test fire-and-forget**: quando un flusso ritorna sempre risposta
+generica (es. "Password dimenticata?" anti-enumeration), NON fidarsi
+dell'UX. Controllare i log della edge function con
+`Supabase:get_logs` per verificare che la function sia stata effettivamente
+raggiunta (status 200) e non rifiutata dal gateway con 401 (vedi
+Tentativo 9 sezione 7 — execution_time_ms 155-615ms = rifiuto gateway).
+
 **Verifica visiva profilo business**: tappare il header del numero
 `+393520426199` nella chat WhatsApp dal destinatario. Dovrebbero comparire:
 logo ombrellone SpiaggiaMia (avatar), nome "SpiaggiaMia", about ("Stagione in
@@ -723,11 +817,11 @@ per propagazione `ONLINE:UPDATING` → `ONLINE` (verificare con
 Leggi questo file con `get_file_contents` per orientarti. Punti chiave:
 - Tutta l'infrastruttura tecnica è in main e in produzione
 - Edge functions deployate: `invia-whatsapp` v10, `richiedi-reset-cliente` v12
-  (post-bugfix 5 giu), `recupero-password` (post-bugfix 5 giu),
+  (post-bugfix 5 giu), `recupero-password` v10 (post-bugfix 5 giu),
   `check-template-status` v8, `recreate-whatsapp-templates`,
   `create-utility-backup-templates`, `manage-wa-business-profile` v3
 - **Tutti i flussi password via WhatsApp: ✅ FUNZIONANTI end-to-end**
-  (post-bugfix 5 giu su entrambe le edge function)
+  (post-bugfix 5 giu: 2 backend + 1 frontend)
 - **Profilo business WA aggiornato via API 5 giu** con logo brand SpiaggiaMia
 - Restano open solo:
   - approval Meta dei 3 template stagionali (asincrona, fuori controllo)
@@ -763,6 +857,13 @@ Verifica profilo business:
 - Dal cellulare destinatario: aprire chat con `+393520426199`, tappare header
   numero → si apre profilo business con logo brand + descrizione + sito + email
 
+Debug 401/403 inattesi:
+- `Supabase:get_logs` con service `edge-function` mostra status code e
+  execution_time_ms. Un 401 con ~150-600ms = rifiuto al gateway (manca/non
+  valido il JWT). Un 403 dentro il codice = check di ownership/admin fallito.
+- Frontend deve sempre chiamare le edge function via `sb.functions.invoke()`
+  per garantire l'`Authorization` automatico (anon key se non loggato).
+
 ## 12. UUID stabilimenti (riferimento)
 
 | Nome | UUID | wa_enabled |
@@ -774,6 +875,16 @@ Verifica profilo business:
 
 | Nome | Ombrellone | Telefono | WA consenso | Note |
 |------|------------|----------|-------------|------|
-| Matteo Posterli | 100 | +393299088725 | false | Registrato, email reale |
+| Matteo Posterli | 100 | +393299088725 | true | Registrato, email reale |
 | Nicola Rizzo | 104 | +393339876543 | true | Registrato, email sintetica |
 | Andrea Lombardi | 105 | +393299088725 | true | Non registrato |
+
+⚠️ **Duplicati telefono `+393299088725`** (verificato 5 giu via SQL): in DB
+ci sono 4 record con questo telefono allo stabilimento Universo:
+1. Riccardo Marino — non registrato
+2. Andrea Lombardi — non registrato
+3. Matteo Posterli — REGISTRATO ✅ (è quello che matcha il filtro
+   `.not("user_id", "is", null)` in `recupero-password`)
+4. Matteo Posterli duplicato — non registrato
+
+Da pulire prima dei demo reali per evitare ambiguità ai test.
