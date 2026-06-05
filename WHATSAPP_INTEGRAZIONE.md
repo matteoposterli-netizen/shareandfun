@@ -1,10 +1,10 @@
 # SpiaggiaMia — Integrazione notifiche WhatsApp (stato e piano)
 
 Documento di riferimento per la knowledge base del progetto.
-Ultimo aggiornamento: 5 giugno 2026 — DOPPIO BUGFIX URL `?` mancante nel
-template recupero_password v3 (vedi sezione 7 - Tentativo 7). Sia il reset
-password manager-driven (`richiedi-reset-cliente`) sia il recupero password
-self-service (`recupero-password`) ora funzionanti end-to-end.
+Ultimo aggiornamento: 5 giugno 2026 — aggiornato profilo business WhatsApp via
+API Twilio Senders (logo brand custom, description, websites, vertical
+"Travel and Transportation"). Aggiunta Edge Function `manage-wa-business-profile`
++ sezione devboard mobile-friendly. Vedi sezione 7 - Tentativo 8.
 
 ## STATO ATTUALE (TL;DR)
 
@@ -17,9 +17,16 @@ dal link "Password dimenticata?" della pagina login). Restano in attesa di
 approval Meta i 3 template stagionali (invito/benvenuto/subaffitto) e i 9
 template UTILITY backup.
 
+**Profilo business WhatsApp aggiornato via API (5 giu 2026):** logo brand
+SpiaggiaMia (ombrellone giallo/bianco su gradient ocean) settato come avatar
+del numero +393520426199, plus description, vertical (Travel and
+Transportation), email, sito web — tutto via la nuova Edge Function
+`manage-wa-business-profile` (Twilio Senders API v2).
+
 - ✅ Frontend → Edge Function → Twilio: catena verificata in produzione
 - ✅ Twilio Sender `+393520426199` ONLINE, display name "SpiaggiaMia"
-- ✅ Profilo WhatsApp Business compilato (descrizione, indirizzo, email, sito web)
+- ✅ **Profilo WhatsApp Business aggiornato via API 5 giu 2026** (logo brand,
+  description, vertical, email, sito, about) — vedi Tentativo 8 sezione 7
 - ✅ Reset password manager-driven (Fase 3) — funziona via email
 - ✅ **Reset password manager-driven via WhatsApp — FUNZIONANTE** (post-bugfix 5 giu 2026 in `richiedi-reset-cliente`)
 - ✅ **Recupero password self-service via WhatsApp — FUNZIONANTE** (post-bugfix 5 giu 2026 in `recupero-password`)
@@ -95,6 +102,25 @@ blocca mai email o flusso DB.
     `?` iniziale) e lo passa come variabile `link` → `invia-whatsapp` lo
     inoltra come `{{4}}` al template Twilio. Il template ricompone l'URL
     Supabase corretto.
+- **Edge Function `manage-wa-business-profile`** (creata 5 giu 2026, v3 ACTIVE):
+  - Gestisce il profilo business WhatsApp via **Twilio Senders API v2**
+    (`https://messaging.twilio.com/v2/Channels/Senders`)
+  - Modes (query param `?mode=...`):
+    - `list` — elenca tutti i sender disponibili (debug). **Query Twilio
+      richiede `&Channel=whatsapp`** obbligatorio (errore 20001 senza)
+    - `get` (default) — auto-detect del sender WA per `+393520426199`,
+      ritorna profilo attuale, status (`ONLINE`/`ONLINE:UPDATING`), webhook,
+      configuration, WABA ID
+    - `update` — aggiorna campi profilo (about/address/description/emails/
+      websites/vertical/logo_url/banner_url). Solo admin (check email caller).
+      Body JSON con chiave `profile`.
+  - **verify_jwt=true**. Per `update`, controllo aggiuntivo: estrae il token
+    dall'header Authorization e lo passa direttamente a `supa.auth.getUser(token)`.
+    ⚠️ Pattern noto: il pattern alternativo `createClient(URL, KEY, { global:
+    { headers: { Authorization } } })` + `supa.auth.getUser()` NON funziona —
+    fa firmare con l'anon key invece del JWT utente, ritornando `null`. È
+    successo in v1 della function: il caller risultava "anonymous" pur essendo
+    loggato. Fix in v3.
 - **Helper frontend** `inviaWhatsapp(tipo, params, stab)` in `js/utils.js`
 - **Helper frontend** `richiediResetCliente(clienteId, canale)` in `js/utils.js`
 - **Toggle per-stabilimento**: `stabilimenti.wa_enabled` (boolean, default false)
@@ -104,9 +130,10 @@ blocca mai email o flusso DB.
   `TWILIO_WA_FROM=whatsapp:+393520426199`, `WA_SID_INVITO`, `WA_SID_BENVENUTO`,
   `WA_SID_SUBAFFITTO`, `WA_SID_RECUPERO`. Quest'ultima settata il 4-5 giu 2026
   a `HX64ef2eb0f7aa4497e97963116ea8b2f2` (template approvato Meta).
-- **Edge Function `check-template-status`** (creata 4 giu 2026): read-only,
-  chiama Twilio Content API v2/ContentAndApprovals e restituisce status
-  approval di tutti i template `spiaggiamia_*`. verify_jwt=true.
+- **Edge Function `check-template-status`** (creata 4 giu 2026, v8 al 4 giu):
+  read-only, chiama Twilio Content API v2/ContentAndApprovals e restituisce
+  status approval di tutti i template `spiaggiamia_*` PLUS blocco
+  `secrets_check` per verificare gli WA_SID_* settati su Supabase. verify_jwt=true.
   Uso rapido da console browser loggato:
   `await sb.functions.invoke('check-template-status').then(r => console.table(r.data.templates))`
 - **Edge Function `recreate-whatsapp-templates`** (creata 4 giu 2026):
@@ -120,6 +147,23 @@ blocca mai email o flusso DB.
   per verificare il pattern URL del bottone (output `invito_button_reference`).
   verify_jwt=true. Anche accessibile via bottoni nel `devboard.html`
   (sezione "WhatsApp Templates Tools", mobile-friendly).
+- **Asset brand** `assets/wa-profile-picture.jpg` (commit `b7527413` del
+  4 giu 2026, 27.2 KB, 640×640 JPG): logo SpiaggiaMia per il profilo WhatsApp,
+  ombrellone bianco/giallo a settori alternati con sole con glow caldo, su
+  gradient verticale ocean #38bdf8 → #0ea5e9 → #0369a1. Generato via PIL.
+  Servito da Vercel a `https://spiaggiamia.com/assets/wa-profile-picture.jpg`
+  e usato come `logo_url` nell'update del profilo business.
+- **DevBoard mobile-friendly** `devboard.html`: dalle versioni del 4-5 giu 2026
+  contiene 2 sezioni admin per gestione WA da cellulare (auth: solo
+  matteo.posterli@gmail.com):
+  - **"💬 WhatsApp Templates Tools"** — bottoni "Crea 9 backup templates" e
+    "Check template status" che invocano le rispettive edge function
+  - **"👤 WhatsApp Business Profile"** — bottoni "Get WA profile",
+    "List senders (debug)", "Update WA profile" con textarea payload JSON
+    editabile inline (default pre-popolato per SpiaggiaMia). Conferma popup
+    prima dell'update. Helper `copyToClipboard` con fallback
+    `document.execCommand` per Chrome Android dove `navigator.clipboard`
+    fallisce silenziosamente.
 
 ## 4. Template Twilio (Content SID definitivi)
 
@@ -240,10 +284,28 @@ variabile globale per il bottone, diversa dai 3 stagionali attuali):
 - Numero **`+393520426199`**, dedicato a SpiaggiaMia
 - Account Twilio paid (Active)
 - Sender ONLINE con display name "SpiaggiaMia" approvato
+- Sender SID Twilio: `XE332bf468c429bee57ea725b7fe0afb13`
 - Twilio WABA ID: 1658468622079031
 - Meta Business Manager ID: 982498484190082
-- Profilo business compilato il 3 giu 2026: descrizione, indirizzo, email, sito
-  web. Categoria: "Servizi locali"
+- Profilo business compilato originariamente il 3 giu 2026 via Twilio Console
+  (descrizione, indirizzo, email, sito web, categoria "Servizi locali"),
+  **ricompilato via API 5 giu 2026** con:
+  - **logo brand** `https://spiaggiamia.com/assets/wa-profile-picture.jpg`
+    (ombrellone bianco/giallo + sole su gradient ocean)
+  - **about**: "Stagione in spiaggia, organizzata."
+  - **description**: "SpiaggiaMia organizza il tuo ombrellone stagionale:
+    prenotazioni, sub-affitti, crediti e comunicazioni in un'unica piattaforma."
+  - **emails**: `matteo.posterli@gmail.com`
+  - **websites**: `https://spiaggiamia.com`
+  - **vertical**: `Travel and Transportation` (riclassificato dalla
+    precedente "Servizi locali")
+- Display name "SpiaggiaMia" approvato a livello Twilio, ma **non sempre
+  visibile come header chat** sul cellulare destinatario. Per averlo sempre
+  prominente servirebbe l'**Official Business Account** Meta (badge spunta
+  verde), che richiede business verification con P.IVA → non procedibile ora.
+  Workaround locale: salvare il numero come contatto "SpiaggiaMia" sul cell
+  destinatario. Per le demo, il logo nel profilo business è comunque visibile
+  tappando il header del numero.
 
 ## 6. Vincoli Meta
 
@@ -286,6 +348,18 @@ variabile globale per il bottone, diversa dai 3 stagionali attuali):
      - **Invariati** → ❌ rigettato, resta MARKETING (a quel punto valutare
        modifica body o accettare il costo MARKETING)
   7. Scadenza del diritto di appeal: 60 giorni dall'auto-riclassificazione.
+- **Shape vincoli Twilio Senders API** (scoperti 5 giu 2026 durante
+  l'integrazione del profilo via API):
+  - `/v2/Channels/Senders` (list) richiede `Channel=whatsapp` obbligatorio
+    (errore 20001 "Missing required parameter Channel" altrimenti)
+  - `profile.emails` e `profile.websites` sono **array di oggetti**, NON
+    array di stringhe: `[{ email, label }]` e `[{ website, label }]`
+  - `profile.vertical` accetta solo l'enum esatto Twilio (case-sensitive,
+    con spazi): vedi sezione 7 - Tentativo 8 per la lista completa. Valori
+    corti tipo "TRAVEL" generano errore 63100
+  - Il response dell'update ha status `202 Accepted` (non 200) con
+    `status: "ONLINE:UPDATING"` finché Meta non ha completato la propagazione.
+    Successivo Get mostrerà `ONLINE` quando propagato (1-5 min tipicamente)
 
 ## 7. Storia delle iterazioni di approval
 
@@ -468,6 +542,74 @@ incremento da quella corrente.
    (self-service) condividevano la stessa root cause con manifestazioni
    diverse.
 
+### Tentativo 8 (5 giugno 2026): aggiornamento profilo business via API + logo brand
+
+**Razionale**: il profilo business WA è il "biglietto da visita" che il cliente
+vede tappando il numero in chat. Compilato originariamente il 3 giu via Twilio
+Console UI, ma con avatar di default ("S" arancione su sfondo grigio) e
+categoria generica "Servizi locali". Per le demo a stabilimenti reali serve
+qualcosa di più curato: logo brand SpiaggiaMia, descrizione completa,
+categoria coerente (Travel and Transportation), email e sito web cliccabili.
+
+**Asset brand creato** (commit `b7527413` del 4 giu 2026, h 22:41 UTC):
+`assets/wa-profile-picture.jpg` (27.2 KB, 640×640 JPG). Design:
+- Gradient verticale ocean: `#38bdf8` (sky light, top) → `#0ea5e9` (mid) →
+  `#0369a1` (deep ocean, bottom)
+- Ombrellone bianco centrale a 6 settori alternati bianco/giallo caldo
+  (`#ffd750`), apice con pallina bianca, asta cilindrica bianca arrotondata
+- Sole giallo caldo (`#ffc83c`) in alto a destra con halo sfumato (5 layer
+  decrescenti)
+- Nessun testo (illeggibile a 50px = dimensione avatar WhatsApp)
+- Generato programmaticamente via Python+PIL (codice nella session 5 giu)
+
+Servito da Vercel a `https://spiaggiamia.com/assets/wa-profile-picture.jpg`.
+
+**Nuova Edge Function `manage-wa-business-profile`** (deployata 5 giu 2026,
+3 iterazioni v1→v2→v3 per fix successivi):
+- Modes `?mode=list|get|update`
+- Twilio Senders API v2 endpoint `https://messaging.twilio.com/v2/Channels/Senders[/{SID}]`
+- `verify_jwt=true` + check admin-only per `update`
+
+**3 bugfix incontrati durante l'integrazione**:
+1. **v1 → v2**: errore 20001 "Missing required parameter Channel in the query"
+   sul `list`. Fix: aggiunto `&Channel=whatsapp` all'URL di list.
+2. **v2 → v3**: errore "Forbidden: Caller anonymous" sull'update pur essendo
+   loggato come admin. Fix: pattern `createClient + global.headers +
+   getUser()` non funziona — fa firmare con anon key invece del JWT utente.
+   Pattern corretto: estrarre il token dall'header Authorization e passarlo
+   come argomento a `supa.auth.getUser(token)`.
+3. **Payload v3 - shape websites/emails**: dal `get` osservato che `emails` e
+   `websites` sono array di OGGETTI (`[{email,label}]`, `[{website,label}]`),
+   NON array di stringhe come avevo inizialmente assunto.
+4. **Payload v3 - vertical enum**: errore 63100 con valore `"TRAVEL"`. Twilio
+   accetta solo le stringhe esatte dell'enum (case-sensitive con spazi).
+   Lista completa: `Alcohol, Automotive, Beauty/Spa/Salon, Clothing and
+   Apparel, Education, Entertainment, Event Planning and Service, Finance
+   and Banking, Food and Grocery, Hotel and Lodging, Matrimony Service,
+   Medical and Health, Non-profit, Online Gambling, OTC Drugs, Other,
+   Physical Gambling, Professional Services, Public Service, Restaurant,
+   Shopping and Retail, Travel and Transportation`.
+
+**Update riuscito** (h 07:35 UTC del 5 giu 2026):
+- Status response: HTTP 202 Accepted
+- `response.status: "ONLINE:UPDATING"` → propagazione Meta in corso
+- Tutti i 6 campi accettati: about, description, emails, websites, vertical,
+  logo_url
+- Sender SID Twilio confermato: `XE332bf468c429bee57ea725b7fe0afb13`
+
+**Workflow per future modifiche del profilo**: aprire
+`spiaggiamia.com/devboard.html` → sezione "👤 WhatsApp Business Profile" →
+editare il textarea payload → "Update WA profile" → confermare popup. Niente
+PowerShell o curl manuali.
+
+**Limite display name nel header chat**: confermato 5 giu che il display name
+"SpiaggiaMia" approvato lato Twilio non garantisce la visualizzazione come
+header chat sul cell destinatario. Necessario salvare il numero come contatto
+"SpiaggiaMia" sul dispositivo, oppure ottenere Official Business Account
+(richiede business verification + P.IVA). Il logo brand nel profilo è invece
+visibile sempre tappando il header del numero (azione naturale del destinatario
+per "vedere chi è").
+
 ## 8. Fase 3 — Reset password manager-driven
 
 Completata in main il 3 giu 2026. PR #104 + #105 + #106 + commit standalone.
@@ -509,6 +651,10 @@ Test recupero password via **WhatsApp** (self-service, `recupero-password`):
 - [x] **richiedi-reset-cliente Edge Function** — v12 (post-bugfix 5 giu 2026)
 - [x] **recupero-password Edge Function** — post-bugfix 5 giu 2026 (deploy richiesto)
 - [x] **Profilo WhatsApp Business completo** — descrizione, indirizzo, email, sito
+- [x] **Logo brand SpiaggiaMia** — `assets/wa-profile-picture.jpg` (commit `b7527413`)
+- [x] **Edge Function `manage-wa-business-profile`** — v3 ACTIVE (5 giu 2026)
+- [x] **DevBoard sezione "WhatsApp Business Profile"** — Get/List/Update con payload editabile (5 giu 2026)
+- [x] **Update profilo business via API** — completato 5 giu 2026 h 07:35 UTC (about, description, emails, websites, vertical "Travel and Transportation", logo_url)
 - [x] **Recupero password v1 sottomesso** — rejected per "variables at start/end"
 - [x] **Recupero password v3 sottomesso e approvato Meta** — 5 giu 2026 (categoria UTILITY)
 - [x] **WA_SID_RECUPERO settato su Supabase Secrets** (`HX64ef2eb0...`)
@@ -522,14 +668,17 @@ Test recupero password via **WhatsApp** (self-service, `recupero-password`):
 - [x] **Bugfix URL `?` mancante in recupero-password (self-service)** — commit `69c66486` del 5 giu 2026
 - [x] **Test end-to-end WA reset password (manager-driven)** sul cellulare — ✅ funzionante post-bugfix
 - [ ] **Test end-to-end WA recupero password (self-service)** sul cellulare — atteso ✅ post-deploy fix 5 giu
+- [ ] **Verifica visiva logo brand** sul cellulare destinatario (tappare header numero) — attendere propagazione `ONLINE:UPDATING` → `ONLINE` (1-5 min dal 5 giu h 07:35 UTC)
 - [ ] **Esito appeal categoria 3 stagionali** — atteso 24-72h (Ripristinati = UTILITY ✅ o Invariati = MARKETING). Se Invariati, valutare modifica body.
 - [x] **Edge Function `create-utility-backup-templates`** — deployata 4 giu 2026 v1 ACTIVE
 - [x] **9 template UTILITY backup creati e submittati** — 4 giu 2026 h 21:36 UTC, output `summary.ok=9 failed=0`, tutti `received`. SID popolati in sezione 4.
-- [x] **DevBoard mobile-friendly per invocazioni admin** — aggiunta sezione "WhatsApp Templates Tools" in `devboard.html` (4 giu 2026)
+- [x] **DevBoard mobile-friendly per invocazioni admin** — aggiunta sezione "WhatsApp Templates Tools" in `devboard.html` (4 giu 2026) + sezione "WhatsApp Business Profile" (5 giu 2026)
 - [ ] **Esito approval Meta per i 9 backup** — atteso 24-72h
 - [ ] **Aggiornamento `invia-whatsapp` per nuove signature A/B/C** — solo se si swappano
 - [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto** (status: pending, ricreati 4 giu)
-- [ ] **Business verification Meta** — bloccata da mancanza P.IVA (long term)
+- [ ] **Business verification Meta** — bloccata da mancanza P.IVA (long term).
+      Sbloccherebbe Official Business Account → display name "SpiaggiaMia"
+      sempre prominente nel header chat (oggi visibile solo tappando il numero)
 
 ## 10. Come riprendere il test (quando Meta approva)
 
@@ -560,16 +709,26 @@ l'URL effettivo, e verificare che corrisponda al pattern atteso. Meta può
 normalizzare l'URL durante l'approval rimuovendo caratteri speciali (vedi
 bugfix `?` del 5 giu 2026 in sezione 7 - Tentativo 7).
 
+**Verifica visiva profilo business**: tappare il header del numero
+`+393520426199` nella chat WhatsApp dal destinatario. Dovrebbero comparire:
+logo ombrellone SpiaggiaMia (avatar), nome "SpiaggiaMia", about ("Stagione in
+spiaggia, organizzata."), description completa, email e sito cliccabili,
+categoria "Travel & Transportation". Se vedi ancora l'avatar di default
+("S" arancione) o categoria "Servizi locali", attendere ancora qualche minuto
+per propagazione `ONLINE:UPDATING` → `ONLINE` (verificare con
+`?mode=get` dal devboard).
+
 ## 11. Per nuove sessioni Claude
 
 Leggi questo file con `get_file_contents` per orientarti. Punti chiave:
 - Tutta l'infrastruttura tecnica è in main e in produzione
 - Edge functions deployate: `invia-whatsapp` v10, `richiedi-reset-cliente` v12
   (post-bugfix 5 giu), `recupero-password` (post-bugfix 5 giu),
-  `check-template-status`, `recreate-whatsapp-templates`,
-  `create-utility-backup-templates`
+  `check-template-status` v8, `recreate-whatsapp-templates`,
+  `create-utility-backup-templates`, `manage-wa-business-profile` v3
 - **Tutti i flussi password via WhatsApp: ✅ FUNZIONANTI end-to-end**
   (post-bugfix 5 giu su entrambe le edge function)
+- **Profilo business WA aggiornato via API 5 giu** con logo brand SpiaggiaMia
 - Restano open solo:
   - approval Meta dei 3 template stagionali (asincrona, fuori controllo)
   - esito appeal categoria UTILITY dei 3 stagionali (24-72h da 4 giu)
@@ -578,9 +737,11 @@ Leggi questo file con `get_file_contents` per orientarti. Punti chiave:
   popolati in sezione 4. Se l'appeal dei 3 stagionali viene respinto, swap dei
   secret WA_SID_* ai SID di accesso_*/registrazione_*/operazione_* (richiede
   update di invia-whatsapp per le variabili bottone aggiuntive su A/B/C).
-- DevBoard mobile-friendly: `spiaggiamia.com/devboard.html` ha la sezione
-  "WhatsApp Templates Tools" per invocare `create-utility-backup-templates` e
-  `check-template-status` da cellulare con un tap.
+- DevBoard mobile-friendly: `spiaggiamia.com/devboard.html` ha 2 sezioni admin:
+  - "💬 WhatsApp Templates Tools" per `create-utility-backup-templates` e
+    `check-template-status`
+  - "👤 WhatsApp Business Profile" per `manage-wa-business-profile`
+    (Get/List/Update profilo)
 
 Verifica status template:
 - Edge Function `check-template-status` (read-only, da console browser loggato
@@ -593,6 +754,14 @@ Verifica status template:
   `pending` = già a Meta in review)
 - Per esito appeal categoria: Meta Business Manager → SpiaggiaMia → Account
   WhatsApp → Aggiornamenti categoria modelli → tab "Ripristinati" o "Invariati"
+
+Verifica profilo business:
+- Edge Function `manage-wa-business-profile?mode=get` (default mode) — ritorna
+  profilo completo con status (`ONLINE`/`ONLINE:UPDATING`), tutti i campi
+  attualmente impostati, sender SID Twilio, WABA ID. Sender SID atteso:
+  `XE332bf468c429bee57ea725b7fe0afb13`.
+- Dal cellulare destinatario: aprire chat con `+393520426199`, tappare header
+  numero → si apre profilo business con logo brand + descrizione + sito + email
 
 ## 12. UUID stabilimenti (riferimento)
 
