@@ -35,6 +35,10 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const WA_SENDER_NUMBER = "+393520426199";
 const ADMIN_EMAIL = "matteo.posterli@gmail.com";
 
+// Twilio Senders API v2 richiede il parametro Channel quando si listano i sender.
+const SENDERS_LIST_URL =
+  "https://messaging.twilio.com/v2/Channels/Senders?PageSize=100&Channel=whatsapp";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -61,10 +65,9 @@ async function getCallerEmail(req: Request): Promise<string | null> {
 }
 
 async function listSenders(twilioAuth: string) {
-  const r = await fetch(
-    "https://messaging.twilio.com/v2/Channels/Senders?PageSize=100",
-    { headers: { Authorization: `Basic ${twilioAuth}` } },
-  );
+  const r = await fetch(SENDERS_LIST_URL, {
+    headers: { Authorization: `Basic ${twilioAuth}` },
+  });
   const raw = await r.text();
   let data: any = null;
   try {
