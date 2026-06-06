@@ -36,28 +36,78 @@ async function accountSaveProfilo() {
   const nome = document.getElementById('account-nome').value.trim();
   const cognome = document.getElementById('account-cognome').value.trim();
   const telefono = document.getElementById('account-telefono').value.trim();
+  const emailNew = (document.getElementById('account-email').value || '').trim().toLowerCase();
+  const emailOld = (currentUser.email || '').toLowerCase();
 
   if (!nome || !cognome) {
     showAlert('account-save-alert', 'Nome e cognome sono obbligatori.', 'error');
     return;
   }
 
+  const emailChanged = !!emailNew && emailNew !== emailOld;
+
+  // Validazione email se cambiata
+  if (emailChanged) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailNew)) {
+      showAlert('account-save-alert', 'Formato email non valido.', 'error');
+      return;
+    }
+    // Conferma esplicita prima del cambio email
+    const ok = confirm(
+      'Stai per cambiare la tua email di accesso da:\n\n' +
+      emailOld + '\n\na:\n\n' + emailNew + '\n\n' +
+      'Riceverai un\'email di conferma sia al vecchio che al nuovo indirizzo. ' +
+      'Devi cliccare entrambi i link per completare il cambio. ' +
+      'Fino ad allora l\'accesso al tuo account resta con la mail attuale.\n\nProcedere?'
+    );
+    if (!ok) return;
+  }
+
   btn.disabled = true;
   btn.textContent = 'Salvataggio…';
 
-  const { error } = await sb.from('profiles')
+  // 1) Update profile (sempre)
+  const { error: errProfile } = await sb.from('profiles')
     .update({ nome, cognome, telefono })
     .eq('id', currentUser.id);
 
-  btn.disabled = false;
-  btn.textContent = 'Salva modifiche';
-
-  if (error) {
-    showAlert('account-save-alert', 'Errore: ' + error.message, 'error');
+  if (errProfile) {
+    btn.disabled = false;
+    btn.textContent = 'Salva modifiche';
+    showAlert('account-save-alert', 'Errore profilo: ' + errProfile.message, 'error');
     return;
   }
 
   currentProfile = { ...currentProfile, nome, cognome, telefono };
+
+  // 2) Update email (solo se cambiata)
+  if (emailChanged) {
+    const { error: errEmail } = await sb.auth.updateUser({ email: emailNew });
+
+    btn.disabled = false;
+    btn.textContent = 'Salva modifiche';
+
+    // Ripristina sempre il campo email all'attuale (cambia solo dopo conferma via link)
+    const emailInput = document.getElementById('account-email');
+    if (emailInput) emailInput.value = currentUser.email || '';
+
+    if (errEmail) {
+      showAlert('account-save-alert',
+        'Profilo salvato. Cambio email fallito: ' + errEmail.message, 'error');
+      return;
+    }
+
+    showAlert('account-save-alert',
+      '✓ Profilo aggiornato. Per completare il cambio email clicca i link che riceverai sia al vecchio sia al nuovo indirizzo.',
+      'info');
+    setTimeout(() => showAlert('account-save-alert', '', ''), 8000);
+    return;
+  }
+
+  // Caso solo profilo, nessun cambio email
+  btn.disabled = false;
+  btn.textContent = 'Salva modifiche';
   showAlert('account-save-alert', '✓ Profilo aggiornato.', 'info');
   setTimeout(() => showAlert('account-save-alert', '', ''), 3000);
 }
