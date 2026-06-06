@@ -1,7 +1,9 @@
 // Edge Function: check-template-status
 // Interroga Twilio Content API per ottenere lo status di approval dei template
-// WhatsApp spiaggiamia_*, e ritorna anche lo stato dei secret WA_SID_*
-// attualmente settati (read-only). Richiede autenticazione utente (verify_jwt).
+// WhatsApp spiaggiamia_*, lo stato dei secret WA_SID_* attualmente settati,
+// e per ogni template anche i dettagli interni (variables + types_detail con
+// body e button URL) recuperati via GET /v1/Content/{sid}. Read-only.
+// Richiede autenticazione utente (verify_jwt).
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -79,6 +81,44 @@ serve(async (req) => {
         rejection_reason: ar.rejection_reason ?? null,
       };
     });
+
+    // -- Dettagli per template (variabili + corpo/azioni) --
+    // Per ogni template fa una fetch separata a /v1/Content/{sid} per
+    // ottenere `variables` (sample values default) e `types` (corpo e
+    // button URL con `{{N}}` dentro). Utile per diagnosticare bug di
+    // sostituzione variabili nei button URL (es. invia-whatsapp).
+    // Le fetch sono in parallelo con Promise.all; se una fallisce il
+    // template viene comunque restituito senza dettagli (campo
+    // `detail_error` valorizzato), così la EF non si blocca mai.
+    const details = await Promise.all(
+      templates.map(async (t: any) => {
+        try {
+          const rd = await fetch(
+            `https://content.twilio.com/v1/Content/${t.sid}`,
+            { headers: { Authorization: `Basic ${auth}` } },
+          );
+          if (!rd.ok) {
+            return { sid: t.sid, error: `HTTP ${rd.status}` };
+          }
+          const dj = await rd.json();
+          return {
+            sid: t.sid,
+            variables: dj.variables ?? null,
+            types_detail: dj.types ?? null,
+          };
+        } catch (e) {
+          return { sid: t.sid, error: String(e) };
+        }
+      }),
+    );
+    const detailIndex: Record<string, any> = {};
+    for (const d of details) detailIndex[d.sid] = d;
+    for (const t of templates) {
+      const d = detailIndex[t.sid] || {};
+      t.variables = d.variables ?? null;
+      t.types_detail = d.types_detail ?? null;
+      if (d.error) t.detail_error = d.error;
+    }
 
     // Ordino: rejected prima, poi pending, poi approved, poi unsubmitted
     const order: Record<string, number> = {

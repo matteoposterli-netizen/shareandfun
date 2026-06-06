@@ -532,6 +532,12 @@ correggere TUTTI i punti che lo usano, non solo quello che ha mostrato
 il bug. Riduce il rischio di scoperta tardiva di bug latenti in flussi
 non testati.
 
+### Tentativo 14 (6 giugno 2026): diagnostica dettagli template via check-template-status
+
+- check-template-status esteso con dettagli per template (variables +
+  types_detail) per diagnosticare bug sostituzione variabili button URL nei
+  template spiaggiamia_*. Nessuna modifica al runtime di invio.
+
 ## 8. Fase 3 — Reset password manager-driven
 
 Completata in main il 3 giu 2026. PR #104 + #105 + #106 + commit standalone.
