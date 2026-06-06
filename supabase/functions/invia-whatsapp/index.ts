@@ -10,11 +10,18 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 //                          (spiaggiamia_registrazione_medium dal 6 giu 2026,
 //                           vars 1=nome, 2=stabilimento, 3=loginIdentifier per
 //                           button "Accedi alla tua area" → ?login={{3}})
-//   WA_SID_SUBAFFITTO    → Content SID HX... del template sub-affitto confermato
-//                          (spiaggiamia_operazione_warm dal 6 giu 2026,
-//                           vars 1=nome, 2=periodo, 3=variazione, 4=saldo,
-//                           5=stabilimento, 6=loginIdentifier per button
-//                           "Accedi alla tua area" → ?login={{6}})
+//   WA_SID_SUBAFFITTO    → Content SID HX... del template spiaggiamia_operazione_warm.
+//                          Nome env legacy: il template è generico, usato per
+//                          QUALSIASI variazione di credito (tipo "variazione_credito"):
+//                          sub-affitto, annullamento, utilizzo, rettifica.
+//                          Vars: 1=nome, 2=periodo (descrittivo, es.
+//                          "Sub-affitto dal 5 al 12 luglio" / "Annullamento
+//                          prenotazione …" / "Spesa del 06/06/2026" /
+//                          "Rettifica saldo del 06/06/2026"), 3=variazione
+//                          con segno esplicito (es. "+20.00 Crediti" /
+//                          "-15.50 Crediti"), 4=saldo aggiornato,
+//                          5=stabilimento, 6=loginIdentifier per button
+//                          "Accedi alla tua area" → ?login={{6}}.
 //   WA_SID_RECUPERO      → Content SID HX... del template recupero password
 //                          (spiaggiamia_recupero_password_v3, vars 1=stabilimento,
 //                           2=nome, 3=stabilimento, 4=query string completa).
@@ -50,15 +57,15 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 interface WaRequest {
-  tipo: "invito" | "benvenuto" | "subaffitto_confermato" | "recupero_password";
+  tipo: "invito" | "benvenuto" | "variazione_credito" | "recupero_password";
   stabilimento_id: string;
   cliente_id: string;
   // invito
   token?: string;
-  // subaffitto_confermato
+  // variazione_credito
   periodo?: string;
-  coin_guadagnati?: string;
-  coin_totali?: string;
+  variazione?: string;
+  saldo_nuovo?: string;
   // recupero_password
   link?: string;
 }
@@ -124,7 +131,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "JSON non valido" }, 400);
   }
 
-  const { tipo, stabilimento_id, cliente_id, token, periodo, coin_guadagnati, coin_totali, link } = payload;
+  const { tipo, stabilimento_id, cliente_id, token, periodo, variazione, saldo_nuovo, link } = payload;
 
   if (!tipo || !stabilimento_id || !cliente_id) {
     return jsonResponse({ error: "Parametri mancanti" }, 400);
@@ -263,19 +270,23 @@ Deno.serve(async (req) => {
       // spiaggiamia_registrazione_medium: https://spiaggiamia.com/?login={{3}}
       "3": loginIdentifier,
     };
-  } else if (tipo === "subaffitto_confermato") {
-    if (!periodo || !coin_guadagnati || !coin_totali) {
-      return jsonResponse({ error: "Parametri sub-affitto mancanti" }, 400);
+  } else if (tipo === "variazione_credito") {
+    if (!periodo || !variazione || !saldo_nuovo) {
+      return jsonResponse({ error: "Parametri variazione_credito mancanti (periodo, variazione, saldo_nuovo)" }, 400);
     }
+    // Template spiaggiamia_operazione_warm (HX… in WA_SID_SUBAFFITTO).
+    // Generico per qualsiasi movimento di saldo: la stringa {{3}} contiene
+    // segno esplicito (+/-), {{2}} descrive il contesto (sub-affitto,
+    // annullamento, utilizzo credito, rettifica).
+    // L'env var conserva il nome WA_SID_SUBAFFITTO per non richiedere
+    // re-configurazione dei secret in Supabase.
     contentSid = WA_SID_SUBAFFITTO;
     contentVariables = {
       "1": nome,
       "2": periodo,
-      "3": coin_guadagnati,
-      "4": coin_totali,
+      "3": variazione,
+      "4": saldo_nuovo,
       "5": stabilimentoNome,
-      // {{6}} = loginIdentifier per il button URL del template
-      // spiaggiamia_operazione_warm: https://spiaggiamia.com/?login={{6}}
       "6": loginIdentifier,
     };
   } else if (tipo === "recupero_password") {

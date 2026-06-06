@@ -23,7 +23,7 @@ Proprietari di stabilimento gestiscono clienti stagionali; i clienti possono ren
 | Tabella | Scopo |
 |---|---|
 | `profiles` | Utenti (ruolo: `proprietario` o `stagionale`), FK ad `auth.users` |
-| `stabilimenti` | Stabilimento balneare, owned da un proprietario. Template email personalizzabili: `email_benvenuto_*`, `email_invito_*`, `email_credito_accreditato_*`, `email_credito_ritirato_*`, `email_chiusura_stagione_*` (fallback ai default in `js/email.js` se NULL). Le colonne `email_attesa_*`/`email_approvazione_*` esistono ancora nello schema ma non sono più esposte dalla UI (flow invite-only). Stagione: `data_inizio_stagione` / `data_fine_stagione` (date, default 1 giu / 15 set dell'anno corrente, CHECK fine ≥ inizio). Contabilità: `citta` (text nullable) — usato come breadcrumb nella Panoramica manager; se NULL il breadcrumb mostra solo `SPIAGGIAMIA · <nome>`. `mappa_passerelle` (jsonb, default `[]`) — array di `{x, y}` per i passaggi nella mappa visiva. **WhatsApp** (`20260531100000_stabilimenti_wa_enabled.sql`): `wa_enabled` (boolean NOT NULL DEFAULT false) — attiva/disattiva notifiche WhatsApp automatiche per lo stabilimento; configurabile dal sub-tab Configurazioni → WhatsApp. Le credenziali Twilio sono a livello di piattaforma (env var della Edge Function `invia-whatsapp`). |
+| `stabilimenti` | Stabilimento balneare, owned da un proprietario. Template email personalizzabili: `email_benvenuto_*`, `email_invito_*`, `email_credito_accreditato_*`, `email_credito_ritirato_*`, `email_credito_revocato_*`, `email_chiusura_stagione_*` (fallback ai default in `js/email.js` se NULL). Le colonne `email_attesa_*`/`email_approvazione_*` esistono ancora nello schema ma non sono più esposte dalla UI (flow invite-only). Stagione: `data_inizio_stagione` / `data_fine_stagione` (date, default 1 giu / 15 set dell'anno corrente, CHECK fine ≥ inizio). Contabilità: `citta` (text nullable) — usato come breadcrumb nella Panoramica manager; se NULL il breadcrumb mostra solo `SPIAGGIAMIA · <nome>`. `mappa_passerelle` (jsonb, default `[]`) — array di `{x, y}` per i passaggi nella mappa visiva. **WhatsApp** (`20260531100000_stabilimenti_wa_enabled.sql`): `wa_enabled` (boolean NOT NULL DEFAULT false) — attiva/disattiva notifiche WhatsApp automatiche per lo stabilimento; configurabile dal sub-tab Configurazioni → WhatsApp. Le credenziali Twilio sono a livello di piattaforma (env var della Edge Function `invia-whatsapp`). |
 | `ombrelloni` | Ombrelloni di uno stabilimento. Identificatore: `codice` (text, NOT NULL, UNIQUE per stabilimento con vincolo `ombrelloni_stabilimento_id_codice_key`). Posizione nella mappa: `pos_x` / `pos_y` (integer, NOT NULL, default 0, UNIQUE per stabilimento con vincolo `ombrelloni_stabilimento_id_pos_key`). Le vecchie colonne `fila` (text) e `numero` (integer) sono state rimosse con la migrazione `20260524000000_ombrellone_codice_mappa.sql`. Colonna `attivo` (boolean, NOT NULL, DEFAULT true): se false l'ombrellone è disattivato — non prenotabile, non modificabile. Disattivazione via RPC `disattiva_ombrellone(p_ombrellone_id)` (cancella disponibilità future, restituisce sub-affitti impattati per warning UI). Riattivazione via `riattiva_ombrellone`. Bulk: `disattiva_ombrelloni_bulk(p_ids uuid[])`. Stato visibile su tutte le mappe con classe CSS `.ombrellone.inactive` (grigio barrato). Gestione solo lato proprietario. Email di notifica al cliente registrato (user_id NOT NULL) via tipo `ombrellone_disattivato` nell'Edge Function `invia-email`. |
 | `clienti_stagionali` | Clienti stagionali con `approvato`/`rifiutato`/`fonte` e `invito_token` per registrazione via link. **Nessuna registrazione autonoma**: esistono solo record creati dal proprietario (invito singolo o CSV); `user_id` viene popolato quando il cliente completa l'invito. **Vincolo**: UNIQUE INDEX parziale `clienti_stagionali_ombrellone_unique` su `(ombrellone_id) WHERE ombrellone_id IS NOT NULL` — un solo cliente assegnabile per ombrellone. NULL ombrellone_id (cliente non assegnato) ammesso su righe multiple. **Consenso WhatsApp** (`20260531000000_whatsapp_consenso.sql`): `whatsapp_consenso` (boolean NOT NULL DEFAULT false) + `whatsapp_consenso_at` (timestamptz) — opt-in richiesto da Meta prima di inviare notifiche via Twilio. Il numero destinatario usa il campo `telefono` esistente. Le RLS policy esistenti coprono automaticamente i nuovi campi. |
 | `disponibilita` | Giornate in cui un ombrellone è messo a disposizione o sub-affittato. Colonna opzionale `nome_prenotazione` (text, nullable) per raggruppare sub-affitti multi-giorno / multi-ombrellone sotto una stessa etichetta visibile al gestore nella tab "Prenotazioni". **Convenzione "default-libero"** (introdotta con `20260427000000_default_libero_ombrelloni.sql`): `stato='libero' AND cliente_id IS NULL` = ombrellone subaffittabile **senza** cliente stagionale assegnato (nessun accredito coin); `stato='libero' AND cliente_id NOT NULL` = libero dichiarato dallo stagionale; `stato='sub_affittato' AND cliente_id IS NULL` = sub-affitto su ombrellone non assegnato (no accredito); `stato='sub_affittato' AND cliente_id NOT NULL` = sub-affitto con accredito al cliente. **FK `cliente_id` ON DELETE SET NULL** (era CASCADE): cancellare un cliente preserva lo storico delle disponibilità (cliente_id passa a NULL). |
@@ -87,7 +87,7 @@ RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select au
 - `invia-whatsapp` — invia notifiche WhatsApp via Twilio Programmable Messaging (Content Templates). JWT verify ON (accetta anche la `SUPABASE_SERVICE_ROLE_KEY` come bearer per chiamate server-to-server, es. da `recupero-password`, bypassando `auth.getUser`). Env richieste: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WA_FROM` (es. `whatsapp:+39…`), `WA_SID_INVITO`, `WA_SID_BENVENUTO`, `WA_SID_SUBAFFITTO`, `WA_SID_RECUPERO` (Content SID HX… dei template; `WA_SID_RECUPERO` opzionale finché Meta non approva il template). Tipi supportati:
   - `invito` — bottone "Crea password" con link `/?invito=<token>`. Params: `cliente_id`, `token`.
   - `benvenuto` — messaggio di benvenuto post-registrazione. Params: `cliente_id`.
-  - `subaffitto_confermato` — notifica guadagno coin. Params: `cliente_id`, `periodo`, `coin_guadagnati`, `coin_totali`.
+  - `variazione_credito` — notifica QUALSIASI variazione di credito (sub-affitto, annullamento, utilizzo, rettifica), template generico `spiaggiamia_operazione_warm` (env legacy `WA_SID_SUBAFFITTO`). Params: `cliente_id`, `periodo` (descrittivo, es. "Sub-affitto dal 5 al 12 luglio" / "Annullamento prenotazione …" / "Spesa del 06/06/2026" / "Rettifica saldo del 06/06/2026"), `variazione` (con segno esplicito +/−, es. "+20.00 Crediti"), `saldo_nuovo`. (Ex `subaffitto_confermato`, rinominato il 6 giu 2026.)
   - `recupero_password` — link di reset password via WhatsApp. Params: `cliente_id`, `link` (recovery URL). Variabili template: `{{1}}`=stabilimento (header), `{{2}}`=nome, `{{3}}`=stabilimento (body), `{{4}}`=link. **Bypassa** il controllo `whatsapp_consenso` (è comunicazione di servizio). Se `WA_SID_RECUPERO` non è valorizzata risponde `{ skipped: "template_recupero_non_configurato" }`.
   Precondizioni (verificate dalla function): `stabilimenti.wa_enabled = true`, `clienti_stagionali.whatsapp_consenso = true` (tranne `recupero_password`), `telefono` valido (normalizzato in E.164 da `normalizePhone()`). Se una precondizione non è soddisfatta risponde `{ ok: false, skipped: "<reason>" }` senza errore. Le chiamate avvengono in fire-and-forget da `inviaWhatsapp()` in `js/utils.js` dopo il rispettivo `inviaEmail`.
 
@@ -99,6 +99,7 @@ RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select au
   - `benvenuto` (post-completamento invito; include CTA "Accedi a SpiaggiaMia" se viene passato `login_link`)
   - `credito_accreditato` (ad ogni inserimento di transazione `credito_ricevuto` — incluso il sub-affitto automatico)
   - `credito_ritirato` (ad ogni inserimento di transazione `credito_usato`)
+  - `credito_revocato` (annullamento/modifica prenotazione → il cliente perde credito; tono neutro/grigio. Template personalizzabile via `stabilimenti.email_credito_revocato_oggetto`/`_testo`, fallback ai default in `js/email.js`). Accetta `importo_formatted`, `saldo_formatted`, `nota`.
 
   - `chiusura_stagione` (inviata dal proprietario a tutti i clienti registrati prima del reset stagione; include riepilogo personale: gg di disponibilità dichiarata, gg sub-affittati, coin ricevuti/spesi).
   - `comunicazione` (broadcast libero dal tab "Comunicazioni" del manager; `oggetto_custom` + `testo_custom` obbligatori, NL→`<br>`; renderizzato nel template standard con `boxTitolo=oggetto`, `boxTesto=corpo` e header coral SpiaggiaMia).
@@ -259,6 +260,33 @@ I clienti senza email sono sempre esclusi dal pool inviabile, ma il riepilogo de
       in `js/utils.js`. CSS `.cliente-action-popover` in `styles.css`.
   (c) Niente migrations SQL. Riusa RPC `rigenera_invito_token`
       (Fase 1). Vedi `LOGIN_TELEFONO.md` per il design completo.
+
+- **06 giu 2026** — Notifiche email + WhatsApp su TUTTE le
+  variazioni di credito (non solo sub-affitto):
+  (a) Migration `20260606120000_email_credito_revocato.sql`
+      (NON ancora applicata in prod): aggiunge
+      `stabilimenti.email_credito_revocato_oggetto` /
+      `email_credito_revocato_testo` (nullable, fallback ai default
+      in `js/email.js`). Nuovo tipo email `credito_revocato`
+      (annullamento/modifica prenotazione → cliente perde credito),
+      tono neutro/grigio.
+  (b) WhatsApp: il tipo `subaffitto_confermato` è stato RINOMINATO
+      in `variazione_credito` (template generico
+      `spiaggiamia_operazione_warm`, env legacy `WA_SID_SUBAFFITTO`).
+      Campi payload `coin_guadagnati`/`coin_totali` →
+      `variazione`/`saldo_nuovo`. `{{2}}` periodo descrittivo,
+      `{{3}}` variazione con segno esplicito (+/−). Usato da
+      sub-affitto, annullamento, utilizzo credito e rettifica saldo.
+  (c) Call site in `js/manager.js`: `finalizeBookingSelection`
+      (sub-affitto, +), `freeBookingItems` (annullamento, − con
+      aggregazione per cliente + email `credito_revocato`),
+      `usaCredito` (utilizzo, − ora anche WA), `applyEditRowSaldo`
+      (rettifica, ora anche email `credito_accreditato`/`ritirato` +
+      WA). Nuovi helper `formatCoinSigned` / `todayDDMMYYYY` in
+      `js/utils.js`.
+  (d) DA FARE A MANO: applicare la migration + ridepoyare
+      `invia-email` (tipo `credito_revocato`) e `invia-whatsapp`
+      (rename tipo). Nessun deploy automatico in questa sessione.
 
 ## Mantenimento di questo file
 

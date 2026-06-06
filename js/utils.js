@@ -170,6 +170,9 @@ async function inviaEmail(tipo, clienteData, stab, override) {
     } else if (tipo === 'credito_ritirato') {
       oggetto_custom = stab?.email_credito_ritirato_oggetto || null;
       testo_custom = stab?.email_credito_ritirato_testo || null;
+    } else if (tipo === 'credito_revocato') {
+      oggetto_custom = stab?.email_credito_revocato_oggetto || null;
+      testo_custom = stab?.email_credito_revocato_testo || null;
     } else if (tipo === 'chiusura_stagione') {
       oggetto_custom = stab?.email_chiusura_stagione_oggetto || null;
       testo_custom = stab?.email_chiusura_stagione_testo || null;
@@ -243,6 +246,21 @@ function formatPeriodo(dates) {
     : `dal ${first.getDate()} ${mF} al ${last.getDate()} ${mL}`;
 }
 
+// Formatta un importo con segno esplicito davanti (per il campo {{3}} del
+// template WA spiaggiamia_operazione_warm). Esempi:
+//   formatCoinSigned(20, '+', stab) → "+20.00 Crediti"
+//   formatCoinSigned(15, '-', stab) → "-15.00 Crediti"
+function formatCoinSigned(amount, sign, stab) {
+  return `${sign}${formatCoin(amount, stab)}`;
+}
+
+// Data di oggi in formato breve "dd/mm/yyyy" (per i campi {{2}} periodo
+// delle notifiche WA su operazioni puntuali: utilizzo credito, rettifica).
+function todayDDMMYYYY() {
+  const d = new Date();
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
+
 // Invia una notifica WhatsApp via Edge Function invia-whatsapp.
 // Ritorna sempre un oggetto { ok: boolean, skipped?: string, error?: string }
 // per permettere ai chiamanti di sapere se l'invio e' andato a buon fine.
@@ -250,7 +268,12 @@ function formatPeriodo(dates) {
 // Parametri per tipo:
 //   invito              → params: { cliente_id, token }
 //   benvenuto           → params: { cliente_id }
-//   subaffitto_confermato → params: { cliente_id, periodo, coin_guadagnati, coin_totali }
+//   variazione_credito  → params: { cliente_id, periodo, variazione, saldo_nuovo }
+//                          (template generico spiaggiamia_operazione_warm,
+//                           usato per sub-affitto / annullamento / utilizzo /
+//                           rettifica — `variazione` deve avere segno esplicito
+//                           +/- davanti, es. "+20.00 Crediti" o "-15.00 Crediti")
+//   recupero_password   → params: { cliente_id, link }
 async function inviaWhatsapp(tipo, params, stab) {
   try {
     if (!stab?.wa_enabled) return { ok: false, skipped: 'wa_disabled' };

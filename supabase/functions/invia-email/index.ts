@@ -40,7 +40,7 @@ function buildFromHeader(displayName: string | undefined): string {
 }
 
 interface EmailRequest {
-  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "chiusura_stagione" | "comunicazione" | "ombrellone_disattivato" | "reset_password";
+  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "credito_revocato" | "chiusura_stagione" | "comunicazione" | "ombrellone_disattivato" | "reset_password";
   email: string;
   nome: string;
   cognome?: string;
@@ -352,6 +352,28 @@ Deno.serve(async (req: Request) => {
       stabilimento_telefono,
       stabilimento_email,
       footer_extra: `Per qualsiasi dubbio sul saldo contatta direttamente <strong>${stabilimento_nome}</strong>.`,
+    };
+
+  } else if (tipo === "credito_revocato") {
+    subject = oggetto_custom || `Variazione del tuo saldo — ${stabilimento_nome}`;
+    const testoCustom = testo_custom
+      ? testo_custom.replace(/\n/g, "<br>")
+      : `Ti informiamo che <strong>${importo_formatted ?? "una parte dei tuoi coin"}</strong> è stata revocata dal tuo saldo SpiaggiaMia.${saldo_formatted ? ` Il tuo saldo aggiornato è <strong>${saldo_formatted}</strong>.` : ""}${nota ? `<br><br><em>${nota}</em>` : ""}`;
+    opts = {
+      headerColor: "linear-gradient(135deg,#5A6A7A 0%,#7A8A9A 100%)",
+      headerEmoji: "📋",
+      headerSub: `Variazione saldo — ${stabilimento_nome}`,
+      nome,
+      testoPrincipale: `Ti informiamo di una variazione registrata sul tuo saldo SpiaggiaMia.`,
+      boxColor: "#F4F6F8",
+      boxBorderColor: "#9AAABB",
+      boxTitoloColor: "#5A6A7A",
+      boxTitolo: "📋 Coin revocati",
+      boxTesto: testoCustom,
+      stabilimento_nome,
+      stabilimento_telefono,
+      stabilimento_email,
+      footer_extra: `Per qualsiasi chiarimento sul saldo contatta direttamente <strong>${stabilimento_nome}</strong>.`,
     };
 
   } else if (tipo === "chiusura_stagione") {
