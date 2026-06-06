@@ -227,9 +227,10 @@ Deno.serve(async (req) => {
     contentVariables = {
       "1": nome,
       "2": stabilimentoNome,
-      // Variabile del bottone URL (numerazione indipendente nel template Twilio).
-      // Se l'invio fallisce, verificare se Twilio richiede chiave diversa (es. "3").
-      "button_1_url_0": token,
+      // {{3}} è il placeholder dentro il button URL del template
+      // spiaggiamia_invito_stagionale:
+      //   https://spiaggiamia.com/?invito={{3}}
+      "3": token,
     };
   } else if (tipo === "benvenuto") {
     contentSid = WA_SID_BENVENUTO;
