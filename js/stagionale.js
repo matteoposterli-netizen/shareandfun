@@ -167,15 +167,17 @@ function stagToggleHowto() {
 // Categorie di transazione per il render mobile-first.
 // 'earn' = coin in entrata (verde), 'spend' = coin in uscita (rosso),
 // 'info' = evento informativo senza impatto sul saldo (grigio, importo nascosto).
+// Nota: sub_affitto e sub_affitto_annullato sono 'info' perché ogni sub-affitto
+// genera SEMPRE una transazione credito_ricevuto (o credito_revocato) gemella
+// che è la vera fonte del movimento di credito. Mostrarli entrambi come earn/spend
+// raddoppierebbe visivamente il movimento sulla lista cliente (anche se il saldo
+// è gestito a parte tramite UPDATE su clienti_stagionali.credito_saldo).
 function stagTxCategory(t) {
   switch (t.tipo) {
     case 'credito_ricevuto':
-    case 'sub_affitto':
       return 'earn';
     case 'credito_usato':
-      return 'spend';
     case 'credito_revocato':
-    case 'sub_affitto_annullato':
       return 'spend';
     default:
       return 'info';
@@ -212,7 +214,7 @@ function renderStagTxList(txs, stab) {
   return txs.map(t => {
     const cat = stagTxCategory(t);
     const icon = cat === 'earn' ? '+' : cat === 'spend' ? '−' : '•';
-    const showAmt = t.importo != null && Number(t.importo) !== 0;
+    const showAmt = t.importo != null && Number(t.importo) !== 0 && cat !== 'info';
     let amtHtml = '';
     if (showAmt) {
       const sign = cat === 'earn' ? '+' : cat === 'spend' ? '−' : '';
