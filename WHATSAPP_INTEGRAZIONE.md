@@ -605,6 +605,17 @@ interno) → Twilio API → WA delivery.
 - [ ] **Business verification Meta** — bloccata da mancanza P.IVA (long term)
 - [ ] **Pulizia 4 record duplicati telefono `+393299088725`** — prima di demo reali
 
+### 6 giugno 2026
+
+- Fix `invia-whatsapp` per tipo `invito`: la Content Variable del button
+  URL era passata con chiave inventata `"button_1_url_0"` (ignorata da
+  Twilio → arrivava il sample value `abc123token` nel link).
+  Corretto in `"3"`, coerente col template `spiaggiamia_invito_stagionale`
+  che usa `{{3}}` dentro `https://spiaggiamia.com/?invito={{3}}`.
+  Bug confermato via devboard ("Check template status" esteso).
+  Altri tipi (benvenuto, subaffitto, recupero_password) già corretti,
+  non toccati.
+
 ## 10. Come riprendere il test (quando Meta approva)
 
 **Per i 3 template invito/benvenuto/subaffitto** (ancora pending):
