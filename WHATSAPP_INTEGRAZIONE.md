@@ -1,12 +1,11 @@
 # SpiaggiaMia — Integrazione notifiche WhatsApp (stato e piano)
 
 Documento di riferimento per la knowledge base del progetto.
-Ultimo aggiornamento: 5 giugno 2026 — applicate preventivamente le lezioni
-della saga (Tentativi 7-12) agli altri 3 flussi WA non ancora testati
-(invito, benvenuto, subaffitto_confermato). Vedi Tentativo 13 sezione 7.
-Flusso "Password dimenticata?" via WhatsApp FUNZIONANTE end-to-end. Root
-cause finale: nuove chiavi Supabase `sb_publishable_*` / `sb_secret_*`
-non-JWT incompatibili con `verify_jwt=true` al gateway delle Edge Function.
+Ultimo aggiornamento: 6 giugno 2026 — appeal categoria UTILITY accolto da
+Meta per i 3 template stagionali (ora UTILITY). Swap template benvenuto +
+subaffitto alle versioni warm UTILITY (`spiaggiamia_registrazione_medium`
+e `spiaggiamia_operazione_warm`) con button "Accedi alla tua area" che
+pre-compila il login. Vedi Tentativo 15 sezione 7.
 
 ## STATO ATTUALE (TL;DR)
 
@@ -22,8 +21,12 @@ bugfix in cascata risolta il 5 giu** (Tentativi 7, 9, 11, 12 — vedi sezione 7)
 - T12: `verify_jwt=false` + security guard per `invia-whatsapp` (stesso
   bug ma per la chiamata server-to-server con `sb_secret_*`)
 
-Restano in attesa di approval Meta i 3 template stagionali
-(invito/benvenuto/subaffitto) e i 9 template UTILITY backup.
+**Update 6 giu 2026**: TUTTI i 13 template Twilio (3 stagionali + 9 backup +
+recupero) sono ora APPROVED. L'appeal categoria UTILITY è stato accolto:
+i 3 stagionali sono ora UTILITY (1 dei 9 backup, `spiaggiamia_registrazione_warm`,
+è invece classificato MARKETING e non viene usato). Effettuato swap dei due
+template benvenuto e subaffitto alle versioni warm con button login: vedi
+Tentativo 15 sezione 7.
 
 **Profilo business WhatsApp COMPLETO (5 giu 2026):** description, about,
 vertical "Travel and Transportation", email, sito web settati via API Twilio
@@ -191,26 +194,29 @@ Il `recupero_password_v3` è rimasto UTILITY (contenuto chiaramente transazional
 1. **`spiaggiamia_invito_stagionale`** — SID `HXcf66089cb849dfcd69bfec8bd5dffe71`
    (ricreato 4 giu 2026)
    - Call To Action con bottone URL
-   - Variabili body: 1=nome, 2=stabilimento
-   - Bottone URL dinamico: token invito (chiave `button_1_url_0`)
-   - URL pattern verificato 4 giu h 21:36 UTC: `https://spiaggiamia.com/?invito={{3}}`
-   - Status approval: 🟡 **pending** (verificato 4 giu h 16:54 UTC)
-   - Categoria assegnata da Meta: **MARKETING** (sottomesso come UTILITY).
-   - 🔄 **Appeal categoria sottomesso 4 giu** — esito atteso 24-72h.
+   - Variabili body: 1=nome, 2=stabilimento, 3=token (button URL)
+   - URL bottone: `https://spiaggiamia.com/?invito={{3}}`
+   - Status approval: ✅ **APPROVED** (6 giu 2026)
+   - Categoria: **UTILITY** (appeal accolto da Meta).
+   - In uso come WA_SID_INVITO.
 
 2. **`spiaggiamia_benvenuto_stagionale`** — SID `HXf3231107ecd0bf19e6737cdc53dfd0d7`
    (ricreato 4 giu 2026)
-   - Text
+   - Text-only
    - Variabili: 1=nome, 2=stabilimento
-   - Status approval: 🟡 **pending** (4 giu h 16:54 UTC)
-   - Categoria: **MARKETING**. 🔄 Appeal in corso.
+   - Status approval: ✅ **APPROVED** UTILITY (6 giu 2026)
+   - ⚠️ **Non più in uso dal 6 giu 2026**: sostituito da
+     `spiaggiamia_registrazione_medium` (warm UTILITY con button login).
+     Vedi Tentativo 15 sezione 7. Lasciato presente su Twilio per rollback.
 
 3. **`spiaggiamia_subaffitto_confermato`** — SID `HX08068906ff6ec2ee2286405506accd6a`
    (ricreato 4 giu 2026)
-   - Text
+   - Text-only
    - Variabili: 1=nome, 2=periodo, 3=credito guadagnato, 4=credito totale, 5=stabilimento
-   - Status approval: 🟡 **pending** (4 giu h 16:54 UTC)
-   - Categoria: **MARKETING**. 🔄 Appeal in corso.
+   - Status approval: ✅ **APPROVED** UTILITY (6 giu 2026)
+   - ⚠️ **Non più in uso dal 6 giu 2026**: sostituito da
+     `spiaggiamia_operazione_warm` (warm UTILITY con button login).
+     Vedi Tentativo 15 sezione 7. Lasciato presente su Twilio per rollback.
 
 4. **`spiaggiamia_recupero_password`** (v1) — SID `HXe0b44b18fae266c18cabe3973a5f708f`
    - Call To Action con bottone URL
@@ -233,31 +239,31 @@ Il `recupero_password_v3` è rimasto UTILITY (contenuto chiaramente transazional
    - Status: ✅ **APPROVED** Meta (5 giu 2026)
    - Categoria: **UTILITY**
 
-### Template UTILITY backup (creati 4 giugno 2026 h 21:36 UTC)
-Set di 9 template di backup creati per offrire un'alternativa ai 3 template stagionali
-attualmente in appeal MARKETING. Tutti sottoposti come UTILITY con
-`allow_category_change: true`.
+### Template UTILITY backup (creati 4 giugno 2026 h 21:36 UTC, approvati 5-6 giugno)
+Set di 9 template alternativi creati come backup ai 3 stagionali. Status approval
+Meta verificato 6 giu 2026: 8 su 9 sono UTILITY, 1 (`registrazione_warm`) è stato
+classificato MARKETING.
 
-| Friendly name | Evento | Livello | SID | Status iniziale |
-|---|---|---|---|---|
-| spiaggiamia_accesso_safe | accesso | safe | `HX482b55b886fb9719dac87795b61b37a1` | received |
-| spiaggiamia_accesso_medium | accesso | medium | `HXe499683276d00a22dd991762baa2dc91` | received |
-| spiaggiamia_accesso_warm | accesso | warm | `HXd1aa8cdf29a288f417f2de46634dd2a6` | received |
-| spiaggiamia_registrazione_safe | registrazione | safe | `HXe72b5b349616eb0b901e6e6a6e162c7a` | received |
-| spiaggiamia_registrazione_medium | registrazione | medium | `HX83ee028cd853653a0dbc8dc4cfe8e54c` | received |
-| spiaggiamia_registrazione_warm | registrazione | warm | `HXa462e50691efc451ee445dcbf14a731c` | received |
-| spiaggiamia_operazione_safe | operazione | safe | `HX3004b49698e33e8c07667c546e1848e4` | received |
-| spiaggiamia_operazione_medium | operazione | medium | `HXdff730c3df8bea037efb5ee38c000cf3` | received |
-| spiaggiamia_operazione_warm | operazione | warm | `HXac7ccf9dea0b5fc4ccc2952ed18c8084` | received |
+| Friendly name | Evento | Livello | SID | Categoria | In uso |
+|---|---|---|---|---|---|
+| spiaggiamia_accesso_safe | accesso | safe | `HX482b55b886fb9719dac87795b61b37a1` | UTILITY | no |
+| spiaggiamia_accesso_medium | accesso | medium | `HXe499683276d00a22dd991762baa2dc91` | UTILITY | no |
+| spiaggiamia_accesso_warm | accesso | warm | `HXd1aa8cdf29a288f417f2de46634dd2a6` | UTILITY | no (alternativa per invito) |
+| spiaggiamia_registrazione_safe | registrazione | safe | `HXe72b5b349616eb0b901e6e6a6e162c7a` | UTILITY | no |
+| **spiaggiamia_registrazione_medium** | registrazione | medium | `HX83ee028cd853653a0dbc8dc4cfe8e54c` | UTILITY | **✅ WA_SID_BENVENUTO (dal 6 giu)** |
+| spiaggiamia_registrazione_warm | registrazione | warm | `HXa462e50691efc451ee445dcbf14a731c` | ⚠️ MARKETING | no (esclude warm-utility per questa famiglia) |
+| spiaggiamia_operazione_safe | operazione | safe | `HX3004b49698e33e8c07667c546e1848e4` | UTILITY | no |
+| spiaggiamia_operazione_medium | operazione | medium | `HXdff730c3df8bea037efb5ee38c000cf3` | UTILITY | no |
+| **spiaggiamia_operazione_warm** | operazione | warm | `HXac7ccf9dea0b5fc4ccc2952ed18c8084` | UTILITY | **✅ WA_SID_SUBAFFITTO (dal 6 giu)** |
 
-**Quando swappare**: se appeal categoria dei 3 attuali "stagionali" viene respinto:
-- WA_SID_INVITO = <SID accesso_*>
-- WA_SID_BENVENUTO = <SID registrazione_*>
-- WA_SID_SUBAFFITTO = <SID operazione_*>
+**Swap effettuato 6 giu 2026** (Tentativo 15):
+- WA_SID_BENVENUTO: `spiaggiamia_benvenuto_stagionale` (text-only) →
+  `spiaggiamia_registrazione_medium` (CTA con button login)
+- WA_SID_SUBAFFITTO: `spiaggiamia_subaffitto_confermato` (text-only) →
+  `spiaggiamia_operazione_warm` (CTA con button login)
 
-⚠️ **Cambio signature variabili**: invia-whatsapp v18 deve essere aggiornato per
-passare variabili bottone aggiuntive ({{3}} per accesso/registrazione, {{6}}
-per operazione). Open item prima dello swap.
+WA_SID_INVITO non swappato: `spiaggiamia_invito_stagionale` originale già
+warm UTILITY con button, l'alternativa `accesso_warm` non porta valore aggiunto.
 
 ## 5. Numero pilota: BYON eSIM Iliad
 
@@ -538,6 +544,51 @@ non testati.
   types_detail) per diagnosticare bug sostituzione variabili button URL nei
   template spiaggiamia_*. Nessuna modifica al runtime di invio.
 
+### Tentativo 15 (6 giugno 2026): swap template benvenuto + subaffitto a versioni warm UTILITY
+
+**Contesto**: tutti i 13 template Twilio risultano APPROVED al check del 6 giu.
+L'appeal categoria UTILITY è stato accolto per i 3 stagionali originali. La
+famiglia di 9 backup è quasi tutta UTILITY (eccetto `registrazione_warm`
+classificato MARKETING). I template originali `benvenuto_stagionale` e
+`subaffitto_confermato` sono text-only senza button login; le versioni warm
+UTILITY hanno invece un button "Accedi alla tua area" che pre-compila il
+login via `?login=<email-o-telefono>` (gestito da `js/main.js` linea ~33).
+
+**Decisione strategica**:
+- WA_SID_BENVENUTO → `spiaggiamia_registrazione_medium` (medium perché la
+  variante warm è MARKETING)
+- WA_SID_SUBAFFITTO → `spiaggiamia_operazione_warm` (warm UTILITY disponibile)
+- WA_SID_INVITO → invariato (originale già warm UTILITY con button)
+- WA_SID_RECUPERO → invariato (unica versione approvata)
+
+**Modifiche codice** (`supabase/functions/invia-whatsapp/index.ts`):
+- Aggiunta `email` alla SELECT del cliente
+- Helper `loginIdentifier` = `encodeURIComponent(cliente.email || phone)`,
+  con fallback al telefono normalizzato per i 2 utenti WA senza email
+  (verificato in prod: 5 con consenso WA, 2 senza email)
+- Variabile `"3": loginIdentifier` nel ramo benvenuto
+- Variabile `"6": loginIdentifier` nel ramo subaffitto_confermato
+- Aggiornamento commenti d'intestazione
+
+**Strategia rollout**: deploy della Edge Function PRIMA dei secret. Il nuovo
+codice passa variabili extra che i template VECCHI ignorano silenziosamente
+(Twilio Content Templates non danno errore su variabili in eccesso). Subito
+dopo aggiornamento dei 2 secret. Finestra di rottura = 0.
+
+**Smoke test post-rollout** (TODO):
+1. Registrazione cliente con consenso WA → atteso WA benvenuto con button
+   "Accedi alla tua area" → tap → form login pre-compilato con email
+2. Sub-affitto confermato per cliente con consenso WA → atteso WA con
+   bullet (periodo/variazione/saldo) + button → tap → form pre-compilato
+3. Long-press su entrambi i button per verificare URL `?login=` corretto
+   (sia con email sia con telefono come fallback)
+
+**Lezione applicabile**: quando si introduce un button URL in un template
+Meta-approved, fare SEMPRE long-press post-deploy per verificare che Meta
+non abbia normalizzato il `?` o altri caratteri speciali (vedi Tentativo 7
+saga recupero password). Per `?login={{X}}` il `?` è all'inizio della
+query string, pattern simile a `?invito={{3}}` che ha funzionato.
+
 ## 8. Fase 3 — Reset password manager-driven
 
 Completata in main il 3 giu 2026. PR #104 + #105 + #106 + commit standalone.
@@ -596,18 +647,19 @@ interno) → Twilio API → WA delivery.
 - [x] **Test end-to-end WA recupero password (self-service)** sul cellulare — ✅
 - [x] **Refactor preventivo helper `inviaEmail`/`inviaWhatsapp`** (Tentativo 13) — commit `ce34495c` 5 giu 2026 sera, sb.functions.invoke + no_session guard
 - [x] **Cache buster `?v=20260605b` per js/utils.js in index.html** — post-T13 (Claude Code)
-- [ ] **Test end-to-end WA invito** sul cellulare — bloccato da approval Meta template stagionale
-- [ ] **Test end-to-end WA benvenuto** sul cellulare — bloccato da approval Meta template stagionale
-- [ ] **Test end-to-end WA subaffitto_confermato** sul cellulare — bloccato da approval Meta template stagionale
-- [ ] **TODO long-press WA invito** post-approval Meta — verifica URL `?` preservato, eventuale fix analogo a T7
+- [ ] **Test end-to-end WA invito** sul cellulare (template `invito_stagionale` approvato, codice invariato)
+- [ ] **Test end-to-end WA benvenuto** sul cellulare (post-swap a `registrazione_medium`, verifica button login)
+- [ ] **Test end-to-end WA subaffitto_confermato** sul cellulare (post-swap a `operazione_warm`, verifica button login)
+- [ ] **TODO long-press WA invito + benvenuto + subaffitto** post-deploy 6 giu — verifica URL `?` preservato, eventuale fix analogo a T7
 - [ ] **Hardening sicurezza**: ownership check anche per tipi non-recupero in invia-whatsapp (NON urgente, segnalato in T13)
-- [ ] **Esito appeal categoria 3 stagionali** — atteso 24-72h
+- [x] **Esito appeal categoria 3 stagionali** — ✅ accolto, ora UTILITY (verificato 6 giu)
 - [x] **Edge Function `create-utility-backup-templates`**
 - [x] **9 template UTILITY backup creati e submittati**
 - [x] **DevBoard mobile-friendly per invocazioni admin**
-- [ ] **Esito approval Meta per i 9 backup** — atteso 24-72h
-- [ ] **Aggiornamento `invia-whatsapp` per nuove signature A/B/C** — solo se si swappano
-- [ ] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto**
+- [x] **Esito approval Meta per i 9 backup** — ✅ 8 UTILITY + 1 MARKETING (registrazione_warm)
+- [x] **Swap template benvenuto + subaffitto a warm UTILITY** — 6 giu 2026 (T15)
+- [x] **Aggiornamento `invia-whatsapp` per variabili button {{3}}/{{6}}** — 6 giu 2026 (T15)
+- [x] **Approvazione Meta business-initiated dei 3 template invito/benvenuto/subaffitto** — ✅ 6 giu 2026
 - [ ] **Business verification Meta** — bloccata da mancanza P.IVA (long term)
 - [ ] **Pulizia 4 record duplicati telefono `+393299088725`** — prima di demo reali
 
