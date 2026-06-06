@@ -14,12 +14,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 //                          Nome env legacy: il template è generico, usato per
 //                          QUALSIASI variazione di credito (tipo "variazione_credito"):
 //                          sub-affitto, annullamento, utilizzo, rettifica.
-//                          Vars: 1=nome, 2=periodo (descrittivo, es.
-//                          "Sub-affitto dal 5 al 12 luglio" / "Annullamento
-//                          prenotazione …" / "Spesa del 06/06/2026" /
-//                          "Rettifica saldo del 06/06/2026"), 3=variazione
-//                          con segno esplicito (es. "+20.00 Crediti" /
-//                          "-15.50 Crediti"), 4=saldo aggiornato,
+//                          Vars: 1=nome, 2=periodo (descrittivo), 3=variazione
+//                          con segno esplicito (es. "+20.00 Crediti"), 4=saldo,
 //                          5=stabilimento, 6=loginIdentifier per button
 //                          "Accedi alla tua area" → ?login={{6}}.
 //   WA_SID_RECUPERO      → Content SID HX... del template recupero password
@@ -28,6 +24,11 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 //                          Finché non è valorizzata, il tipo recupero_password
 //                          risponde graceful con
 //                          { skipped: "template_recupero_non_configurato" }.
+//
+// Delivery tracking (da v25, 06 giu 2026):
+//   Ogni POST a Twilio include `StatusCallback` → twilio-wa-status-webhook.
+//   Dopo invio riuscito, INSERT in wa_messages_log con status='queued'.
+//   Il webhook aggiornera' la riga con sent/delivered/failed/undelivered.
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") ?? "";
 const TWILIO_AUTH_TOKEN  = Deno.env.get("TWILIO_AUTH_TOKEN")  ?? "";
 const TWILIO_WA_FROM     = Deno.env.get("TWILIO_WA_FROM")     ?? "";
@@ -39,12 +40,6 @@ const WA_SID_RECUPERO    = Deno.env.get("WA_SID_RECUPERO")    ?? "";
 const SUPABASE_URL        = Deno.env.get("SUPABASE_URL")            ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-// Headers CORS uniformi su tutte le response. Allow-Origin: * e' sicuro
-// perche' le response non contengono dati sensibili e la function richiede
-// autenticazione esplicita nel codice (vedi guard 401 piu' sotto). Senza
-// questi headers nelle response POST, browser da origini come
-// https://www.spiaggiamia.com bloccano la fetch lato client nonostante il
-// server risponda 200 OK.
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -77,15 +72,14 @@ function normalizePhone(raw: string | null | undefined): string | null {
   let n = raw.replace(/\s+/g, "").replace(/[-.()/]/g, "");
   if (n.startsWith("00")) n = "+" + n.slice(2);
   if (!n.startsWith("+")) {
-    // Prefisso italiano di default se non c'è prefisso internazionale
     n = n.startsWith("39") ? "+" + n : "+39" + n;
   }
-  // Valida: + seguito da 7-15 cifre
   return /^\+\d{7,15}$/.test(n) ? n : null;
 }
 
 // Invia un messaggio WhatsApp via Twilio Programmable Messaging (Content Templates).
-async function twilioSend(to: string, contentSid: string, contentVariables: Record<string, string>): Promise<{ ok: boolean; error?: string }> {
+// Ritorna anche il MessageSid (twilio_sid) per il delivery tracking via webhook.
+async function twilioSend(to: string, contentSid: string, contentVariables: Record<string, string>): Promise<{ ok: boolean; error?: string; twilio_sid?: string; twilio_status?: number; twilio_body?: any }> {
   if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_WA_FROM) {
     return { ok: false, error: "Twilio credentials non configurate" };
   }
@@ -96,11 +90,18 @@ async function twilioSend(to: string, contentSid: string, contentVariables: Reco
   const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
   const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
 
+  // StatusCallback: Twilio chiama questo URL ad ogni cambio di stato del
+  // messaggio (queued → sent → delivered o → failed/undelivered). Il
+  // webhook aggiorna la riga corrispondente in wa_messages_log, cosi'
+  // l'app sa se il messaggio e' davvero stato consegnato.
+  const statusCallbackUrl = `${SUPABASE_URL}/functions/v1/twilio-wa-status-webhook`;
+
   const body = new URLSearchParams({
     From: TWILIO_WA_FROM,
     To: `whatsapp:${to}`,
     ContentSid: contentSid,
     ContentVariables: JSON.stringify(contentVariables),
+    StatusCallback: statusCallbackUrl,
   });
 
   const res = await fetch(url, {
@@ -116,7 +117,11 @@ async function twilioSend(to: string, contentSid: string, contentVariables: Reco
     const txt = await res.text();
     return { ok: false, error: `Twilio ${res.status}: ${txt.slice(0, 200)}` };
   }
-  return { ok: true };
+  // Parse response per estrarre il MessageSid (twilio_sid) restituito.
+  // Serve per linkare il webhook callback successivo alla riga in
+  // wa_messages_log.
+  const respData = await res.json().catch(() => ({}));
+  return { ok: true, twilio_sid: respData.sid, twilio_status: res.status, twilio_body: respData };
 }
 
 Deno.serve(async (req) => {
@@ -138,32 +143,14 @@ Deno.serve(async (req) => {
   }
 
   // Verifica JWT: accetta sia service-role key (chiamate server-to-server)
-  // sia user-JWT (chiamate manager-driven via richiedi-reset-cliente o UI).
-  //
-  // BUGFIX 5 giu 2026 / Tentativo 11: la function ha verify_jwt=false al
-  // livello di gateway (vedi supabase/config.toml). Necessario perche' la
-  // chiamata server-to-server da recupero-password passa
-  // `Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}` e la env var ora
-  // contiene una chiave nuovo formato `sb_secret_*` (NON JWT), che il
-  // gateway con verify_jwt=true rifiutava con
-  // UNAUTHORIZED_INVALID_JWT_FORMAT. Conferma testuale doc Supabase:
-  // "The new API keys are not JWTs. Edge Functions only support JWT
-  //  verification via the anon and service_role JWT-based API keys."
-  //
-  // La sicurezza e' ora garantita ESCLUSIVAMENTE dal codice qui sotto:
-  // 1. isServiceRole: confronto string equality con SUPABASE_SERVICE_KEY
-  //    env var. Funziona con qualsiasi formato (JWT legacy o sb_secret_*)
-  //    perche' confronta valori esatti.
-  // 2. Per user JWT: validazione via supa.auth.getUser(jwt).
-  // 3. Guard 401 obbligatorio: senza service-role NE user JWT valido,
-  //    la chiamata e' rifiutata (vedi sotto).
+  // sia user-JWT (chiamate manager-driven). verify_jwt=false al gateway
+  // (vedi WHATSAPP_INTEGRAZIONE.md Tentativo 12 per il razionale).
   const jwt = req.headers.get("Authorization")?.replace("Bearer ", "") ?? "";
   const anonClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
   let callerUserId: string | null = null;
   const isServiceRole = !!jwt && jwt === SUPABASE_SERVICE_KEY;
   if (jwt && !isServiceRole) {
-    // Chiamata di un utente autenticato: verifica la session via Supabase Auth.
     const { data: ud, error: authErr } = await anonClient.auth.getUser(jwt);
     if (authErr || !ud?.user) {
       return jsonResponse({ error: "Non autorizzato" }, 401);
@@ -171,15 +158,10 @@ Deno.serve(async (req) => {
     callerUserId = ud.user.id;
   }
 
-  // SECURITY GUARD (necessario con verify_jwt=false al gateway):
-  // Senza service-role NE user JWT valido, la chiamata e' anonima.
-  // Rifiutiamo esplicitamente per evitare che un attaccante possa
-  // spammare invii WA verso clienti registrati conoscendo solo gli UUID.
   if (!isServiceRole && !callerUserId) {
     return jsonResponse({ error: "Autenticazione richiesta (service-role o user JWT valido)" }, 401);
   }
 
-  // Carica lo stabilimento (wa_enabled + nome + proprietario per ownership).
   const { data: stab, error: stabErr } = await anonClient
     .from("stabilimenti")
     .select("id, nome, wa_enabled, proprietario_id")
@@ -190,15 +172,6 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Stabilimento non trovato" }, 404);
   }
 
-  // Sicurezza: il tipo "recupero_password" accetta "link" arbitrario nel
-  // payload e bypassa il consenso WA. Per evitare che un utente autenticato
-  // qualsiasi possa inviare WA "ufficiali" con URL malevoli ai clienti di
-  // altri stabilimenti, accettiamo:
-  // - chiamate server-to-server con SERVICE_KEY (es. recupero-password
-  //   self-service generic), oppure
-  // - chiamate da un manager autenticato che e' proprietario dello
-  //   stabilimento (richiedi-reset-cliente manager-driven). In questo caso
-  //   ownership check sostituisce SERVICE_KEY come trust boundary.
   if (tipo === "recupero_password" && !isServiceRole) {
     if (!callerUserId || stab.proprietario_id !== callerUserId) {
       return jsonResponse({ error: "Non sei il proprietario di questo stabilimento" }, 403);
@@ -209,7 +182,6 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: false, skipped: "wa_disabled" }, 200);
   }
 
-  // Carica il cliente (telefono + consenso + nome).
   const { data: cliente, error: cliErr } = await anonClient
     .from("clienti_stagionali")
     .select("id, nome, cognome, email, telefono, whatsapp_consenso")
@@ -220,8 +192,6 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Cliente non trovato" }, 404);
   }
 
-  // Il recupero password è una comunicazione di servizio richiesta esplicitamente
-  // dall'utente: non rientra nei consensi marketing, quindi bypassa il controllo.
   if (tipo !== "recupero_password" && !cliente.whatsapp_consenso) {
     return jsonResponse({ ok: false, skipped: "no_consenso" }, 200);
   }
@@ -235,14 +205,9 @@ Deno.serve(async (req) => {
   const stabilimentoNome = stab.nome || "";
 
   // Identificativo per il button "Accedi alla tua area" dei template
-  // spiaggiamia_registrazione_medium (vars {{3}}) e spiaggiamia_operazione_warm
-  // (vars {{6}}). Il frontend (js/main.js) intercetta ?login= e pre-compila
-  // il campo login-identifier, che accetta sia email sia telefono (vedi
-  // js/auth.js doLogin + normalizzaTelefonoIT).
-  //
-  // Fallback: email se presente, altrimenti telefono normalizzato. URL-encode
-  // sempre, perché Twilio Content Templates non fanno auto-encoding (vedi
-  // esempi variabili nei template Twilio: mario.rossi%40example.com).
+  // spiaggiamia_registrazione_medium (var {{3}}) e spiaggiamia_operazione_warm
+  // (var {{6}}). Fallback: email se presente, altrimenti telefono normalizzato.
+  // URL-encode sempre, perche' Twilio Content Templates non fanno auto-encoding.
   const loginIdentifier = encodeURIComponent(
     (cliente.email && cliente.email.trim()) || phone || ""
   );
@@ -256,9 +221,6 @@ Deno.serve(async (req) => {
     contentVariables = {
       "1": nome,
       "2": stabilimentoNome,
-      // {{3}} è il placeholder dentro il button URL del template
-      // spiaggiamia_invito_stagionale:
-      //   https://spiaggiamia.com/?invito={{3}}
       "3": token,
     };
   } else if (tipo === "benvenuto") {
@@ -266,8 +228,6 @@ Deno.serve(async (req) => {
     contentVariables = {
       "1": nome,
       "2": stabilimentoNome,
-      // {{3}} = loginIdentifier per il button URL del template
-      // spiaggiamia_registrazione_medium: https://spiaggiamia.com/?login={{3}}
       "3": loginIdentifier,
     };
   } else if (tipo === "variazione_credito") {
@@ -278,8 +238,6 @@ Deno.serve(async (req) => {
     // Generico per qualsiasi movimento di saldo: la stringa {{3}} contiene
     // segno esplicito (+/-), {{2}} descrive il contesto (sub-affitto,
     // annullamento, utilizzo credito, rettifica).
-    // L'env var conserva il nome WA_SID_SUBAFFITTO per non richiedere
-    // re-configurazione dei secret in Supabase.
     contentSid = WA_SID_SUBAFFITTO;
     contentVariables = {
       "1": nome,
@@ -291,16 +249,15 @@ Deno.serve(async (req) => {
     };
   } else if (tipo === "recupero_password") {
     if (!link) return jsonResponse({ error: "link mancante" }, 400);
-    // Template Meta non ancora approvato: graceful skip senza errore.
     if (!WA_SID_RECUPERO) {
       return jsonResponse({ ok: false, skipped: "template_recupero_non_configurato" }, 200);
     }
     contentSid = WA_SID_RECUPERO;
     contentVariables = {
-      "1": stabilimentoNome, // header
+      "1": stabilimentoNome,
       "2": nome,
-      "3": stabilimentoNome, // body
-      "4": link,             // recovery URL
+      "3": stabilimentoNome,
+      "4": link,
     };
   } else {
     return jsonResponse({ error: "tipo non valido" }, 400);
@@ -308,6 +265,32 @@ Deno.serve(async (req) => {
 
   const result = await twilioSend(phone, contentSid, contentVariables);
 
-  console.log(`WA ${tipo} → ${phone}: ${JSON.stringify(result)}`);
-  return jsonResponse(result, 200);
+  // Se l'invio Twilio e' andato a buon fine, logga la riga in
+  // wa_messages_log. Il webhook twilio-wa-status-webhook aggiornera'
+  // poi la riga con gli status successivi (sent, delivered, failed...).
+  if (result.ok && result.twilio_sid) {
+    const { error: insErr } = await anonClient
+      .from("wa_messages_log")
+      .insert({
+        twilio_sid: result.twilio_sid,
+        stabilimento_id: stab.id,
+        cliente_id: cliente.id,
+        tipo,
+        to_number: phone,
+        status: "queued",
+      });
+    if (insErr) {
+      // Non bloccante: l'invio e' gia' partito, il log e' best-effort.
+      console.error("wa_messages_log insert failed", insErr);
+    }
+  }
+
+  console.log(`WA ${tipo} -> ${phone}: ${JSON.stringify({ ok: result.ok, sid: result.twilio_sid, error: result.error })}`);
+  // Sanitize response al chiamante: non esponiamo il twilio_body completo
+  // (best practice di sicurezza), solo ok / sid / error.
+  return jsonResponse({
+    ok: result.ok,
+    twilio_sid: result.twilio_sid,
+    error: result.error,
+  }, 200);
 });
