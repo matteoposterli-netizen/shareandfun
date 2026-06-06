@@ -4,14 +4,23 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // Credenziali Twilio — impostare come segreti nella Supabase Dashboard:
 //   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
 //   TWILIO_WA_FROM       → es. "whatsapp:+391234567890"
-//   WA_SID_INVITO        → Content SID HX... del template invito (esistente)
-//   WA_SID_BENVENUTO     → Content SID HX... del template benvenuto (esistente)
-//   WA_SID_SUBAFFITTO    → Content SID HX... del template sub-affitto confermato (esistente)
+//   WA_SID_INVITO        → Content SID HX... del template invito
+//                          (spiaggiamia_invito_stagionale — vars 1,2,3=token)
+//   WA_SID_BENVENUTO     → Content SID HX... del template benvenuto
+//                          (spiaggiamia_registrazione_medium dal 6 giu 2026,
+//                           vars 1=nome, 2=stabilimento, 3=loginIdentifier per
+//                           button "Accedi alla tua area" → ?login={{3}})
+//   WA_SID_SUBAFFITTO    → Content SID HX... del template sub-affitto confermato
+//                          (spiaggiamia_operazione_warm dal 6 giu 2026,
+//                           vars 1=nome, 2=periodo, 3=variazione, 4=saldo,
+//                           5=stabilimento, 6=loginIdentifier per button
+//                           "Accedi alla tua area" → ?login={{6}})
 //   WA_SID_RECUPERO      → Content SID HX... del template recupero password
-//                          (NUOVA — da impostare quando Meta approva il template
-//                           "recupero_password" su Twilio. Finché non è valorizzata,
-//                           il tipo recupero_password risponde graceful con
-//                           { skipped: "template_recupero_non_configurato" }.)
+//                          (spiaggiamia_recupero_password_v3, vars 1=stabilimento,
+//                           2=nome, 3=stabilimento, 4=query string completa).
+//                          Finché non è valorizzata, il tipo recupero_password
+//                          risponde graceful con
+//                          { skipped: "template_recupero_non_configurato" }.
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") ?? "";
 const TWILIO_AUTH_TOKEN  = Deno.env.get("TWILIO_AUTH_TOKEN")  ?? "";
 const TWILIO_WA_FROM     = Deno.env.get("TWILIO_WA_FROM")     ?? "";
@@ -196,7 +205,7 @@ Deno.serve(async (req) => {
   // Carica il cliente (telefono + consenso + nome).
   const { data: cliente, error: cliErr } = await anonClient
     .from("clienti_stagionali")
-    .select("id, nome, cognome, telefono, whatsapp_consenso")
+    .select("id, nome, cognome, email, telefono, whatsapp_consenso")
     .eq("id", cliente_id)
     .single();
 
@@ -218,6 +227,19 @@ Deno.serve(async (req) => {
   const nome = cliente.nome || "";
   const stabilimentoNome = stab.nome || "";
 
+  // Identificativo per il button "Accedi alla tua area" dei template
+  // spiaggiamia_registrazione_medium (vars {{3}}) e spiaggiamia_operazione_warm
+  // (vars {{6}}). Il frontend (js/main.js) intercetta ?login= e pre-compila
+  // il campo login-identifier, che accetta sia email sia telefono (vedi
+  // js/auth.js doLogin + normalizzaTelefonoIT).
+  //
+  // Fallback: email se presente, altrimenti telefono normalizzato. URL-encode
+  // sempre, perché Twilio Content Templates non fanno auto-encoding (vedi
+  // esempi variabili nei template Twilio: mario.rossi%40example.com).
+  const loginIdentifier = encodeURIComponent(
+    (cliente.email && cliente.email.trim()) || phone || ""
+  );
+
   let contentSid: string;
   let contentVariables: Record<string, string>;
 
@@ -237,6 +259,9 @@ Deno.serve(async (req) => {
     contentVariables = {
       "1": nome,
       "2": stabilimentoNome,
+      // {{3}} = loginIdentifier per il button URL del template
+      // spiaggiamia_registrazione_medium: https://spiaggiamia.com/?login={{3}}
+      "3": loginIdentifier,
     };
   } else if (tipo === "subaffitto_confermato") {
     if (!periodo || !coin_guadagnati || !coin_totali) {
@@ -249,6 +274,9 @@ Deno.serve(async (req) => {
       "3": coin_guadagnati,
       "4": coin_totali,
       "5": stabilimentoNome,
+      // {{6}} = loginIdentifier per il button URL del template
+      // spiaggiamia_operazione_warm: https://spiaggiamia.com/?login={{6}}
+      "6": loginIdentifier,
     };
   } else if (tipo === "recupero_password") {
     if (!link) return jsonResponse({ error: "link mancante" }, 400);
