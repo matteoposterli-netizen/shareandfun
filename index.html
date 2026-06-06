@@ -884,6 +884,32 @@
           </div>
         </div>
 
+        <!-- Credito revocato -->
+        <div class="email-section">
+          <div class="email-section-header" onclick="toggleEmailSection('credito-revocato')">
+            <div class="email-section-title">📋 Email coin revocati <span style="font-size:12px;color:var(--text-light);font-weight:400">(quando annulli o modifichi una prenotazione e il cliente perde credito)</span></div>
+            <span>▾</span>
+          </div>
+          <div class="email-section-body" id="email-body-credito-revocato">
+            <div class="form-group">
+              <label class="form-label">Oggetto email</label>
+              <input type="text" id="email-credito-revocato-oggetto" class="form-input" maxlength="80" oninput="updateCounter('credito-revocato-oggetto',80)" placeholder="es. 📋 Variazione del tuo saldo">
+              <div class="char-counter" id="counter-credito-revocato-oggetto">0/80</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Messaggio personalizzato</label>
+              <textarea id="email-credito-revocato-testo" class="form-input" rows="4" maxlength="500" oninput="updateCounter('credito-revocato-testo',500)" placeholder="es. Ciao {{nome}}, ti informiamo che {{importo}} è stato revocato dal tuo saldo. Saldo aggiornato: {{saldo}}." style="resize:vertical"></textarea>
+              <div class="char-counter" id="counter-credito-revocato-testo">0/500</div>
+              <div style="font-size:12px;color:var(--text-light);margin-top:4px">Puoi usare <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{cognome}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{importo}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{saldo}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{nota}}</code>, <code style="background:var(--sand);padding:1px 5px;border-radius:3px">{{stabilimento}}</code>.</div>
+            </div>
+            <div class="email-preview-box">
+              <strong>Anteprima:</strong> <span id="preview-credito-revocato-oggetto" style="color:var(--ocean)"></span><br>
+              <span id="preview-credito-revocato-testo"></span>
+              <div class="email-preview-fixed">+ nome stabilimento · telefono · email stabilimento (automatici)</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Chiusura stagione -->
         <div class="email-section">
           <div class="email-section-header" onclick="toggleEmailSection('chiusura-stagione')">
@@ -2709,12 +2735,12 @@ document.addEventListener('click', function(e) {
 });
 </script>
 <script src="js/state.js"></script>
-<script src="js/utils.js?v=20260605b"></script>
+<script src="js/utils.js?v=20260606a"></script>
 <script src="js/csv.js"></script>
 <script src="js/router.js"></script>
 <script src="js/auth.js?v=20260605a"></script>
 <script src="js/setup.js"></script>
-<script src="js/manager.js?v=20260604b"></script>
+<script src="js/manager.js?v=20260606a"></script>
 <script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>

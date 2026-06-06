@@ -1689,11 +1689,11 @@ async function finalizeBookingSelection() {
         }, currentStabilimento);
       }
       const dates = [...entry.dates].sort();
-      inviaWhatsapp('subaffitto_confermato', {
+      inviaWhatsapp('variazione_credito', {
         cliente_id: cliente.id,
-        periodo: formatPeriodo(dates),
-        coin_guadagnati: formatCoin(entry.delta.toFixed(2), currentStabilimento),
-        coin_totali: formatCoin(nuovoSaldo, currentStabilimento),
+        periodo: `Sub-affitto ${formatPeriodo(dates)}`,
+        variazione: formatCoinSigned(entry.delta.toFixed(2), '+', currentStabilimento),
+        saldo_nuovo: formatCoin(nuovoSaldo, currentStabilimento),
       }, currentStabilimento);
     }
 
@@ -2271,6 +2271,64 @@ async function freeBookingItems(items, group, alertId) {
   const dispIds = items.map(i => i.id);
   const { error } = await sb.rpc('cancel_booking', { p_disp_ids: dispIds });
   if (error) { showAlert(alertId, 'Errore annullamento prenotazione: ' + error.message, 'error'); return false; }
+
+  // Notifiche post-annullamento (email + WhatsApp) per ogni cliente impattato.
+  // Aggrega per cliente: 1 sola notifica con delta totale, anche su
+  // annullamenti multi-giorno / multi-ombrellone.
+  // Fire-and-forget: gli errori di invio non bloccano l'annullamento.
+  try {
+    const ombsMap = ombById();
+    const cliById = {};
+    (clientiList || []).forEach(c => { cliById[c.id] = c; });
+
+    const aggByCliente = new Map();
+    items.forEach(i => {
+      if (!i.cliente_id) return;
+      const omb = ombsMap[i.ombrellone_id];
+      const importo = omb ? parseFloat(omb.credito_giornaliero || 0) : 0;
+      if (importo <= 0) return;
+      if (!aggByCliente.has(i.cliente_id)) {
+        aggByCliente.set(i.cliente_id, { delta: 0, dates: [] });
+      }
+      const e = aggByCliente.get(i.cliente_id);
+      e.delta += importo;
+      e.dates.push(i.data);
+    });
+
+    for (const [cliId, agg] of aggByCliente.entries()) {
+      const cliente = cliById[cliId];
+      if (!cliente) continue;
+      const saldoAggiornato = (parseFloat(cliente.credito_saldo || 0) - agg.delta).toFixed(2);
+      const dates = agg.dates.slice().sort();
+      const periodoLabel = formatPeriodo(dates);
+      const importoStr = formatCoin(agg.delta.toFixed(2), currentStabilimento);
+      const saldoStr = formatCoin(saldoAggiornato, currentStabilimento);
+      const notaBase = group?.nome
+        ? `Prenotazione "${group.nome}" — ${periodoLabel}`
+        : `Prenotazione del ${periodoLabel}`;
+
+      if (cliente.email) {
+        inviaEmail('credito_revocato', {
+          email: cliente.email,
+          nome: cliente.nome,
+          cognome: cliente.cognome,
+          importo_formatted: importoStr,
+          saldo_formatted: saldoStr,
+          nota: notaBase,
+        }, currentStabilimento);
+      }
+
+      inviaWhatsapp('variazione_credito', {
+        cliente_id: cliente.id,
+        periodo: `Annullamento prenotazione ${periodoLabel}`,
+        variazione: formatCoinSigned(agg.delta.toFixed(2), '-', currentStabilimento),
+        saldo_nuovo: saldoStr,
+      }, currentStabilimento);
+    }
+  } catch (e) {
+    console.warn('Notifiche post-annullamento fallite:', e);
+  }
+
   return true;
 }
 
@@ -2485,6 +2543,12 @@ async function usaCredito() {
       nota: notaFinale,
     }, currentStabilimento);
   }
+  inviaWhatsapp('variazione_credito', {
+    cliente_id: cliente.id,
+    periodo: `Spesa del ${todayDDMMYYYY()}`,
+    variazione: formatCoinSigned(importo, '-', currentStabilimento),
+    saldo_nuovo: formatCoin(nuovoSaldo, currentStabilimento),
+  }, currentStabilimento);
   showAlert('crediti-alert', `Credito di ${formatCoin(importo)} registrato per ${cliente.nome}`, 'success');
   document.getElementById('credito-importo').value = '';
   document.getElementById('credito-nota').value = '';
@@ -2951,6 +3015,33 @@ async function applyEditRowSaldo() {
   if (txErr) { showAlert('edit-row-saldo-alert', 'Errore transazione: ' + txErr.message, 'error'); return; }
   const { error: clErr } = await sb.from('clienti_stagionali').update({ credito_saldo: nuovo.toFixed(2) }).eq('id', clId);
   if (clErr) { showAlert('edit-row-saldo-alert', 'Errore aggiornamento saldo: ' + clErr.message, 'error'); return; }
+
+  // Notifiche post-rettifica saldo (email + WhatsApp).
+  // Fire-and-forget: gli errori di invio non bloccano la rettifica.
+  try {
+    const isPositiva = nuovo > attuale;
+    const importoStr = formatCoin(delta, currentStabilimento);
+    const saldoStr = formatCoin(nuovo.toFixed(2), currentStabilimento);
+    if (cliente.email) {
+      inviaEmail(isPositiva ? 'credito_accreditato' : 'credito_ritirato', {
+        email: cliente.email,
+        nome: cliente.nome,
+        cognome: cliente.cognome,
+        importo_formatted: importoStr,
+        saldo_formatted: saldoStr,
+        nota,
+      }, currentStabilimento);
+    }
+    inviaWhatsapp('variazione_credito', {
+      cliente_id: cliente.id,
+      periodo: `Rettifica saldo del ${todayDDMMYYYY()}`,
+      variazione: formatCoinSigned(delta, isPositiva ? '+' : '-', currentStabilimento),
+      saldo_nuovo: saldoStr,
+    }, currentStabilimento);
+  } catch (e) {
+    console.warn('Notifiche post-rettifica fallite:', e);
+  }
+
   await refreshEditRowAfterSave(ombId, { alertId: 'edit-row-saldo-alert' });
 }
 
