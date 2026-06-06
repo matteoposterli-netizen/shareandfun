@@ -63,18 +63,15 @@ async function loadStagionaleData() {
 function renderStagioneBanner() {
   const el = document.getElementById('stag-stagione-banner');
   if (!el) return;
-  let html = '';
+  // Mostra solo l'avviso "ombrellone non attivo"; la spiegazione testuale della
+  // stagione è stata rimossa (il comportamento di range resta nel calendario).
   if (stagOmbrellone && stagOmbrellone.attivo === false) {
-    html += `<div class="alert alert-coral" style="margin-bottom:8px">⛔ Il tuo ombrellone è temporaneamente <strong>non attivo</strong>. Non è possibile dichiarare disponibilità. Contatta il gestore per informazioni.</div>`;
+    el.innerHTML = `⛔ Il tuo ombrellone è temporaneamente <strong>non attivo</strong>. Non è possibile dichiarare disponibilità. Contatta il gestore per informazioni.`;
+    el.style.display = '';
+  } else {
+    el.innerHTML = '';
+    el.style.display = 'none';
   }
-  if (!stagStagione || !stagStagione.inizio || !stagStagione.fine) {
-    el.innerHTML = html;
-    el.style.display = html ? '' : 'none';
-    return;
-  }
-  el.style.display = '';
-  html += `Stagione <strong>${formatDate(stagStagione.inizio)} → ${formatDate(stagStagione.fine)}</strong>. I giorni fuori da queste date non sono modificabili.`;
-  el.innerHTML = html;
 }
 
 // Restituisce { state, label } dove state ∈ null|'fuori_stagione'|'chiusura_speciale'|'sempre_libero'|'mai_libero'.
@@ -121,107 +118,6 @@ function stagEffectiveDayStato(dateStr) {
 }
 
 const STAG_MONTHS_SHORT = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
-const STAG_DAYS_SHORT = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
-
-function renderQuickSelector() {
-  const grid = document.getElementById('stag-quick-grid');
-  if (!grid) return;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const items = [0, 1, 2].map((offset) => {
-    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
-    const dateStr = toLocalDateStr(d);
-    return {
-      label: offset === 0 ? 'Oggi' : offset === 1 ? 'Domani' : STAG_DAYS_SHORT[d.getDay()],
-      day: d.getDate(),
-      month: d.getMonth(),
-      dateStr,
-    };
-  });
-  const html = items.map((item) => {
-    const stato = stagEffectiveDayStato(item.dateStr);
-    const restr = regolaStatoPerData(item.dateStr);
-    const cls = ['stag-qday-btn'];
-    let disabled = false;
-    if (stato === 'sub') { cls.push('sub'); disabled = true; }
-    else if (restr) { cls.push('restricted'); disabled = true; }
-    else if (stato === 'free') cls.push('free');
-    else if (stato === 'pending-add') cls.push('pending-add');
-    else if (stato === 'pending-remove') cls.push('pending-remove');
-    else cls.push('occupied');
-    const onclick = disabled ? '' : ` onclick="stagToggleQuickDay('${item.dateStr}')"`;
-    const title = restr ? ` title="${restr.label}"` : '';
-    return `<button class="${cls.join(' ')}"${disabled ? ' disabled' : ''}${onclick}${title}>
-      <div class="stag-qday-name">${item.label}</div>
-      <div class="stag-qday-num">${item.day}</div>
-      <div class="stag-qday-month">${STAG_MONTHS_SHORT[item.month]}</div>
-    </button>`;
-  }).join('');
-  grid.innerHTML = html;
-  renderWeekendBtn();
-}
-
-function nextWeekendDates() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const dow = today.getDay(); // 0=Sun..6=Sat
-  // distance to next Saturday: if today is Sat (6), use today; otherwise next Saturday
-  const daysToSat = dow === 6 ? 0 : (6 - dow + 7) % 7;
-  const sat = new Date(today.getFullYear(), today.getMonth(), today.getDate() + daysToSat);
-  const sun = new Date(today.getFullYear(), today.getMonth(), today.getDate() + daysToSat + 1);
-  return { sat, sun };
-}
-
-function renderWeekendBtn() {
-  const btn = document.getElementById('stag-weekend-btn');
-  const lblEl = document.getElementById('stag-weekend-label');
-  const tagEl = document.getElementById('stag-weekend-tag');
-  if (!btn || !lblEl || !tagEl) return;
-  const { sat, sun } = nextWeekendDates();
-  const satStr = toLocalDateStr(sat);
-  const sunStr = toLocalDateStr(sun);
-  lblEl.textContent = `Prossimo weekend — sab ${sat.getDate()} & dom ${sun.getDate()} ${STAG_MONTHS_SHORT[sun.getMonth()]}`;
-
-  const satStato = stagEffectiveDayStato(satStr);
-  const sunStato = stagEffectiveDayStato(sunStr);
-  const satRestr = regolaStatoPerData(satStr);
-  const sunRestr = regolaStatoPerData(sunStr);
-  const satEditable = satStato !== 'sub' && !satRestr;
-  const sunEditable = sunStato !== 'sub' && !sunRestr;
-  const noneEditable = !satEditable && !sunEditable;
-
-  // "Active" = entrambi i giorni risulteranno liberi dopo i pending applicati.
-  const satWillBeFree = satStato === 'free' || satStato === 'pending-add';
-  const sunWillBeFree = sunStato === 'free' || sunStato === 'pending-add';
-  const active = satWillBeFree && sunWillBeFree;
-  btn.classList.toggle('active', active);
-  btn.disabled = noneEditable;
-  tagEl.textContent = active ? 'Dichiarato libero' : 'Libero?';
-}
-
-function stagToggleQuickDay(dateStr) {
-  toggleDay(dateStr, currentDispMap[dateStr]);
-}
-
-function stagToggleWeekend() {
-  const { sat, sun } = nextWeekendDates();
-  const satStr = toLocalDateStr(sat);
-  const sunStr = toLocalDateStr(sun);
-  const satStato = stagEffectiveDayStato(satStr);
-  const sunStato = stagEffectiveDayStato(sunStr);
-  const satRestr = regolaStatoPerData(satStr);
-  const sunRestr = regolaStatoPerData(sunStr);
-  const satWillBeFree = satStato === 'free' || satStato === 'pending-add';
-  const sunWillBeFree = sunStato === 'free' || sunStato === 'pending-add';
-  const active = satWillBeFree && sunWillBeFree;
-  if (active) {
-    if (satStato === 'free' || satStato === 'pending-add') toggleDay(satStr, currentDispMap[satStr]);
-    if (sunStato === 'free' || sunStato === 'pending-add') toggleDay(sunStr, currentDispMap[sunStr]);
-  } else {
-    if (satStato !== 'sub' && !satRestr && !satWillBeFree) toggleDay(satStr, currentDispMap[satStr]);
-    if (sunStato !== 'sub' && !sunRestr && !sunWillBeFree) toggleDay(sunStr, currentDispMap[sunStr]);
-  }
-}
 
 function renderStagStats() {
   const freeEl = document.getElementById('stag-stat-free');
@@ -388,7 +284,6 @@ function renderCalendar() {
     }
     el.appendChild(div);
   }
-  renderQuickSelector();
   renderStagStats();
 }
 
