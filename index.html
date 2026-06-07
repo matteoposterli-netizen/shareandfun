@@ -468,33 +468,6 @@
           </div>
         </div>
 
-        <!-- Azioni: aggiungi singolo + Excel -->
-        <div class="action-grid">
-          <div class="action-card">
-            <div class="action-icon">🗺️</div>
-            <div class="action-title" id="gestisci-mappa-title">Crea mappa spiaggia</div>
-            <div class="action-desc" id="gestisci-mappa-desc">Disegna visivamente la mappa degli ombrelloni e delle passerelle.</div>
-            <button class="btn btn-primary btn-sm btn-full" onclick="apriMappaBuilderOverlay()">🔧 Gestisci mappa</button>
-          </div>
-          <div class="action-card highlight">
-            <div class="action-icon">📊</div>
-            <div class="action-title">Importa in massa via Excel</div>
-            <div class="action-desc">
-              Colonne: <code>codice, credito_giornaliero, nome, cognome, telefono, email</code>. Max 1000 righe. I campi del cliente sono opzionali.
-              <a href="#" onclick="event.preventDefault();scaricaExcel()" style="color:var(--ocean);font-weight:600" id="link-scarica-excel">📥 Scarica Excel</a>
-            </div>
-            <div id="xlsx-alert"></div>
-            <input type="file" id="xlsx-file" accept=".xlsx,.xls" onchange="loadExcelFile(event)" class="form-input">
-            <div id="xlsx-preview"></div>
-            <div id="xlsx-actions" class="hidden" style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-              <button class="btn btn-primary btn-sm" onclick="importaExcel()">+ Importa selezionati</button>
-              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid);cursor:pointer"><input type="checkbox" id="xlsx-invia-inviti"> Invia anche l'invito via email</label>
-              <button class="btn btn-outline btn-sm" onclick="annullaExcel()">Annulla</button>
-              <span id="xlsx-count" style="font-size:13px;color:var(--text-mid)"></span>
-            </div>
-          </div>
-        </div>
-
         <!-- Tabella unificata -->
         <div class="section-divider">☂️ Ombrelloni e clienti registrati</div>
         <div class="card">
@@ -545,6 +518,33 @@
             </tr></thead>
             <tbody id="gestione-table"></tbody>
           </table></div>
+          </div>
+        </div>
+
+        <!-- Azioni: aggiungi singolo + Excel -->
+        <div class="action-grid">
+          <div class="action-card">
+            <div class="action-icon">🗺️</div>
+            <div class="action-title" id="gestisci-mappa-title">Crea mappa spiaggia</div>
+            <div class="action-desc" id="gestisci-mappa-desc">Disegna visivamente la mappa degli ombrelloni e delle passerelle.</div>
+            <button class="btn btn-primary btn-sm btn-full" onclick="apriMappaBuilderOverlay()">🔧 Gestisci mappa</button>
+          </div>
+          <div class="action-card highlight">
+            <div class="action-icon">📊</div>
+            <div class="action-title">Importa in massa via Excel</div>
+            <div class="action-desc">
+              Colonne: <code>codice, credito_giornaliero, nome, cognome, telefono, email</code>. Max 1000 righe. I campi del cliente sono opzionali.
+              <a href="#" onclick="event.preventDefault();scaricaExcel()" style="color:var(--ocean);font-weight:600" id="link-scarica-excel">📥 Scarica Excel</a>
+            </div>
+            <div id="xlsx-alert"></div>
+            <input type="file" id="xlsx-file" accept=".xlsx,.xls" onchange="loadExcelFile(event)" class="form-input">
+            <div id="xlsx-preview"></div>
+            <div id="xlsx-actions" class="hidden" style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <button class="btn btn-primary btn-sm" onclick="importaExcel()">+ Importa selezionati</button>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid);cursor:pointer"><input type="checkbox" id="xlsx-invia-inviti"> Invia anche l'invito via email</label>
+              <button class="btn btn-outline btn-sm" onclick="annullaExcel()">Annulla</button>
+              <span id="xlsx-count" style="font-size:13px;color:var(--text-mid)"></span>
+            </div>
           </div>
         </div>
 
@@ -2740,7 +2740,7 @@ document.addEventListener('click', function(e) {
 <script src="js/router.js"></script>
 <script src="js/auth.js?v=20260605a"></script>
 <script src="js/setup.js"></script>
-<script src="js/manager.js?v=20260606a"></script>
+<script src="js/manager.js?v=20260607b"></script>
 <script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>
