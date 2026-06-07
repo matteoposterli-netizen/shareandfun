@@ -3476,7 +3476,9 @@ function setOmbViewMode(mode) {
 }
 
 function loadOmbViewMode() {
-  ombViewMode = 'mappa';
+  let saved = null;
+  try { saved = localStorage.getItem(ombViewStorageKey()); } catch (_) {}
+  ombViewMode = (saved === 'tabella' || saved === 'mappa') ? saved : 'mappa';
   syncOmbViewToggleUI();
 }
 
@@ -3508,10 +3510,14 @@ function renderGestioneMappa() {
     return;
   }
 
-  const maxX = Math.max(...ombrelloniList.map(o => o.pos_x || 0), ...passerelle.map(p => p.x || 0));
-  const maxY = Math.max(...ombrelloniList.map(o => o.pos_y || 0), ...passerelle.map(p => p.y || 0));
-  const cols = maxX + 1;
-  const rows = maxY + 1;
+  const xs = ombrelloniList.map(o => o.pos_x || 0).concat(passerelle.map(p => p.x || 0));
+  const ys = ombrelloniList.map(o => o.pos_y || 0).concat(passerelle.map(p => p.y || 0));
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const cols = maxX - minX + 1;
+  const rows = maxY - minY + 1;
 
   const grid = [];
   for (let r = 0; r < rows; r++) {
@@ -3521,15 +3527,15 @@ function renderGestioneMappa() {
     }
   }
   ombrelloniList.forEach(o => {
-    const r = o.pos_y;
-    const c = o.pos_x;
+    const r = (o.pos_y || 0) - minY;
+    const c = (o.pos_x || 0) - minX;
     if (r >= 0 && r < rows && c >= 0 && c < cols) {
       grid[r][c] = { type: 'ombrellone', data: o };
     }
   });
   passerelle.forEach(p => {
-    const r = p.y;
-    const c = p.x;
+    const r = (p.y || 0) - minY;
+    const c = (p.x || 0) - minX;
     if (r >= 0 && r < rows && c >= 0 && c < cols && !grid[r][c]) {
       grid[r][c] = { type: 'passerella', data: p };
     }
@@ -3555,7 +3561,7 @@ function renderGestioneMappa() {
         if (!omb.attivo) {
           const cliente = clienteByOmb[omb.id] || null;
           cellDiv.className = 'ombrellone inactive';
-          cellDiv.textContent = '☂️';
+          cellDiv.textContent = omb.codice || '';
           cellDiv.title = `${omb.codice} — Non attivo`;
           cellDiv.style.cursor = 'pointer';
           cellDiv.addEventListener('click', () => openOmbrelloneMapPopup(omb, cliente, cellDiv));
@@ -3569,7 +3575,7 @@ function renderGestioneMappa() {
             cellDiv.style.borderWidth = '2px';
             cellDiv.style.color = 'var(--ocean-mid)';
           }
-          cellDiv.textContent = '☂️';
+          cellDiv.textContent = omb.codice || '';
           const cliente = clienteByOmb[omb.id];
           cellDiv.title = hasCliente
             ? `${omb.codice} — ${cliente.nome || ''} ${cliente.cognome || ''}`
