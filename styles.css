@@ -763,6 +763,8 @@ body.view-stagionale .topnav, body:has(#view-stagionale.active) .topnav { displa
 .stag-tab.active { color: #0e7490; border-bottom-color: #0e7490; }
 .stag-body { padding: 14px; }
 .stag-section-title { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+.stag-section-sub { font-size: 13px; color: #475569; line-height: 1.45; margin: -2px 0 12px; }
+.stag-section-sub strong { color: #1e293b; font-weight: 700; }
 .stag-card { background: #fff; border-radius: 16px; padding: 16px 14px; margin-bottom: 12px; border: 1px solid #e2e8f0; }
 .stag-card-cal { padding: 14px 12px; }
 .stag-quick-title { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 12px; }
@@ -818,6 +820,7 @@ body.view-stagionale .topnav, body:has(#view-stagionale.active) .topnav { displa
 .stag-tx-icon.info { background: #f1f5f9; color: #64748b; }
 .stag-tx-info { flex: 1; min-width: 0; }
 .stag-tx-label { font-size: 13px; font-weight: 600; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stag-tx-desc { font-size: 12px; color: #64748b; line-height: 1.4; margin-top: 2px; }
 .stag-tx-date { font-size: 11px; color: #94a3b8; margin-top: 2px; }
 .stag-tx-amt { font-size: 14px; font-weight: 700; white-space: nowrap; }
 .stag-tx-amt.earn { color: #16a34a; }

@@ -184,6 +184,21 @@ function stagTxCategory(t) {
   }
 }
 
+function stagTxDescription(t) {
+  const map = {
+    credito_ricevuto: 'Crediti accreditati dal sub-affitto del tuo ombrellone.',
+    credito_usato: 'Crediti spesi al bar o al ristorante.',
+    credito_revocato: 'Sub-affitto annullato: i crediti sono stati revocati.',
+    sub_affitto: 'Il tuo ombrellone è stato sub-affittato a un cliente giornaliero.',
+    sub_affitto_annullato: 'Il sub-affitto del tuo ombrellone è stato annullato.',
+    disponibilita_aggiunta: 'Hai reso il giorno disponibile al sub-affitto.',
+    disponibilita_rimossa: 'Hai rimosso la disponibilità al sub-affitto.',
+    regola_forzata_aggiunta: 'Lo stabilimento ha modificato il calendario.',
+    regola_forzata_rimossa: 'Lo stabilimento ha rimosso una regola dal calendario.',
+  };
+  return map[t.tipo] || '';
+}
+
 function stagTxLabel(t) {
   if (t.tipo === 'comunicazione_ricevuta') {
     const oggetto = (t.nota || '').split('\n')[0].trim();
@@ -221,10 +236,13 @@ function renderStagTxList(txs, stab) {
       const abs = Math.abs(Number(t.importo));
       amtHtml = `<div class="stag-tx-amt ${cat}">${sign}${formatCoin(abs, stab)}</div>`;
     }
+    const desc = stagTxDescription(t);
+    const descHtml = desc ? `<div class="stag-tx-desc">${desc}</div>` : '';
     return `<div class="stag-tx-row">
       <div class="stag-tx-icon ${cat}">${icon}</div>
       <div class="stag-tx-info">
         <div class="stag-tx-label">${stagTxLabel(t)}</div>
+        ${descHtml}
         <div class="stag-tx-date">${stagTxDate(t)}</div>
       </div>
       ${amtHtml}
