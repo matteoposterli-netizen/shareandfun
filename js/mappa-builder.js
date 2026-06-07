@@ -1,8 +1,8 @@
 // ===== MAPPA BUILDER =====
 // Visual builder for beach umbrella layout during onboarding
 
-const MAPPA_COLS = 20;
-const MAPPA_ROWS = 20;
+const MAPPA_COLS = 50;
+const MAPPA_ROWS = 50;
 const CELL_TIPO = { OMBRELLONE: 'ombrellone', PASSERELLA: 'passerella', VUOTO: 'vuoto' };
 
 let mappaState = {

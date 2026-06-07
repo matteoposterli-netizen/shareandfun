@@ -1052,7 +1052,7 @@ body.view-stagionale .topnav, body:has(#view-stagionale.active) .topnav { displa
 .mode-btn.active { background: var(--ocean); color: #fff; border-color: var(--ocean); }
 .mappa-counter { margin-left: auto; font-size: 13px; color: var(--text-mid); }
 .mappa-grid-wrap { overflow: auto; width: fit-content; max-width: 100%; }
-.mappa-grid { display: grid; grid-template-columns: repeat(20, 28px); grid-template-rows: repeat(20, 28px); gap: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px; width: fit-content; cursor: crosshair; }
+.mappa-grid { display: grid; grid-template-columns: repeat(50, 28px); grid-template-rows: repeat(50, 28px); gap: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px; width: fit-content; cursor: crosshair; }
 .mappa-cell { width: 28px; height: 28px; border-radius: 4px; border: 1px solid var(--border); font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; user-select: none; cursor: pointer; transition: background .1s; }
 .tipo-vuoto { background: #f5f5f5; }
 .tipo-ombrellone { background: var(--ocean); color: #fff; border-color: #1557a0; }
@@ -1066,7 +1066,7 @@ body.view-stagionale .topnav, body:has(#view-stagionale.active) .topnav { displa
 .mappa-step2-grid-col { flex: 0 0 auto; }
 .mappa-step2-form-col { flex: 1 1 260px; }
 .mappa-step2-hint { font-size: 13px; color: var(--text-mid); margin: 0 0 12px; }
-.mappa-grid-small { grid-template-columns: repeat(20, 16px); grid-template-rows: repeat(20, 16px); gap: 1px; cursor: default; }
+.mappa-grid-small { grid-template-columns: repeat(50, 16px); grid-template-rows: repeat(50, 16px); gap: 1px; cursor: default; }
 .mappa-grid-small .mappa-cell { width: 16px; height: 16px; border-radius: 2px; font-size: 7px; }
 .mappa-codici-table { display: flex; flex-direction: column; gap: 4px; max-height: 400px; overflow-y: auto; }
 .codice-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; border: 1px solid transparent; }
