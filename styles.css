@@ -307,6 +307,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; background: #fff; border-radius: var(--radius); border: 1px solid var(--border); }
 .data-table-compact th, .data-table-compact td { padding: 10px 10px; font-size: 12px; overflow-wrap: break-word; overflow-wrap: anywhere; word-break: break-word; }
 .data-table-compact th { font-size: 10px; padding: 10px 10px; }
+/* Tabella Ombrelloni e Clienti: colonne dimensionate al contenuto, non stirate a tutta larghezza pagina */
+#gestione-tabella-wrap .data-table { width: auto; }
 
 .pill { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; }
 .pill-green { background: var(--green-light); color: var(--green); }
