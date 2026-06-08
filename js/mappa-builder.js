@@ -467,19 +467,22 @@ async function salvaMappaStabilimento(stabilimentoId) {
     }
   }
 
-  const { error: errOmb } = await sb.from('ombrelloni').insert(ombrelloniData);
-  if (errOmb) {
-    showMappaError(errOmb.message);
-    if (btn) { btn.disabled = false; btn.textContent = 'Salva mappa'; }
-    return;
-  }
-
-  const { error: errStab } = await sb
-    .from('stabilimenti')
-    .update({ mappa_passerelle: passerelleData })
-    .eq('id', stabilimentoId);
-  if (errStab) {
-    showMappaError(errStab.message);
+  // Passa per la RPC atomica anche in creazione: niente UPDATE, solo INSERT + passerelle.
+  const insertsRpc = ombrelloniData.map(o => ({
+    codice: o.codice,
+    pos_x: o.pos_x,
+    pos_y: o.pos_y,
+    credito_giornaliero: o.credito_giornaliero
+  }));
+  const { data: respCreate, error: errRpc } = await sb.rpc('aggiorna_mappa_ombrelloni', {
+    p_stabilimento_id: stabilimentoId,
+    p_deletes: [],
+    p_updates: [],
+    p_inserts: insertsRpc,
+    p_passerelle: passerelleData
+  });
+  if (errRpc || !respCreate || respCreate.ok !== true) {
+    showMappaError((errRpc && errRpc.message) || 'Salvataggio mappa fallito.');
     if (btn) { btn.disabled = false; btn.textContent = 'Salva mappa'; }
     return;
   }
@@ -809,43 +812,58 @@ async function _salvaMappaMod() {
 
   const stabId = _mappaStabilimentoId;
 
-  const ombsDaEliminare = mappaState.toDelete || [];
-  for (const id of ombsDaEliminare) {
-    await sb.from('disponibilita').delete().eq('ombrellone_id', id);
-    await sb.from('clienti_stagionali').delete().eq('ombrellone_id', id);
-    await sb.from('ombrelloni').delete().eq('id', id);
-  }
+  // 1) Cancellazioni (esistenti rimossi nell'editor)
+  const ombsDaEliminare = (mappaState.toDelete || []).slice();
 
+  // 2) Aggiornamenti (ombrelloni esistenti con eventuale cambio pos e/o codice)
+  const updates = [];
   for (let r = 0; r < MAPPA_ROWS; r++) {
     for (let c = 0; c < MAPPA_COLS; c++) {
       const id = mappaState.ids[`${r}_${c}`];
       if (id) {
         const inputEl = _qid(`codice-input-${r}-${c}`);
         const codice = inputEl ? inputEl.value.trim() : (mappaState.codici[`${r}_${c}`] || '');
-        await sb.from('ombrelloni').update({ pos_x: c, pos_y: r, codice }).eq('id', id);
+        updates.push({ id, pos_x: c, pos_y: r, codice });
       }
     }
   }
 
-  const nuovi = [];
+  // 3) Nuovi (celle ombrellone senza id esistente)
+  const inserts = [];
   for (let r = 0; r < MAPPA_ROWS; r++) {
     for (let c = 0; c < MAPPA_COLS; c++) {
       if (mappaState.grid[r][c] === CELL_TIPO.OMBRELLONE && !mappaState.ids[`${r}_${c}`]) {
         const inputEl = _qid(`codice-input-${r}-${c}`);
         const codice = inputEl ? inputEl.value.trim() : (mappaState.codici[`${r}_${c}`] || '');
-        nuovi.push({ stabilimento_id: stabId, codice, pos_x: c, pos_y: r, credito_giornaliero: 1.00 });
+        inserts.push({ codice, pos_x: c, pos_y: r, credito_giornaliero: 1.00 });
       }
     }
   }
-  if (nuovi.length) await sb.from('ombrelloni').insert(nuovi);
 
+  // 4) Passerelle
   const passerelle = [];
   for (let r = 0; r < MAPPA_ROWS; r++) {
     for (let c = 0; c < MAPPA_COLS; c++) {
       if (mappaState.grid[r][c] === CELL_TIPO.PASSERELLA) passerelle.push({ x: c, y: r });
     }
   }
-  await sb.from('stabilimenti').update({ mappa_passerelle: passerelle }).eq('id', stabId);
+
+  // Una sola chiamata atomica: la RPC fa DELETE → UPDATE two-phase → INSERT → passerelle
+  const { data: resp, error: errRpc } = await sb.rpc('aggiorna_mappa_ombrelloni', {
+    p_stabilimento_id: stabId,
+    p_deletes: ombsDaEliminare,
+    p_updates: updates,
+    p_inserts: inserts,
+    p_passerelle: passerelle
+  });
+
+  if (errRpc || !resp || resp.ok !== true) {
+    const msg = (errRpc && errRpc.message) || 'Salvataggio mappa fallito.';
+    showMappaError(msg);
+    if (btn) { btn.disabled = false; btn.textContent = 'Salva mappa'; }
+    return;
+  }
+
   if (currentStabilimento) currentStabilimento.mappa_passerelle = passerelle;
 
   chiudiMappaBuilderOverlay();
