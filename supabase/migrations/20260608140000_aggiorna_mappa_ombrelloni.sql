@@ -39,7 +39,10 @@ BEGIN
   IF _owner IS NULL THEN
     RAISE EXCEPTION 'Stabilimento non trovato' USING ERRCODE = 'P0002';
   END IF;
-  IF _owner <> auth.uid() THEN
+  -- IS DISTINCT FROM (non `<>`): con un chiamante anon auth.uid() è NULL e
+  -- `_owner <> NULL` darebbe NULL (falsy), bypassando il check. IS DISTINCT FROM
+  -- tratta il NULL come "diverso" e fa scattare l'eccezione.
+  IF _owner IS DISTINCT FROM auth.uid() THEN
     RAISE EXCEPTION 'Permesso negato' USING ERRCODE = '42501';
   END IF;
 
@@ -115,7 +118,9 @@ BEGIN
 END;
 $fn$;
 
-REVOKE ALL ON FUNCTION public.aggiorna_mappa_ombrelloni(uuid, uuid[], jsonb, jsonb, jsonb) FROM PUBLIC;
+-- Revoca anche da `anon`: Supabase concede EXECUTE di default a anon su ogni
+-- nuova funzione in public, e il solo REVOKE FROM PUBLIC non lo rimuove.
+REVOKE ALL ON FUNCTION public.aggiorna_mappa_ombrelloni(uuid, uuid[], jsonb, jsonb, jsonb) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.aggiorna_mappa_ombrelloni(uuid, uuid[], jsonb, jsonb, jsonb) TO authenticated;
 
 COMMENT ON FUNCTION public.aggiorna_mappa_ombrelloni(uuid, uuid[], jsonb, jsonb, jsonb) IS
