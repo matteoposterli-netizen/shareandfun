@@ -750,8 +750,22 @@ function switchAvanzateSubtab(sub, btn) {
 let mirataOmbId = null;
 let mirataDayMap = {};   // dateStr -> { id, data, stato, cliente_id }
 let mirataRules = [];    // regole_stato_ombrelloni del periodo
+let mirataPending = {};  // dateStr -> 'force' | 'remove'
+
+// Raggruppa date 'YYYY-MM-DD' (già sortate asc) in blocchi contigui { from, to }.
+function groupContiguousDates(dates) {
+  const blocks = [];
+  let cur = null;
+  for (const d of dates) {
+    const expectedNext = cur ? toLocalDateStr(new Date(new Date(cur.to + 'T00:00:00').getTime() + 86400000)) : null;
+    if (cur && d === expectedNext) cur.to = d;
+    else { cur = { from: d, to: d }; blocks.push(cur); }
+  }
+  return blocks;
+}
 
 function mirataInit() {
+  mirataPending = {};
   populateMirataSelector();
   const sel = document.getElementById('mirata-omb-select');
   if (mirataOmbId && ombrelloniList.find(o => o.id === mirataOmbId)) {
@@ -780,6 +794,13 @@ function populateMirataSelector() {
 
 async function mirataOnSelect() {
   const sel = document.getElementById('mirata-omb-select');
+  if (Object.keys(mirataPending).length > 0) {
+    if (!confirm('Ci sono modifiche non salvate. Cambiare ombrellone le perderà. Continuare?')) {
+      if (sel) sel.value = mirataOmbId || '';
+      return;
+    }
+    mirataPending = {};
+  }
   const id = sel ? sel.value : '';
   if (!id) {
     mirataOmbId = null;
@@ -897,60 +918,124 @@ function mirataRenderDayList() {
       ruleBadge = `<span class="mirata-rule-badge mirata-rule-${rule.type}">${escapeHtml(rule.label)}</span>`;
     }
 
+    const pending = mirataPending[d];
     let actions;
+    let rowCls = '';
+    let pendingBadge = '';
     if (mirataInattivo) {
       actions = `<span class="mirata-day-note">Non attivo</span>`;
     } else if (rule && rule.type === 'chiusura_speciale') {
       actions = `<span class="mirata-day-note">Bloccato</span>`;
     } else if (stato === 'sub_affittato') {
       actions = `<span class="mirata-day-note">Sub-affittato</span>`;
+    } else if (pending === 'force') {
+      rowCls = ' pending-add';
+      pendingBadge = `<span class="mirata-day-pending-badge add">Da salvare: libero</span>`;
+      actions = `<button class="btn btn-outline btn-sm" onclick="mirataTogglePending('${d}','force')">↺ Annulla</button>`;
+    } else if (pending === 'remove') {
+      rowCls = ' pending-remove';
+      pendingBadge = `<span class="mirata-day-pending-badge remove">Da salvare: rimuovi</span>`;
+      actions = `<button class="btn btn-outline btn-sm" onclick="mirataTogglePending('${d}','remove')">↺ Annulla</button>`;
     } else if (stato === 'libero') {
-      actions = `<button class="btn btn-outline btn-sm" onclick="mirataToggleDay('${d}','remove')">✗ Rimuovi</button>`;
+      actions = `<button class="btn btn-outline btn-sm" onclick="mirataTogglePending('${d}','remove')">✗ Rimuovi</button>`;
     } else {
-      actions = `<button class="btn btn-outline btn-sm" onclick="mirataToggleDay('${d}','force')">✓ Rendi libero</button>`;
+      actions = `<button class="btn btn-outline btn-sm" onclick="mirataTogglePending('${d}','force')">✓ Rendi libero</button>`;
     }
 
-    parts.push(`<div class="mirata-day-row">
+    parts.push(`<div class="mirata-day-row${rowCls}">
       <div class="mirata-day-date">${formatDate(d)}</div>
-      <div class="mirata-day-badges">${ruleBadge}<span class="avanzate-day-state ${stato}">${stateLabel}</span></div>
+      <div class="mirata-day-badges">${ruleBadge}<span class="avanzate-day-state ${stato}">${stateLabel}</span>${pendingBadge}</div>
       <div class="mirata-day-actions">${actions}</div>
     </div>`);
   }
   el.innerHTML = parts.join('');
+  mirataRenderPendingBar();
 }
 
-async function mirataToggleDay(date, action) {
+// Toggle pending di una singola data. Re-click sulla stessa azione → rimuove il pending.
+function mirataTogglePending(date, action) {
   if (!mirataOmbId) return;
-  if (action === 'force') {
-    await applyForceDisponibile([mirataOmbId], [date], 'mirata-alert');
-  } else if (action === 'remove') {
-    await applyRemoveDisponibilita([mirataOmbId], date, date, 'mirata-alert');
+  if (mirataPending[date] === action) {
+    delete mirataPending[date];
+  } else {
+    mirataPending[date] = action;
   }
+  mirataRenderDayList();
+}
+
+function mirataRenderPendingBar() {
+  const bar = document.getElementById('mirata-pending-bar');
+  if (!bar) return;
+  const entries = Object.entries(mirataPending);
+  if (!entries.length) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  const adds = entries.filter(([, a]) => a === 'force').length;
+  const removes = entries.filter(([, a]) => a === 'remove').length;
+  const parts = [];
+  if (adds)    parts.push(`<strong>${adds}</strong> ${adds === 1 ? 'giorno da rendere libero' : 'giorni da rendere liberi'}`);
+  if (removes) parts.push(`<strong>${removes}</strong> ${removes === 1 ? 'giorno da rimuovere' : 'giorni da rimuovere'}`);
+  bar.style.display = '';
+  bar.innerHTML = `
+    <div class="stag-pending-info">📝 ${parts.join(' · ')}</div>
+    <div class="stag-pending-actions">
+      <button class="btn btn-outline btn-sm" onclick="mirataAnnullaPending()">↺ Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="mirataSalvaPending()">💾 Salva modifiche</button>
+    </div>`;
+}
+
+function mirataAnnullaPending() {
+  mirataPending = {};
+  mirataRenderDayList();
+}
+
+async function mirataSalvaPending() {
+  if (!mirataOmbId) return;
+  const entries = Object.entries(mirataPending);
+  if (!entries.length) return;
+  const forceDates  = entries.filter(([, a]) => a === 'force').map(([d]) => d).sort();
+  const removeDates = entries.filter(([, a]) => a === 'remove').map(([d]) => d).sort();
+  if (forceDates.length) {
+    const ok = await applyForceDisponibile([mirataOmbId], forceDates, 'mirata-alert');
+    if (ok === false) return;
+  }
+  if (removeDates.length) {
+    const blocks = groupContiguousDates(removeDates);
+    for (const b of blocks) {
+      const ok = await applyRemoveDisponibilita([mirataOmbId], b.from, b.to, 'mirata-alert');
+      if (ok === false) return;
+    }
+  }
+  mirataPending = {};
   await reloadAfterMutation();
   if (mirataOmbId) await mirataLoadOmb(mirataOmbId);
 }
 
-async function mirataBulkForce() {
+function mirataBulkForce() {
   if (!mirataOmbId || !currentStabilimento) return;
   const inizio = currentStabilimento.data_inizio_stagione;
   const fine   = currentStabilimento.data_fine_stagione;
   if (!inizio || !fine) return;
-  const dates = getDatesInRange(inizio, fine);
-  if (!confirm(`Rendere disponibile per sub-affitto questo ombrellone per tutta la stagione (${dates.length} ${dates.length === 1 ? 'giorno' : 'giorni'})? Le date già sub-affittate non verranno toccate.`)) return;
-  await applyForceDisponibile([mirataOmbId], dates, 'mirata-alert');
-  await reloadAfterMutation();
-  if (mirataOmbId) await mirataLoadOmb(mirataOmbId);
+  getDatesInRange(inizio, fine).forEach(d => {
+    const rule = mirataRuleForDate(d);
+    if (rule && rule.type === 'chiusura_speciale') return;
+    const stato = mirataDayMap[d]?.stato;
+    if (stato === 'libero' || stato === 'sub_affittato') return;
+    mirataPending[d] = 'force';
+  });
+  mirataRenderDayList();
 }
 
-async function mirataBulkRemove() {
+function mirataBulkRemove() {
   if (!mirataOmbId || !currentStabilimento) return;
   const inizio = currentStabilimento.data_inizio_stagione;
   const fine   = currentStabilimento.data_fine_stagione;
   if (!inizio || !fine) return;
-  if (!confirm(`Rimuovere lo stato 'libero per sub-affitto' da questo ombrellone per tutta la stagione? I sub-affitti già confermati non verranno toccati.`)) return;
-  await applyRemoveDisponibilita([mirataOmbId], inizio, fine, 'mirata-alert');
-  await reloadAfterMutation();
-  if (mirataOmbId) await mirataLoadOmb(mirataOmbId);
+  getDatesInRange(inizio, fine).forEach(d => {
+    const rule = mirataRuleForDate(d);
+    if (rule && rule.type === 'chiusura_speciale') return;
+    if (mirataDayMap[d]?.stato !== 'libero') return;
+    mirataPending[d] = 'remove';
+  });
+  mirataRenderDayList();
 }
 
 function mirataAdjustSaldo() {
@@ -1026,7 +1111,10 @@ window.switchAvanzateSubtab = switchAvanzateSubtab;
 window.mirataInit = mirataInit;
 window.mirataOnSelect = mirataOnSelect;
 window.mirataLoadOmb = mirataLoadOmb;
-window.mirataToggleDay = mirataToggleDay;
+window.mirataTogglePending = mirataTogglePending;
+window.mirataRenderPendingBar = mirataRenderPendingBar;
+window.mirataAnnullaPending = mirataAnnullaPending;
+window.mirataSalvaPending = mirataSalvaPending;
 window.mirataBulkForce = mirataBulkForce;
 window.mirataBulkRemove = mirataBulkRemove;
 window.mirataAdjustSaldo = mirataAdjustSaldo;

@@ -1237,3 +1237,10 @@ body.view-stagionale .topnav, body:has(#view-stagionale.active) .topnav { displa
     padding: 10px 14px;
   }
 }
+
+/* Pending row state (giorno per giorno gestore) */
+.mirata-day-row.pending-add    { background: rgba(150,221,184,0.20); border-left: 3px solid var(--green); }
+.mirata-day-row.pending-remove { background: rgba(224,123,84,0.15);  border-left: 3px solid var(--coral); }
+.mirata-day-pending-badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; margin-left:6px; }
+.mirata-day-pending-badge.add    { background: var(--green); color:#fff; }
+.mirata-day-pending-badge.remove { background: var(--coral); color:#fff; }
