@@ -2809,6 +2809,10 @@ function checkEditRowDirty() {
 }
 
 function closeEditRowModal() {
+  if (Object.keys(editRowPending).length > 0) {
+    if (!confirm(`Ci sono ${Object.keys(editRowPending).length} modifiche non salvate alla disponibilità. Continuare e perderle?`)) return;
+    editRowPending = {};
+  }
   const ombDirty = isEditRowOmbDirty();
   const cltDirty = isEditRowCltDirty();
   if (!ombDirty && !cltDirty) { closeModal('modal-edit-row'); return; }
@@ -3329,8 +3333,22 @@ function renderViewOmbrelloneCalendar() {
 let editRowDayMap = {};
 let editRowRulesCache = [];
 let editRowDayOmbId = null;
+let editRowPending = {}; // dateStr -> 'force' | 'remove'
+
+// Raggruppa date 'YYYY-MM-DD' (già sortate asc) in blocchi contigui { from, to }.
+function editRowGroupContiguousDates(dates) {
+  const blocks = [];
+  let cur = null;
+  for (const d of dates) {
+    const expectedNext = cur ? toLocalDateStr(new Date(new Date(cur.to + 'T00:00:00').getTime() + 86400000)) : null;
+    if (cur && d === expectedNext) cur.to = d;
+    else { cur = { from: d, to: d }; blocks.push(cur); }
+  }
+  return blocks;
+}
 
 async function loadEditRowDayList(ombId) {
+  if (ombId !== editRowDayOmbId) editRowPending = {};
   editRowDayOmbId = ombId;
   const infoEl = document.getElementById('edit-row-disp-info');
   const listEl = document.getElementById('edit-row-day-list');
@@ -3402,60 +3420,126 @@ function renderEditRowDayList() {
     if (rule) {
       ruleBadge = `<span class="mirata-rule-badge mirata-rule-${rule.type}">${escapeHtml(rule.label)}</span>`;
     }
+    const ombAttivo = (() => { const o = (ombrelloniList || []).find(x => x.id === editRowDayOmbId); return o ? !!o.attivo : true; })();
+    const pending = editRowPending[d];
     let actions;
+    let rowCls = '';
+    let pendingBadge = '';
     if (rule && rule.type === 'chiusura_speciale') {
       actions = `<span class="mirata-day-note">Bloccato</span>`;
     } else if (stato === 'sub_affittato') {
       actions = `<span class="mirata-day-note">Sub-affittato</span>`;
+    } else if (pending === 'force') {
+      rowCls = ' pending-add';
+      pendingBadge = `<span class="mirata-day-pending-badge add">Da salvare: libero</span>`;
+      actions = `<button class="btn btn-outline btn-sm" onclick="editRowTogglePending('${d}','force')">↺ Annulla</button>`;
+    } else if (pending === 'remove') {
+      rowCls = ' pending-remove';
+      pendingBadge = `<span class="mirata-day-pending-badge remove">Da salvare: rimuovi</span>`;
+      actions = `<button class="btn btn-outline btn-sm" onclick="editRowTogglePending('${d}','remove')">↺ Annulla</button>`;
     } else if (stato === 'libero') {
-      const ombAttivo = (() => { const o = (ombrelloniList || []).find(x => x.id === editRowDayOmbId); return o ? !!o.attivo : true; })();
-      actions = `<button class="btn btn-outline btn-sm" onclick="editRowToggleDay('${d}','remove')" ${ombAttivo ? '' : 'disabled'}>✗ Rimuovi</button>`;
+      actions = `<button class="btn btn-outline btn-sm" onclick="editRowTogglePending('${d}','remove')" ${ombAttivo ? '' : 'disabled'}>✗ Rimuovi</button>`;
     } else {
-      const ombAttivo = (() => { const o = (ombrelloniList || []).find(x => x.id === editRowDayOmbId); return o ? !!o.attivo : true; })();
-      actions = `<button class="btn btn-outline btn-sm" onclick="editRowToggleDay('${d}','force')" ${ombAttivo ? '' : 'disabled'}>✓ Rendi libero</button>`;
+      actions = `<button class="btn btn-outline btn-sm" onclick="editRowTogglePending('${d}','force')" ${ombAttivo ? '' : 'disabled'}>✓ Rendi libero</button>`;
     }
-    parts.push(`<div class="mirata-day-row">
+    parts.push(`<div class="mirata-day-row${rowCls}">
       <div class="mirata-day-date">${formatDate(d)}</div>
-      <div class="mirata-day-badges">${ruleBadge}<span class="avanzate-day-state ${stato}">${stateLabel}</span></div>
+      <div class="mirata-day-badges">${ruleBadge}<span class="avanzate-day-state ${stato}">${stateLabel}</span>${pendingBadge}</div>
       <div class="mirata-day-actions">${actions}</div>
     </div>`);
   }
   listEl.innerHTML = parts.join('');
+  editRowRenderPendingBar();
 }
 
-async function editRowToggleDay(date, action) {
+// Toggle pending di una singola data. Re-click sulla stessa azione → rimuove il pending.
+function editRowTogglePending(date, action) {
   if (!editRowDayOmbId) return;
-  if (action === 'force') {
-    await applyForceDisponibile([editRowDayOmbId], [date], 'edit-row-alert');
+  if (editRowPending[date] === action) {
+    delete editRowPending[date];
   } else {
-    await applyRemoveDisponibilita([editRowDayOmbId], date, date, 'edit-row-alert');
+    editRowPending[date] = action;
   }
+  renderEditRowDayList();
+}
+
+function editRowRenderPendingBar() {
+  const bar = document.getElementById('edit-row-pending-bar');
+  if (!bar) return;
+  const entries = Object.entries(editRowPending);
+  if (!entries.length) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  const adds = entries.filter(([, a]) => a === 'force').length;
+  const removes = entries.filter(([, a]) => a === 'remove').length;
+  const parts = [];
+  if (adds)    parts.push(`<strong>${adds}</strong> ${adds === 1 ? 'giorno da rendere libero' : 'giorni da rendere liberi'}`);
+  if (removes) parts.push(`<strong>${removes}</strong> ${removes === 1 ? 'giorno da rimuovere' : 'giorni da rimuovere'}`);
+  bar.style.display = '';
+  bar.innerHTML = `
+    <div class="stag-pending-info">📝 ${parts.join(' · ')}</div>
+    <div class="stag-pending-actions">
+      <button class="btn btn-outline btn-sm" onclick="editRowAnnullaPending()">↺ Annulla</button>
+      <button class="btn btn-primary btn-sm" onclick="editRowSalvaPending()">💾 Salva modifiche</button>
+    </div>`;
+}
+
+function editRowAnnullaPending() {
+  editRowPending = {};
+  renderEditRowDayList();
+}
+
+async function editRowSalvaPending() {
+  if (!editRowDayOmbId) return;
+  const entries = Object.entries(editRowPending);
+  if (!entries.length) return;
+  const forceDates  = entries.filter(([, a]) => a === 'force').map(([d]) => d).sort();
+  const removeDates = entries.filter(([, a]) => a === 'remove').map(([d]) => d).sort();
+  if (forceDates.length) {
+    const ok = await applyForceDisponibile([editRowDayOmbId], forceDates, 'edit-row-alert');
+    if (ok === false) return;
+  }
+  if (removeDates.length) {
+    const blocks = editRowGroupContiguousDates(removeDates);
+    for (const b of blocks) {
+      const ok = await applyRemoveDisponibilita([editRowDayOmbId], b.from, b.to, 'edit-row-alert');
+      if (ok === false) return;
+    }
+  }
+  editRowPending = {};
   await loadManagerData();
   await loadEditRowDayList(editRowDayOmbId);
 }
 
-async function editRowBulkForce() {
+function editRowBulkForce() {
   if (!editRowDayOmbId || !currentStabilimento) return;
   const { data_inizio_stagione: inizio, data_fine_stagione: fine } = currentStabilimento;
   if (!inizio || !fine) return;
-  const dates = getDatesInRange(inizio, fine);
-  if (!confirm(`Rendere disponibile per sub-affitto questo ombrellone per tutta la stagione (${dates.length} giorni)? Le date già sub-affittate non verranno toccate.`)) return;
-  await applyForceDisponibile([editRowDayOmbId], dates, 'edit-row-alert');
-  await loadManagerData();
-  await loadEditRowDayList(editRowDayOmbId);
+  getDatesInRange(inizio, fine).forEach(d => {
+    const rule = editRowRuleForDate(d);
+    if (rule && rule.type === 'chiusura_speciale') return;
+    const stato = editRowDayMap[d]?.stato;
+    if (stato === 'libero' || stato === 'sub_affittato') return;
+    editRowPending[d] = 'force';
+  });
+  renderEditRowDayList();
 }
 
-async function editRowBulkRemove() {
+function editRowBulkRemove() {
   if (!editRowDayOmbId || !currentStabilimento) return;
   const { data_inizio_stagione: inizio, data_fine_stagione: fine } = currentStabilimento;
   if (!inizio || !fine) return;
-  if (!confirm(`Rimuovere lo stato 'libero per sub-affitto' da questo ombrellone per tutta la stagione? I sub-affitti già confermati non verranno toccati.`)) return;
-  await applyRemoveDisponibilita([editRowDayOmbId], inizio, fine, 'edit-row-alert');
-  await loadManagerData();
-  await loadEditRowDayList(editRowDayOmbId);
+  getDatesInRange(inizio, fine).forEach(d => {
+    const rule = editRowRuleForDate(d);
+    if (rule && rule.type === 'chiusura_speciale') return;
+    if (editRowDayMap[d]?.stato !== 'libero') return;
+    editRowPending[d] = 'remove';
+  });
+  renderEditRowDayList();
 }
 
-window.editRowToggleDay  = editRowToggleDay;
+window.editRowTogglePending   = editRowTogglePending;
+window.editRowRenderPendingBar = editRowRenderPendingBar;
+window.editRowAnnullaPending  = editRowAnnullaPending;
+window.editRowSalvaPending    = editRowSalvaPending;
 window.editRowBulkForce  = editRowBulkForce;
 window.editRowBulkRemove = editRowBulkRemove;
 /* ===== END EDIT-ROW DAY LIST ===== */
