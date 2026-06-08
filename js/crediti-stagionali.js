@@ -90,26 +90,35 @@ function renderCreditiStagionali() {
     return;
   }
 
-  listEl.innerHTML = rows.map(r => {
+  const n = v => parseFloat(v || 0).toFixed(2);
+  const body = rows.map(r => {
     const nomeCliente = r.cliente
       ? escapeHtml(((r.cliente.nome || '') + ' ' + (r.cliente.cognome || '')).trim())
-      : '<span style="color:var(--text-light);font-style:italic">Nessun cliente</span>';
+      : '<span class="cst-nessun">Nessun cliente</span>';
     const ombLabel = escapeHtml(r.ombrellone.codice || '');
-    const n = v => parseFloat(v || 0).toFixed(2);
     return `
-      <div class="crediti-stag-card">
-        <div class="crediti-stag-card-left">
-          <div class="crediti-stag-card-omb">${ombLabel}</div>
-          <div class="crediti-stag-card-nome">${nomeCliente}</div>
-        </div>
-        <div class="crediti-stag-coins-compact">
-          <div class="csc-col disponibili"><span class="csc-lbl">Disp</span><span class="csc-num">${n(r.disponibili)}</span></div>
-          <div class="csc-col acquisiti"><span class="csc-lbl">Acq</span><span class="csc-num">${n(r.acquisiti)}</span></div>
-          <div class="csc-col spesi"><span class="csc-lbl">Spesi</span><span class="csc-num">${n(r.spesi)}</span></div>
-        </div>
-        <button type="button" class="crediti-stag-card-btn" onclick="openCreditiStagModal('${r.ombrellone.id}')" aria-label="Vedi transazioni" title="Vedi transazioni">📋</button>
-      </div>`;
+      <tr>
+        <td class="cst-omb">${ombLabel}</td>
+        <td class="cst-nome">${nomeCliente}</td>
+        <td class="cst-num disponibili">${n(r.disponibili)}</td>
+        <td class="cst-num spesi">${n(r.spesi)}</td>
+        <td class="cst-action"><button type="button" class="crediti-stag-card-btn" onclick="openCreditiStagModal('${r.ombrellone.id}')" aria-label="Vedi transazioni" title="Vedi transazioni">📋</button></td>
+      </tr>`;
   }).join('');
+
+  listEl.innerHTML = `
+    <table class="crediti-stag-table">
+      <thead>
+        <tr>
+          <th class="cst-omb">Ombrellone</th>
+          <th class="cst-nome">Stagionale</th>
+          <th class="cst-num">Disp</th>
+          <th class="cst-num">Spesi</th>
+          <th class="cst-action"></th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody>
+    </table>`;
 }
 
 /* ─── Modal dettaglio ─── */
