@@ -183,8 +183,11 @@ function renderMappaStep1() {
         _cellJustCreated = false;
         const currentTipo = mappaState.grid[r][c];
         if (_mappaModalita === 'edit' && currentTipo === CELL_TIPO.OMBRELLONE) {
-          // Le azioni su ombrelloni esistenti in edit mode sono gestite dal click
-          e.preventDefault(); // evita selezione testo durante drag
+          // Le azioni su ombrelloni esistenti in edit mode sono gestite dal click.
+          // NON chiamare e.preventDefault() qui: su Chrome bloccherebbe l'avvio del
+          // drag HTML5 nativo (l'ombrellone ha draggable=true) impedendo lo
+          // spostamento via drag&drop. La selezione testo è gia` impedita via CSS
+          // (.mappa-cell { user-select: none } in styles.css).
           return;
         }
         if (mappaState.modalita === 'modifica') {
