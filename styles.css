@@ -1008,9 +1008,10 @@ body.view-stagionale .topnav, body:has(#view-stagionale.active) .topnav { displa
 .crediti-stag-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 .crediti-stag-filters .form-input { flex: 1 1 180px; min-width: 0; padding: 10px 12px; font-size: 14px; }
 .crediti-stag-list { display: flex; flex-direction: column; gap: 10px; }
-.crediti-stag-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: box-shadow .15s, border-color .15s; -webkit-tap-highlight-color: transparent; }
-.crediti-stag-card:hover, .crediti-stag-card:focus { border-color: var(--ocean); box-shadow: 0 2px 8px rgba(27,108,168,0.10); outline: none; }
-.crediti-stag-card:active { background: #F8F4EE; }
+.crediti-stag-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; }
+.crediti-stag-card-btn { flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); background: #fff; font-size: 16px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; transition: background .15s, border-color .15s, box-shadow .15s; -webkit-tap-highlight-color: transparent; }
+.crediti-stag-card-btn:hover, .crediti-stag-card-btn:focus { background: var(--sand); border-color: var(--ocean); box-shadow: 0 2px 8px rgba(27,108,168,0.10); outline: none; }
+.crediti-stag-card-btn:active { background: #F8F4EE; }
 .crediti-stag-card-left { flex: 1; min-width: 0; }
 .crediti-stag-card-omb { font-size: 11px; font-weight: 700; color: var(--ocean); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 1px; }
 .crediti-stag-card-nome { font-size: 13px; font-weight: 600; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1021,7 +1022,6 @@ body.view-stagionale .topnav, body:has(#view-stagionale.active) .topnav { displa
 .csc-col.disponibili .csc-num { color: var(--ocean); }
 .csc-col.acquisiti   .csc-num { color: #2e7d32; }
 .csc-col.spesi       .csc-num { color: var(--coral); }
-.crediti-stag-card-arrow { font-size: 18px; color: var(--text-light); flex-shrink: 0; pointer-events: none; }
 .crediti-stag-modal-sum-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--sand); }
 .crediti-stag-modal-sum-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .crediti-stag-modal-sum-label { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-light); font-weight: 600; }

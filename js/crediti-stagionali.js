@@ -97,7 +97,7 @@ function renderCreditiStagionali() {
     const ombLabel = escapeHtml(r.ombrellone.codice || '');
     const n = v => parseFloat(v || 0).toFixed(2);
     return `
-      <div class="crediti-stag-card" onclick="openCreditiStagModal('${r.ombrellone.id}')" role="button" tabindex="0">
+      <div class="crediti-stag-card">
         <div class="crediti-stag-card-left">
           <div class="crediti-stag-card-omb">${ombLabel}</div>
           <div class="crediti-stag-card-nome">${nomeCliente}</div>
@@ -107,7 +107,7 @@ function renderCreditiStagionali() {
           <div class="csc-col acquisiti"><span class="csc-lbl">Acq</span><span class="csc-num">${n(r.acquisiti)}</span></div>
           <div class="csc-col spesi"><span class="csc-lbl">Spesi</span><span class="csc-num">${n(r.spesi)}</span></div>
         </div>
-        <span class="crediti-stag-card-arrow">›</span>
+        <button type="button" class="crediti-stag-card-btn" onclick="openCreditiStagModal('${r.ombrellone.id}')" aria-label="Vedi transazioni" title="Vedi transazioni">📋</button>
       </div>`;
   }).join('');
 }
