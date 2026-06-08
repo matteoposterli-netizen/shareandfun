@@ -3930,13 +3930,25 @@ async function riattivaOmbrellone(ombId) {
 }
 
 async function bulkDisattivaOmbrelloni() {
-  const ids = Array.from(gestioneSelection);
-  if (!ids.length) return;
+  const selectedIds = Array.from(gestioneSelection);
+  if (!selectedIds.length) return;
+
+  // Filtra solo gli ombrelloni attualmente attivi
+  const idsAttivi = selectedIds.filter(id => {
+    const o = ombrelloniList.find(x => x.id === id);
+    return o && o.attivo;
+  });
+  const skipped = selectedIds.length - idsAttivi.length;
+
+  if (!idsAttivi.length) {
+    showAlert('gestione-alert', 'Gli ombrelloni selezionati sono già tutti disattivati.', 'info');
+    return;
+  }
 
   const { data: subFuturi } = await sb
     .from('disponibilita')
     .select('id, data, nome_prenotazione, ombrellone_id')
-    .in('ombrellone_id', ids)
+    .in('ombrellone_id', idsAttivi)
     .eq('stato', 'sub_affittato')
     .gte('data', todayStr())
     .order('data');
@@ -3950,26 +3962,78 @@ async function bulkDisattivaOmbrelloni() {
       </div>`;
   }
 
+  const skippedNote = skipped > 0
+    ? `<p style="font-size:13px;color:var(--text-light);margin-top:6px">${skipped} ombrellon${skipped === 1 ? 'e' : 'i'} della selezione ${skipped === 1 ? 'era già disattivato e verrà ignorato' : 'erano già disattivati e verranno ignorati'}.</p>`
+    : '';
+
   const confirmed = await showConfirmModal(
-    `Disattiva ${ids.length} ombrelloni`,
-    `${warningHtml}<p style="font-size:13px">Tutte le disponibilità future dei ${ids.length} ombrelloni selezionati verranno cancellate.</p>`,
+    `Disattiva ${idsAttivi.length} ombrellon${idsAttivi.length === 1 ? 'e' : 'i'}`,
+    `${warningHtml}<p style="font-size:13px">Tutte le disponibilità future ${idsAttivi.length === 1 ? "dell'ombrellone selezionato" : `dei ${idsAttivi.length} ombrelloni selezionati`} verranno cancellate.</p>${skippedNote}`,
     'Disattiva tutti',
     'Annulla'
   );
   if (!confirmed) return;
 
-  const { data, error } = await sb.rpc('disattiva_ombrelloni_bulk', { p_ids: ids });
+  const { error } = await sb.rpc('disattiva_ombrelloni_bulk', { p_ids: idsAttivi });
   if (error) { alert('Errore: ' + error.message); return; }
 
-  ids.forEach(id => {
+  idsAttivi.forEach(id => {
     const idx = ombrelloniList.findIndex(o => o.id === id);
     if (idx >= 0) ombrelloniList[idx].attivo = false;
   });
 
-  await Promise.allSettled(ids.map(id => _inviaEmailDisattivazioneOmbrellone(id)));
+  await Promise.allSettled(idsAttivi.map(id => _inviaEmailDisattivazioneOmbrellone(id)));
 
   clearGestioneSelection();
   renderGestioneFiltered();
   await refreshMap();
-  showAlert('gestione-alert', `${ids.length} ombrelloni disattivati.`, 'success');
+  const msg = skipped > 0
+    ? `${idsAttivi.length} ombrellon${idsAttivi.length === 1 ? 'e disattivato' : 'i disattivati'}. ${skipped} ${skipped === 1 ? 'era già disattivato' : 'erano già disattivati'}.`
+    : `${idsAttivi.length} ombrellon${idsAttivi.length === 1 ? 'e disattivato' : 'i disattivati'}.`;
+  showAlert('gestione-alert', msg, 'success');
+}
+
+async function bulkAttivaOmbrelloni() {
+  const selectedIds = Array.from(gestioneSelection);
+  if (!selectedIds.length) return;
+
+  // Filtra solo gli ombrelloni attualmente disattivati
+  const idsDisattivi = selectedIds.filter(id => {
+    const o = ombrelloniList.find(x => x.id === id);
+    return o && !o.attivo;
+  });
+  const skipped = selectedIds.length - idsDisattivi.length;
+
+  if (!idsDisattivi.length) {
+    showAlert('gestione-alert', 'Gli ombrelloni selezionati sono già tutti attivi.', 'info');
+    return;
+  }
+
+  const skippedNote = skipped > 0
+    ? `<p style="font-size:13px;color:var(--text-light);margin-top:6px">${skipped} ombrellon${skipped === 1 ? 'e' : 'i'} della selezione ${skipped === 1 ? 'era già attivo e verrà ignorato' : 'erano già attivi e verranno ignorati'}.</p>`
+    : '';
+
+  const confirmed = await showConfirmModal(
+    `Riattiva ${idsDisattivi.length} ombrellon${idsDisattivi.length === 1 ? 'e' : 'i'}`,
+    `<p style="font-size:13px">${idsDisattivi.length === 1 ? "L'ombrellone tornerà attivo" : 'Gli ombrelloni torneranno attivi'}. Nessuna disponibilità verrà creata automaticamente: ${idsDisattivi.length === 1 ? 'lo stagionale assegnato risulterà "presente" (occupato)' : 'gli stagionali assegnati risulteranno "presenti" (occupati)'} su tutti i giorni finché non ${idsDisattivi.length === 1 ? 'dichiara' : 'dichiarano'} le assenze.</p>${skippedNote}`,
+    'Riattiva tutti',
+    'Annulla'
+  );
+  if (!confirmed) return;
+
+  const { error } = await sb.rpc('riattiva_ombrelloni_bulk', { p_ids: idsDisattivi });
+  if (error) { alert('Errore: ' + error.message); return; }
+
+  idsDisattivi.forEach(id => {
+    const idx = ombrelloniList.findIndex(o => o.id === id);
+    if (idx >= 0) ombrelloniList[idx].attivo = true;
+  });
+
+  clearGestioneSelection();
+  renderGestioneFiltered();
+  await refreshMap();
+  const msg = skipped > 0
+    ? `${idsDisattivi.length} ombrellon${idsDisattivi.length === 1 ? 'e riattivato' : 'i riattivati'}. ${skipped} ${skipped === 1 ? 'era già attivo' : 'erano già attivi'}.`
+    : `${idsDisattivi.length} ombrellon${idsDisattivi.length === 1 ? 'e riattivato' : 'i riattivati'}.`;
+  showAlert('gestione-alert', msg, 'success');
 }
