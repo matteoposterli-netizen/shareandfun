@@ -3,7 +3,8 @@
 // Tre sotto-tab:
 //   • Email   — broadcast email ai clienti tramite Edge Function `invia-email`
 //               (tipo 'comunicazione', template standard SpiaggiaMia).
-//   • WhatsApp — placeholder UI con banner "Stiamo lavorando…".
+//   • WhatsApp — banner stato wa_enabled + registro read-only degli ultimi
+//               200 messaggi inviati (`wa_messages_log`, filtri client-side).
 //   • SMS      — placeholder UI con banner "Stiamo lavorando…".
 //
 // Per ogni email inviata con successo viene inserita una riga
@@ -20,6 +21,8 @@ let commClientiCache = [];             // clienti con email + ombrellone (id, no
 let commManualSelected = new Set();    // id clienti selezionati nel modo "Selezione manuale"
 let commIsSending = false;
 let commCurrentTab = 'email';
+let commWaLog = [];                    // cache messaggi WhatsApp caricati da wa_messages_log
+let commWaLogExpanded = new Set();     // id righe con testo espanso
 
 /* ---------- Init ---------- */
 
@@ -49,13 +52,160 @@ function _renderCommWaStatus() {
   const el = document.getElementById('comm-wa-status-body');
   if (!el || !currentStabilimento) return;
   const enabled = !!currentStabilimento.wa_enabled;
-  el.innerHTML = enabled
+  const banner = enabled
     ? `<div class="alert" style="background:#e8f5e9;border-left:3px solid #4caf50;padding:12px;border-radius:6px;font-size:13px">
          ✅ <strong>WhatsApp attivo</strong> — i messaggi automatici vengono inviati ai clienti con consenso.
        </div>`
     : `<div class="alert alert-info" style="font-size:13px">
          ⚠️ WhatsApp non è ancora attivo per questo stabilimento. Attivalo in <strong>Configurazioni → WhatsApp</strong>.
        </div>`;
+  el.innerHTML = `
+    ${banner}
+    <div style="margin-top:18px">
+      <div style="font-weight:600;font-size:14px;margin-bottom:8px">📒 Registro messaggi inviati</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <select id="comm-wa-f-tipo" onchange="renderCommWaLogTable()" style="font-size:13px;padding:6px 8px">
+          <option value="">Tutti i tipi</option>
+          <option value="invito">Invito</option>
+          <option value="benvenuto">Benvenuto</option>
+          <option value="variazione_credito">Variazione credito</option>
+          <option value="recupero_password">Recupero password</option>
+        </select>
+        <select id="comm-wa-f-stato" onchange="renderCommWaLogTable()" style="font-size:13px;padding:6px 8px">
+          <option value="">Tutti gli stati</option>
+          <option value="queued">In coda (queued)</option>
+          <option value="sent">Inviato (sent)</option>
+          <option value="delivered">Consegnato (delivered)</option>
+          <option value="read">Letto (read)</option>
+          <option value="failed">Fallito (failed)</option>
+          <option value="undelivered">Non consegnato (undelivered)</option>
+        </select>
+        <input id="comm-wa-f-search" type="text" placeholder="Cerca nome o numero…"
+               oninput="renderCommWaLogTable()" style="font-size:13px;padding:6px 8px;flex:1;min-width:160px">
+        <button class="btn btn-outline btn-sm" type="button" onclick="loadCommWaLog()">🔄 Aggiorna</button>
+      </div>
+      <div id="comm-wa-log-body"><div class="comm-empty">Caricamento…</div></div>
+    </div>`;
+  loadCommWaLog();
+}
+
+async function loadCommWaLog() {
+  const container = document.getElementById('comm-wa-log-body');
+  if (!container || !currentStabilimento?.id) return;
+  const { data, error } = await sb.from('wa_messages_log')
+    .select('id, created_at, tipo, to_number, status, error_code, error_message, body, clienti_stagionali:cliente_id(nome,cognome)')
+    .eq('stabilimento_id', currentStabilimento.id)
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error) {
+    console.error('loadCommWaLog:', error);
+    container.innerHTML = '<div class="alert alert-error" style="font-size:13px">Errore nel caricamento del registro messaggi.</div>';
+    return;
+  }
+  commWaLog = data || [];
+  renderCommWaLogTable();
+}
+
+const COMM_WA_TIPO_LABELS = {
+  invito: 'Invito',
+  benvenuto: 'Benvenuto',
+  variazione_credito: 'Variazione credito',
+  recupero_password: 'Recupero password',
+};
+
+const COMM_WA_STATUS_BADGES = {
+  queued:      { label: 'In coda',        bg: '#eceff1', fg: '#455a64' },
+  sent:        { label: 'Inviato',        bg: '#eceff1', fg: '#455a64' },
+  delivered:   { label: 'Consegnato',     bg: '#e8f5e9', fg: '#2e7d32' },
+  read:        { label: 'Letto',          bg: '#e3f2fd', fg: '#1565c0' },
+  failed:      { label: 'Fallito',        bg: '#ffebee', fg: '#c62828' },
+  undelivered: { label: 'Non consegnato', bg: '#ffebee', fg: '#c62828' },
+};
+
+function renderCommWaLogTable() {
+  const container = document.getElementById('comm-wa-log-body');
+  if (!container) return;
+  const fTipo = document.getElementById('comm-wa-f-tipo')?.value || '';
+  const fStato = document.getElementById('comm-wa-f-stato')?.value || '';
+  const fSearch = (document.getElementById('comm-wa-f-search')?.value || '').trim().toLowerCase();
+
+  const rows = commWaLog.filter(m => {
+    if (fTipo && m.tipo !== fTipo) return false;
+    if (fStato && m.status !== fStato) return false;
+    if (fSearch) {
+      const cliente = m.clienti_stagionali
+        ? `${m.clienti_stagionali.nome || ''} ${m.clienti_stagionali.cognome || ''}` : '';
+      const hay = `${cliente} ${m.to_number || ''}`.toLowerCase();
+      if (!hay.includes(fSearch)) return false;
+    }
+    return true;
+  });
+
+  if (!rows.length) {
+    container.innerHTML = '<div class="comm-empty">Nessun messaggio trovato.</div>';
+    return;
+  }
+
+  const thStyle = 'padding:6px 8px;text-align:left;font-weight:600;font-size:12px;color:var(--text-mid);white-space:nowrap';
+  const tdStyle = 'padding:6px 8px;vertical-align:top;border-top:1px solid var(--border)';
+
+  const trs = rows.map(m => {
+    const dt = new Date(m.created_at);
+    const quando = `${dt.toLocaleDateString('it-IT')} ${dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`;
+    const cliente = m.clienti_stagionali
+      ? `${m.clienti_stagionali.cognome || ''} ${m.clienti_stagionali.nome || ''}`.trim() || '—'
+      : '—';
+    const tipo = COMM_WA_TIPO_LABELS[m.tipo] || m.tipo || '—';
+    const badge = COMM_WA_STATUS_BADGES[m.status] || { label: m.status || '—', bg: '#eceff1', fg: '#455a64' };
+    const errore = m.error_code
+      ? `<div style="font-size:11px;color:#c62828;margin-top:3px">err ${escapeHtml(String(m.error_code))}: ${escapeHtml(m.error_message || '')}</div>`
+      : '';
+    const expanded = commWaLogExpanded.has(m.id);
+    const bodyRow = expanded
+      ? `<tr><td colspan="6" style="${tdStyle};background:#fafafa">${
+          m.body != null
+            ? `<div style="white-space:pre-wrap;font-size:13px">${escapeHtml(m.body)}</div>`
+            : '<em style="font-size:13px;color:var(--text-mid)">Testo non disponibile (messaggio precedente al 12/06/2026)</em>'
+        }</td></tr>`
+      : '';
+    return `<tr>
+      <td style="${tdStyle};white-space:nowrap">${escapeHtml(quando)}</td>
+      <td style="${tdStyle}">${escapeHtml(cliente)}</td>
+      <td style="${tdStyle}">${escapeHtml(tipo)}</td>
+      <td style="${tdStyle};white-space:nowrap">${escapeHtml(m.to_number || '—')}</td>
+      <td style="${tdStyle}">
+        <span style="display:inline-block;border-radius:10px;padding:2px 8px;font-size:12px;background:${badge.bg};color:${badge.fg}">${escapeHtml(badge.label)}</span>
+        ${errore}
+      </td>
+      <td style="${tdStyle};text-align:center">
+        <button class="btn btn-outline btn-sm" type="button" title="${expanded ? 'Nascondi testo' : 'Mostra testo'}"
+                onclick="commWaLogToggleBody('${escapeHtml(m.id)}')">📄</button>
+      </td>
+    </tr>${bodyRow}`;
+  }).join('');
+
+  container.innerHTML = `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr>
+            <th style="${thStyle}">Data/ora</th>
+            <th style="${thStyle}">Cliente</th>
+            <th style="${thStyle}">Tipo</th>
+            <th style="${thStyle}">Numero</th>
+            <th style="${thStyle}">Stato</th>
+            <th style="${thStyle}"></th>
+          </tr>
+        </thead>
+        <tbody>${trs}</tbody>
+      </table>
+    </div>`;
+}
+
+function commWaLogToggleBody(id) {
+  if (commWaLogExpanded.has(id)) commWaLogExpanded.delete(id);
+  else commWaLogExpanded.add(id);
+  renderCommWaLogTable();
 }
 
 /* ---------- Bozze ---------- */

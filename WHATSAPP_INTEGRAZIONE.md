@@ -674,6 +674,20 @@ interno) → Twilio API → WA delivery.
   Altri tipi (benvenuto, subaffitto, recupero_password) già corretti,
   non toccati.
 
+### Registro messaggi (12/06/2026)
+
+- La colonna `wa_messages_log.body` viene popolata dal webhook (v2) con una
+  GET sul Message resource Twilio al primo status callback `sent`/
+  `delivered`/`read`. I messaggi precedenti al 12/06/2026 hanno `body` NULL.
+- Nuova tabella read-only nel tab Comunicazioni → sotto-tab WhatsApp del
+  proprietario (`js/comunicazioni.js`): ultimi 200 messaggi da
+  `wa_messages_log` (query diretta protetta da RLS proprietario, embed
+  PostgREST `clienti_stagionali:cliente_id(nome,cognome)`), con filtri
+  client-side per tipo/stato + ricerca su nome cliente e numero, badge di
+  stato colorati (con `error_code`/`error_message` quando presenti) e testo
+  del messaggio espandibile per riga (📄). Nessuna azione di modifica o
+  cancellazione.
+
 ## 10. Come riprendere il test (quando Meta approva)
 
 **Per i 3 template invito/benvenuto/subaffitto** (ancora pending):
