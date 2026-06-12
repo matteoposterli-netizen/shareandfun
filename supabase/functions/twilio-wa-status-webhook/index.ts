@@ -4,6 +4,12 @@
 // Verifica la firma Twilio (X-Twilio-Signature) per sicurezza, poi
 // aggiorna la riga corrispondente in wa_messages_log.
 //
+// Da v2 (12 giu 2026): al primo status sent/delivered/read, se la riga
+// non ha ancora `body`, recupera il testo renderizzato del messaggio
+// dal Message resource di Twilio e lo salva in wa_messages_log.body.
+// I messaggi partono via Content Template, quindi il testo esatto è
+// noto solo a Twilio dopo il rendering.
+//
 // Configurazione Supabase: verify_jwt = false (Twilio chiama senza JWT).
 // La sicurezza e' garantita dalla verifica HMAC-SHA1 della firma con
 // TWILIO_AUTH_TOKEN.
@@ -11,6 +17,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") ?? "";
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -48,6 +55,28 @@ async function computeTwilioSignature(
   const signature = await crypto.subtle.sign("HMAC", key, dataBytes);
   // Base64-encode the binary signature
   return btoa(String.fromCharCode(...new Uint8Array(signature)));
+}
+
+// Recupera il body renderizzato del messaggio dal Message resource Twilio.
+// Best-effort: in caso di errore ritorna null senza bloccare il webhook.
+async function fetchRenderedBody(messageSid: string): Promise<string | null> {
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) return null;
+  try {
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages/${messageSid}.json`;
+    const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
+    const res = await fetch(url, {
+      headers: { "Authorization": `Basic ${auth}` },
+    });
+    if (!res.ok) {
+      console.warn(`Twilio message fetch failed: ${res.status}`);
+      return null;
+    }
+    const msg = await res.json();
+    return typeof msg.body === "string" && msg.body.length ? msg.body : null;
+  } catch (e) {
+    console.warn("Twilio message fetch error", e);
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -131,6 +160,23 @@ Deno.serve(async (req) => {
     // Twilio fara' altri retry per i prossimi cambi di stato.
     console.warn("Webhook for unknown twilio_sid (race condition?)", messageSid);
     return new Response("OK (no row)", { status: 200 });
+  }
+
+  // Salvataggio del testo renderizzato: solo al primo status utile
+  // (sent/delivered/read) e solo se la riga non ha gia' un body.
+  // Best-effort: un fallimento qui non blocca il webhook (Twilio
+  // riprovera' ai prossimi cambi di stato finche' body resta NULL).
+  const row = data[0];
+  const bodyReady = ["sent", "delivered", "read"].includes(messageStatus);
+  if (bodyReady && row && !row.body) {
+    const body = await fetchRenderedBody(messageSid);
+    if (body) {
+      const { error: bodyErr } = await admin
+        .from("wa_messages_log")
+        .update({ body })
+        .eq("twilio_sid", messageSid);
+      if (bodyErr) console.warn("wa_messages_log body update failed", bodyErr);
+    }
   }
 
   console.log(
