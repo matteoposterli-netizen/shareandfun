@@ -188,7 +188,7 @@ async function panoramicaLoad() {
 
 function renderKpis() {
   const { dispRows, distrRows, spentRows, revoRows } = panoramicaState.data;
-  const dispCount = dispRows.filter(r => r.stato === 'libero' || r.stato === 'sub_affittato').length;
+  const dispCount = dispRows.filter(r => r.stato === 'libero').length;
   const prenCount = dispRows.filter(r => r.stato === 'sub_affittato').length;
   const spentSum  = spentRows.reduce((s, r) => s + parseFloat(r.importo || 0), 0);
 
@@ -206,7 +206,7 @@ function renderKpis() {
   };
 
   const { from, to } = panoramicaState;
-  const sparkDisp  = fillSeries(groupByDay(dispRows.filter(r => r.stato === 'libero' || r.stato === 'sub_affittato'), 'data'), from, to);
+  const sparkDisp  = fillSeries(groupByDay(dispRows.filter(r => r.stato === 'libero'), 'data'), from, to);
   const sparkPren  = fillSeries(groupByDay(dispRows.filter(r => r.stato === 'sub_affittato'), 'data'), from, to);
 
   // Sparkline coin netta: groupByDay restituisce una Map, quindi usiamo Map.set/get.
@@ -316,7 +316,7 @@ function renderTrendChart(chart) {
   const buckets = bucketKeysForRange(from, to, gran);
   let mapA, mapB, colorA, colorB, isCoin;
   if (chart === 'disp') {
-    mapA = aggregateByBucket(dispRows.filter(r => r.stato === 'libero' || r.stato === 'sub_affittato'), 'data', null, false, gran);
+    mapA = aggregateByBucket(dispRows.filter(r => r.stato === 'libero'), 'data', null, false, gran);
     mapB = aggregateByBucket(dispRows.filter(r => r.stato === 'sub_affittato'), 'data', null, false, gran);
     colorA = 'var(--ocean,#1B6CA8)';
     colorB = 'var(--coral,#E07B54)';
@@ -447,7 +447,7 @@ function renderTopUsage() {
   const dichByOmb = new Map();
   const subByOmb = new Map();
   dispRows.forEach(r => {
-    if (r.stato === 'libero' || r.stato === 'sub_affittato') {
+    if (r.stato === 'libero') {
       dichByOmb.set(r.ombrellone_id, (dichByOmb.get(r.ombrellone_id) || 0) + 1);
     }
     if (r.stato === 'sub_affittato') {
@@ -467,7 +467,7 @@ function renderTopUsage() {
   items.sort((x, y) => y[sortKey] - x[sortKey] || y.a - x.a);
   const top = items.slice(0, 5);
 
-  drawTopBars(target, top, 'var(--ocean,#1B6CA8)', 'var(--coral,#E07B54)', false, 'Dichiarate', 'Sub-affittate');
+  drawTopBars(target, top, 'var(--ocean,#1B6CA8)', 'var(--coral,#E07B54)', false, 'Disponibili', 'Sub-affittate');
 }
 
 function renderTopCoin() {
