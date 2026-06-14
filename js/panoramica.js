@@ -146,26 +146,36 @@ async function panoramicaLoad() {
     // "Coin distribuiti" deve essere netto (ricevuto - revocato): se una
     // prenotazione viene annullata i coin vengono revocati e NON devono
     // comparire come distribuiti nella panoramica.
-    const [dispCur, distrCur, spentCur, revoCur] = await Promise.all([
-      sb.from('disponibilita').select('ombrellone_id,data,stato')
-        .in('ombrellone_id', ombIds).gte('data', from).lte('data', to),
-      sb.from('transazioni').select('ombrellone_id,cliente_id,importo,created_at')
-        .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_ricevuto')
-        .gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59'),
-      sb.from('transazioni').select('ombrellone_id,cliente_id,importo,created_at')
-        .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_usato')
-        .gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59'),
-      sb.from('transazioni').select('ombrellone_id,cliente_id,importo,created_at')
-        .eq('stabilimento_id', currentStabilimento.id).eq('tipo', 'credito_revocato')
-        .gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59'),
+    // Paginazione: PostgREST tronca a 1000 righe per query. Con molti ombrelloni
+    // disponibilita (e in stagione anche le transazioni) superano le 1000 righe,
+    // quindi scarichiamo a pagine di 1000 ordinando per id (stabile) finché la
+    // pagina restituita è piena. Cosi' KPI/andamento/top contano TUTTE le righe.
+    const fetchAll = async (build) => {
+      const PAGE = 1000;
+      let offset = 0, out = [], page;
+      do {
+        const { data, error } = await build().order('id').range(offset, offset + PAGE - 1);
+        if (error) throw error;
+        page = data || [];
+        out = out.concat(page);
+        offset += PAGE;
+      } while (page.length === PAGE);
+      return out;
+    };
+    const txByTipo = (tipo) => sb.from('transazioni')
+      .select('ombrellone_id,cliente_id,importo,created_at')
+      .eq('stabilimento_id', currentStabilimento.id).eq('tipo', tipo)
+      .gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59');
+
+    const [dispRows, distrRows, spentRows, revoRows] = await Promise.all([
+      fetchAll(() => sb.from('disponibilita').select('ombrellone_id,data,stato')
+        .in('ombrellone_id', ombIds).gte('data', from).lte('data', to)),
+      fetchAll(() => txByTipo('credito_ricevuto')),
+      fetchAll(() => txByTipo('credito_usato')),
+      fetchAll(() => txByTipo('credito_revocato')),
     ]);
 
-    panoramicaState.data = {
-      dispRows:  dispCur.data  || [],
-      distrRows: distrCur.data || [],
-      spentRows: spentCur.data || [],
-      revoRows:  revoCur.data  || [],   // coin revocati per prenotazioni annullate
-    };
+    panoramicaState.data = { dispRows, distrRows, spentRows, revoRows };
 
     renderKpis();
     updateGranularityEnabled();
