@@ -1955,6 +1955,19 @@ function renderPrenotazioniTabella(ordered, filterRange) {
     <thead><tr><th class="pren-tab-corner-th">Prenotazione</th>${headerCells}</tr></thead>
     <tbody>${rowsHtml}</tbody>
   </table></div>`;
+
+  // All'apertura posiziona lo scroll orizzontale su "oggi" (se presente nel range):
+  // la colonna di oggi si allinea subito dopo la colonna fissa "Prenotazione",
+  // così i giorni passati restano raggiungibili scrollando verso sinistra.
+  const wrap = tabEl.querySelector('.pren-tab-wrap');
+  const todayTh = wrap && wrap.querySelector('.pren-tab-day-th.today');
+  const cornerTh = wrap && wrap.querySelector('.pren-tab-corner-th');
+  if (wrap && todayTh && cornerTh) {
+    requestAnimationFrame(() => {
+      const delta = todayTh.getBoundingClientRect().left - cornerTh.getBoundingClientRect().right;
+      if (delta > 0) wrap.scrollLeft += delta;
+    });
+  }
 }
 
 function escapeHtmlAttr(s) {
