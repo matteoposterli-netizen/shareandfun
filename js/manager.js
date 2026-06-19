@@ -482,14 +482,14 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
 
     if (!o.attivo) {
       el2.className = 'ombrellone inactive';
-      el2.textContent = '☂️';
+      el2.textContent = o.codice || '';
       el2.title = `${o.codice} — Non attivo`;
       return el2;
     }
 
     if (allOutOfSeason) {
       el2.className = 'ombrellone fuori-stagione';
-      el2.textContent = '☂️';
+      el2.textContent = o.codice || '';
       el2.title = `${o.codice} — fuori stagione`;
       return el2;
     }
@@ -504,7 +504,7 @@ function renderManagerMap(ombs, dispMap, opts = {}) {
     const hasCliente = (clientiList || []).some(c => !c.rifiutato && c.ombrellone_id === o.id);
     const noClienteCls = !hasCliente ? ' no-cliente' : '';
     el2.className = 'ombrellone ' + cls + noClienteCls + (isSelected ? ' selected' : '');
-    el2.textContent = '☂️';
+    el2.textContent = o.codice || '';
     const fmtDay = d => {
       const dt = new Date(d + 'T00:00:00');
       return dt.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
@@ -3636,9 +3636,7 @@ function renderGestioneMappa() {
         cellDiv.className = 'ombrellone empty-cell';
         cellDiv.style.cssText = 'background:transparent;border:none;cursor:default';
       } else if (cell.type === 'passerella') {
-        cellDiv.className = 'ombrellone passerella-cell';
-        cellDiv.style.cssText = 'background:var(--sand);border:1px solid #d4c4a0;cursor:default;font-size:11px;color:var(--text-light)';
-        cellDiv.textContent = '—';
+        cellDiv.className = 'map-passerella';
         cellDiv.title = 'Passerella';
       } else {
         const omb = cell.data;
