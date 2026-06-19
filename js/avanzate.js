@@ -243,7 +243,7 @@ function renderAvanzateMap(ombs, dispMap) {
     if (!o.attivo) {
       const cell = document.createElement('div');
       cell.className = 'ombrellone inactive';
-      cell.textContent = '☂️';
+      cell.textContent = o.codice || '';
       cell.title = `${o.codice} — Non attivo`;
       return cell;
     }
@@ -256,7 +256,7 @@ function renderAvanzateMap(ombs, dispMap) {
     const noClienteCls = !hasCliente ? ' no-cliente' : '';
     const cell = document.createElement('div');
     cell.className = 'ombrellone ' + cls + noClienteCls;
-    cell.textContent = '☂️';
+    cell.textContent = o.codice || '';
     const stateLabel = stato === 'libero' && !hasCliente ? 'subaffittabile (nessun cliente assegnato)'
       : stato === 'libero' ? 'libero per tutto il periodo'
       : stato === 'parziale' ? 'libero in parte del periodo'
