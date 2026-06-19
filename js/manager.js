@@ -359,8 +359,6 @@ async function loadManagerData() {
   await refreshMap();
   renderGestioneTable(ombrelloniList, dispMap, clientiList);
   loadOmbViewMode();
-  applyDefaultPrenFilter(today);
-  initPrenRangePicker();
   await loadPrenotazioni();
   populateClienteSelect();
   if (!document.getElementById('analytics-date-from').value) {
@@ -441,17 +439,6 @@ async function loadDashboardCreditsKpis() {
   setText('dash-crediti-spesi', formatCoin(spesi));
   setText('dash-subaffitti', subaffitti);
   setText('dash-subaffitti-sub', subaffitti === 1 ? 'giornata sub-affittata' : 'giornate sub-affittate');
-}
-
-function applyDefaultPrenFilter(today) {
-  const fromEl = document.getElementById('pren-filter-from');
-  const toEl = document.getElementById('pren-filter-to');
-  if (!fromEl || !toEl) return;
-  if (fromEl.value || toEl.value) return;
-  const start = new Date(today + 'T00:00:00');
-  const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 30);
-  fromEl.value = toLocalDateStr(start);
-  toEl.value = toLocalDateStr(end);
 }
 
 function renderManagerMap(ombs, dispMap, opts = {}) {
@@ -1712,124 +1699,14 @@ async function finalizeBookingSelection() {
 function clearPrenFilters() {
   const n = document.getElementById('pren-filter-nome');
   const o = document.getElementById('pren-filter-ombrellone');
-  const f = document.getElementById('pren-filter-from');
-  const to = document.getElementById('pren-filter-to');
   if (n) n.value = '';
   if (o) o.value = '';
-  if (f) f.value = '';
-  if (to) to.value = '';
-  if (prenRangePickerInstance) prenRangePickerInstance.clear();
   renderPrenotazioni();
 }
 
 function matchesOmbrelloneQuery(omb, query) {
   const codice = String(omb.codice || '').toLowerCase();
   return codice === query || codice.includes(query);
-}
-
-let prenRangePickerInstance = null;
-function initPrenRangePicker() {
-  if (typeof flatpickr === 'undefined') return;
-  const input = document.getElementById('pren-range-picker');
-  if (!input) return;
-  const fromVal = document.getElementById('pren-filter-from')?.value || '';
-  const toVal = document.getElementById('pren-filter-to')?.value || fromVal;
-  const defaults = [];
-  if (fromVal) defaults.push(new Date(fromVal + 'T00:00:00'));
-  if (toVal && toVal !== fromVal) defaults.push(new Date(toVal + 'T00:00:00'));
-  if (prenRangePickerInstance) {
-    prenRangePickerInstance.set('minDate', currentStabilimento?.data_inizio_stagione || undefined);
-    prenRangePickerInstance.set('maxDate', currentStabilimento?.data_fine_stagione || undefined);
-    if (defaults.length) prenRangePickerInstance.setDate(defaults, false);
-    else prenRangePickerInstance.clear();
-    return;
-  }
-  prenRangePickerInstance = flatpickr(input, {
-    mode: 'range',
-    locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
-    dateFormat: 'd/m/Y',
-    defaultDate: defaults.length ? defaults : null,
-    showMonths: 1,
-    disableMobile: true,
-    minDate: currentStabilimento?.data_inizio_stagione || undefined,
-    maxDate: currentStabilimento?.data_fine_stagione || undefined,
-    onChange: (selectedDates) => {
-      if (selectedDates.length === 2) {
-        const from = toLocalDateStr(selectedDates[0]);
-        const to = toLocalDateStr(selectedDates[1]);
-        document.getElementById('pren-filter-from').value = from;
-        document.getElementById('pren-filter-to').value = to;
-        renderPrenotazioni();
-      } else if (selectedDates.length === 1) {
-        const from = toLocalDateStr(selectedDates[0]);
-        document.getElementById('pren-filter-from').value = from;
-        document.getElementById('pren-filter-to').value = from;
-      } else {
-        document.getElementById('pren-filter-from').value = '';
-        document.getElementById('pren-filter-to').value = '';
-        renderPrenotazioni();
-      }
-    },
-  });
-}
-
-function setPrenRange(preset) {
-  const today = todayStr();
-  let from, to;
-  if (preset === 'today') {
-    from = to = today;
-  } else if (preset === 'next7') {
-    const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 6);
-    from = today; to = toLocalDateStr(end);
-  } else if (preset === 'next30') {
-    const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 29);
-    from = today; to = toLocalDateStr(end);
-  } else if (preset === 'last7') {
-    const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 6);
-    from = toLocalDateStr(start); to = today;
-  } else if (preset === 'last30') {
-    const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 29);
-    from = toLocalDateStr(start); to = today;
-  } else return;
-  document.getElementById('pren-filter-from').value = from;
-  document.getElementById('pren-filter-to').value = to;
-  if (prenRangePickerInstance) {
-    prenRangePickerInstance.setDate([new Date(from + 'T00:00:00'), new Date(to + 'T00:00:00')], false);
-  }
-  renderPrenotazioni();
-}
-
-function updatePrenPresetActive() {
-  const from = document.getElementById('pren-filter-from')?.value || '';
-  const to = document.getElementById('pren-filter-to')?.value || '';
-  const today = todayStr();
-  let active = null;
-  if (from && to) {
-    if (from === today && to === today) {
-      active = 'today';
-    } else if (from === today) {
-      const start = new Date(from + 'T00:00:00');
-      const endD = new Date(to + 'T00:00:00');
-      const diff = Math.round((endD - start) / 86400000) + 1;
-      if (diff === 7) active = 'next7';
-      else if (diff === 30) active = 'next30';
-    } else if (to === today) {
-      const start = new Date(from + 'T00:00:00');
-      const endD = new Date(to + 'T00:00:00');
-      const diff = Math.round((endD - start) / 86400000) + 1;
-      if (diff === 7) active = 'last7';
-      else if (diff === 30) active = 'last30';
-    }
-  }
-  document.querySelectorAll('.pren-preset-btn').forEach(btn => {
-    if (btn.dataset.preset === active) {
-      btn.classList.remove('btn-outline');
-      btn.classList.add('btn-primary');
-    } else {
-      btn.classList.remove('btn-primary');
-      btn.classList.add('btn-outline');
-    }
-  });
 }
 
 let prenotazioniList = [];
@@ -1860,25 +1737,14 @@ function renderPrenotazioni() {
   const countEl = document.getElementById('pren-count-label');
   if (!tabEl) return;
 
-  updatePrenPresetActive();
-
   const qNome = (document.getElementById('pren-filter-nome')?.value || '').trim().toLowerCase();
   const qOmb  = (document.getElementById('pren-filter-ombrellone')?.value || '').trim().toLowerCase();
-  const from = document.getElementById('pren-filter-from')?.value || '';
-  const to = document.getElementById('pren-filter-to')?.value || '';
-  if (from && to && from > to) {
-    if (countEl) countEl.textContent = '';
-    tabEl.innerHTML = '<div class="tx-empty">Periodo non valido: la data iniziale è successiva a quella finale</div>';
-    return;
-  }
 
   const ombsMap = ombById();
   const cliById = {};
   (clientiList || []).forEach(c => { cliById[c.id] = c; });
 
   const rows = (prenotazioniList || []).filter(p => {
-    if (from && p.data < from) return false;
-    if (to && p.data > to) return false;
     if (qNome && !(p.nome_prenotazione || '').toLowerCase().includes(qNome)) return false;
     if (qOmb) {
       const omb = ombsMap[p.ombrellone_id];
@@ -1938,7 +1804,7 @@ function renderPrenotazioni() {
     countEl.textContent = `${totalGroups} prenotazion${totalGroups === 1 ? 'e' : 'i'} · ${totalBookings} sub-affitt${totalBookings === 1 ? 'o' : 'i'}`;
   }
 
-  renderPrenotazioniTabella(ordered, { from, to });
+  renderPrenotazioniTabella(ordered, {});
 }
 
 // Estrae versione breve del nome prenotazione per la vista Tabella.
