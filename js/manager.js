@@ -1833,17 +1833,18 @@ function updatePrenPresetActive() {
 }
 
 let prenotazioniList = [];
-let prenViewMode = 'lista';
+let prenViewMode = 'tabella';
 
 function prenViewStorageKey() {
   return `pren-view-mode:${currentStabilimento?.id || 'default'}`;
 }
 
 function loadPrenViewMode() {
+  // Default 'tabella'; si rispetta solo la scelta esplicita 'lista' salvata in precedenza.
   try {
     const v = localStorage.getItem(prenViewStorageKey());
-    prenViewMode = (v === 'tabella') ? 'tabella' : 'lista';
-  } catch (_) { prenViewMode = 'lista'; }
+    prenViewMode = (v === 'lista') ? 'lista' : 'tabella';
+  } catch (_) { prenViewMode = 'tabella'; }
   syncPrenViewToggleUI();
 }
 
