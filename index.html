@@ -1185,10 +1185,6 @@
           <div class="card-header" style="flex-wrap:wrap;gap:10px">
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
               <div class="card-title">Elenco prenotazioni</div>
-              <div class="pren-view-toggle" role="tablist" aria-label="Modalità di visualizzazione">
-                <button type="button" class="pren-view-btn" data-view="lista" role="tab" aria-selected="false" onclick="setPrenViewMode('lista')">📋 Lista</button>
-                <button type="button" class="pren-view-btn active" data-view="tabella" role="tab" aria-selected="true" onclick="setPrenViewMode('tabella')">🗓️ Tabella</button>
-              </div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               <input type="search" id="pren-filter-nome" class="form-input" placeholder="Nome prenotazione" style="width:200px;padding:6px 10px;font-size:13px" oninput="renderPrenotazioni()">
@@ -1203,8 +1199,7 @@
           </div>
           <div class="card-body">
             <div id="pren-count-label" style="font-size:13px;color:var(--text-light);margin-bottom:10px"></div>
-            <div id="prenotazioni-list" class="hidden"><div class="tx-empty">Caricamento...</div></div>
-            <div id="prenotazioni-tabella"></div>
+            <div id="prenotazioni-tabella"><div class="tx-empty">Caricamento...</div></div>
           </div>
         </div>
 
