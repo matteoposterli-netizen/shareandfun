@@ -752,6 +752,55 @@ let mirataDayMap = {};   // dateStr -> { id, data, stato, cliente_id }
 let mirataRules = [];    // regole_stato_ombrelloni del periodo
 let mirataPending = {};  // dateStr -> 'force' | 'remove'
 
+// Mese visualizzato nel calendario mirata (clampato alla stagione). null = non inizializzato.
+let mirataCalYear = null;
+let mirataCalMonth = null;
+const MIRATA_MONTHS = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+// Primo/ultimo mese che intersecano la stagione corrente (o null se date mancanti).
+function mirataSeasonBounds() {
+  const inizio = currentStabilimento?.data_inizio_stagione;
+  const fine = currentStabilimento?.data_fine_stagione;
+  if (!inizio || !fine) return null;
+  const di = new Date(inizio + 'T00:00:00');
+  const df = new Date(fine + 'T00:00:00');
+  return {
+    min: { y: di.getFullYear(), m: di.getMonth() },
+    max: { y: df.getFullYear(), m: df.getMonth() },
+    inizio, fine,
+  };
+}
+
+function mirataInitCalMonth() {
+  const b = mirataSeasonBounds();
+  const now = new Date();
+  if (!b) { mirataCalYear = now.getFullYear(); mirataCalMonth = now.getMonth(); return; }
+  let y = now.getFullYear(), m = now.getMonth();
+  if (y < b.min.y || (y === b.min.y && m < b.min.m)) { y = b.min.y; m = b.min.m; }
+  if (y > b.max.y || (y === b.max.y && m > b.max.m)) { y = b.max.y; m = b.max.m; }
+  mirataCalYear = y; mirataCalMonth = m;
+}
+
+function mirataCalNav(dir) {
+  const b = mirataSeasonBounds();
+  let m = mirataCalMonth + dir, y = mirataCalYear;
+  if (m > 11) { m = 0; y++; }
+  if (m < 0) { m = 11; y--; }
+  if (b) {
+    if (y < b.min.y || (y === b.min.y && m < b.min.m)) return;
+    if (y > b.max.y || (y === b.max.y && m > b.max.m)) return;
+  }
+  mirataCalYear = y; mirataCalMonth = m;
+  mirataRenderDayList();
+}
+
+function mirataCalClick(dateStr) {
+  if (!mirataOmbId) return;
+  const stato = mirataDayMap[dateStr]?.stato || 'occupied';
+  const action = stato === 'libero' ? 'remove' : 'force';
+  mirataTogglePending(dateStr, action); // chiama già mirataRenderDayList()
+}
+
 // Raggruppa date 'YYYY-MM-DD' (già sortate asc) in blocchi contigui { from, to }.
 function groupContiguousDates(dates) {
   const blocks = [];
@@ -766,6 +815,8 @@ function groupContiguousDates(dates) {
 
 function mirataInit() {
   mirataPending = {};
+  mirataCalYear = null;
+  mirataCalMonth = null;
   populateMirataSelector();
   const sel = document.getElementById('mirata-omb-select');
   if (mirataOmbId && ombrelloniList.find(o => o.id === mirataOmbId)) {
@@ -882,73 +933,87 @@ function mirataRuleForDate(dateStr) {
 
 function mirataRenderDayList() {
   const el = document.getElementById('mirata-day-list');
+  const label = document.getElementById('mirata-cal-label');
   if (!el || !currentStabilimento) return;
-  const inizio = currentStabilimento.data_inizio_stagione;
-  const fine   = currentStabilimento.data_fine_stagione;
-  if (!inizio || !fine) { el.innerHTML = ''; return; }
-  const dates = getDatesInRange(inizio, fine);
-  if (!dates.length) {
-    el.innerHTML = '<div style="color:var(--text-light);font-size:13px;padding:14px">Nessun giorno nel range stagione.</div>';
+  const b = mirataSeasonBounds();
+  if (!b) {
+    el.innerHTML = '<div style="color:var(--text-light);font-size:13px;padding:14px">Date di stagione non impostate.</div>';
+    if (label) label.textContent = '';
+    mirataRenderPendingBar();
     return;
   }
+  if (mirataCalYear === null || mirataCalMonth === null) mirataInitCalMonth();
+
+  const inizio = b.inizio, fine = b.fine;
+  const y = mirataCalYear, mo = mirataCalMonth;
+  if (label) label.textContent = MIRATA_MONTHS[mo] + ' ' + y;
+
+  const prevBtn = document.getElementById('mirata-cal-prev');
+  const nextBtn = document.getElementById('mirata-cal-next');
+  if (prevBtn) prevBtn.disabled = (y < b.min.y || (y === b.min.y && mo <= b.min.m));
+  if (nextBtn) nextBtn.disabled = (y > b.max.y || (y === b.max.y && mo >= b.max.m));
 
   const mirataOmb = mirataOmbId ? (ombrelloniList || []).find(o => o.id === mirataOmbId) : null;
   const mirataInattivo = mirataOmb && !mirataOmb.attivo;
 
-  let lastMonth = '';
-  const parts = [];
-  for (const d of dates) {
-    const month = d.slice(0, 7);
-    if (month !== lastMonth) {
-      const dt = new Date(d + 'T00:00:00');
-      const monthName = dt.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
-      parts.push(`<div class="mirata-month-header">${escapeHtml(monthName.charAt(0).toUpperCase() + monthName.slice(1))}</div>`);
-      lastMonth = month;
-    }
-    const rec = mirataDayMap[d];
-    const stato = rec?.stato || 'occupied';
-    const rule = mirataRuleForDate(d);
+  const firstDay = new Date(y, mo, 1).getDay();
+  const offset = (firstDay + 6) % 7; // griglia lunedì-based
+  const daysInMonth = new Date(y, mo + 1, 0).getDate();
+  const todayS = todayStr();
 
-    const stateLabel = stato === 'libero' ? 'Disponibile sub-affitto'
+  const cells = [];
+  for (let i = 0; i < offset; i++) cells.push('<div class="cal-day empty"></div>');
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${y}-${String(mo + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+    // Giorni fuori dal range stagione (dentro un mese di confine): spenti e bloccati.
+    if (dateStr < inizio || dateStr > fine) {
+      cells.push(`<div class="cal-day off">${d}</div>`);
+      continue;
+    }
+
+    const stato = mirataDayMap[dateStr]?.stato || 'occupied';
+    const rule = mirataRuleForDate(dateStr);
+    const pending = mirataPending[dateStr];
+    const isToday = dateStr === todayS;
+    const isChiusura = rule && rule.type === 'chiusura_speciale';
+    const readonly = mirataInattivo || isChiusura || stato === 'sub_affittato';
+
+    let cls = 'cal-day';
+    if (stato === 'libero') cls += ' free';
+    else if (stato === 'sub_affittato') cls += ' subleased';
+    else cls += ' occupied';
+    if (isToday) cls += ' today';
+
+    let title;
+    const stTxt = stato === 'libero' ? 'Disponibile sub-affitto'
       : stato === 'sub_affittato' ? 'Sub-affittato'
       : 'Occupato dal cliente';
 
-    let ruleBadge = '';
-    if (rule) {
-      ruleBadge = `<span class="mirata-rule-badge mirata-rule-${rule.type}">${escapeHtml(rule.label)}</span>`;
-    }
-
-    const pending = mirataPending[d];
-    let actions;
-    let rowCls = '';
-    let pendingBadge = '';
-    if (mirataInattivo) {
-      actions = `<span class="mirata-day-note">Non attivo</span>`;
-    } else if (rule && rule.type === 'chiusura_speciale') {
-      actions = `<span class="mirata-day-note">Bloccato</span>`;
-    } else if (stato === 'sub_affittato') {
-      actions = `<span class="mirata-day-note">Sub-affittato</span>`;
-    } else if (pending === 'force') {
-      rowCls = ' pending-add';
-      pendingBadge = `<span class="mirata-day-pending-badge add">Da salvare: libero</span>`;
-      actions = `<button class="btn btn-outline btn-sm" onclick="mirataTogglePending('${d}','force')">↺ Annulla</button>`;
-    } else if (pending === 'remove') {
-      rowCls = ' pending-remove';
-      pendingBadge = `<span class="mirata-day-pending-badge remove">Da salvare: rimuovi</span>`;
-      actions = `<button class="btn btn-outline btn-sm" onclick="mirataTogglePending('${d}','remove')">↺ Annulla</button>`;
-    } else if (stato === 'libero') {
-      actions = `<button class="btn btn-outline btn-sm" onclick="mirataTogglePending('${d}','remove')">✗ Rimuovi</button>`;
+    if (isChiusura) {
+      cls += ' restricted';
+      title = 'Bagno chiuso';
     } else {
-      actions = `<button class="btn btn-outline btn-sm" onclick="mirataTogglePending('${d}','force')">✓ Rendi libero</button>`;
+      if (rule && rule.type === 'mai_libero') cls += ' rule-mai_libero';
+      else if (rule && rule.type === 'sempre_libero') cls += ' rule-sempre_libero';
+      if (!readonly) {
+        if (pending === 'force') cls += ' pending-add';
+        else if (pending === 'remove') cls += ' pending-remove';
+      }
+      title = (rule ? rule.label + ' · ' : '') + stTxt;
+      if (pending === 'force') title = 'Da salvare: rendi libero';
+      else if (pending === 'remove') title = 'Da salvare: rimuovi disponibilità';
     }
 
-    parts.push(`<div class="mirata-day-row${rowCls}">
-      <div class="mirata-day-date">${formatDate(d)}</div>
-      <div class="mirata-day-badges">${ruleBadge}<span class="avanzate-day-state ${stato}">${stateLabel}</span>${pendingBadge}</div>
-      <div class="mirata-day-actions">${actions}</div>
-    </div>`);
+    if (mirataInattivo) { cls += ' cal-day-readonly'; title = 'Ombrellone non attivo'; }
+    else if (stato === 'sub_affittato' && !isChiusura) { cls += ' cal-day-readonly'; title = 'Sub-affittato (annulla dalla tab Prenotazioni)'; }
+
+    const onclick = readonly ? '' : ` onclick="mirataCalClick('${dateStr}')"`;
+    cells.push(`<div class="${cls}" title="${escapeHtml(title)}"${onclick}>${d}</div>`);
   }
-  el.innerHTML = parts.join('');
+
+  el.innerHTML = cells.join('');
   mirataRenderPendingBar();
 }
 
@@ -1120,3 +1185,5 @@ window.mirataBulkRemove = mirataBulkRemove;
 window.mirataAdjustSaldo = mirataAdjustSaldo;
 window.mirataOpenEdit = mirataOpenEdit;
 window.mirataDelete = mirataDelete;
+window.mirataCalNav = mirataCalNav;
+window.mirataCalClick = mirataCalClick;

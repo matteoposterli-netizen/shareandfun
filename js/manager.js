@@ -359,8 +359,6 @@ async function loadManagerData() {
   await refreshMap();
   renderGestioneTable(ombrelloniList, dispMap, clientiList);
   loadOmbViewMode();
-  applyDefaultPrenFilter(today);
-  initPrenRangePicker();
   await loadPrenotazioni();
   populateClienteSelect();
   if (!document.getElementById('analytics-date-from').value) {
@@ -441,17 +439,6 @@ async function loadDashboardCreditsKpis() {
   setText('dash-crediti-spesi', formatCoin(spesi));
   setText('dash-subaffitti', subaffitti);
   setText('dash-subaffitti-sub', subaffitti === 1 ? 'giornata sub-affittata' : 'giornate sub-affittate');
-}
-
-function applyDefaultPrenFilter(today) {
-  const fromEl = document.getElementById('pren-filter-from');
-  const toEl = document.getElementById('pren-filter-to');
-  if (!fromEl || !toEl) return;
-  if (fromEl.value || toEl.value) return;
-  const start = new Date(today + 'T00:00:00');
-  const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 30);
-  fromEl.value = toLocalDateStr(start);
-  toEl.value = toLocalDateStr(end);
 }
 
 function renderManagerMap(ombs, dispMap, opts = {}) {
@@ -1712,13 +1699,8 @@ async function finalizeBookingSelection() {
 function clearPrenFilters() {
   const n = document.getElementById('pren-filter-nome');
   const o = document.getElementById('pren-filter-ombrellone');
-  const f = document.getElementById('pren-filter-from');
-  const to = document.getElementById('pren-filter-to');
   if (n) n.value = '';
   if (o) o.value = '';
-  if (f) f.value = '';
-  if (to) to.value = '';
-  if (prenRangePickerInstance) prenRangePickerInstance.clear();
   renderPrenotazioni();
 }
 
@@ -1727,152 +1709,12 @@ function matchesOmbrelloneQuery(omb, query) {
   return codice === query || codice.includes(query);
 }
 
-let prenRangePickerInstance = null;
-function initPrenRangePicker() {
-  if (typeof flatpickr === 'undefined') return;
-  const input = document.getElementById('pren-range-picker');
-  if (!input) return;
-  const fromVal = document.getElementById('pren-filter-from')?.value || '';
-  const toVal = document.getElementById('pren-filter-to')?.value || fromVal;
-  const defaults = [];
-  if (fromVal) defaults.push(new Date(fromVal + 'T00:00:00'));
-  if (toVal && toVal !== fromVal) defaults.push(new Date(toVal + 'T00:00:00'));
-  if (prenRangePickerInstance) {
-    prenRangePickerInstance.set('minDate', currentStabilimento?.data_inizio_stagione || undefined);
-    prenRangePickerInstance.set('maxDate', currentStabilimento?.data_fine_stagione || undefined);
-    if (defaults.length) prenRangePickerInstance.setDate(defaults, false);
-    else prenRangePickerInstance.clear();
-    return;
-  }
-  prenRangePickerInstance = flatpickr(input, {
-    mode: 'range',
-    locale: (flatpickr.l10ns && flatpickr.l10ns.it) || 'default',
-    dateFormat: 'd/m/Y',
-    defaultDate: defaults.length ? defaults : null,
-    showMonths: 1,
-    disableMobile: true,
-    minDate: currentStabilimento?.data_inizio_stagione || undefined,
-    maxDate: currentStabilimento?.data_fine_stagione || undefined,
-    onChange: (selectedDates) => {
-      if (selectedDates.length === 2) {
-        const from = toLocalDateStr(selectedDates[0]);
-        const to = toLocalDateStr(selectedDates[1]);
-        document.getElementById('pren-filter-from').value = from;
-        document.getElementById('pren-filter-to').value = to;
-        renderPrenotazioni();
-      } else if (selectedDates.length === 1) {
-        const from = toLocalDateStr(selectedDates[0]);
-        document.getElementById('pren-filter-from').value = from;
-        document.getElementById('pren-filter-to').value = from;
-      } else {
-        document.getElementById('pren-filter-from').value = '';
-        document.getElementById('pren-filter-to').value = '';
-        renderPrenotazioni();
-      }
-    },
-  });
-}
-
-function setPrenRange(preset) {
-  const today = todayStr();
-  let from, to;
-  if (preset === 'today') {
-    from = to = today;
-  } else if (preset === 'next7') {
-    const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 6);
-    from = today; to = toLocalDateStr(end);
-  } else if (preset === 'next30') {
-    const end = new Date(today + 'T00:00:00'); end.setDate(end.getDate() + 29);
-    from = today; to = toLocalDateStr(end);
-  } else if (preset === 'last7') {
-    const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 6);
-    from = toLocalDateStr(start); to = today;
-  } else if (preset === 'last30') {
-    const start = new Date(today + 'T00:00:00'); start.setDate(start.getDate() - 29);
-    from = toLocalDateStr(start); to = today;
-  } else return;
-  document.getElementById('pren-filter-from').value = from;
-  document.getElementById('pren-filter-to').value = to;
-  if (prenRangePickerInstance) {
-    prenRangePickerInstance.setDate([new Date(from + 'T00:00:00'), new Date(to + 'T00:00:00')], false);
-  }
-  renderPrenotazioni();
-}
-
-function updatePrenPresetActive() {
-  const from = document.getElementById('pren-filter-from')?.value || '';
-  const to = document.getElementById('pren-filter-to')?.value || '';
-  const today = todayStr();
-  let active = null;
-  if (from && to) {
-    if (from === today && to === today) {
-      active = 'today';
-    } else if (from === today) {
-      const start = new Date(from + 'T00:00:00');
-      const endD = new Date(to + 'T00:00:00');
-      const diff = Math.round((endD - start) / 86400000) + 1;
-      if (diff === 7) active = 'next7';
-      else if (diff === 30) active = 'next30';
-    } else if (to === today) {
-      const start = new Date(from + 'T00:00:00');
-      const endD = new Date(to + 'T00:00:00');
-      const diff = Math.round((endD - start) / 86400000) + 1;
-      if (diff === 7) active = 'last7';
-      else if (diff === 30) active = 'last30';
-    }
-  }
-  document.querySelectorAll('.pren-preset-btn').forEach(btn => {
-    if (btn.dataset.preset === active) {
-      btn.classList.remove('btn-outline');
-      btn.classList.add('btn-primary');
-    } else {
-      btn.classList.remove('btn-primary');
-      btn.classList.add('btn-outline');
-    }
-  });
-}
-
 let prenotazioniList = [];
-let prenViewMode = 'lista';
-
-function prenViewStorageKey() {
-  return `pren-view-mode:${currentStabilimento?.id || 'default'}`;
-}
-
-function loadPrenViewMode() {
-  try {
-    const v = localStorage.getItem(prenViewStorageKey());
-    prenViewMode = (v === 'tabella') ? 'tabella' : 'lista';
-  } catch (_) { prenViewMode = 'lista'; }
-  syncPrenViewToggleUI();
-}
-
-function syncPrenViewToggleUI() {
-  document.querySelectorAll('.pren-view-btn').forEach(btn => {
-    const active = btn.dataset.view === prenViewMode;
-    btn.classList.toggle('active', active);
-    btn.setAttribute('aria-selected', active ? 'true' : 'false');
-  });
-  const listEl = document.getElementById('prenotazioni-list');
-  const tabEl = document.getElementById('prenotazioni-tabella');
-  if (listEl) listEl.classList.toggle('hidden', prenViewMode !== 'lista');
-  if (tabEl) tabEl.classList.toggle('hidden', prenViewMode !== 'tabella');
-}
-
-function setPrenViewMode(mode) {
-  prenViewMode = (mode === 'tabella') ? 'tabella' : 'lista';
-  try { localStorage.setItem(prenViewStorageKey(), prenViewMode); } catch (_) {}
-  syncPrenViewToggleUI();
-  renderPrenotazioni();
-}
 
 async function loadPrenotazioni() {
-  const listEl = document.getElementById('prenotazioni-list');
-  if (!listEl) return;
-  loadPrenViewMode();
-  listEl.innerHTML = '<div class="tx-empty">Caricamento...</div>';
   const tabEl0 = document.getElementById('prenotazioni-tabella');
-  if (tabEl0) tabEl0.innerHTML = '<div class="tx-empty">Caricamento...</div>';
+  if (!tabEl0) return;
+  tabEl0.innerHTML = '<div class="tx-empty">Caricamento...</div>';
   const ombIds = (ombrelloniList || []).map(o => o.id);
   if (!ombIds.length) {
     prenotazioniList = [];
@@ -1884,40 +1726,25 @@ async function loadPrenotazioni() {
     .in('ombrellone_id', ombIds)
     .eq('stato', 'sub_affittato')
     .order('data', { ascending: false });
-  if (error) { console.error(error); listEl.innerHTML = '<div class="tx-empty">Errore nel caricamento</div>'; return; }
+  if (error) { console.error(error); tabEl0.innerHTML = '<div class="tx-empty">Errore nel caricamento</div>'; return; }
   prenotazioniList = data || [];
   renderPrenotazioni();
   if (typeof dispViewInvalidate === 'function') dispViewInvalidate();
 }
 
 function renderPrenotazioni() {
-  const listEl = document.getElementById('prenotazioni-list');
+  const tabEl = document.getElementById('prenotazioni-tabella');
   const countEl = document.getElementById('pren-count-label');
-  if (!listEl) return;
-
-  syncPrenViewToggleUI();
-  updatePrenPresetActive();
+  if (!tabEl) return;
 
   const qNome = (document.getElementById('pren-filter-nome')?.value || '').trim().toLowerCase();
   const qOmb  = (document.getElementById('pren-filter-ombrellone')?.value || '').trim().toLowerCase();
-  const from = document.getElementById('pren-filter-from')?.value || '';
-  const to = document.getElementById('pren-filter-to')?.value || '';
-  if (from && to && from > to) {
-    if (countEl) countEl.textContent = '';
-    const msg = '<div class="tx-empty">Periodo non valido: la data iniziale è successiva a quella finale</div>';
-    listEl.innerHTML = msg;
-    const tabEl = document.getElementById('prenotazioni-tabella');
-    if (tabEl) tabEl.innerHTML = msg;
-    return;
-  }
 
   const ombsMap = ombById();
   const cliById = {};
   (clientiList || []).forEach(c => { cliById[c.id] = c; });
 
   const rows = (prenotazioniList || []).filter(p => {
-    if (from && p.data < from) return false;
-    if (to && p.data > to) return false;
     if (qNome && !(p.nome_prenotazione || '').toLowerCase().includes(qNome)) return false;
     if (qOmb) {
       const omb = ombsMap[p.ombrellone_id];
@@ -1929,9 +1756,7 @@ function renderPrenotazioni() {
 
   if (!rows.length) {
     if (countEl) countEl.textContent = '';
-    listEl.innerHTML = '<div class="tx-empty">Nessuna prenotazione trovata</div>';
-    const tabEl = document.getElementById('prenotazioni-tabella');
-    if (tabEl) tabEl.innerHTML = '<div class="tx-empty">Nessuna prenotazione trovata</div>';
+    tabEl.innerHTML = '<div class="tx-empty">Nessuna prenotazione trovata</div>';
     return;
   }
 
@@ -1979,67 +1804,7 @@ function renderPrenotazioni() {
     countEl.textContent = `${totalGroups} prenotazion${totalGroups === 1 ? 'e' : 'i'} · ${totalBookings} sub-affitt${totalBookings === 1 ? 'o' : 'i'}`;
   }
 
-  listEl.innerHTML = ordered.map((g, gi) => {
-    const items = g.items.slice().sort((a, b) => a.data < b.data ? -1 : a.data > b.data ? 1 : 0);
-    const dates = items.map(i => i.data);
-    const dateLabel = dates.length === 1
-      ? formatDate(dates[0])
-      : `${formatDate(dates[0])} → ${formatDate(dates[dates.length - 1])} (${dates.length} giorn${dates.length === 1 ? 'o' : 'i'})`;
-
-    const clientiSet = new Set();
-    items.forEach(i => {
-      if (i.cliente_id && cliById[i.cliente_id]) {
-        const c = cliById[i.cliente_id];
-        clientiSet.add(`${c.nome} ${c.cognome}`);
-      }
-    });
-    const clientiLabel = clientiSet.size
-      ? Array.from(clientiSet).join(', ')
-      : '<span style="color:var(--text-light)">nessun cliente stagionale</span>';
-
-    const totImporto = items.reduce((s, i) => {
-      const o = ombsMap[i.ombrellone_id];
-      return s + (o ? parseFloat(o.credito_giornaliero || 0) : 0);
-    }, 0);
-
-    const rowsHtml = items.map(i => {
-      const o = ombsMap[i.ombrellone_id];
-      const ombStr = o ? escapeHtml(o.codice) : '<span style="color:var(--text-light)">ombrellone rimosso</span>';
-      const cli = i.cliente_id ? cliById[i.cliente_id] : null;
-      const cliStr = cli ? `${cli.nome} ${cli.cognome}` : '<span style="color:var(--text-light)">—</span>';
-      const imp = o ? formatCoin(o.credito_giornaliero, currentStabilimento) : '—';
-      return `<tr>
-        <td>${formatDate(i.data)}</td>
-        <td><strong>${ombStr}</strong></td>
-        <td>${cliStr}</td>
-        <td style="text-align:right">${imp}</td>
-      </tr>`;
-    }).join('');
-
-    const title = g.nome
-      ? `<span style="font-weight:600">${g.nome}</span>`
-      : `<span style="color:var(--text-light);font-style:italic">Prenotazione senza nome</span>`;
-
-    return `<div class="card" style="margin-bottom:14px">
-      <div class="card-header" style="flex-wrap:wrap;gap:8px">
-        <div class="card-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">📖 ${title}</div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <div style="font-size:13px;color:var(--text-mid)">${dateLabel}</div>
-          <button class="btn btn-outline btn-sm" onclick="openModifyBookingModal('g-${gi}')">Modifica prenotazione</button>
-          <button class="btn btn-danger btn-sm" onclick="openCancelBookingModal('g-${gi}')">Annulla prenotazione</button>
-        </div>
-      </div>
-      <div class="card-body">
-        <div style="font-size:13px;color:var(--text-mid);margin-bottom:8px"><strong>Cliente Stagionale:</strong> ${clientiLabel} · <strong>Totale:</strong> ${formatCoin(totImporto, currentStabilimento)}</div>
-        <div class="table-wrap"><table class="data-table">
-          <thead><tr><th>Data</th><th>Ombrellone</th><th>Cliente Stagionale</th><th style="text-align:right">Importo</th></tr></thead>
-          <tbody>${rowsHtml}</tbody>
-        </table></div>
-      </div>
-    </div>`;
-  }).join('');
-
-  renderPrenotazioniTabella(ordered, { from, to });
+  renderPrenotazioniTabella(ordered, {});
 }
 
 // Estrae versione breve del nome prenotazione per la vista Tabella.
@@ -2190,6 +1955,19 @@ function renderPrenotazioniTabella(ordered, filterRange) {
     <thead><tr><th class="pren-tab-corner-th">Prenotazione</th>${headerCells}</tr></thead>
     <tbody>${rowsHtml}</tbody>
   </table></div>`;
+
+  // All'apertura posiziona lo scroll orizzontale su "oggi" (se presente nel range):
+  // la colonna di oggi si allinea subito dopo la colonna fissa "Prenotazione",
+  // così i giorni passati restano raggiungibili scrollando verso sinistra.
+  const wrap = tabEl.querySelector('.pren-tab-wrap');
+  const todayTh = wrap && wrap.querySelector('.pren-tab-day-th.today');
+  const cornerTh = wrap && wrap.querySelector('.pren-tab-corner-th');
+  if (wrap && todayTh && cornerTh) {
+    requestAnimationFrame(() => {
+      const delta = todayTh.getBoundingClientRect().left - cornerTh.getBoundingClientRect().right;
+      if (delta > 0) wrap.scrollLeft += delta;
+    });
+  }
 }
 
 function escapeHtmlAttr(s) {

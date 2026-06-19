@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/it.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260608b">
+<link rel="stylesheet" href="styles.css?v=20260619">
 </head>
 <body>
 
@@ -1133,7 +1133,7 @@
         <div class="pren-subtabs" role="tablist">
           <button type="button" class="pren-subtab active" data-pren-subtab="crea" onclick="switchPrenSubtab('crea',this)">Crea prenotazione</button>
           <button type="button" class="pren-subtab hidden" data-pren-subtab="vedi" onclick="switchPrenSubtab('vedi',this)">Vedi disponibilità</button>
-          <button type="button" class="pren-subtab" data-pren-subtab="disponibilita-omb" onclick="switchPrenSubtab('disponibilita-omb',this)">⚙️ Disponibilità Ombrelloni</button>
+          <button type="button" class="pren-subtab" data-pren-subtab="disponibilita-omb" onclick="switchPrenSubtab('disponibilita-omb',this)">⚙️ Rendi disponibili</button>
         </div>
 
         <div id="pren-sub-crea" class="pren-subpanel active">
@@ -1185,26 +1185,15 @@
           <div class="card-header" style="flex-wrap:wrap;gap:10px">
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
               <div class="card-title">Elenco prenotazioni</div>
-              <div class="pren-view-toggle" role="tablist" aria-label="Modalità di visualizzazione">
-                <button type="button" class="pren-view-btn active" data-view="lista" role="tab" aria-selected="true" onclick="setPrenViewMode('lista')">📋 Lista</button>
-                <button type="button" class="pren-view-btn" data-view="tabella" role="tab" aria-selected="false" onclick="setPrenViewMode('tabella')">🗓️ Tabella</button>
-              </div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               <input type="search" id="pren-filter-nome" class="form-input" placeholder="Nome prenotazione" style="width:200px;padding:6px 10px;font-size:13px" oninput="renderPrenotazioni()">
               <input type="search" id="pren-filter-ombrellone" class="form-input" placeholder="Numero ombrellone (es. 23 oppure A 12)" style="width:240px;padding:6px 10px;font-size:13px" oninput="renderPrenotazioni()">
-              <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid)">
-                <span title="Filtra le prenotazioni per giorno di sub-affitto">Periodo (giorno del sub-affitto)</span>
-                <input type="text" id="pren-range-picker" class="form-input" readonly placeholder="Tutte le date" style="width:240px;padding:6px 12px;font-size:13px;cursor:pointer;background:#fff">
-                <input type="hidden" id="pren-filter-from">
-                <input type="hidden" id="pren-filter-to">
-              </div>
             </div>
           </div>
           <div class="card-body">
             <div id="pren-count-label" style="font-size:13px;color:var(--text-light);margin-bottom:10px"></div>
-            <div id="prenotazioni-list"><div class="tx-empty">Caricamento...</div></div>
-            <div id="prenotazioni-tabella" class="hidden"></div>
+            <div id="prenotazioni-tabella"><div class="tx-empty">Caricamento...</div></div>
           </div>
         </div>
 
@@ -1265,8 +1254,8 @@
           <div id="avanzate-save-alert" style="margin-bottom:16px"></div>
 
           <div class="avanzate-subtabs">
-            <button class="avanzate-subtab active" data-avanzate-subtab="massiva" onclick="switchAvanzateSubtab('massiva',this)">🗺️ Azione massiva</button>
-            <button class="avanzate-subtab" data-avanzate-subtab="mirata" onclick="switchAvanzateSubtab('mirata',this)">🎯 Giorno per giorno</button>
+            <button class="avanzate-subtab active" data-avanzate-subtab="massiva" onclick="switchAvanzateSubtab('massiva',this)">🗺️ In blocco</button>
+            <button class="avanzate-subtab" data-avanzate-subtab="mirata" onclick="switchAvanzateSubtab('mirata',this)">🎯 Uno alla volta</button>
           </div>
 
           <div id="avanzate-pane-massiva" class="avanzate-pane active">
@@ -1368,7 +1357,23 @@
                 <div id="mirata-inattivo-banner"></div>
                 <div class="avanzate-omb-section">
                   <div class="avanzate-omb-section-title">Disponibilità giorno per giorno</div>
-                  <div id="mirata-day-list" class="mirata-day-list"></div>
+                  <div class="cal-header">
+                    <button class="cal-nav" id="mirata-cal-prev" onclick="mirataCalNav(-1)">‹</button>
+                    <div class="cal-month" id="mirata-cal-label"></div>
+                    <button class="cal-nav" id="mirata-cal-next" onclick="mirataCalNav(1)">›</button>
+                  </div>
+                  <div class="cal-days-header">
+                    <div class="cal-day-name">L</div><div class="cal-day-name">M</div><div class="cal-day-name">M</div>
+                    <div class="cal-day-name">G</div><div class="cal-day-name">V</div><div class="cal-day-name">S</div><div class="cal-day-name">D</div>
+                  </div>
+                  <div class="cal-days-grid" id="mirata-day-list"></div>
+                  <div class="cal-legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Disponibile sub-affitto</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Occupato dal cliente</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:rgba(150,221,184,0.35);border:1.5px dashed var(--green)"></div>Da salvare</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,#F5F5F5 0 4px,#ECECEC 4px 8px);border:1.5px solid #DDD"></div>Bagno chiuso</div>
+                  </div>
                   <div id="mirata-pending-bar" class="stag-pending-bar" style="display:none;margin-top:12px"></div>
                 </div>
               </div>
@@ -2750,7 +2755,7 @@ document.addEventListener('click', function(e) {
 <script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>
-<script src="js/avanzate.js?v=20260531b"></script>
+<script src="js/avanzate.js?v=20260619"></script>
 <script src="js/account.js?v=20260606a"></script>
 <script src="js/reset-stagione.js"></script>
 <script src="js/clienti.js"></script>
