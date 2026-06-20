@@ -356,6 +356,9 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .stag-pending-bar .stag-pending-info { color: var(--ink); }
 .stag-pending-bar .stag-pending-actions { display: flex; gap: 8px; flex-shrink: 0; }
 @media (max-width: 540px) { .stag-pending-bar { flex-direction: column; align-items: stretch; } .stag-pending-bar .stag-pending-actions { justify-content: flex-end; } }
+/* Pulsanti primari del modal cliente (Salva ombrellone/cliente, Applica rettifica saldo, Salva modifiche): blu di palette invece del nero pieno, meno contrastato per non rubare risalto alle intestazioni di sezione */
+#modal-edit-row .btn-primary { background: var(--ocean); }
+#modal-edit-row .btn-primary:hover { background: #155A8D; }
 .cal-legend { display: flex; gap: 20px; padding: 20px 0 4px; flex-wrap: wrap; border-top: 1px solid var(--border); margin-top: 20px; }
 
 .modal-overlay { position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; background: rgba(14,27,38,0.4); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
@@ -396,7 +399,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .invito-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--green-light); color: var(--green); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; margin-bottom: 18px; }
 
 .pending-empty { padding: 36px; text-align: center; color: var(--text-light); font-size: 13px; }
-.section-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-light); padding: 8px 0 12px; margin: 14px 0 16px; }
+.section-divider { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--ink); padding: 8px 0 12px; margin: 14px 0 16px; }
 
 .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
 .action-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 26px; display: flex; flex-direction: column; gap: 12px; }
