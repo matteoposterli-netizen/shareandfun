@@ -356,9 +356,9 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .stag-pending-bar .stag-pending-info { color: var(--ink); }
 .stag-pending-bar .stag-pending-actions { display: flex; gap: 8px; flex-shrink: 0; }
 @media (max-width: 540px) { .stag-pending-bar { flex-direction: column; align-items: stretch; } .stag-pending-bar .stag-pending-actions { justify-content: flex-end; } }
-/* "Salva modifiche" del modal cliente: blu di palette invece del nero pieno, meno contrastato per non rubare risalto alle intestazioni di sezione */
-#edit-row-pending-bar .btn-primary { background: var(--ocean); }
-#edit-row-pending-bar .btn-primary:hover { background: #155A8D; }
+/* Pulsanti primari del modal cliente (Salva ombrellone/cliente, Applica rettifica saldo, Salva modifiche): blu di palette invece del nero pieno, meno contrastato per non rubare risalto alle intestazioni di sezione */
+#modal-edit-row .btn-primary { background: var(--ocean); }
+#modal-edit-row .btn-primary:hover { background: #155A8D; }
 .cal-legend { display: flex; gap: 20px; padding: 20px 0 4px; flex-wrap: wrap; border-top: 1px solid var(--border); margin-top: 20px; }
 
 .modal-overlay { position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; background: rgba(14,27,38,0.4); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
