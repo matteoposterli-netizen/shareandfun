@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/it.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260619">
+<link rel="stylesheet" href="styles.css?v=20260620">
 </head>
 <body>
 
@@ -2209,28 +2209,6 @@
       </div>
     </div>
 
-    <!-- SEZIONE DISPONIBILITÀ -->
-    <div class="section-divider">📅 Gestisci disponibilità</div>
-    <div id="edit-row-disp-alert"></div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Dal</label>
-        <input type="date" id="edit-row-disp-from" class="form-input">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Al</label>
-        <input type="date" id="edit-row-disp-to" class="form-input">
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Nota (facoltativa)</label>
-      <input type="text" id="edit-row-disp-note" class="form-input" maxlength="200">
-    </div>
-    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-outline btn-sm" onclick="applyEditRowAddDisp()">✅ Rendi disponibile</button>
-      <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="applyEditRowRemoveDisp()">🗑️ Rimuovi disponibilità</button>
-    </div>
-
     <!-- Disponibilità giornaliere -->
     <div class="section-divider" style="margin-top:8px">📅 Disponibilità giornaliere</div>
     <div id="edit-row-disp-info" style="font-size:12px;color:var(--text-light);margin-bottom:8px"></div>
@@ -2238,8 +2216,26 @@
       <button class="btn btn-outline btn-sm" onclick="editRowBulkForce()">✓ Tutta la stagione disponibile</button>
       <button class="btn btn-outline btn-sm" onclick="editRowBulkRemove()">✗ Rimuovi tutte le disponibilità</button>
     </div>
-    <div id="edit-row-day-list" class="mirata-day-list" style="max-height:280px;overflow-y:auto">
-      <div style="padding:14px;font-size:13px;color:var(--text-light)">Caricamento...</div>
+    <div class="cal-compact">
+      <div class="cal-header">
+        <button class="cal-nav" id="edit-row-cal-prev" onclick="editRowCalNav(-1)">‹</button>
+        <div class="cal-month" id="edit-row-cal-label"></div>
+        <button class="cal-nav" id="edit-row-cal-next" onclick="editRowCalNav(1)">›</button>
+      </div>
+      <div class="cal-days-header">
+        <div class="cal-day-name">L</div><div class="cal-day-name">M</div><div class="cal-day-name">M</div>
+        <div class="cal-day-name">G</div><div class="cal-day-name">V</div><div class="cal-day-name">S</div><div class="cal-day-name">D</div>
+      </div>
+      <div class="cal-days-grid" id="edit-row-day-list"></div>
+      <div class="cal-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Disponibile</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Occupato</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(150,221,184,0.35);border:1.5px dashed var(--green)"></div>Da salvare</div>
+        <div class="legend-item"><div class="legend-dot" style="box-shadow:inset 0 0 0 2px var(--green)"></div>Sempre libero</div>
+        <div class="legend-item"><div class="legend-dot" style="box-shadow:inset 0 0 0 2px var(--yellow)"></div>Mai libero</div>
+        <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,#F5F5F5 0 4px,#ECECEC 4px 8px);border:1.5px solid #DDD"></div>Bagno chiuso</div>
+      </div>
     </div>
     <div id="edit-row-pending-bar" class="stag-pending-bar" style="display:none;margin-top:12px"></div>
 
@@ -2751,7 +2747,7 @@ document.addEventListener('click', function(e) {
 <script src="js/router.js"></script>
 <script src="js/auth.js?v=20260605a"></script>
 <script src="js/setup.js"></script>
-<script src="js/manager.js?v=20260607b"></script>
+<script src="js/manager.js?v=20260620"></script>
 <script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>
