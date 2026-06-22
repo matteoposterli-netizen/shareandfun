@@ -1,0 +1,2 @@
+# Il progetto app mobile (Capacitor) non fa parte del deploy web Vercel.
+mobile/

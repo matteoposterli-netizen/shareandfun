@@ -1,0 +1,21 @@
+# Dipendenze
+node_modules/
+
+# Output di sync-web.sh (rigenerato, non versionato)
+www/
+
+# Artefatti di build Android (il sorgente android/ È versionato)
+android/build/
+android/app/build/
+android/.gradle/
+android/captures/
+android/.idea/
+android/local.properties
+android/app/release/
+
+# iOS (fase futura)
+ios/
+
+# Varie
+*.iml
+.DS_Store

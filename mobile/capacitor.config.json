@@ -1,0 +1,15 @@
+{
+  "appId": "com.spiaggiamia.app",
+  "appName": "SpiaggiaMia",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 800,
+      "backgroundColor": "#1B6CA8",
+      "showSpinner": false
+    }
+  }
+}
