@@ -44,6 +44,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     hideLoading();
     return;
   }
+  // MOBILE (no-op sul web): tentativo di sblocco biometrico all'avvio.
+  // Se la biometria "possiede" l'avvio (utente arruolato), gestisce lei il
+  // ripristino sessione + routing e interrompiamo qui il flusso standard.
+  if (window.SpiaggiaMiaMobile && typeof window.SpiaggiaMiaMobile.tryBiometricUnlock === 'function') {
+    const handled = await window.SpiaggiaMiaMobile.tryBiometricUnlock();
+    if (handled) { enhanceDateInputs(); hideLoading(); return; }
+  }
   const { data: { session } } = await sb.auth.getSession();
   if (session && !isPasswordRecovery) {
     currentUser = session.user;

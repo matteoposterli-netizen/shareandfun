@@ -1,0 +1,23 @@
+{
+  "name": "spiaggiamia-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Wrapper Capacitor (Android) della SPA SpiaggiaMia con login biometrico.",
+  "scripts": {
+    "sync:web": "bash sync-web.sh",
+    "cap:add:android": "npx cap add android",
+    "cap:sync": "npm run sync:web && npx cap sync android",
+    "android:run": "npm run cap:sync && npx cap run android",
+    "android:build": "npm run cap:sync && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
+    "@capgo/capacitor-native-biometric": "^8.4.11"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.1"
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SpiaggiaMia</string>
+    <string name="title_activity_main">SpiaggiaMia</string>
+    <string name="package_name">com.spiaggiamia.app</string>
+    <string name="custom_url_scheme">com.spiaggiamia.app</string>
+</resources>
