@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - claude/new-session-c9jh21
+      - claude/new-session-etk9fz
   workflow_dispatch:
 
 jobs:
