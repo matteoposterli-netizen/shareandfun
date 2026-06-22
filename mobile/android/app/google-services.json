@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "228975462250",
+    "project_id": "spiaggiamia-e99ee",
+    "storage_bucket": "spiaggiamia-e99ee.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:228975462250:android:385c489bc6b8f649590713",
+        "android_client_info": {
+          "package_name": "com.spiaggiamia.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBtVpi-FivL-zaEGvej2W7PDWnsZiK9cXo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
