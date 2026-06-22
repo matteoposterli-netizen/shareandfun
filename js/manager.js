@@ -1842,8 +1842,17 @@ function renderPrenotazioniTabella(ordered, filterRange) {
       if (!minD || i.data < minD) minD = i.data;
       if (!maxD || i.data > maxD) maxD = i.data;
     }));
-    if (!rangeFrom) rangeFrom = minD;
-    if (!rangeTo) rangeTo = maxD;
+    // La vista parte di default da "oggi": oggi e' sempre una colonna, i giorni
+    // passati restano raggiungibili scrollando a sinistra. Cuscinetto: garantisci
+    // sempre i prossimi 14 giorni a destra di oggi, anche senza prenotazioni future.
+    const todayCol = todayStr();
+    const futureCal = new Date(todayCol + 'T00:00:00');
+    futureCal.setDate(futureCal.getDate() + 14);
+    const futureCol = toLocalDateStr(futureCal);
+    const lo = (minD && minD < todayCol) ? minD : todayCol;
+    const hi = (maxD && maxD > futureCol) ? maxD : futureCol;
+    if (!rangeFrom) rangeFrom = lo;
+    if (!rangeTo) rangeTo = hi;
   }
   if (!rangeFrom || !rangeTo) {
     tabEl.innerHTML = '<div class="tx-empty">Nessuna prenotazione trovata</div>';
