@@ -18,7 +18,8 @@ Stato e roadmap del wrapping della SPA in app native Android/iOS.
 - Niente Mac → build iOS futura su cloud CI (es. Capawesome Cloud / Codemagic).
 - Niente iPhone → test iOS futuri richiederanno un device Apple (iPhone usato o
   device cloud; la biometria non è testabile su device remoto).
-- Android: build e test in locale sul telefono di Matteo. OK.
+- Android: build via CI (GitHub Actions) + test sul telefono di Matteo. Flusso
+  interamente da mobile, senza PC. OK.
 
 ## Stack mobile
 - Capacitor 8 (core + android + cli).
@@ -27,8 +28,10 @@ Stato e roadmap del wrapping della SPA in app native Android/iOS.
 - Push (fase 2): @capacitor-firebase/messaging (token FCM unificato).
 
 ## Fasi
-- [in corso] **Fase 1** — wrapper Android (bundle locale) + login biometrico.
-  Nessuna modifica DB. Branch feat/mobile-android-fase1 *(vedi nota "Branch" sotto)*.
+- [✓ COMPLETATA] **Fase 1** — wrapper Android (bundle locale) + login biometrico.
+  Nessuna modifica DB. Merge su `main` il 2026-06-22 (squash, PR #138, commit f10112c).
+  **Testata su device reale**: login → consenso biometria → chiusura → riapertura →
+  sblocco con impronta/volto → routing per ruolo. OK.
 - [da fare] **Fase 2** — push notifiche. Richiede: progetto Firebase, tabella
   `push_tokens` (user_id → token FCM), Edge Function `invia-push` agganciata agli
   stessi call site di invia-email/invia-whatsapp. Modifiche a Supabase produzione:
@@ -52,6 +55,8 @@ Stato e roadmap del wrapping della SPA in app native Android/iOS.
   android/                # progetto nativo (generato da `npx cap add android`, versionato)
 /web-mobile
   mobile-init.js          # integrazione biometrica (no-op sul web)
+/.github/workflows
+  android-debug.yml       # CI: build APK debug + artefatto (vedi sezione CI)
 ```
 
 ### Perché `web-mobile/` sta nella ROOT (non in /mobile)
@@ -95,9 +100,22 @@ sul web non esegue nulla.
 
 ---
 
-## Prerequisiti build (macchina locale di Matteo)
+## CI — build APK da mobile (senza PC)
+Workflow `.github/workflows/android-debug.yml`: su `ubuntu-latest` (JDK 21, Node 22,
+Android SDK 36) esegue `npm install` + `cap:sync` + `gradlew assembleDebug` e pubblica
+`app-debug.apk` come artefatto. **Flusso testato e funzionante**:
+1. Tab **Actions** → run "Android debug APK" → attendi il ✓ (prima volta ~6-10 min).
+2. Apri il run → sezione **Artifacts** → scarica `spiaggiamia-debug-apk` (.zip) dal
+   browser (l'app GitHub spesso non mostra il download artefatti).
+3. Estrai l'APK, abilita "installa da origine sconosciuta", installa, testa.
+
+Trigger attuale: push su `claude/new-session-c9jh21` + `workflow_dispatch`. Dopo il
+merge quel branch non esiste più: la build su main si lancia a mano (workflow_dispatch)
+o si riaggancia il trigger al branch di Fase 2.
+
+## Prerequisiti build (alternativa locale, se si usa un PC)
 - **Node.js ≥ 20** (testato con Node 22) + npm.
-- **JDK 17** (o 21).
+- **JDK 21** (il progetto compila a Java 21; anche la CI usa JDK 21).
 - **Android Studio** + **Android SDK** (Platform 36, Build-Tools 36, Platform-Tools).
   Variabile `ANDROID_HOME` (o `local.properties` con `sdk.dir=...`) configurata.
 - Un telefono Android con **debug USB** attivo, oppure un emulatore.
@@ -119,28 +137,13 @@ npm run android:build       # = cap:sync && cd android && ./gradlew assembleDebu
 # APK in: mobile/android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Stato verifica in questa sessione (ambiente remoto)
-Eseguito e **verificato** nel container di sviluppo:
-- `npm install` (95 pacchetti, 0 vulnerabilità).
-- `npx cap add android` → progetto nativo generato; 3 plugin rilevati:
-  splash-screen, status-bar, **@capgo/capacitor-native-biometric**.
-- `sync-web.sh` + `npm run cap:sync` → www assemblata (29 file) e copiata in
-  `android/app/src/main/assets/public`.
-- `web-mobile/mobile-init.js` presente in www e incluso da index.html; tutti i
-  percorsi nativi guardati da `isNativePlatform`.
-
-**NON eseguibile qui**: `./gradlew assembleDebug` (compilazione APK) richiede
-l'Android SDK, il cui download (`dl.google.com`) è bloccato dalla network egress
-policy del container remoto. La build APK va lanciata sulla macchina locale di
-Matteo con i comandi sopra (è comunque lì che si testa, dato che il container
-non raggiunge il telefono fisico).
-
 ## Modifiche file per file (Fase 1)
 **Nuovi:**
 - `web-mobile/mobile-init.js` — integrazione biometrica (no-op sul web).
 - `mobile/package.json`, `mobile/capacitor.config.json`, `mobile/sync-web.sh`,
   `mobile/.gitignore` — progetto Capacitor.
 - `mobile/android/**` — progetto nativo generato + `USE_BIOMETRIC` nel manifest.
+- `.github/workflows/android-debug.yml` — CI build APK debug.
 - `.vercelignore` (root) — esclude `mobile/` dal deploy Vercel.
 - `APP_MOBILE.md` (questo file).
 
@@ -156,11 +159,9 @@ non raggiunge il telefono fisico).
 mobile-init.js solo sul nativo.
 
 ## Branch
-Indicazione del prompt: `feat/mobile-android-fase1`. In questa sessione il lavoro
-è stato sviluppato sul branch designato dall'ambiente di esecuzione remoto
-(`claude/new-session-c9jh21`), che genera comunque un Preview Deployment Vercel.
-Nessun merge su `main`. Se serve il nome `feat/mobile-android-fase1`, basta
-rinominare/ribranchare prima del merge — il contenuto è identico.
+Sviluppata sul branch `claude/new-session-c9jh21` (designato dall'ambiente remoto).
+**Mergiata su `main` via squash il 2026-06-22 (PR #138, commit f10112c)** — col
+squash il nome del branch non incide sulla history.
 
 ## Limitazioni note (aperte)
 - **Deep link email** (recovery `/?reset=1`, invito `/?invito=token`) aprono il
