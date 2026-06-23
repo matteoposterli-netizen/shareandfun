@@ -142,6 +142,15 @@
         return;
       }
 
+      // Onboarding biometrico SOLO per i proprietari: gli stagionali nell'app
+      // vedono solo l'overlay owner-only (owner-gate.js), niente proposta qui.
+      // Fail-open solo se il gate non è caricato.
+      var gate = window.SpiaggiaMiaOwnerGate;
+      if (gate && typeof gate.isProprietario === 'function') {
+        var isOwner = await gate.isProprietario();
+        if (!isOwner) return; // non proprietario: niente proposta biometrica
+      }
+
       var avail = await np.isAvailable();
       if (!avail || !avail.isAvailable) return; // device senza biometria
 
