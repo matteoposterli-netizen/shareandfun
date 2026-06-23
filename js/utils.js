@@ -308,6 +308,34 @@ async function inviaWhatsapp(tipo, params, stab) {
   }
 }
 
+// Invia una notifica push (FCM) al proprietario via Edge Function invia-push.
+// Canale parallelo a WhatsApp/email. Fire-and-forget: non deve bloccare la UI.
+// Stesso pattern di inviaWhatsapp: sb.functions.invoke gestisce l'Authorization
+// con la session corrente; la function ha verify_jwt=false + guard interna.
+async function inviaPush(params) {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) {
+      console.warn('push: nessuna session, salto');
+      return { ok: false, skipped: 'no_session' };
+    }
+    const { data, error: invokeErr } = await sb.functions.invoke('invia-push', { body: params });
+    if (invokeErr) {
+      console.error('push fallita:', invokeErr);
+      return { ok: false, error: invokeErr?.message || 'invoke_error' };
+    }
+    if (data?.skipped) {
+      console.log('push saltata:', data.skipped);
+      return { ok: false, skipped: data.skipped };
+    }
+    console.log('push inviata:', data?.sent ?? '?');
+    return { ok: true };
+  } catch (e) {
+    console.error('push eccezione:', e);
+    return { ok: false, error: e?.message || 'exception' };
+  }
+}
+
 // Distingue un input utente come email o telefono.
 // Regola semplice e robusta: contiene '@' -> email; altrimenti tel.
 // Casi di whitespace/empty: considerati non-email (l'eventuale

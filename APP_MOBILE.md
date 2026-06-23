@@ -36,6 +36,17 @@ Stato e roadmap del wrapping della SPA in app native Android/iOS.
   `push_tokens` (user_id → token FCM), Edge Function `invia-push` agganciata agli
   stessi call site di invia-email/invia-whatsapp. Modifiche a Supabase produzione:
   conferma esplicita di Matteo prima di migration/deploy.
+- [✓ client] **Fase 2b** — push disponibilità stagionale → proprietario.
+  Edge Function `invia-push` già deployata in produzione (FCM v1, verify_jwt=false,
+  3 secret FCM). Aggancio lato client: helper `inviaPush(params)` in `js/utils.js`
+  (stesso pattern session di `inviaWhatsapp`, fire-and-forget) + chiamata in
+  `js/stagionale.js → salvaModifichePending` (dopo il for di salvataggio, prima del
+  reset di `pendingDispChanges`). Payload: `{ stabilimento_id, cliente_id,
+  ombrellone_id, giorni_aggiunti[], giorni_rimossi[] }`. La function risolve
+  proprietario → `push_tokens`, formatta i giorni in range compatti e invia (skip
+  graceful se nessun token). **Destinatario = proprietario** dello stabilimento.
+  WhatsApp/email invariati (canale parallelo). Cache-bust `?v=20260623` su utils.js
+  e stagionale.js.
 - [da fare] **Fase 3** — pubblicazione Play Store + rifiniture app-like.
 - [futuro] **iOS** — stesso progetto Capacitor, piattaforma ios, build cloud,
   APNs (.p8) su Firebase, account Apple Developer, device di test. Per la review
