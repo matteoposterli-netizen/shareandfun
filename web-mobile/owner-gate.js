@@ -231,7 +231,30 @@
     };
   }
 
+  // Intercetta SINCRONAMENTE showView: è il fix vero contro il lampo. Quando
+  // loadUserAndRoute sta per disegnare la vista 'stagionale', `currentProfile`
+  // è GIÀ impostato (js/state.js), quindi possiamo decidere senza affidarci al
+  // paint. Per un non proprietario NON attiviamo mai #view-stagionale: mostriamo
+  // direttamente il gate. La home stagionale non diventa così MAI visibile.
+  function wrapShowView() {
+    var orig = window.showView;
+    if (typeof orig !== 'function') return;
+    window.showView = function (viewId, sub) {
+      if (isNative() && viewId === 'stagionale') {
+        var ruolo = (typeof currentProfile !== 'undefined' && currentProfile)
+                      ? currentProfile.ruolo : null;
+        if (ruolo !== 'proprietario') {
+          // Non proprietario: NON mostrare la home stagionale, mostra il gate.
+          showGate();
+          return;            // la vista stagionale non viene MAI attivata
+        }
+      }
+      return orig.apply(this, arguments);
+    };
+  }
+
   if (isNative()) {
+    wrapShowView();
     wrapLoadUserAndRoute();
     wrapAfter('doLogin');
     wrapAfter('completeInviteRegistration');
