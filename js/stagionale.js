@@ -56,7 +56,7 @@ async function loadStagionaleData() {
   buildCalendar(dispMap, disp || []);
   renderStagioneBanner();
 
-  const { data: txs } = await sb.from('transazioni').select('*').eq('cliente_id', stagClienteId).order('created_at', { ascending: false }).limit(20);
+  const { data: txs } = await sb.from('transazioni').select('*').eq('cliente_id', stagClienteId).order('created_at', { ascending: false }).limit(50);
   document.getElementById('stag-tx-list').innerHTML = renderStagTxList(txs || [], stab);
 }
 
@@ -224,21 +224,32 @@ function stagTxDate(t) {
   return `${d.getDate()} ${STAG_MONTHS_SHORT[d.getMonth()]}`;
 }
 
-function renderStagTxList(txs, stab) {
-  if (!txs || !txs.length) return '<div class="tx-empty">Nessuna transazione</div>';
-  return txs.map(t => {
-    const cat = stagTxCategory(t);
-    const icon = cat === 'earn' ? '+' : cat === 'spend' ? '−' : '•';
-    const showAmt = t.importo != null && Number(t.importo) !== 0 && cat !== 'info';
-    let amtHtml = '';
-    if (showAmt) {
-      const sign = cat === 'earn' ? '+' : cat === 'spend' ? '−' : '';
-      const abs = Math.abs(Number(t.importo));
-      amtHtml = `<div class="stag-tx-amt ${cat}">${sign}${formatCoin(abs, stab)}</div>`;
-    }
-    const desc = stagTxDescription(t);
-    const descHtml = desc ? `<div class="stag-tx-desc">${desc}</div>` : '';
-    return `<div class="stag-tx-row">
+// Estrae la data di calendario (Date) dal campo `nota` di una transazione di
+// disponibilita, es. "Disponibilita dichiarata per 23 giugno 2026".
+// Ritorna null se non interpretabile.
+function stagExtractDispDay(t) {
+  const m = (t.nota || '').match(/per\s+(\d{1,2})\s+([A-Za-zàèéìòù]+)\s+(\d{4})/i);
+  if (!m) return null;
+  const mi = STAG_MONTHS_SHORT.indexOf(m[2].toLowerCase().slice(0, 3));
+  if (mi < 0) return null;
+  const d = new Date(parseInt(m[3], 10), mi, parseInt(m[1], 10));
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Render di una singola transazione "classica" (non disponibilita).
+function renderStagTxRow(t, stab) {
+  const cat = stagTxCategory(t);
+  const icon = cat === 'earn' ? '+' : cat === 'spend' ? '−' : '•';
+  const showAmt = t.importo != null && Number(t.importo) !== 0 && cat !== 'info';
+  let amtHtml = '';
+  if (showAmt) {
+    const sign = cat === 'earn' ? '+' : cat === 'spend' ? '−' : '';
+    const abs = Math.abs(Number(t.importo));
+    amtHtml = `<div class="stag-tx-amt ${cat}">${sign}${formatCoin(abs, stab)}</div>`;
+  }
+  const desc = stagTxDescription(t);
+  const descHtml = desc ? `<div class="stag-tx-desc">${desc}</div>` : '';
+  return `<div class="stag-tx-row">
       <div class="stag-tx-icon ${cat}">${icon}</div>
       <div class="stag-tx-info">
         <div class="stag-tx-label">${stagTxLabel(t)}</div>
@@ -247,7 +258,53 @@ function renderStagTxList(txs, stab) {
       </div>
       ${amtHtml}
     </div>`;
-  }).join('');
+}
+
+// Render compatto di un gruppo di transazioni di disponibilita salvate insieme:
+// una sola riga con l'elenco dei giorni interessati (ordinati cronologicamente).
+function renderStagDispBatch(items) {
+  const isAdd = items[0].tipo === 'disponibilita_aggiunta';
+  const label = isAdd ? 'Disponibilità dichiarata' : 'Disponibilità rimossa';
+  const days = items.map(t => stagExtractDispDay(t)).filter(Boolean).sort((a, b) => a - b);
+  const giorniStr = days.length
+    ? days.map(d => `${d.getDate()} ${STAG_MONTHS_SHORT[d.getMonth()]}`).join(', ')
+    : items.map(t => stagTxDate(t)).filter(Boolean).join(', ');
+  return `<div class="stag-tx-row">
+      <div class="stag-tx-icon info">•</div>
+      <div class="stag-tx-info">
+        <div class="stag-tx-label">${label}</div>
+        <div class="stag-tx-desc">${giorniStr}</div>
+      </div>
+    </div>`;
+}
+
+function renderStagTxList(txs, stab) {
+  if (!txs || !txs.length) return '<div class="tx-empty">Nessuna transazione</div>';
+  // Raggruppa le transazioni di disponibilita (aggiunta/rimossa) dello stesso
+  // salvataggio — stesso tipo e created_at entro 60s dal primo del gruppo — in
+  // un'unica riga. Le txs arrivano ordinate per created_at desc, quindi i membri
+  // di uno stesso batch sono contigui.
+  const BATCH_MS = 60000;
+  const blocks = [];
+  let curr = null;
+  for (const t of txs) {
+    const isDisp = t.tipo === 'disponibilita_aggiunta' || t.tipo === 'disponibilita_rimossa';
+    if (isDisp) {
+      const ts = t.created_at ? new Date(t.created_at).getTime() : 0;
+      if (curr && curr.tipo === t.tipo && Math.abs(ts - curr.anchor) <= BATCH_MS) {
+        curr.items.push(t);
+        continue;
+      }
+      curr = { tipo: t.tipo, anchor: ts, items: [t] };
+      blocks.push({ kind: 'disp', ref: curr });
+    } else {
+      curr = null;
+      blocks.push({ kind: 'single', tx: t });
+    }
+  }
+  return blocks.map(b =>
+    b.kind === 'disp' ? renderStagDispBatch(b.ref.items) : renderStagTxRow(b.tx, stab)
+  ).join('');
 }
 
 function renderCalendar() {
