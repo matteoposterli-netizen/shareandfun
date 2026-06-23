@@ -68,6 +68,8 @@ Stato e roadmap del wrapping della SPA in app native Android/iOS.
   android/                # progetto nativo (generato da `npx cap add android`, versionato)
 /web-mobile
   mobile-init.js          # integrazione biometrica (no-op sul web)
+  push-init.js            # registrazione token FCM (no-op sul web)
+  owner-gate.js           # gate "app riservata ai gestori" (no-op sul web)
 /.github/workflows
   android-debug.yml       # CI: build APK debug + artefatto (vedi sezione CI)
 ```
@@ -154,6 +156,36 @@ le push:
 Senza `google-services.json` la CI compila comunque (il plugin google-services
 non viene applicato → build verde), ma `getToken()` fallisce a runtime: nessuna
 riga in `push_tokens`.
+
+## Gate "app riservata ai gestori" (web-mobile/owner-gate.js)
+Script classico (niente bundler), **NO-OP completo sul web** (guardato da
+`isNative()`): sul sito spiaggiamia.com gli stagionali continuano a usare la SPA
+normalmente, nessun overlay. Incluso da `index.html` con
+`<script src="web-mobile/owner-gate.js?v=...">` **dopo** `push-init.js`.
+
+Obiettivo: nell'**app** (Capacitor) l'accesso è riservato ai proprietari. Se
+l'utente loggato non ha ruolo `proprietario`, viene mostrato un overlay
+full-screen "🔒 App riservata ai gestori" (z-index massimo, copre la vista
+stagionale rendendola inutilizzabile) con un solo pulsante "Esci"
+(`window.doLogout`).
+
+- **Determinazione ruolo** (`resolveRole`): riusa il global `currentProfile.ruolo`
+  già calcolato dal router (js/router.js → `loadUserAndRoute`); se non disponibile
+  fa una query diretta `sb.from('profiles').select('ruolo').eq('id', user.id)`
+  (PK `id` = auth.users.id, `ruolo` ∈ {'proprietario','stagionale'}).
+- **`enforceOwnerOnly()`**: non autenticato → rimuove l'overlay (no gate);
+  `proprietario` → rimuove l'overlay (no-op); altrimenti → mostra l'overlay.
+  Idempotente (controlla se l'overlay esiste già).
+- **Aggancio**: wrappa `window.loadUserAndRoute` — il punto in cui TUTTI i flussi
+  di auth (login, completamento invito, ripristino biometrico) confluiscono — e
+  chiama `enforceOwnerOnly()` dopo l'esecuzione originale. Come fallback wrappa
+  anche `doLogin` e `completeInviteRegistration` (che internamente chiamano
+  comunque loadUserAndRoute → enforceOwnerOnly è idempotente). Stesso pattern di
+  mobile-init.js / push-init.js (`typeof orig === 'function'` prima di wrappare).
+- API esposta: `window.SpiaggiaMiaOwnerGate = { isNative, enforceOwnerOnly }`.
+- Nessuna modifica a js/auth.js / js/router.js: gli agganci sono a runtime e solo
+  sul nativo. `sync-web.sh` copia l'intera `web-mobile/` → il file finisce nel
+  bundle automaticamente.
 
 ## Config Android
 - `AndroidManifest.xml`: aggiunto `<uses-permission android:name="android.permission.USE_BIOMETRIC" />`
