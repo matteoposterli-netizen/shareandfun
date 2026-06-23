@@ -19,3 +19,9 @@ ios/
 # Varie
 *.iml
 .DS_Store
+
+# Keystore / segreti firma (NON committare MAI)
+*.jks
+*.keystore
+keystore.properties
+*.b64
