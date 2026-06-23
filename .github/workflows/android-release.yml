@@ -2,11 +2,13 @@ name: Android release AAB
 
 # Builda l'Android App Bundle (AAB) di RELEASE firmato e lo pubblica come
 # artefatto scaricabile, da caricare su Play Console (Internal testing).
-# Lancio manuale (workflow_dispatch) o su tag v*.
+# Lancio manuale (workflow_dispatch), su tag v*, o su push del branch di lavoro.
 
 on:
   workflow_dispatch:
   push:
+    branches:
+      - feat/android-release-signing
     tags:
       - 'v*'
 
