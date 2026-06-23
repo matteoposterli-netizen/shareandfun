@@ -7,7 +7,7 @@ android {
         applicationId "com.spiaggiamia.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode (project.findProperty("appVersionCode") ?: "1").toString().toInteger()
+        versionCode((project.findProperty("appVersionCode") ?: "1").toString().toInteger())
         versionName project.findProperty("appVersionName") ?: "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
