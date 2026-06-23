@@ -10,7 +10,6 @@ on:
       - claude/new-session-c9jh21
       - claude/new-session-etk9fz
       - claude/new-session-6hv6il
-      - fix/owner-gate-flash
   workflow_dispatch:
 
 jobs:
