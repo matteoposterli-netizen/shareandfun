@@ -403,6 +403,16 @@ async function salvaModifichePending() {
     if (isFreeing) succeededAdds.push(dateStr);
     else succeededRemoves.push(dateStr);
   }
+  // Notifica push al proprietario (canale parallelo; non blocca la UI).
+  if (succeededAdds.length || succeededRemoves.length) {
+    inviaPush({
+      stabilimento_id: cliente.stabilimento_id,
+      cliente_id: stagClienteId,
+      ombrellone_id: stagOmbrelloneId,
+      giorni_aggiunti: succeededAdds,
+      giorni_rimossi: succeededRemoves,
+    }).catch(() => {});
+  }
   pendingDispChanges = {};
   hideLoading();
   await loadStagionaleData();
