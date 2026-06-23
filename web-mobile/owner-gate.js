@@ -6,22 +6,37 @@
  * (window.Capacitor?.isNativePlatform?.()), quindi il deploy Vercel NON cambia
  * comportamento — sul sito gli stagionali continuano a usare la SPA normalmente.
  *
- * Sul device nativo: dopo ogni flusso di autenticazione (login, completamento
- * invito, ripristino biometrico) verifica il ruolo dell'utente loggato. Se NON
- * è `proprietario`, mostra un overlay full-screen "App riservata ai gestori"
- * con un pulsante "Esci" (window.doLogout). L'overlay copre la UI sottostante
- * così la vista stagionale non è utilizzabile dall'app.
+ * Sul device nativo applica la regola "copri prima, svela dopo": PRIMA che il
+ * router (`loadUserAndRoute`) disegni qualunque vista mostra una COVER
+ * full-screen a tutto schermo (stato "loading" = schermata di caricamento
+ * brandizzata, identica allo splash dell'app); DOPO che il router ha risolto lo
+ * stato, decide:
+ *   - proprietario          → hideCover()  (svela la dashboard);
+ *   - non proprietario      → showGate()   (messaggio "App riservata ai gestori");
+ *   - non autenticato/ignoto → hideCover() (svela il login).
+ * In questo modo la vista stagionale non compare MAI, né in ingresso (login)
+ * né in uscita (logout).
  *
  * Aggancio: wrappa `window.loadUserAndRoute` (js/router.js), il punto in cui
- * TUTTI i flussi di auth confluiscono; dopo l'esecuzione originale chiama
- * `enforceOwnerOnly()`. Come fallback wrappa anche `doLogin` e
+ * TUTTI i flussi di auth confluiscono — showCover() PRIMA dell'originale,
+ * decisione (hideCover/showGate) DOPO. Come fallback wrappa anche `doLogin` e
  * `completeInviteRegistration` (js/auth.js), che internamente chiamano comunque
- * loadUserAndRoute → enforceOwnerOnly è idempotente.
+ * loadUserAndRoute → la logica è idempotente.
+ *
+ * NB `doLogout` (js/auth.js) NON passa da loadUserAndRoute (fa direttamente
+ * showView('landing')): il pulsante "Esci" riporta quindi la cover allo stato
+ * loading e dopo `await doLogout()` chiama esplicitamente hideCover() come
+ * fallback, così la vista stagionale non resta mai scoperta.
  *
  * Determinazione del ruolo: preferisce il global `currentProfile.ruolo` già
  * calcolato dal router (js/state.js → `let currentProfile`, popolato da
  * loadUserAndRoute). Se non disponibile, esegue una query diretta su `profiles`
  * (colonna `ruolo` ∈ {'proprietario','stagionale'}, PK `id` = auth.users.id).
+ *
+ * Lo spinner e il markup della cover "loading" riusano la stessa classe `.spinner`
+ * di styles.css (animazione `spin`) e il colore di sfondo dello splash nativo
+ * (#1B6CA8, vedi mobile/capacitor.config.json → SplashScreen.backgroundColor),
+ * così la schermata è coerente con i caricamenti che l'app mostra già.
  *
  * Dipendenze a runtime già definite quando questo file viene eseguito:
  *   - `sb` (client Supabase, js/state.js)
@@ -32,7 +47,10 @@
 (function () {
   'use strict';
 
-  var OVERLAY_ID = 'sm-owner-gate-overlay';
+  var COVER_ID = 'sm-owner-gate-overlay';
+  // Colore di sfondo dello splash nativo (mobile/capacitor.config.json).
+  var SPLASH_BG = '#1B6CA8';
+  var FONT_STACK = '"DM Sans",system-ui,sans-serif';
 
   function isNative() {
     try {
@@ -42,25 +60,56 @@
     } catch (e) { return false; }
   }
 
-  function removeOverlay() {
-    var el = document.getElementById(OVERLAY_ID);
-    if (el && el.parentNode) el.parentNode.removeChild(el);
-  }
-
-  function showOverlay() {
-    if (document.getElementById(OVERLAY_ID)) return; // già mostrato
-    var ov = document.createElement('div');
-    ov.id = OVERLAY_ID;
-    ov.setAttribute('role', 'dialog');
-    ov.setAttribute('aria-modal', 'true');
-    ov.style.cssText = [
+  // ---- COVER FULL-SCREEN (riutilizzata, due stati: loading / gate) ----------
+  // Restituisce l'elemento cover (creandolo e appendendolo al body se manca).
+  function ensureCover() {
+    var el = document.getElementById(COVER_ID);
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = COVER_ID;
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.style.cssText = [
       'position:fixed', 'inset:0', 'z-index:2147483647',
-      'background:#1B6CA8', 'color:#fff',
+      'background:' + SPLASH_BG, 'color:#fff',
       'display:flex', 'flex-direction:column',
       'align-items:center', 'justify-content:center',
       'text-align:center', 'padding:32px',
-      'font-family:"DM Sans",system-ui,sans-serif'
+      'font-family:' + FONT_STACK
     ].join(';');
+    (document.body || document.documentElement).appendChild(el);
+    return el;
+  }
+
+  // Stato "loading": schermata di caricamento brandizzata (riusa .spinner).
+  function renderLoading(el) {
+    if (el.getAttribute('data-state') === 'loading') return; // idempotente
+    el.setAttribute('data-state', 'loading');
+    el.innerHTML = '';
+
+    var spinner = document.createElement('div');
+    spinner.className = 'spinner';
+    // Override colori per contrasto sul fondo blu (la classe fornisce shape +
+    // animazione `spin`; qui rendiamo il bordo bianco).
+    spinner.style.cssText = [
+      'width:34px', 'height:34px', 'border-width:3px',
+      'border-color:rgba(255,255,255,0.35)', 'border-top-color:#fff',
+      'margin-bottom:18px'
+    ].join(';');
+
+    var label = document.createElement('div');
+    label.textContent = 'Caricamento in corso…';
+    label.style.cssText = 'font-size:16px;font-weight:500;opacity:.95';
+
+    el.appendChild(spinner);
+    el.appendChild(label);
+  }
+
+  // Stato "gate": messaggio "App riservata ai gestori" + pulsante "Esci".
+  function renderGate(el) {
+    if (el.getAttribute('data-state') === 'gate') return; // idempotente
+    el.setAttribute('data-state', 'gate');
+    el.innerHTML = '';
 
     var icon = document.createElement('div');
     icon.textContent = '🔒';
@@ -82,20 +131,38 @@
       'border-radius:10px', 'padding:14px 36px',
       'font-size:16px', 'font-weight:700', 'cursor:pointer'
     ].join(';');
-    btn.addEventListener('click', function () {
-      removeOverlay();
-      try {
-        if (typeof window.doLogout === 'function') window.doLogout();
-      } catch (e) { console.warn('[owner-gate] doLogout', e); }
-    });
+    btn.addEventListener('click', onEsci);
 
-    ov.appendChild(icon);
-    ov.appendChild(title);
-    ov.appendChild(msg);
-    ov.appendChild(btn);
-    (document.body || document.documentElement).appendChild(ov);
+    el.appendChild(icon);
+    el.appendChild(title);
+    el.appendChild(msg);
+    el.appendChild(btn);
   }
 
+  // "Esci" senza lampo: NON scopre la vista → riporta la cover allo stato
+  // loading, poi esegue il logout. doLogout non passa da loadUserAndRoute,
+  // quindi hideCover() esplicito a fine logout (fallback).
+  async function onEsci() {
+    showCover();
+    try {
+      if (typeof window.doLogout === 'function') {
+        await window.doLogout();
+      }
+    } catch (e) {
+      console.warn('[owner-gate] doLogout', e);
+    } finally {
+      hideCover();
+    }
+  }
+
+  function showCover() { renderLoading(ensureCover()); }   // stato loading
+  function showGate() { renderGate(ensureCover()); }       // stato gate
+  function hideCover() {
+    var el = document.getElementById(COVER_ID);
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+
+  // ---- RISOLUZIONE RUOLO ----------------------------------------------------
   // Ritorna il ruolo dell'utente loggato, oppure null se non autenticato.
   async function resolveRole() {
     // 1) Riusa ciò che il router ha già calcolato (js/state.js global).
@@ -128,33 +195,46 @@
     return role === 'proprietario';
   }
 
-  // Applica il gate: overlay se l'utente loggato non è proprietario.
+  // Applica il gate dopo che il router ha disegnato/risolto lo stato.
+  // proprietario → svela; ruolo noto non proprietario → gate; ignoto → svela.
   async function enforceOwnerOnly() {
-    if (!isNative()) { removeOverlay(); return; }
+    if (!isNative()) { hideCover(); return; }
     var role = await resolveRole();
-    if (!role) { removeOverlay(); return; }            // non autenticato → no gate
-    if (role === 'proprietario') { removeOverlay(); return; } // proprietario → no-op
-    showOverlay();                                      // stagionale/altro → blocco
+    if (role === 'proprietario') { hideCover(); return; } // proprietario → dashboard
+    if (!role) { hideCover(); return; }                   // non autenticato → login
+    showGate();                                           // stagionale/altro → blocco
   }
 
   // ---- AGGANCI AL FLUSSO ESISTENTE ----------------------------------------
-  // Wrappa una funzione globale: dopo l'originale, esegue `after`.
-  function wrapAfter(name, after) {
+  // Wrappa loadUserAndRoute: copre PRIMA (sincrono), decide DOPO.
+  function wrapLoadUserAndRoute() {
+    var orig = window.loadUserAndRoute;
+    if (typeof orig !== 'function') return;
+    window.loadUserAndRoute = async function () {
+      showCover(); // copri prima che il router disegni qualunque vista
+      var r = await orig.apply(this, arguments);
+      try { await enforceOwnerOnly(); } catch (e) { console.warn('[owner-gate] post-hook loadUserAndRoute', e); }
+      return r;
+    };
+  }
+
+  // Fallback (idempotente): questi chiamano comunque loadUserAndRoute, ma li
+  // wrappiamo per coprire anche eventuali percorsi che non vi confluiscono.
+  function wrapAfter(name) {
     var orig = window[name];
     if (typeof orig !== 'function') return;
     window[name] = async function () {
+      showCover();
       var r = await orig.apply(this, arguments);
-      try { await after(); } catch (e) { console.warn('[owner-gate] post-hook ' + name, e); }
+      try { await enforceOwnerOnly(); } catch (e) { console.warn('[owner-gate] post-hook ' + name, e); }
       return r;
     };
   }
 
   if (isNative()) {
-    // Punto di confluenza di tutti i flussi di auth.
-    wrapAfter('loadUserAndRoute', enforceOwnerOnly);
-    // Fallback (idempotente): questi chiamano comunque loadUserAndRoute.
-    wrapAfter('doLogin', enforceOwnerOnly);
-    wrapAfter('completeInviteRegistration', enforceOwnerOnly);
+    wrapLoadUserAndRoute();
+    wrapAfter('doLogin');
+    wrapAfter('completeInviteRegistration');
   }
 
   // Esposizione secondo convenzione window.*
@@ -162,5 +242,8 @@
     isNative: isNative,
     enforceOwnerOnly: enforceOwnerOnly,
     isProprietario: isProprietario,
+    showCover: showCover,
+    showGate: showGate,
+    hideCover: hideCover,
   };
 })();
