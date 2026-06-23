@@ -19,6 +19,7 @@
     "@capgo/capacitor-native-biometric": "^8.4.11"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.4.1"
   }
 }

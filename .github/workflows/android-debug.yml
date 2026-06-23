@@ -9,6 +9,7 @@ on:
     branches:
       - claude/new-session-c9jh21
       - claude/new-session-etk9fz
+      - claude/new-session-6hv6il
   workflow_dispatch:
 
 jobs:
