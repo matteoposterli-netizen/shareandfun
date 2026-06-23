@@ -182,10 +182,25 @@ stagionale rendendola inutilizzabile) con un solo pulsante "Esci"
   anche `doLogin` e `completeInviteRegistration` (che internamente chiamano
   comunque loadUserAndRoute → enforceOwnerOnly è idempotente). Stesso pattern di
   mobile-init.js / push-init.js (`typeof orig === 'function'` prima di wrappare).
-- API esposta: `window.SpiaggiaMiaOwnerGate = { isNative, enforceOwnerOnly }`.
+- **`isProprietario()`**: check di ruolo riusabile (riusa `resolveRole`), ritorna
+  `true` solo se ruolo === `proprietario`, `false` per qualsiasi altro ruolo o
+  ruolo non determinabile (**fail-closed**). Usato per gateare l'onboarding nativo.
+- API esposta: `window.SpiaggiaMiaOwnerGate = { isNative, enforceOwnerOnly, isProprietario }`.
 - Nessuna modifica a js/auth.js / js/router.js: gli agganci sono a runtime e solo
   sul nativo. `sync-web.sh` copia l'intera `web-mobile/` → il file finisce nel
   bundle automaticamente.
+
+### Onboarding nativo gateato al ruolo (fix 23 giu 2026)
+Il prompt biometrico (`mobile-init.js → afterLogin`, la `confirm` di arruolamento)
+e la registrazione del token push (`push-init.js → register`, permesso +
+`getToken` + `register_push_token`) avvengono **SOLO per i proprietari**: prima
+della proposta/registrazione entrambi chiamano `await window.SpiaggiaMiaOwnerGate
+.isProprietario()` e si fermano (`return`) se non è proprietario. Così uno
+stagionale, nell'app, vede **solo** l'overlay owner-only — nessun prompt biometrico
+né richiesta notifiche. **Fail-open** solo se il gate non è caricato (modulo
+assente). Lo sblocco biometrico all'avvio (`tryBiometricUnlock`) resta invariato:
+un non-proprietario non ha mai una credenziale salvata. Cache-bust `?v=20260623b`
+su mobile-init.js / push-init.js / owner-gate.js.
 
 ## Config Android
 - `AndroidManifest.xml`: aggiunto `<uses-permission android:name="android.permission.USE_BIOMETRIC" />`

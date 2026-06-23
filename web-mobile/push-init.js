@@ -92,6 +92,15 @@
     var p = fcm();
     if (!p) return;
     try {
+      // Push SOLO per i proprietari (destinatari delle notifiche gestore): gli
+      // stagionali nell'app vedono solo l'overlay owner-only (owner-gate.js).
+      // Niente richiesta permesso né token per loro. Fail-open se gate assente.
+      var gate = window.SpiaggiaMiaOwnerGate;
+      if (gate && typeof gate.isProprietario === 'function') {
+        var isOwner = await gate.isProprietario();
+        if (!isOwner) return; // non proprietario: niente permesso né token
+      }
+
       var granted = await ensurePermission();
       if (!granted) { console.warn('[push] permesso notifiche negato — nessun token'); return; }
       var res = await p.getToken();

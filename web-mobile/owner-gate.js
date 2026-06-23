@@ -119,6 +119,15 @@
     }
   }
 
+  // Check di ruolo riusabile: true SOLO se l'utente loggato è `proprietario`.
+  // false per qualsiasi altro ruolo o ruolo non determinabile (fail-closed).
+  // Usato da mobile-init.js / push-init.js per gateare l'onboarding nativo
+  // (proposta biometrica + registrazione token push) ai soli proprietari.
+  async function isProprietario() {
+    var role = await resolveRole();
+    return role === 'proprietario';
+  }
+
   // Applica il gate: overlay se l'utente loggato non è proprietario.
   async function enforceOwnerOnly() {
     if (!isNative()) { removeOverlay(); return; }
@@ -152,5 +161,6 @@
   window.SpiaggiaMiaOwnerGate = {
     isNative: isNative,
     enforceOwnerOnly: enforceOwnerOnly,
+    isProprietario: isProprietario,
   };
 })();
