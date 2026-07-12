@@ -62,19 +62,42 @@ async function loadCreditiStagionali() {
   renderCreditiStagionali();
 }
 
+function naturalCompareCodice(a, b) {
+  const re = /(\d+)|(\D+)/g;
+  const ax = String(a || '').match(re) || [];
+  const bx = String(b || '').match(re) || [];
+  const len = Math.max(ax.length, bx.length);
+  for (let i = 0; i < len; i++) {
+    const av = ax[i] || '';
+    const bv = bx[i] || '';
+    if (av === bv) continue;
+    const an = /^\d+$/.test(av), bn = /^\d+$/.test(bv);
+    if (an && bn) {
+      const diff = parseInt(av, 10) - parseInt(bv, 10);
+      if (diff !== 0) return diff;
+    } else {
+      const cmp = av.localeCompare(bv, 'it', { sensitivity: 'base' });
+      if (cmp !== 0) return cmp;
+    }
+  }
+  return 0;
+}
+
 function renderCreditiStagionali() {
   const listEl = document.getElementById('crediti-stag-list');
   if (!listEl) return;
 
   const qNome = (document.getElementById('crediti-stag-search-nome')?.value || '').trim().toLowerCase();
   const qOmb  = (document.getElementById('crediti-stag-search-omb')?.value || '').trim().toLowerCase();
+  const sortBy = document.getElementById('crediti-stag-sort')?.value || 'cognome';
+  const onlyAvailable = document.getElementById('crediti-stag-only-available')?.checked ?? true;
 
   let rows = creditiStagData;
 
   if (qNome) {
     rows = rows.filter(r => {
       if (!r.cliente) return false;
-      const full = ((r.cliente.nome || '') + ' ' + (r.cliente.cognome || '')).toLowerCase();
+      const full = ((r.cliente.cognome || '') + ' ' + (r.cliente.nome || '')).toLowerCase();
       return full.includes(qNome);
     });
   }
@@ -84,16 +107,31 @@ function renderCreditiStagionali() {
       return cod.includes(qOmb.replace(/\s/g, ''));
     });
   }
+  if (onlyAvailable) {
+    rows = rows.filter(r => r.disponibili > 0);
+  }
 
   if (!rows.length) {
     listEl.innerHTML = '<div class="tx-empty">Nessun risultato</div>';
     return;
   }
 
+  rows = rows.slice().sort((a, b) => {
+    if (sortBy === 'ombrellone') {
+      return naturalCompareCodice(a.ombrellone.codice, b.ombrellone.codice);
+    }
+    const aHas = !!a.cliente, bHas = !!b.cliente;
+    if (aHas !== bHas) return aHas ? -1 : 1;
+    if (!aHas) return 0;
+    const cCmp = (a.cliente.cognome || '').trim().localeCompare((b.cliente.cognome || '').trim(), 'it', { sensitivity: 'base' });
+    if (cCmp !== 0) return cCmp;
+    return (a.cliente.nome || '').trim().localeCompare((b.cliente.nome || '').trim(), 'it', { sensitivity: 'base' });
+  });
+
   const n = v => parseFloat(v || 0).toFixed(2);
   const body = rows.map(r => {
     const nomeCliente = r.cliente
-      ? escapeHtml(((r.cliente.nome || '') + ' ' + (r.cliente.cognome || '')).trim())
+      ? escapeHtml(((r.cliente.cognome || '') + ' ' + (r.cliente.nome || '')).trim())
       : '<span class="cst-nessun">Nessun cliente</span>';
     const ombLabel = escapeHtml(r.ombrellone.codice || '');
     return `
@@ -129,7 +167,7 @@ function openCreditiStagModal(ombId) {
   const stab = currentStabilimento;
   const ombLabel = escapeHtml(row.ombrellone.codice || '');
   const nomeCliente = row.cliente
-    ? escapeHtml(((row.cliente.nome || '') + ' ' + (row.cliente.cognome || '')).trim())
+    ? escapeHtml(((row.cliente.cognome || '') + ' ' + (row.cliente.nome || '')).trim())
     : 'Nessun cliente';
 
   document.getElementById('crediti-stag-modal-title').textContent = `${ombLabel} — ${nomeCliente}`;
