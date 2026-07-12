@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/it.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260620d">
+<link rel="stylesheet" href="styles.css?v=20260712a">
 </head>
 <body>
 
@@ -2235,6 +2235,11 @@
       <button class="btn btn-outline btn-sm" onclick="editRowBulkForce()">✓ Tutta la stagione disponibile</button>
       <button class="btn btn-outline btn-sm" onclick="editRowBulkRemove()">✗ Rimuovi tutte le disponibilità</button>
     </div>
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:4px">Modalità click giorno singolo:</div>
+    <div id="edit-row-day-mode-toggle" class="pren-view-toggle" role="tablist" aria-label="Modalità selezione giorno" style="margin-bottom:10px">
+      <button type="button" class="pren-view-btn active" data-day-mode="force" role="tab" aria-selected="true" onclick="editRowSetDayMode('force')">✓ Disponibile</button>
+      <button type="button" class="pren-view-btn" data-day-mode="force_sub" id="edit-row-mode-sub-btn" role="tab" aria-selected="false" onclick="editRowSetDayMode('force_sub')">💰 Sub-affittato</button>
+    </div>
     <div class="cal-compact">
       <div class="cal-header">
         <button class="cal-nav" id="edit-row-cal-prev" onclick="editRowCalNav(-1)">‹</button>
@@ -2250,7 +2255,8 @@
         <div class="legend-item"><div class="legend-dot" style="background:var(--green-light);border:1.5px solid #96DDB8"></div>Disponibile</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--yellow-light);border:1.5px solid var(--yellow)"></div>Sub-affittato</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--ocean-light);border:1.5px solid var(--ocean-mid)"></div>Occupato</div>
-        <div class="legend-item"><div class="legend-dot" style="background:rgba(150,221,184,0.35);border:1.5px dashed var(--green)"></div>Da salvare</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(150,221,184,0.35);border:1.5px dashed var(--green)"></div>Da salvare: disponibile</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(240,180,41,0.25);border:1.5px dashed var(--yellow)"></div>Da salvare: sub-affittato</div>
         <div class="legend-item"><div class="legend-dot" style="box-shadow:inset 0 0 0 2px var(--green)"></div>Sempre libero</div>
         <div class="legend-item"><div class="legend-dot" style="box-shadow:inset 0 0 0 2px var(--yellow)"></div>Mai libero</div>
         <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,#F5F5F5 0 4px,#ECECEC 4px 8px);border:1.5px solid #DDD"></div>Bagno chiuso</div>
@@ -2766,7 +2772,7 @@ document.addEventListener('click', function(e) {
 <script src="js/router.js"></script>
 <script src="js/auth.js?v=20260605a"></script>
 <script src="js/setup.js"></script>
-<script src="js/manager.js?v=20260712"></script>
+<script src="js/manager.js?v=20260712a"></script>
 <script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>
