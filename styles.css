@@ -351,7 +351,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .cal-day.restricted:hover:not(.empty):not(.past) { border-color: #DDD; }
 .cal-day.pending-add { background: rgba(150, 221, 184, 0.35); border-color: var(--green); border-style: dashed; color: var(--green); }
 .cal-day.pending-remove { background: rgba(224, 123, 84, 0.15); border-color: var(--coral); border-style: dashed; color: var(--coral); text-decoration: line-through; }
-.cal-day.pending-add:hover, .cal-day.pending-remove:hover { border-color: var(--ink); }
+.cal-day.pending-sub { background: rgba(240, 180, 41, 0.25); border-color: var(--yellow); border-style: dashed; color: #9C7A1F; }
+.cal-day.pending-add:hover, .cal-day.pending-remove:hover, .cal-day.pending-sub:hover { border-color: var(--ink); }
 .stag-pending-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; padding: 12px 14px; border-radius: 10px; background: var(--sand); border: 1px solid var(--border); font-size: 13px; }
 .stag-pending-bar .stag-pending-info { color: var(--ink); }
 .stag-pending-bar .stag-pending-actions { display: flex; gap: 8px; flex-shrink: 0; }
@@ -963,6 +964,8 @@ body.view-stagionale .topnav, body:has(#view-stagionale.active) .topnav { displa
 .pren-view-btn + .pren-view-btn { border-left: 1px solid var(--border, #E5E0D7); }
 .pren-view-btn:hover { background: #F8F4EE; }
 .pren-view-btn.active { background: var(--ocean, #1B6CA8); color: #fff; font-weight: 600; }
+.pren-view-btn:disabled { opacity: .4; cursor: not-allowed; }
+.pren-view-btn:disabled:hover { background: transparent; }
 .pren-tab-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--border, #E5E0D7); border-radius: 10px; background: #fff; }
 .pren-tab-table { border-collapse: separate; border-spacing: 0; font-size: 13px; width: max-content; min-width: 100%; }
 .pren-tab-table th, .pren-tab-table td { border-bottom: 1px solid var(--border, #E5E0D7); border-right: 1px solid var(--border, #E5E0D7); padding: 0; text-align: center; vertical-align: middle; }

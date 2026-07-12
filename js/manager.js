@@ -866,7 +866,7 @@ function renderGestioneFiltered() {
           return '<td style="text-align:center" title="Nessun numero di telefono"><span style="color:var(--text-light);font-size:12px">–</span></td>';
         })()
       : '<td class="hidden"></td>';
-    return `<tr style="cursor:pointer" onclick="openViewOmbrelloneModal('${omb.id}')" title="Vedi dettagli ombrellone">
+    return `<tr style="cursor:pointer" onclick="openEditRowModal('${omb.id}')" title="Modifica ombrellone">
       <td onclick="event.stopPropagation()">${unifiedCheck}</td>
       <td><strong>${escapeHtml(omb.codice)}</strong>${inactiveBadge}</td>
       <td>${formatCoin(omb.credito_giornaliero)}</td>
@@ -876,7 +876,6 @@ function renderGestioneFiltered() {
       ${waCellHtml}
       <td>${pill}</td>
       <td style="white-space:nowrap" onclick="event.stopPropagation()">
-        <button class="btn btn-outline btn-sm" onclick="openViewOmbrelloneModal('${omb.id}')" title="Vedi dettagli" style="margin-right:4px">👁️</button>
         <button class="btn btn-outline btn-sm" onclick="openEditRowModal('${omb.id}')" title="Modifica" style="margin-right:4px">✏️</button>
         ${azioniInvito}
         <button class="btn btn-danger btn-sm" onclick="deleteRow('${omb.id}')" title="Rimuovi riga">🗑️</button>
@@ -3160,7 +3159,22 @@ function renderViewOmbrelloneCalendar() {
 let editRowDayMap = {};
 let editRowRulesCache = [];
 let editRowDayOmbId = null;
-let editRowPending = {}; // dateStr -> 'force' | 'remove'
+let editRowPending = {}; // dateStr -> 'force' | 'remove' | 'force_sub'
+let editRowDayMode = 'force'; // 'force' | 'force_sub' — modalità attiva per il click su singolo giorno
+
+function editRowOmbHasCliente(ombId) {
+  return !!(clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === ombId);
+}
+
+function editRowSetDayMode(mode) {
+  if (mode === 'force_sub' && !editRowOmbHasCliente(editRowDayOmbId)) return;
+  editRowDayMode = mode;
+  document.querySelectorAll('#edit-row-day-mode-toggle .pren-view-btn').forEach(b => {
+    const active = b.dataset.dayMode === mode;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+}
 
 // Mese visualizzato nel calendario edit-row (clampato alla stagione). null = non init.
 let editRowCalYear = null;
@@ -3203,8 +3217,14 @@ function editRowCalClick(dateStr) {
   if (!editRowDayOmbId) return;
   const o = (ombrelloniList || []).find(x => x.id === editRowDayOmbId);
   if (o && !o.attivo) return; // ombrellone non attivo: read-only
-  const stato = editRowDayMap[dateStr]?.stato || 'occupied';
-  const action = stato === 'libero' ? 'remove' : 'force';
+  let action;
+  if (editRowDayMode === 'force_sub') {
+    if (!editRowOmbHasCliente(editRowDayOmbId)) return; // nessun cliente: nessun accredito possibile
+    action = 'force_sub';
+  } else {
+    const stato = editRowDayMap[dateStr]?.stato || 'occupied';
+    action = stato === 'libero' ? 'remove' : 'force';
+  }
   editRowTogglePending(dateStr, action); // chiama già renderEditRowDayList()
 }
 
@@ -3223,6 +3243,7 @@ function editRowGroupContiguousDates(dates) {
 async function loadEditRowDayList(ombId) {
   if (ombId !== editRowDayOmbId) { editRowPending = {}; editRowCalYear = null; editRowCalMonth = null; }
   editRowDayOmbId = ombId;
+  editRowSetDayMode('force'); // reset modalità + sincronizza lo stato .active dei bottoni del toggle
   const infoEl = document.getElementById('edit-row-disp-info');
   const listEl = document.getElementById('edit-row-day-list');
   if (!listEl) return;
@@ -3287,6 +3308,14 @@ function renderEditRowDayList() {
   const omb = (ombrelloniList || []).find(o => o.id === editRowDayOmbId);
   const inattivo = omb && !omb.attivo;
 
+  const subModeBtn = document.getElementById('edit-row-mode-sub-btn');
+  if (subModeBtn) {
+    const hasCliente = editRowOmbHasCliente(editRowDayOmbId);
+    subModeBtn.disabled = !hasCliente;
+    subModeBtn.title = hasCliente ? '' : 'Nessun cliente stagionale assegnato: impossibile accreditare';
+    if (!hasCliente && editRowDayMode === 'force_sub') editRowSetDayMode('force');
+  }
+
   const firstDay = new Date(y, mo, 1).getDay();
   const offset = (firstDay + 6) % 7; // griglia lunedì-based
   const daysInMonth = new Date(y, mo + 1, 0).getDate();
@@ -3326,10 +3355,12 @@ function renderEditRowDayList() {
       if (!readonly) {
         if (pending === 'force') cls += ' pending-add';
         else if (pending === 'remove') cls += ' pending-remove';
+        else if (pending === 'force_sub') cls += ' pending-sub';
       }
       title = (rule ? rule.label + ' · ' : '') + stTxt;
       if (pending === 'force') title = 'Da salvare: rendi libero';
       else if (pending === 'remove') title = 'Da salvare: rimuovi disponibilità';
+      else if (pending === 'force_sub') title = 'Da salvare: rendi sub-affittato (credito al cliente)';
     }
     if (inattivo) { cls += ' cal-day-readonly'; title = 'Ombrellone non attivo'; }
     else if (stato === 'sub_affittato' && !isChiusura) { cls += ' cal-day-readonly'; title = 'Sub-affittato (annulla dalla tab Prenotazioni)'; }
@@ -3359,9 +3390,11 @@ function editRowRenderPendingBar() {
   const entries = Object.entries(editRowPending);
   if (!entries.length) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
   const adds = entries.filter(([, a]) => a === 'force').length;
+  const subs = entries.filter(([, a]) => a === 'force_sub').length;
   const removes = entries.filter(([, a]) => a === 'remove').length;
   const parts = [];
   if (adds)    parts.push(`<strong>${adds}</strong> ${adds === 1 ? 'giorno da rendere libero' : 'giorni da rendere liberi'}`);
+  if (subs)    parts.push(`<strong>${subs}</strong> ${subs === 1 ? 'giorno da rendere sub-affittato' : 'giorni da rendere sub-affittati'}`);
   if (removes) parts.push(`<strong>${removes}</strong> ${removes === 1 ? 'giorno da rimuovere' : 'giorni da rimuovere'}`);
   bar.style.display = '';
   bar.innerHTML = `
@@ -3382,9 +3415,14 @@ async function editRowSalvaPending() {
   const entries = Object.entries(editRowPending);
   if (!entries.length) return;
   const forceDates  = entries.filter(([, a]) => a === 'force').map(([d]) => d).sort();
+  const subDates    = entries.filter(([, a]) => a === 'force_sub').map(([d]) => d).sort();
   const removeDates = entries.filter(([, a]) => a === 'remove').map(([d]) => d).sort();
   if (forceDates.length) {
     const ok = await applyForceDisponibile([editRowDayOmbId], forceDates, 'edit-row-alert');
+    if (ok === false) return;
+  }
+  if (subDates.length) {
+    const ok = await applyForceSubaffittato(editRowDayOmbId, subDates, 'edit-row-alert');
     if (ok === false) return;
   }
   if (removeDates.length) {
@@ -3397,6 +3435,98 @@ async function editRowSalvaPending() {
   editRowPending = {};
   await loadManagerData();
   await loadEditRowDayList(editRowDayOmbId);
+}
+
+// Marca direttamente come sub-affittato uno o più giorni di UN ombrellone,
+// accreditando il cliente stagionale assegnato — stessa logica di credito di
+// finalizeBookingSelection, ma senza passare dal wizard "Crea prenotazione".
+async function applyForceSubaffittato(ombId, dates, alertId) {
+  if (!ombId || !dates.length || !currentStabilimento) return false;
+  const omb = (ombrelloniList || []).find(o => o.id === ombId);
+  if (!omb) return false;
+  const cliente = (clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === ombId) || null;
+  if (!cliente) {
+    showAlert(alertId, 'Nessun cliente assegnato a questo ombrellone: impossibile registrare il sub-affitto diretto.', 'error');
+    return false;
+  }
+
+  const sortedDates = [...dates].sort();
+
+  // Nome univoco per salvataggio (stesso formato del flusso "Crea prenotazione",
+  // riusa generateDefaultBookingName()): evita che tutti i sub-affitti diretti
+  // fatti in momenti diversi finiscano raggruppati sotto la stessa "prenotazione"
+  // nella tab Prenotazioni (il raggruppamento è per stringa esatta di nome_prenotazione).
+  const nomePrenotazione = `${generateDefaultBookingName()} — Sub-affitto diretto`;
+
+  const dispRows = sortedDates.map(d => ({
+    ombrellone_id: ombId,
+    cliente_id: cliente.id,
+    data: d,
+    stato: 'sub_affittato',
+    nome_prenotazione: nomePrenotazione,
+  }));
+  const { error: dispErr } = await sb.from('disponibilita').upsert(dispRows, { onConflict: 'ombrellone_id,data' });
+  if (dispErr) {
+    showAlert(alertId, 'Errore sub-affitto: ' + dispErr.message, 'error');
+    return false;
+  }
+
+  const txRows = sortedDates.map(d => ({
+    stabilimento_id: currentStabilimento.id,
+    ombrellone_id: ombId,
+    cliente_id: cliente.id,
+    tipo: 'sub_affitto',
+    importo: omb.credito_giornaliero,
+    nota: `Ombrellone ${omb.codice} sub-affittato il ${formatDate(d)} — prenotazione "${nomePrenotazione}"`,
+  }));
+  const { error: txErr } = await sb.from('transazioni').insert(txRows);
+  if (txErr) {
+    showAlert(alertId, 'Sub-affitto salvato, ma errore nella registrazione delle transazioni: ' + txErr.message, 'error');
+    return true;
+  }
+
+  const delta = parseFloat(omb.credito_giornaliero || 0) * sortedDates.length;
+  const creditTxRows = sortedDates.map(d => ({
+    stabilimento_id: currentStabilimento.id,
+    ombrellone_id: ombId,
+    cliente_id: cliente.id,
+    tipo: 'credito_ricevuto',
+    importo: omb.credito_giornaliero,
+    nota: `Credito per sub-affitto ${omb.codice} (${formatDate(d)})`,
+  }));
+  const { error: credTxErr } = await sb.from('transazioni').insert(creditTxRows);
+  if (credTxErr) {
+    showAlert(alertId, 'Sub-affitto e transazioni salvati, ma errore sul credito cliente: ' + credTxErr.message, 'error');
+    return true;
+  }
+
+  const nuovoSaldo = (parseFloat(cliente.credito_saldo || 0) + delta).toFixed(2);
+  await sb.from('clienti_stagionali').update({ credito_saldo: nuovoSaldo }).eq('id', cliente.id);
+
+  if (cliente.email) {
+    const nota = sortedDates.length > 1
+      ? `Credito per ${sortedDates.length} giornate di sub-affitto diretto`
+      : `Ombrellone ${omb.codice} sub-affittato il ${formatDate(sortedDates[0])}`;
+    inviaEmail('credito_accreditato', {
+      email: cliente.email,
+      nome: cliente.nome,
+      cognome: cliente.cognome,
+      ombrellone: omb.codice,
+      importo_formatted: formatCoin(delta.toFixed(2), currentStabilimento),
+      saldo_formatted: formatCoin(nuovoSaldo, currentStabilimento),
+      nota,
+    }, currentStabilimento);
+  }
+  inviaWhatsapp('variazione_credito', {
+    cliente_id: cliente.id,
+    periodo: `Sub-affitto ${formatPeriodo(sortedDates)}`,
+    variazione: formatCoinSigned(delta.toFixed(2), '+', currentStabilimento),
+    saldo_nuovo: formatCoin(nuovoSaldo, currentStabilimento),
+  }, currentStabilimento);
+
+  showAlert(alertId, `✓ ${sortedDates.length} giorno${sortedDates.length === 1 ? '' : 'i'} sub-affittat${sortedDates.length === 1 ? 'o' : 'i'}, credito aggiornato.`, 'info');
+  setTimeout(() => showAlert(alertId, '', ''), 3000);
+  return true;
 }
 
 function editRowBulkForce() {
@@ -3434,6 +3564,7 @@ window.editRowBulkForce  = editRowBulkForce;
 window.editRowBulkRemove = editRowBulkRemove;
 window.editRowCalNav = editRowCalNav;
 window.editRowCalClick = editRowCalClick;
+window.editRowSetDayMode = editRowSetDayMode;
 /* ===== END EDIT-ROW DAY LIST ===== */
 
 // ===== VISTA MAPPA OMBRELLONI (ANAGRAFICA) =====
@@ -3586,7 +3717,6 @@ function openOmbrelloneMapPopup(omb, cliente, anchorEl) {
     </div>
     ${clienteInfo}
     <div class="omb-popup-actions">
-      <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('omb-map-popup')?.remove(); openViewOmbrelloneModal('${omb.id}')">👁️ Dettagli</button>
       <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('omb-map-popup')?.remove(); openEditRowModal('${omb.id}')">✏️ Modifica</button>
       <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('omb-map-popup')?.remove(); deleteRow('${omb.id}')">🗑️ Elimina</button>
     </div>
