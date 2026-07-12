@@ -3243,7 +3243,7 @@ function editRowGroupContiguousDates(dates) {
 async function loadEditRowDayList(ombId) {
   if (ombId !== editRowDayOmbId) { editRowPending = {}; editRowCalYear = null; editRowCalMonth = null; }
   editRowDayOmbId = ombId;
-  editRowDayMode = 'force';
+  editRowSetDayMode('force'); // reset modalità + sincronizza lo stato .active dei bottoni del toggle
   const infoEl = document.getElementById('edit-row-disp-info');
   const listEl = document.getElementById('edit-row-day-list');
   if (!listEl) return;
