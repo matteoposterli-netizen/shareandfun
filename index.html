@@ -481,6 +481,14 @@
                 <option value="invitato">Invito inviato</option>
                 <option value="attivo">Cliente attivo</option>
               </select>
+              <select id="gestione-sort" class="form-select" style="width:auto;padding:6px 10px;font-size:13px" onchange="renderGestioneFiltered()">
+                <option value="cognome" selected>Ordina per Cognome</option>
+                <option value="ombrellone">Ordina per Ombrellone</option>
+              </select>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-mid);cursor:pointer">
+                <input type="checkbox" id="gestione-solo-assegnati" onchange="renderGestioneFiltered()">
+                Solo assegnati
+              </label>
               <span id="clienti-count-label" style="font-size:13px;color:var(--text-light)"></span>
             </div>
             <div id="gestione-alert" style="margin-bottom:8px"></div>
@@ -2758,7 +2766,7 @@ document.addEventListener('click', function(e) {
 <script src="js/router.js"></script>
 <script src="js/auth.js?v=20260605a"></script>
 <script src="js/setup.js"></script>
-<script src="js/manager.js?v=20260622"></script>
+<script src="js/manager.js?v=20260712"></script>
 <script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>
