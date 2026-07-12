@@ -751,17 +751,55 @@ function renderGestioneTable(ombs, dispMap, clienti) {
   if (ombViewMode === 'mappa') renderGestioneMappa();
 }
 
+function naturalCompareCodiceGestione(a, b) {
+  const re = /(\d+)|(\D+)/g;
+  const ax = String(a || '').match(re) || [];
+  const bx = String(b || '').match(re) || [];
+  const len = Math.max(ax.length, bx.length);
+  for (let i = 0; i < len; i++) {
+    const av = ax[i] || '';
+    const bv = bx[i] || '';
+    if (av === bv) continue;
+    const an = /^\d+$/.test(av), bn = /^\d+$/.test(bv);
+    if (an && bn) {
+      const diff = parseInt(av, 10) - parseInt(bv, 10);
+      if (diff !== 0) return diff;
+    } else {
+      const cmp = av.localeCompare(bv, 'it', { sensitivity: 'base' });
+      if (cmp !== 0) return cmp;
+    }
+  }
+  return 0;
+}
+
 function getFiltratiGestione() {
   const q = (document.getElementById('clienti-filter')?.value || '').trim().toLowerCase();
   const statoF = document.getElementById('clienti-stato-filter')?.value || '';
+  const soloAssegnati = document.getElementById('gestione-solo-assegnati')?.checked || false;
+  const sortBy = document.getElementById('gestione-sort')?.value || 'cognome';
   const clienteByOmb = {};
   (clientiList || []).filter(c => !c.rifiutato).forEach(c => { if (c.ombrellone_id) clienteByOmb[c.ombrellone_id] = c; });
-  return (ombrelloniList || []).map(o => ({ omb: o, cliente: clienteByOmb[o.id] || null })).filter(({ omb, cliente }) => {
+  const righe = (ombrelloniList || []).map(o => ({ omb: o, cliente: clienteByOmb[o.id] || null })).filter(({ omb, cliente }) => {
+    if (soloAssegnati && !cliente) return false;
     if (statoF && clienteStato(cliente) !== statoF) return false;
     if (!q) return true;
-    const hay = `${omb.codice} ${cliente?.nome || ''} ${cliente?.cognome || ''} ${cliente?.email || ''} ${cliente?.telefono || ''}`.toLowerCase();
+    const hay = `${omb.codice} ${cliente?.cognome || ''} ${cliente?.nome || ''} ${cliente?.email || ''} ${cliente?.telefono || ''}`.toLowerCase();
     return hay.includes(q);
   });
+
+  righe.sort((a, b) => {
+    if (sortBy === 'ombrellone') {
+      return naturalCompareCodiceGestione(a.omb.codice, b.omb.codice);
+    }
+    const aHas = !!a.cliente, bHas = !!b.cliente;
+    if (aHas !== bHas) return aHas ? -1 : 1;
+    if (!aHas) return 0;
+    const cCmp = (a.cliente.cognome || '').trim().localeCompare((b.cliente.cognome || '').trim(), 'it', { sensitivity: 'base' });
+    if (cCmp !== 0) return cCmp;
+    return (a.cliente.nome || '').trim().localeCompare((b.cliente.nome || '').trim(), 'it', { sensitivity: 'base' });
+  });
+
+  return righe;
 }
 
 function renderGestioneFiltered() {
@@ -832,7 +870,7 @@ function renderGestioneFiltered() {
       <td onclick="event.stopPropagation()">${unifiedCheck}</td>
       <td><strong>${escapeHtml(omb.codice)}</strong>${inactiveBadge}</td>
       <td>${formatCoin(omb.credito_giornaliero)}</td>
-      <td>${cliente ? `<strong>${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')}</strong>` : '<span style="color:var(--text-light)">–</span>'}</td>
+      <td>${cliente ? `<strong>${escapeHtml(cliente.cognome || '')} ${escapeHtml(cliente.nome || '')}</strong>` : '<span style="color:var(--text-light)">–</span>'}</td>
       <td>${cliente ? escapeHtml(cliente.email || '') : '<span style="color:var(--text-light)">–</span>'}</td>
       <td>${cliente ? (escapeHtml(cliente.telefono || '') || '–') : '<span style="color:var(--text-light)">–</span>'}</td>
       ${waCellHtml}
