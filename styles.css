@@ -1275,3 +1275,27 @@ body.view-stagionale .topnav, body:has(#view-stagionale.active) .topnav { displa
   .cal-compact .cal-days-header, .cal-compact .cal-days-grid { gap: 3px; }
   .cal-compact .cal-day { font-size: 11px; }
 }
+
+/* EDIT-ROW: ombrellone disattivo — watermark + stato disabled più leggibile */
+.edit-row-watermark {
+  position: sticky;
+  top: -1px;
+  z-index: 50;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #7A1F1F;
+  background: repeating-linear-gradient(45deg, #FCEBEA, #FCEBEA 10px, #FADBD8 10px, #FADBD8 20px);
+  border: 1.5px solid var(--coral);
+}
+.form-input:disabled, .form-select:disabled {
+  background: #F2F1EC;
+  color: var(--text-light);
+  cursor: not-allowed;
+  opacity: 0.8;
+}
