@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/it.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260712a">
+<link rel="stylesheet" href="styles.css?v=20260713a">
 </head>
 <body>
 
@@ -2142,6 +2142,7 @@
 <!-- Modifica riga (ombrellone + cliente associato) -->
 <div id="modal-edit-row" class="modal-overlay hidden">
   <div class="modal" style="max-width:600px">
+    <div id="edit-row-watermark" class="edit-row-watermark hidden" aria-hidden="true">🔒 Ombrellone disattivato — sola lettura</div>
     <div class="modal-title">✏️ Modifica ombrellone e cliente</div>
     <div id="edit-row-alert"></div>
     <input type="hidden" id="edit-row-omb-id">
@@ -2265,7 +2266,8 @@
     <div id="edit-row-pending-bar" class="stag-pending-bar" style="display:none;margin-top:12px"></div>
 
     <!-- FOOTER -->
-    <div class="modal-footer" style="margin-top:20px">
+    <div class="modal-footer" style="margin-top:20px;justify-content:space-between">
+      <button id="edit-row-delete-btn" class="btn btn-danger btn-sm" onclick="deleteRow(document.getElementById('edit-row-omb-id').value)">🗑️ Elimina ombrellone</button>
       <button id="edit-row-close-btn" class="btn btn-outline btn-sm" onclick="closeEditRowModal()">Chiudi</button>
     </div>
   </div>
@@ -2772,7 +2774,7 @@ document.addEventListener('click', function(e) {
 <script src="js/router.js"></script>
 <script src="js/auth.js?v=20260605a"></script>
 <script src="js/setup.js"></script>
-<script src="js/manager.js?v=20260712b"></script>
+<script src="js/manager.js?v=20260713a"></script>
 <script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>

@@ -876,9 +876,7 @@ function renderGestioneFiltered() {
       ${waCellHtml}
       <td>${pill}</td>
       <td style="white-space:nowrap" onclick="event.stopPropagation()">
-        <button class="btn btn-outline btn-sm" onclick="openEditRowModal('${omb.id}')" title="Modifica" style="margin-right:4px">✏️</button>
         ${azioniInvito}
-        <button class="btn btn-danger btn-sm" onclick="deleteRow('${omb.id}')" title="Rimuovi riga">🗑️</button>
       </td>
     </tr>`;
   }).join('');
@@ -2932,11 +2930,13 @@ function _updateEditRowAttivoUI(isAttivo) {
   const label = document.getElementById('edit-row-attivo-label');
   const sub = document.getElementById('edit-row-attivo-sub');
   const saldoSection = document.getElementById('edit-row-saldo-section');
+  const watermark = document.getElementById('edit-row-watermark');
 
   if (label) label.textContent = isAttivo ? 'Ombrellone attivo' : 'Ombrellone non attivo';
   if (sub) sub.textContent = isAttivo
     ? "L'ombrellone è operativo e prenotabile"
-    : "L'ombrellone è disattivato. Puoi modificare l'anagrafica. Coin e disponibilità sono in sola lettura.";
+    : "L'ombrellone è disattivato: tutti i dati sono in sola lettura. Riattivalo per modificarli.";
+  if (watermark) watermark.classList.toggle('hidden', isAttivo);
 
   if (saldoSection) {
     const inputs = saldoSection.querySelectorAll('input, button:not([id="edit-row-attivo-toggle"])');
@@ -2948,6 +2948,30 @@ function _updateEditRowAttivoUI(isAttivo) {
   const dispBtns = document.querySelectorAll('#modal-edit-row [onclick="applyEditRowAddDisp()"], #modal-edit-row [onclick="applyEditRowRemoveDisp()"], #modal-edit-row [onclick="editRowBulkForce()"], #modal-edit-row [onclick="editRowBulkRemove()"]');
   dispInputs.forEach(el => { el.disabled = !isAttivo; });
   dispBtns.forEach(el => { el.disabled = !isAttivo; });
+
+  const dayModeBtns = document.querySelectorAll('#modal-edit-row #edit-row-day-mode-toggle button');
+  dayModeBtns.forEach(el => { el.disabled = !isAttivo; });
+
+  // Anagrafica ombrellone (codice / credito / nota) + bottone salva
+  const ombFields = document.querySelectorAll('#modal-edit-row #edit-row-codice, #modal-edit-row #edit-row-credito, #modal-edit-row #edit-row-omb-note, #modal-edit-row [onclick="saveEditRowOmbrellone()"]');
+  ombFields.forEach(el => { el.disabled = !isAttivo; });
+
+  // Anagrafica cliente (nome/cognome/telefono/wa/nota) + bottone salva.
+  // L'email NON è qui: ha una regola propria (bloccata se il cliente è già registrato)
+  // che va rispettata anche quando l'ombrellone torna attivo — vedi sotto.
+  const cltFields = document.querySelectorAll('#modal-edit-row #edit-row-nome, #modal-edit-row #edit-row-cognome, #modal-edit-row #edit-row-telefono, #modal-edit-row #edit-row-whatsapp-consenso, #modal-edit-row #edit-row-clt-note, #modal-edit-row [onclick="saveEditRowCliente()"]');
+  cltFields.forEach(el => { el.disabled = !isAttivo; });
+
+  const emailInput = document.getElementById('edit-row-email');
+  if (emailInput) {
+    const ombId = document.getElementById('edit-row-omb-id')?.value;
+    const cliente = (clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === ombId) || null;
+    emailInput.disabled = !isAttivo || !!cliente?.user_id;
+    emailInput.title = !isAttivo
+      ? "Ombrellone non attivo: sola lettura."
+      : (cliente?.user_id ? 'Email non modificabile: il cliente è già attivo.' : '');
+  }
+
   if (typeof renderEditRowDayList === 'function') renderEditRowDayList();
 }
 
@@ -3032,6 +3056,7 @@ async function deleteRow(ombId) {
   await sb.from('ombrelloni').delete().eq('id', ombId);
   await loadManagerData();
   if (ombViewMode === 'mappa') renderGestioneMappa();
+  closeModal('modal-edit-row');
 }
 
 let viewOmbIdCurrent = null;
@@ -3669,7 +3694,7 @@ function renderGestioneMappa() {
           cellDiv.textContent = omb.codice || '';
           cellDiv.title = `${omb.codice} — Non attivo`;
           cellDiv.style.cursor = 'pointer';
-          cellDiv.addEventListener('click', () => openOmbrelloneMapPopup(omb, cliente, cellDiv));
+          cellDiv.addEventListener('click', () => openEditRowModal(omb.id));
         } else {
           const hasCliente = !!clienteByOmb[omb.id];
           cellDiv.className = hasCliente ? 'ombrellone occupied' : 'ombrellone no-cliente';
@@ -3686,7 +3711,7 @@ function renderGestioneMappa() {
             ? `${omb.codice} — ${cliente.nome || ''} ${cliente.cognome || ''}`
             : `${omb.codice} — Senza cliente`;
           cellDiv.style.cursor = 'pointer';
-          cellDiv.addEventListener('click', () => openOmbrelloneMapPopup(omb, cliente || null, cellDiv));
+          cellDiv.addEventListener('click', () => openEditRowModal(omb.id));
         }
       }
       rowDiv.appendChild(cellDiv);
