@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Regia — SpiaggiaMia</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Georgia', serif; }
+  select, button, textarea, input { font-family: inherit; }
+  .gate-wrap {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 40%, #f0fdf4 100%);
+    padding: 24px;
+  }
+  .gate-card {
+    background: white; border-radius: 14px; padding: 28px; max-width: 380px; width: 100%;
+    box-shadow: 0 8px 32px rgba(3,105,161,0.15); border: 1px solid #bae6fd;
+  }
+  .gate-title { font-weight: bold; color: #0369a1; font-size: 20px; margin-bottom: 6px; }
+  .gate-sub { color: #64748b; font-size: 13px; margin-bottom: 18px; }
+  .gate-input {
+    width: 100%; padding: 10px 12px; border: 1px solid #bae6fd; border-radius: 8px;
+    font-size: 14px; margin-bottom: 10px; outline: none; color: #1e293b;
+  }
+  .gate-input:focus { border-color: #0ea5e9; }
+  .gate-btn {
+    width: 100%; padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer;
+    background: linear-gradient(90deg, #0369a1, #0ea5e9); color: white; font-weight: bold;
+    font-size: 14px; margin-top: 4px;
+  }
+  .gate-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+  .gate-err { color: #ef4444; font-size: 12px; margin-top: 10px; min-height: 16px; }
+</style>
+</head>
+<body>
+
+<!-- AUTH GATE -->
+<div id="gate" class="gate-wrap">
+  <div class="gate-card">
+    <div class="gate-title">🎬 Regia — SpiaggiaMia</div>
+    <div class="gate-sub">Area riservata agli amministratori di sistema.</div>
+    <form id="gate-form" onsubmit="return false;">
+      <input id="gate-email" class="gate-input" type="email" placeholder="Email admin" autocomplete="username" value="matteo.posterli@gmail.com" />
+      <input id="gate-password" class="gate-input" type="password" placeholder="Password" autocomplete="current-password" />
+      <button id="gate-btn" class="gate-btn" type="submit">Accedi</button>
+      <div id="gate-err" class="gate-err"></div>
+    </form>
+  </div>
+</div>
+
+<!-- BOARD ROOT (hidden until auth ok) -->
+<div id="root" style="display:none"></div>
+
+<script>
+  // Stessa config di devboard.html (publishable key hardcoded).
+  const SUPABASE_URL = 'https://btnyzzpibedkslhtiizu.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_7MGsfC7Pl9UAj76IphFMrw_Qk1II-DT';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  window.sb = sb;
+  window.SUPABASE_URL = SUPABASE_URL;
+  window.SUPABASE_KEY = SUPABASE_KEY;
+
+  const gateEl = document.getElementById('gate');
+  const rootEl = document.getElementById('root');
+  const errEl = document.getElementById('gate-err');
+  const btnEl = document.getElementById('gate-btn');
+  const formEl = document.getElementById('gate-form');
+
+  function showError(msg) { errEl.textContent = msg || ''; }
+  function unlock() {
+    gateEl.style.display = 'none';
+    rootEl.style.display = 'block';
+    if (window.__mountRegia) window.__mountRegia();
+  }
+  async function denyAndSignOut(msg) {
+    await sb.auth.signOut();
+    showError(msg);
+    btnEl.disabled = false; btnEl.textContent = 'Accedi';
+  }
+
+  // Verifica che l'utente autenticato sia in public.admins.
+  // La policy admins_self_select ritorna la riga solo se user_id = auth.uid().
+  async function isAdminUser(userId) {
+    const { data: adminRow, error } = await sb
+      .from('admins').select('user_id').eq('user_id', userId).maybeSingle();
+    if (error) return { ok: false, error };
+    return { ok: !!adminRow };
+  }
+
+  // getSession all'avvio: se c'è già una sessione admin valida, sblocca senza
+  // richiedere di nuovo il login (come admin.js → initAdminMode()).
+  async function checkSession() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session && session.user) {
+      const res = await isAdminUser(session.user.id);
+      if (res.ok) { unlock(); return true; }
+    }
+    return false;
+  }
+
+  formEl.addEventListener('submit', async () => {
+    showError('');
+    const email = document.getElementById('gate-email').value.trim().toLowerCase();
+    const password = document.getElementById('gate-password').value;
+    if (!email || !password) { showError('Inserisci email e password'); return; }
+    btnEl.disabled = true; btnEl.textContent = 'Accesso...';
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) {
+      showError('Email o password errati');
+      btnEl.disabled = false; btnEl.textContent = 'Accedi';
+      return;
+    }
+    const res = await isAdminUser(data.user.id);
+    if (!res.ok) {
+      await denyAndSignOut('Accesso non autorizzato');
+      return;
+    }
+    unlock();
+  });
+
+  checkSession();
+</script>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo } = React;
+
+async function doLogout() {
+  if (window.sb) await window.sb.auth.signOut();
+  location.reload();
+}
+
+// ---- Helpers di formattazione --------------------------------------------
+function fmtDate(iso) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" });
+  } catch { return "—"; }
+}
+function fmtDateShort(d) {
+  if (!d) return null;
+  try {
+    return new Date(d).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+  } catch { return null; }
+}
+function fmtCoin(n) {
+  const v = Number(n) || 0;
+  return v.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ---- Stili condivisi ------------------------------------------------------
+const S = {
+  page: { minHeight: "100vh", background: "linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 40%, #f0fdf4 100%)" },
+  card: { background: "white", borderRadius: 12, boxShadow: "0 2px 12px rgba(14,165,233,0.08)", border: "1px solid #bae6fd" },
+  badgeOn: { background: "#d1fae5", color: "#047857", fontSize: 11, fontWeight: "bold", padding: "2px 8px", borderRadius: 10 },
+  badgeOff: { background: "#f1f5f9", color: "#94a3b8", fontSize: 11, fontWeight: "bold", padding: "2px 8px", borderRadius: 10 },
+};
+
+function Regia() {
+  const [tab, setTab] = useState("panoramica");
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [data, setData] = useState({ stabilimenti: [], profiles: [], ombrelloni: [], clienti: [] });
+
+  async function loadAll() {
+    setLoading(true); setErr("");
+    try {
+      // Fetch completo delle 4 tabelle coperte da RLS admin (scala piccola:
+      // poche decine di righe). Aggregazione lato client, come js/admin.js.
+      const [stab, prof, omb, cli] = await Promise.all([
+        sb.from("stabilimenti").select("*").limit(1000),
+        sb.from("profiles").select("*").limit(1000),
+        sb.from("ombrelloni").select("*").limit(1000),
+        sb.from("clienti_stagionali").select("*").limit(1000),
+      ]);
+      const firstErr = stab.error || prof.error || omb.error || cli.error;
+      if (firstErr) throw firstErr;
+      setData({
+        stabilimenti: stab.data || [],
+        profiles: prof.data || [],
+        ombrelloni: omb.data || [],
+        clienti: cli.data || [],
+      });
+    } catch (e) {
+      setErr((e && e.message) ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadAll(); }, []);
+
+  return (
+    <div style={S.page}>
+      <Header tab={tab} setTab={setTab} onReload={loadAll} loading={loading} />
+      <div style={{ padding: "18px 20px 48px", maxWidth: 1200, margin: "0 auto" }}>
+        {err && (
+          <div style={{ ...S.card, borderColor: "#fecaca", padding: 14, marginBottom: 16, color: "#b91c1c", fontSize: 13 }}>
+            ⚠️ Errore nel caricamento dati: {err}
+          </div>
+        )}
+        {loading ? (
+          <div style={{ textAlign: "center", color: "#64748b", padding: "60px 0", fontSize: 14 }}>
+            <div style={{ fontSize: 40 }}>🌊</div>
+            <div style={{ marginTop: 8 }}>Caricamento…</div>
+          </div>
+        ) : tab === "panoramica" ? (
+          <Panoramica data={data} />
+        ) : (
+          <Stabilimenti data={data} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Header({ tab, setTab, onReload, loading }) {
+  const tabs = [
+    { id: "panoramica", label: "📊 Panoramica" },
+    { id: "stabilimenti", label: "🏖️ Stabilimenti" },
+  ];
+  return (
+    <div style={{ background: "linear-gradient(90deg, #0369a1, #0ea5e9)", padding: "14px 20px", boxShadow: "0 2px 12px rgba(3,105,161,0.3)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", maxWidth: 1200, margin: "0 auto" }}>
+        <span style={{ fontSize: 24 }}>🎬</span>
+        <div>
+          <div style={{ color: "white", fontWeight: "bold", fontSize: 18, letterSpacing: 0.5 }}>Regia</div>
+          <div style={{ color: "#bae6fd", fontSize: 12 }}>SpiaggiaMia — vista di piattaforma</div>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              style={{ background: tab === t.id ? "white" : "rgba(255,255,255,0.2)", color: tab === t.id ? "#0369a1" : "white", border: "none", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontWeight: "bold" }}>
+              {t.label}
+            </button>
+          ))}
+          <button onClick={onReload} disabled={loading} title="Ricarica"
+            style={{ background: "rgba(255,255,255,0.15)", color: "white", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, padding: "5px 10px", cursor: loading ? "not-allowed" : "pointer", fontSize: 12 }}>
+            🔄
+          </button>
+          <button onClick={doLogout} title="Esci"
+            style={{ background: "rgba(255,255,255,0.15)", color: "white", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontSize: 12 }}>
+            🚪 Esci
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Aggregazioni ---------------------------------------------------------
+function computeStats(data) {
+  const { stabilimenti, profiles, ombrelloni, clienti } = data;
+  const proprietari = profiles.filter(p => p.ruolo === "proprietario").length;
+  const stagionali = profiles.filter(p => p.ruolo === "stagionale").length;
+  const creditoTot = clienti.reduce((s, c) => s + (Number(c.credito_saldo) || 0), 0);
+  const waOn = stabilimenti.filter(s => s.wa_enabled).length;
+  const ombAttivi = ombrelloni.filter(o => o.attivo).length;
+  const inAttesa = clienti.filter(c => !c.approvato && !c.rifiutato).length;
+  return {
+    totStab: stabilimenti.length,
+    proprietari, stagionali,
+    creditoTot,
+    waOn, waTot: stabilimenti.length,
+    ombAttivi, ombTot: ombrelloni.length,
+    clientiTot: clienti.length,
+    inAttesa,
+  };
+}
+
+// Riepilogo per singolo stabilimento (usato nella tab Stabilimenti).
+function perStabilimento(data) {
+  const { stabilimenti, profiles, ombrelloni, clienti } = data;
+  const profById = new Map(profiles.map(p => [p.id, p]));
+  return stabilimenti.map(s => {
+    const omb = ombrelloni.filter(o => o.stabilimento_id === s.id);
+    const cli = clienti.filter(c => c.stabilimento_id === s.id);
+    const owner = s.proprietario_id ? profById.get(s.proprietario_id) : null;
+    return {
+      ...s,
+      _owner: owner ? `${owner.nome || ""} ${owner.cognome || ""}`.trim() || "—" : "—",
+      _ombTot: omb.length,
+      _ombAttivi: omb.filter(o => o.attivo).length,
+      _cliTot: cli.length,
+      _cliApprovati: cli.filter(c => c.approvato && !c.rifiutato).length,
+      _cliAttesa: cli.filter(c => !c.approvato && !c.rifiutato).length,
+      _cliRifiutati: cli.filter(c => c.rifiutato).length,
+      _credito: cli.reduce((sum, c) => sum + (Number(c.credito_saldo) || 0), 0),
+    };
+  });
+}
+
+// ---- Tab Panoramica -------------------------------------------------------
+function KpiCard({ label, value, sub, accent }) {
+  return (
+    <div style={{ ...S.card, padding: "16px 18px" }}>
+      <div style={{ color: "#64748b", fontSize: 12, marginBottom: 6, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</div>
+      <div style={{ color: accent || "#0369a1", fontSize: 30, fontWeight: "bold", lineHeight: 1.1 }}>{value}</div>
+      {sub && <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function Panoramica({ data }) {
+  const k = useMemo(() => computeStats(data), [data]);
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
+      <KpiCard label="Stabilimenti" value={k.totStab} />
+      <KpiCard label="Proprietari" value={k.proprietari} accent="#0ea5e9" />
+      <KpiCard label="Stagionali" value={k.stagionali} accent="#0ea5e9" />
+      <KpiCard label="Credito in circolazione" value={fmtCoin(k.creditoTot)} sub="somma saldi clienti" accent="#f59e0b" />
+      <KpiCard label="WhatsApp attivo" value={`${k.waOn} / ${k.waTot}`} sub="stabilimenti con notifiche WA" accent="#10b981" />
+      <KpiCard label="Ombrelloni" value={`${k.ombAttivi} / ${k.ombTot}`} sub="attivi su totali" accent="#0369a1" />
+      <KpiCard label="Clienti in attesa" value={k.inAttesa} sub="approvato=false, rifiutato=false" accent="#ef4444" />
+      <KpiCard label="Clienti stagionali" value={k.clientiTot} sub="totale piattaforma" accent="#0ea5e9" />
+    </div>
+  );
+}
+
+// ---- Tab Stabilimenti -----------------------------------------------------
+function Stabilimenti({ data }) {
+  const rows = useMemo(() => perStabilimento(data), [data]);
+  const [q, setQ] = useState("");
+  const [expanded, setExpanded] = useState(null);
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter(r =>
+      (r.nome || "").toLowerCase().includes(needle) ||
+      (r.citta || "").toLowerCase().includes(needle)
+    );
+  }, [rows, q]);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Cerca per nome o città…"
+          style={{ flex: "1 1 240px", maxWidth: 340, border: "1px solid #bae6fd", borderRadius: 8, padding: "9px 12px", fontSize: 14, outline: "none", color: "#1e293b" }} />
+        <span style={{ color: "#64748b", fontSize: 12 }}>{filtered.length} stabiliment{filtered.length === 1 ? "o" : "i"}</span>
+      </div>
+
+      <div style={{ ...S.card, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 720, fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#f0f9ff", color: "#0369a1", textAlign: "left" }}>
+                <th style={thStyle}>Stabilimento</th>
+                <th style={thStyle}>Proprietario</th>
+                <th style={thStyle}>Creato</th>
+                <th style={thStyle}>Ombrelloni</th>
+                <th style={thStyle}>Clienti</th>
+                <th style={thStyle}>Credito</th>
+                <th style={thStyle}>WhatsApp</th>
+                <th style={thStyle}>Stagione</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr><td colSpan={8} style={{ padding: "30px 12px", textAlign: "center", color: "#94a3b8" }}>Nessun risultato.</td></tr>
+              )}
+              {filtered.map(r => (
+                <StabRow key={r.id} r={r} expanded={expanded === r.id} onToggle={() => setExpanded(expanded === r.id ? null : r.id)} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const thStyle = { padding: "10px 12px", fontSize: 11, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 0.4, borderBottom: "1px solid #e0f2fe", whiteSpace: "nowrap" };
+const tdStyle = { padding: "10px 12px", borderBottom: "1px solid #f1f5f9", verticalAlign: "top", color: "#1e293b" };
+
+function StabRow({ r, expanded, onToggle }) {
+  const stagione = (r.data_inizio_stagione && r.data_fine_stagione)
+    ? `${fmtDateShort(r.data_inizio_stagione)} – ${fmtDateShort(r.data_fine_stagione)}`
+    : "—";
+  return (
+    <>
+      <tr onClick={onToggle} style={{ cursor: "pointer", background: expanded ? "#f8fafc" : "white" }}>
+        <td style={tdStyle}>
+          <div style={{ fontWeight: "bold", color: "#0369a1" }}>{r.nome || "—"}</div>
+          <div style={{ color: "#94a3b8", fontSize: 12 }}>{r.citta || "—"}</div>
+        </td>
+        <td style={tdStyle}>{r._owner}</td>
+        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{fmtDate(r.created_at)}</td>
+        <td style={tdStyle}>{r._ombAttivi}/{r._ombTot}</td>
+        <td style={tdStyle}>
+          <span title="approvati / in attesa / rifiutati / totali">
+            {r._cliApprovati}/{r._cliAttesa}/{r._cliRifiutati}/{r._cliTot}
+          </span>
+        </td>
+        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{fmtCoin(r._credito)}</td>
+        <td style={tdStyle}>
+          <span style={r.wa_enabled ? S.badgeOn : S.badgeOff}>{r.wa_enabled ? "attivo" : "non attivo"}</span>
+        </td>
+        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{stagione}</td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan={8} style={{ padding: "0 12px 14px", background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
+            <StabDetail r={r} stagione={stagione} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function StabDetail({ r, stagione }) {
+  const items = [
+    ["Nome", r.nome || "—"],
+    ["Città", r.citta || "—"],
+    ["Proprietario", r._owner],
+    ["Creato il", fmtDate(r.created_at)],
+    ["Ombrelloni (attivi/totali)", `${r._ombAttivi} / ${r._ombTot}`],
+    ["Clienti approvati", r._cliApprovati],
+    ["Clienti in attesa", r._cliAttesa],
+    ["Clienti rifiutati", r._cliRifiutati],
+    ["Clienti totali", r._cliTot],
+    ["Credito in circolazione", fmtCoin(r._credito)],
+    ["Nome credito", r.nome_credito || "—"],
+    ["WhatsApp", r.wa_enabled ? "attivo" : "non attivo"],
+    ["Stagione", stagione],
+  ];
+  return (
+    <div style={{ paddingTop: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "8px 20px" }}>
+        {items.map(([label, val]) => (
+          <div key={label} style={{ fontSize: 13 }}>
+            <span style={{ color: "#94a3b8" }}>{label}: </span>
+            <span style={{ color: "#1e293b", fontWeight: 500 }}>{val}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <button disabled title="Prossimamente (Fase 3)"
+          style={{ background: "#f1f5f9", color: "#94a3b8", border: "1px solid #e2e8f0", borderRadius: 8, padding: "7px 14px", cursor: "not-allowed", fontSize: 12, fontWeight: "bold" }}>
+          Entra come proprietario
+        </button>
+        <span style={{ color: "#cbd5e1", fontSize: 11, marginLeft: 10 }}>Prossimamente</span>
+      </div>
+    </div>
+  );
+}
+
+window.__mountRegia = function() {
+  ReactDOM.createRoot(document.getElementById("root")).render(<Regia />);
+};
+</script>
+</body>
+</html>
