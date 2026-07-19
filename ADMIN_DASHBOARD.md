@@ -12,15 +12,15 @@ impersonazione, log tecnici, approvazioni).
 
 ## Roadmap (5 fasi)
 
-1. **Dashboard base** — vista sola lettura: KPI di piattaforma + tabella stabilimenti + tab "Tabelle" (CRUD grezzo, ex `?admin=1`).
-2. **Log cross-tenant** — audit unificato su tutti gli stabilimenti (richiede migration RLS su `audit_log` / `wa_messages_log`).
+1. **Dashboard base** — vista sola lettura: KPI di piattaforma + tabella stabilimenti + tab "Tabelle" (CRUD grezzo, ex `?admin=1`). ✅
+2. **Log cross-tenant** — audit unificato su tutti gli stabilimenti (tab "📋 Log"). ✅ **Nessuna migration necessaria**: la policy `audit_log_select_admin` (in `20260424500000_audit_log.sql`) concede già agli admin SELECT su tutto l'`audit_log`, senza filtro per stabilimento.
 3. **Impersonazione proprietario** — pulsante "Entra come proprietario" per operare nel contesto di uno stabilimento.
 4. **Log tecnici** — visibilità su log Edge Function / Vercel.
 5. **Approvazione creazione stabilimenti** — flusso di review/approvazione dei nuovi stabilimenti.
 
 ## Stato attuale
 
-- **Fase 1: in corso** (implementazione iniziale completata, in attesa di preview Vercel + conferma).
+- **Fase 1: completata** (mergiata in `main` / prod). **Fase 2 (Log cross-tenant): in corso** (in attesa di preview Vercel + conferma).
 - File: `admin.html` nella root (stack identico a `devboard.html`: React 18 + Babel standalone via CDN, supabase-js v2, nessun build step, tutto in un unico HTML).
 - `<meta name="robots" content="noindex, nofollow">`. Non linkata da nessuna nav esistente.
 - La vecchia modalità `?admin=1` di `index.html` è stata ritirata: ora `index.html?admin=1` fa `window.location.replace('/admin.html')` e `js/admin.js` è stato eliminato (logica portata nel tab "Tabelle").
@@ -32,6 +32,7 @@ impersonazione, log tecnici, approvazioni).
 - **Tab Panoramica**: KPI card (totale stabilimenti, proprietari, stagionali, credito totale in circolazione, WhatsApp attivo X/Y, ombrelloni attivi/totali, clienti in attesa di approvazione, clienti totali).
 - **Tab Stabilimenti**: tabella una riga per stabilimento (nome+città, proprietario, creato il, ombrelloni attivi/totali, clienti approvati/attesa/rifiutati/totali, credito, badge WhatsApp, date stagione) + search testuale su nome/città + riga espandibile con il dettaglio. Pulsante "Entra come proprietario" presente ma **disabilitato** con tooltip "Prossimamente" (predisposizione Fase 3).
 - **Tab Tabelle** (🗄️): CRUD grezzo tabella-per-tabella, portato fedelmente da `js/admin.js`. Selettore sulle 6 tabelle business (`profiles`, `stabilimenti`, `ombrelloni`, `clienti_stagionali`, `disponibilita`, `transazioni`); a differenza di Panoramica/Stabilimenti carica **solo** la tabella selezionata al cambio (order by + `limit 1000`, `disponibilita`/`transazioni` possono avere molte righe); ricerca testuale client-side sulle colonne di lista; form generico add/modifica pilotato dalla definizione campi (`ADMIN_TABLES`: type text/textarea/select/bool/number/date + required/readonly/options/help/step); eliminazione riga con conferma. Riusa lo stesso client `sb` e le stesse RLS admin (coprono tutte e 6 le tabelle via `admin_section.sql`). Componenti React `Tabelle` + `RowEditor`, stile inline coerente col resto della pagina.
+- **Tab Log** (📋): audit cross-tenant su `public.audit_log`, versione admin del "Log attività" per-proprietario (`js/audit.js`). Legge via policy `audit_log_select_admin` (accesso a TUTTI gli stabilimenti). Filtri: stabilimento (dropdown), range date (default ultimi 7 gg), tipo attore, entità, azione, testo libero (`description`/`actor_label` ILIKE). Paginazione server-side (`range` + `count: exact`, `created_at DESC`, page size 30/50/100). Colonna "Coinvolto" (ombrellone/cliente) e nome stabilimento risolti dalle anagrafiche globali già caricate dal dashboard (`data.stabilimenti`/`ombrelloni`/`clienti`) — niente fetch extra. Righe espandibili con `diff`/`before`/`after` JSON. Export Excel dei match filtrati (SheetJS, chunk da 1000, cap 50k). Componente React `Log` + `JsonBlock`. Rispetto alla versione manager sono stati omessi i filtri per nome/cognome/email/n° ombrellone risolti in liste di id (evitano `IN()` giganti cross-tenant); il resto è equivalente. **Aggiunta dipendenza CDN**: SheetJS (`xlsx.full.min.js`) nel `<head>` per l'export.
 - Panoramica/Stabilimenti fanno fetch completo delle tabelle (`.select('*').limit(1000)`) e aggregazione lato client, stesso approccio di com'era `js/admin.js`. Scala attuale: ~4 stabilimenti, poche decine di righe.
 
 ## Decisioni prese
