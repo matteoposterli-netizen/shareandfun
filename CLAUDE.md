@@ -122,7 +122,9 @@ Non esiste più il ramo "registrazione diretta" (`fonte='diretta'`) né il conce
 
 ## Area Admin
 
-Accesso: `https://spiaggiamia.com/?admin=1`. UI dedicata (vedi `js/admin.js`, view `#view-admin-login` e `#view-admin` in `index.html`) con login separato dalle credenziali proprietario/stagionale. Dopo login verifica presenza di `auth.uid()` in `public.admins` e mostra una dashboard con sidebar + CRUD generico sulle 6 tabelle (`profiles`, `stabilimenti`, `ombrelloni`, `clienti_stagionali`, `disponibilita`, `transazioni`). Le modifiche passano attraverso RLS (policy `*_admin_*`) — niente service-role in frontend.
+Accesso: pagina standalone `https://spiaggiamia.com/admin.html` (React 18 + Babel standalone via CDN, stack di `devboard.html`; vedi `ADMIN_DASHBOARD.md`). Gate di login separato dalle credenziali proprietario/stagionale: dopo `signInWithPassword` verifica presenza di `auth.uid()` in `public.admins` (`admins_self_select`), altrimenti `signOut`. Tre tab: **Panoramica** (KPI di piattaforma), **Stabilimenti** (tabella cross-tenant sola lettura) e **🗄️ Tabelle** — CRUD generico sulle 6 tabelle business (`profiles`, `stabilimenti`, `ombrelloni`, `clienti_stagionali`, `disponibilita`, `transazioni`), portato dall'ex `js/admin.js` (schema `ADMIN_TABLES` + componenti React `Tabelle`/`RowEditor`). Le modifiche passano attraverso RLS (policy `*_admin_*`) — niente service-role in frontend.
+
+La vecchia modalità `?admin=1` di `index.html` è stata **ritirata** (`js/admin.js` eliminato, view `#view-admin*` + `#modal-admin-row` rimosse): `index.html?admin=1` fa ora `window.location.replace('/admin.html')` (redirect legacy in `js/main.js`).
 
 **Provisioning di un nuovo admin** (manuale, no UI di self-signup):
 1. Dashboard Supabase → Authentication → Users → **Add user** (email + password).

@@ -1,17 +1,18 @@
-# Regia — Dashboard Admin di piattaforma
+# Admin — Dashboard Admin di piattaforma
 
 ## Obiettivo
 
-Pagina admin standalone (`regia.html`) che offre una vista d'insieme "di regia" su
-**tutti** gli stabilimenti della piattaforma SpiaggiaMia. Nasce per superare i limiti
-degli strumenti admin esistenti — `?admin=1` (CRUD grezzo tabella-per-tabella,
-`js/admin.js`) e "Log attività" (`js/audit.js`, per-stabilimento lato proprietario) —
-dando all'operatore di sistema numeri aggregati cross-tenant e, nelle fasi successive,
-strumenti operativi (log cross-tenant, impersonazione, log tecnici, approvazioni).
+Pagina admin standalone (`admin.html`) che offre una vista d'insieme di piattaforma su
+**tutti** gli stabilimenti di SpiaggiaMia. Nasce per superare i limiti
+degli strumenti admin esistenti — la vecchia CRUD grezza `?admin=1` (`js/admin.js`,
+ora integrata come tab "Tabelle" di questa pagina) e "Log attività" (`js/audit.js`,
+per-stabilimento lato proprietario) — dando all'operatore di sistema numeri aggregati
+cross-tenant e, nelle fasi successive, strumenti operativi (log cross-tenant,
+impersonazione, log tecnici, approvazioni).
 
 ## Roadmap (5 fasi)
 
-1. **Dashboard base** — vista sola lettura: KPI di piattaforma + tabella stabilimenti. *(questa fase)*
+1. **Dashboard base** — vista sola lettura: KPI di piattaforma + tabella stabilimenti + tab "Tabelle" (CRUD grezzo, ex `?admin=1`).
 2. **Log cross-tenant** — audit unificato su tutti gli stabilimenti (richiede migration RLS su `audit_log` / `wa_messages_log`).
 3. **Impersonazione proprietario** — pulsante "Entra come proprietario" per operare nel contesto di uno stabilimento.
 4. **Log tecnici** — visibilità su log Edge Function / Vercel.
@@ -20,16 +21,18 @@ strumenti operativi (log cross-tenant, impersonazione, log tecnici, approvazioni
 ## Stato attuale
 
 - **Fase 1: in corso** (implementazione iniziale completata, in attesa di preview Vercel + conferma).
-- File: `regia.html` nella root (stack identico a `devboard.html`: React 18 + Babel standalone via CDN, supabase-js v2, nessun build step, tutto in un unico HTML).
+- File: `admin.html` nella root (stack identico a `devboard.html`: React 18 + Babel standalone via CDN, supabase-js v2, nessun build step, tutto in un unico HTML).
 - `<meta name="robots" content="noindex, nofollow">`. Non linkata da nessuna nav esistente.
-- Nessuna migration DB in questa fase (sola lettura).
+- La vecchia modalità `?admin=1` di `index.html` è stata ritirata: ora `index.html?admin=1` fa `window.location.replace('/admin.html')` e `js/admin.js` è stato eliminato (logica portata nel tab "Tabelle").
+- Nessuna migration DB in questa fase (Panoramica/Stabilimenti sono sola lettura; il tab "Tabelle" scrive via RLS admin come faceva `js/admin.js`).
 
 ## Struttura pagina (Fase 1)
 
 - **Gate di autenticazione**: form email+password (email prefillata con `matteo.posterli@gmail.com`) → `signInWithPassword` → verifica presenza in `public.admins` (`select user_id ... maybeSingle()`); se assente → `signOut()` + "Accesso non autorizzato". `getSession()` all'avvio per non richiedere login a ogni refresh.
 - **Tab Panoramica**: KPI card (totale stabilimenti, proprietari, stagionali, credito totale in circolazione, WhatsApp attivo X/Y, ombrelloni attivi/totali, clienti in attesa di approvazione, clienti totali).
 - **Tab Stabilimenti**: tabella una riga per stabilimento (nome+città, proprietario, creato il, ombrelloni attivi/totali, clienti approvati/attesa/rifiutati/totali, credito, badge WhatsApp, date stagione) + search testuale su nome/città + riga espandibile con il dettaglio. Pulsante "Entra come proprietario" presente ma **disabilitato** con tooltip "Prossimamente" (predisposizione Fase 3).
-- Fetch completo delle tabelle (`.select('*').limit(1000)`) e aggregazione lato client, stesso approccio di `js/admin.js`. Scala attuale: ~4 stabilimenti, poche decine di righe.
+- **Tab Tabelle** (🗄️): CRUD grezzo tabella-per-tabella, portato fedelmente da `js/admin.js`. Selettore sulle 6 tabelle business (`profiles`, `stabilimenti`, `ombrelloni`, `clienti_stagionali`, `disponibilita`, `transazioni`); a differenza di Panoramica/Stabilimenti carica **solo** la tabella selezionata al cambio (order by + `limit 1000`, `disponibilita`/`transazioni` possono avere molte righe); ricerca testuale client-side sulle colonne di lista; form generico add/modifica pilotato dalla definizione campi (`ADMIN_TABLES`: type text/textarea/select/bool/number/date + required/readonly/options/help/step); eliminazione riga con conferma. Riusa lo stesso client `sb` e le stesse RLS admin (coprono tutte e 6 le tabelle via `admin_section.sql`). Componenti React `Tabelle` + `RowEditor`, stile inline coerente col resto della pagina.
+- Panoramica/Stabilimenti fanno fetch completo delle tabelle (`.select('*').limit(1000)`) e aggregazione lato client, stesso approccio di com'era `js/admin.js`. Scala attuale: ~4 stabilimenti, poche decine di righe.
 
 ## Decisioni prese
 
@@ -45,5 +48,5 @@ strumenti operativi (log cross-tenant, impersonazione, log tecnici, approvazioni
 
 ## Note operative
 
-- Branch di sviluppo previsto per la feature: `feature/regia-admin-dashboard`. Non mergiare su `main`: attendere preview Vercel del branch + conferma.
+- Non mergiare su `main`: attendere preview Vercel del branch + conferma.
 - Non c'è build step / `node --check`: JSX transpilato a runtime da Babel standalone (come `devboard.html`).
