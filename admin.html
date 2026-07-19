@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>Regia — SpiaggiaMia</title>
+<title>Admin — SpiaggiaMia</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -45,7 +45,7 @@
 <!-- AUTH GATE -->
 <div id="gate" class="gate-wrap">
   <div class="gate-card">
-    <div class="gate-title">🎬 Regia — SpiaggiaMia</div>
+    <div class="gate-title">🔐 Admin — SpiaggiaMia</div>
     <div class="gate-sub">Area riservata agli amministratori di sistema.</div>
     <form id="gate-form" onsubmit="return false;">
       <input id="gate-email" class="gate-input" type="email" placeholder="Email admin" autocomplete="username" value="matteo.posterli@gmail.com" />
@@ -78,7 +78,7 @@
   function unlock() {
     gateEl.style.display = 'none';
     rootEl.style.display = 'block';
-    if (window.__mountRegia) window.__mountRegia();
+    if (window.__mountAdmin) window.__mountAdmin();
   }
   async function denyAndSignOut(msg) {
     await sb.auth.signOut();
@@ -96,7 +96,7 @@
   }
 
   // getSession all'avvio: se c'è già una sessione admin valida, sblocca senza
-  // richiedere di nuovo il login (come admin.js → initAdminMode()).
+  // richiedere di nuovo il login (getSession() come al vecchio ?admin=1).
   async function checkSession() {
     const { data: { session } } = await sb.auth.getSession();
     if (session && session.user) {
@@ -163,7 +163,7 @@ const S = {
   badgeOff: { background: "#f1f5f9", color: "#94a3b8", fontSize: 11, fontWeight: "bold", padding: "2px 8px", borderRadius: 10 },
 };
 
-function Regia() {
+function AdminDashboard() {
   const [tab, setTab] = useState("panoramica");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -213,8 +213,10 @@ function Regia() {
           </div>
         ) : tab === "panoramica" ? (
           <Panoramica data={data} />
-        ) : (
+        ) : tab === "stabilimenti" ? (
           <Stabilimenti data={data} />
+        ) : (
+          <Tabelle />
         )}
       </div>
     </div>
@@ -225,13 +227,14 @@ function Header({ tab, setTab, onReload, loading }) {
   const tabs = [
     { id: "panoramica", label: "📊 Panoramica" },
     { id: "stabilimenti", label: "🏖️ Stabilimenti" },
+    { id: "tabelle", label: "🗄️ Tabelle" },
   ];
   return (
     <div style={{ background: "linear-gradient(90deg, #0369a1, #0ea5e9)", padding: "14px 20px", boxShadow: "0 2px 12px rgba(3,105,161,0.3)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", maxWidth: 1200, margin: "0 auto" }}>
-        <span style={{ fontSize: 24 }}>🎬</span>
+        <span style={{ fontSize: 24 }}>🔐</span>
         <div>
-          <div style={{ color: "white", fontWeight: "bold", fontSize: 18, letterSpacing: 0.5 }}>Regia</div>
+          <div style={{ color: "white", fontWeight: "bold", fontSize: 18, letterSpacing: 0.5 }}>Admin</div>
           <div style={{ color: "#bae6fd", fontSize: 12 }}>SpiaggiaMia — vista di piattaforma</div>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -453,8 +456,402 @@ function StabDetail({ r, stagione }) {
   );
 }
 
-window.__mountRegia = function() {
-  ReactDOM.createRoot(document.getElementById("root")).render(<Regia />);
+// ---- Tab Tabelle (CRUD grezzo su tutte le tabelle, portato da js/admin.js) -
+// Schema identico a ADMIN_TABLES di js/admin.js: per ogni tabella pk, colonne
+// di lista e definizione campi (type/required/readonly/options/help/step).
+const ADMIN_TABLES = {
+  profiles: {
+    label: "profiles",
+    desc: "Utenti (proprietario o stagionale), FK ad auth.users.",
+    pk: "id",
+    list: ["id", "nome", "cognome", "telefono", "ruolo", "created_at"],
+    fields: [
+      { name: "id", type: "text", readonly: true, help: "UUID da auth.users (per nuovi record, creare prima l'utente in Authentication)." },
+      { name: "nome", type: "text", required: true },
+      { name: "cognome", type: "text", required: true },
+      { name: "telefono", type: "text" },
+      { name: "ruolo", type: "select", options: ["proprietario", "stagionale"], required: true },
+    ],
+    orderBy: { column: "created_at", ascending: false },
+  },
+  stabilimenti: {
+    label: "stabilimenti",
+    desc: "Stabilimento balneare + template email.",
+    pk: "id",
+    list: ["id", "nome", "citta", "proprietario_id", "telefono", "email", "created_at"],
+    fields: [
+      { name: "id", type: "text", readonly: true, help: "Lascia vuoto in creazione: auto-generato." },
+      { name: "proprietario_id", type: "text", help: "UUID del profilo proprietario." },
+      { name: "nome", type: "text", required: true },
+      { name: "indirizzo", type: "text" },
+      { name: "citta", type: "text" },
+      { name: "telefono", type: "text" },
+      { name: "email", type: "text" },
+      { name: "email_benvenuto_oggetto", type: "text" },
+      { name: "email_benvenuto_testo", type: "textarea" },
+      { name: "email_invito_oggetto", type: "text" },
+      { name: "email_invito_testo", type: "textarea" },
+      { name: "email_credito_accreditato_oggetto", type: "text" },
+      { name: "email_credito_accreditato_testo", type: "textarea" },
+      { name: "email_credito_ritirato_oggetto", type: "text" },
+      { name: "email_credito_ritirato_testo", type: "textarea" },
+    ],
+    orderBy: { column: "created_at", ascending: false },
+  },
+  ombrelloni: {
+    label: "ombrelloni",
+    desc: "Ombrelloni di uno stabilimento.",
+    pk: "id",
+    list: ["id", "stabilimento_id", "codice", "pos_x", "pos_y", "credito_giornaliero", "created_at"],
+    fields: [
+      { name: "id", type: "text", readonly: true },
+      { name: "stabilimento_id", type: "text", required: true },
+      { name: "codice", type: "text", required: true },
+      { name: "pos_x", type: "number" },
+      { name: "pos_y", type: "number" },
+      { name: "credito_giornaliero", type: "number", step: "0.01" },
+    ],
+    orderBy: { column: "created_at", ascending: false },
+  },
+  clienti_stagionali: {
+    label: "clienti_stagionali",
+    desc: "Clienti stagionali e stato invito.",
+    pk: "id",
+    list: ["id", "stabilimento_id", "ombrellone_id", "user_id", "nome", "cognome", "email", "telefono", "credito_saldo", "approvato", "rifiutato", "fonte", "invitato_at", "created_at"],
+    fields: [
+      { name: "id", type: "text", readonly: true },
+      { name: "stabilimento_id", type: "text", required: true },
+      { name: "ombrellone_id", type: "text" },
+      { name: "user_id", type: "text", help: "UUID del profile (popolato quando il cliente completa l'invito)." },
+      { name: "nome", type: "text", required: true },
+      { name: "cognome", type: "text", required: true },
+      { name: "email", type: "text", required: true },
+      { name: "telefono", type: "text" },
+      { name: "credito_saldo", type: "number", step: "0.01" },
+      { name: "approvato", type: "bool" },
+      { name: "rifiutato", type: "bool" },
+      { name: "fonte", type: "select", options: ["csv", "diretta"] },
+      { name: "invito_token", type: "text", readonly: true },
+      { name: "invitato_at", type: "text", help: "ISO timestamp (es. 2026-04-24T10:00:00Z)." },
+      { name: "note_match", type: "textarea" },
+    ],
+    orderBy: { column: "created_at", ascending: false },
+  },
+  disponibilita: {
+    label: "disponibilita",
+    desc: "Giornate in cui un ombrellone è libero o sub-affittato.",
+    pk: "id",
+    list: ["id", "ombrellone_id", "cliente_id", "data", "stato", "nome_prenotazione", "created_at"],
+    fields: [
+      { name: "id", type: "text", readonly: true },
+      { name: "ombrellone_id", type: "text", required: true },
+      { name: "cliente_id", type: "text" },
+      { name: "data", type: "date", required: true },
+      { name: "stato", type: "select", options: ["libero", "sub_affittato"] },
+      { name: "nome_prenotazione", type: "text", help: "Etichetta opzionale per raggruppare sub-affitti multi-giorno / multi-ombrellone." },
+    ],
+    orderBy: { column: "data", ascending: false },
+  },
+  transazioni: {
+    label: "transazioni",
+    desc: "Storico contabile (crediti, sub-affitti, disponibilità).",
+    pk: "id",
+    list: ["id", "stabilimento_id", "ombrellone_id", "cliente_id", "tipo", "importo", "nota", "created_at"],
+    fields: [
+      { name: "id", type: "text", readonly: true },
+      { name: "stabilimento_id", type: "text", required: true },
+      { name: "ombrellone_id", type: "text" },
+      { name: "cliente_id", type: "text" },
+      { name: "tipo", type: "select", required: true, options: ["disponibilita_aggiunta", "disponibilita_rimossa", "sub_affitto", "credito_ricevuto", "credito_usato"] },
+      { name: "importo", type: "number", step: "0.01" },
+      { name: "nota", type: "textarea" },
+    ],
+    orderBy: { column: "created_at", ascending: false },
+  },
+};
+const ADMIN_TABLE_KEYS = ["profiles", "stabilimenti", "ombrelloni", "clienti_stagionali", "disponibilita", "transazioni"];
+const ADMIN_TABLE_ICON = {
+  profiles: "👤", stabilimenti: "🏖️", ombrelloni: "☂️",
+  clienti_stagionali: "👥", disponibilita: "📅", transazioni: "💰",
+};
+
+function formatAdminCell(v) {
+  if (v === null || v === undefined) return <span style={{ color: "#cbd5e1" }}>—</span>;
+  if (typeof v === "boolean") return v ? "✓" : "✗";
+  const s = String(v);
+  return s.length > 60 ? s.slice(0, 57) + "…" : s;
+}
+
+const inputStyle = {
+  width: "100%", padding: "8px 10px", border: "1px solid #bae6fd", borderRadius: 8,
+  fontSize: 14, outline: "none", color: "#1e293b", background: "white", fontFamily: "inherit",
+};
+
+function Tabelle() {
+  const [table, setTable] = useState("profiles");
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [q, setQ] = useState("");
+  const [editing, setEditing] = useState(null); // { row } (row=null → nuova riga) | null
+  const schema = ADMIN_TABLES[table];
+
+  async function loadTable(tableName) {
+    setLoading(true); setErr("");
+    const sch = ADMIN_TABLES[tableName];
+    let query = sb.from(tableName).select("*");
+    if (sch.orderBy) query = query.order(sch.orderBy.column, { ascending: sch.orderBy.ascending });
+    query = query.limit(1000);
+    const { data, error } = await query;
+    if (error) { setErr(`Errore caricamento: ${error.message}`); setRows([]); setLoading(false); return; }
+    setRows(data || []);
+    setLoading(false);
+  }
+
+  useEffect(() => { setQ(""); loadTable(table); }, [table]);
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter(r => schema.list.some(c => String(r[c] ?? "").toLowerCase().includes(needle)));
+  }, [rows, q, schema]);
+
+  async function handleDelete(row) {
+    const pkVal = row[schema.pk];
+    if (!window.confirm(`Eliminare questa riga di ${schema.label}?\n\n${schema.pk}: ${pkVal}\n\nAzione NON reversibile.`)) return;
+    const { error } = await sb.from(table).delete().eq(schema.pk, pkVal);
+    if (error) { setErr(`Errore eliminazione: ${error.message}`); return; }
+    await loadTable(table);
+  }
+
+  return (
+    <div>
+      {/* Selettore tabella */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+        {ADMIN_TABLE_KEYS.map(t => (
+          <button key={t} onClick={() => setTable(t)}
+            style={{ background: table === t ? "#0369a1" : "white", color: table === t ? "white" : "#0369a1",
+              border: "1px solid #bae6fd", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 13, fontWeight: "bold" }}>
+            {ADMIN_TABLE_ICON[t]} {t}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ marginBottom: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 auto" }}>
+          <div style={{ fontWeight: "bold", color: "#0369a1", fontSize: 16 }}>{schema.label}</div>
+          <div style={{ color: "#64748b", fontSize: 12 }}>
+            {schema.desc} · {loading ? "caricamento…" : `${rows.length} ${rows.length === 1 ? "riga" : "righe"} (max 1000)`}
+          </div>
+        </div>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Cerca in tutte le colonne…"
+          style={{ ...inputStyle, width: "auto", flex: "0 1 260px", padding: "8px 10px" }} />
+        <button onClick={() => loadTable(table)} disabled={loading}
+          style={{ background: "white", color: "#0369a1", border: "1px solid #bae6fd", borderRadius: 8, padding: "8px 12px", cursor: loading ? "not-allowed" : "pointer", fontSize: 13, fontWeight: "bold" }}>
+          ↻ Ricarica
+        </button>
+        <button onClick={() => setEditing({ row: null })}
+          style={{ background: "linear-gradient(90deg, #0369a1, #0ea5e9)", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 13, fontWeight: "bold" }}>
+          + Nuova riga
+        </button>
+      </div>
+
+      {err && (
+        <div style={{ ...S.card, borderColor: "#fecaca", padding: 12, marginBottom: 14, color: "#b91c1c", fontSize: 13 }}>
+          ⚠️ {err}
+        </div>
+      )}
+
+      <div style={{ ...S.card, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#f0f9ff", color: "#0369a1", textAlign: "left" }}>
+                {schema.list.map(c => <th key={c} style={thStyle}>{c}</th>)}
+                <th style={{ ...thStyle, textAlign: "right", width: 150 }}>Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={schema.list.length + 1} style={{ padding: "30px 12px", textAlign: "center", color: "#94a3b8" }}>Caricamento…</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={schema.list.length + 1} style={{ padding: "30px 12px", textAlign: "center", color: "#94a3b8" }}>Nessuna riga</td></tr>
+              ) : filtered.map(r => (
+                <tr key={r[schema.pk]}>
+                  {schema.list.map(c => (
+                    <td key={c} style={tdStyle} title={String(r[c] ?? "")}>{formatAdminCell(r[c])}</td>
+                  ))}
+                  <td style={{ ...tdStyle, textAlign: "right", whiteSpace: "nowrap" }}>
+                    <button onClick={() => setEditing({ row: r })}
+                      style={{ background: "white", color: "#0369a1", border: "1px solid #bae6fd", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: "bold", marginRight: 6 }}>
+                      Modifica
+                    </button>
+                    <button onClick={() => handleDelete(r)}
+                      style={{ background: "white", color: "#c0392b", border: "1px solid #f5c6cb", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: "bold" }}>
+                      Elimina
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {editing && (
+        <RowEditor table={table} schema={schema} row={editing.row}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); loadTable(table); }} />
+      )}
+    </div>
+  );
+}
+
+function RowEditor({ table, schema, row, onClose, onSaved }) {
+  const isEdit = !!row;
+  const [form, setForm] = useState(() => {
+    const init = {};
+    schema.fields.forEach(f => {
+      const v = row ? row[f.name] : undefined;
+      if (f.type === "bool") init[f.name] = v === true;
+      else init[f.name] = v == null ? "" : String(v);
+    });
+    return init;
+  });
+  const [err, setErr] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function setField(name, value) { setForm(prev => ({ ...prev, [name]: value })); }
+
+  function collectPayload() {
+    const payload = {};
+    for (const f of schema.fields) {
+      if (f.readonly && isEdit) continue; // non inviare readonly in update
+      let v = form[f.name];
+      if (f.type === "bool") { payload[f.name] = !!v; continue; }
+      if (v === "" || v == null) {
+        if (f.readonly && !isEdit) continue; // non inviare pk vuota in insert
+        v = null;
+      }
+      if (f.type === "number" && v != null) v = Number(v);
+      payload[f.name] = v;
+    }
+    return payload;
+  }
+
+  async function save() {
+    setErr("");
+    for (const f of schema.fields) {
+      if (!f.required) continue;
+      if (f.readonly && !isEdit) continue;
+      const val = form[f.name];
+      if (val === null || val === undefined || val === "") {
+        setErr(`Il campo "${f.name}" è obbligatorio.`);
+        return;
+      }
+    }
+    setSaving(true);
+    const payload = collectPayload();
+    let error;
+    if (isEdit) {
+      const { error: e } = await sb.from(table).update(payload).eq(schema.pk, row[schema.pk]);
+      error = e;
+    } else {
+      const { error: e } = await sb.from(table).insert(payload);
+      error = e;
+    }
+    if (error) { setErr(`Errore: ${error.message}`); setSaving(false); return; }
+    setSaving(false);
+    onSaved();
+  }
+
+  const labelStyle = { display: "block", fontSize: 13, fontWeight: "bold", color: "#334155", marginBottom: 4 };
+  const helpStyle = { fontSize: 12, color: "#94a3b8", marginTop: 2 };
+
+  return (
+    <div onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 16px", overflowY: "auto", zIndex: 1000 }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ ...S.card, background: "white", maxWidth: 640, width: "100%", padding: 24 }}>
+        <div style={{ fontWeight: "bold", color: "#0369a1", fontSize: 18, marginBottom: 2 }}>
+          {isEdit ? `✏️ Modifica ${schema.label}` : `+ Nuova riga in ${schema.label}`}
+        </div>
+        <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 16 }}>
+          {isEdit ? `${schema.pk}: ${row[schema.pk]}` : schema.desc}
+        </div>
+        {err && (
+          <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: 10, marginBottom: 14, color: "#b91c1c", fontSize: 13 }}>
+            {err}
+          </div>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {schema.fields.map(f => {
+            // In creazione la pk auto-generata resta nascosta (default Postgres).
+            if (f.readonly && !isEdit && f.name === schema.pk) return null;
+            const readOnly = f.readonly && isEdit;
+            const req = f.required ? <span style={{ color: "#c0392b" }}> *</span> : null;
+            const val = form[f.name];
+            if (f.type === "textarea") {
+              return (
+                <div key={f.name}>
+                  <label style={labelStyle}>{f.name}{req}</label>
+                  <textarea value={val} readOnly={readOnly} onChange={e => setField(f.name, e.target.value)}
+                    rows={3} style={{ ...inputStyle, resize: "vertical" }} />
+                  {f.help && <div style={helpStyle}>{f.help}</div>}
+                </div>
+              );
+            }
+            if (f.type === "bool") {
+              return (
+                <div key={f.name}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, fontWeight: "bold", color: "#334155" }}>
+                    <input type="checkbox" checked={!!val} onChange={e => setField(f.name, e.target.checked)} />
+                    <span>{f.name}{req}</span>
+                  </label>
+                  {f.help && <div style={helpStyle}>{f.help}</div>}
+                </div>
+              );
+            }
+            if (f.type === "select") {
+              return (
+                <div key={f.name}>
+                  <label style={labelStyle}>{f.name}{req}</label>
+                  <select value={val} disabled={readOnly} onChange={e => setField(f.name, e.target.value)} style={inputStyle}>
+                    <option value="">(null)</option>
+                    {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                  {f.help && <div style={helpStyle}>{f.help}</div>}
+                </div>
+              );
+            }
+            const inputType = f.type === "number" ? "number" : (f.type === "date" ? "date" : "text");
+            return (
+              <div key={f.name}>
+                <label style={labelStyle}>{f.name}{req}</label>
+                <input type={inputType} value={val} readOnly={readOnly} step={f.step}
+                  onChange={e => setField(f.name, e.target.value)} style={inputStyle} />
+                {f.help && <div style={helpStyle}>{f.help}</div>}
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+          <button onClick={onClose} disabled={saving}
+            style={{ background: "white", color: "#64748b", border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 16px", cursor: saving ? "not-allowed" : "pointer", fontSize: 13, fontWeight: "bold" }}>
+            Annulla
+          </button>
+          <button onClick={save} disabled={saving}
+            style={{ background: saving ? "#cbd5e1" : "linear-gradient(90deg, #0369a1, #0ea5e9)", color: "white", border: "none", borderRadius: 8, padding: "8px 18px", cursor: saving ? "not-allowed" : "pointer", fontSize: 13, fontWeight: "bold" }}>
+            {saving ? "Salvataggio…" : "Salva"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+window.__mountAdmin = function() {
+  ReactDOM.createRoot(document.getElementById("root")).render(<AdminDashboard />);
 };
 </script>
 </body>

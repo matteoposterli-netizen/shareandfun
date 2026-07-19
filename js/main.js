@@ -11,8 +11,9 @@ sb.auth.onAuthStateChange((event) => {
 window.addEventListener('DOMContentLoaded', async () => {
   const params = new URLSearchParams(window.location.search);
   if (params.get('admin') === '1') {
-    await initAdminMode();
-    hideLoading();
+    // La modalità admin è ora una pagina dedicata (admin.html); ?admin=1 resta
+    // solo come redirect legacy.
+    window.location.replace('/admin.html');
     return;
   }
   const token = params.get('invito');
