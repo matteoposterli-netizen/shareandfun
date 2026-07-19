@@ -26,14 +26,14 @@ strumenti operativi (log cross-tenant, impersonazione, log tecnici, approvazioni
 
 ## Struttura pagina (Fase 1)
 
-- **Gate di autenticazione**: form email+password → `signInWithPassword` → verifica presenza in `public.admins` (`select user_id ... maybeSingle()`); se assente → `signOut()` + "Accesso non autorizzato". `getSession()` all'avvio per non richiedere login a ogni refresh.
+- **Gate di autenticazione**: form email+password (email prefillata con `matteo.posterli@gmail.com`) → `signInWithPassword` → verifica presenza in `public.admins` (`select user_id ... maybeSingle()`); se assente → `signOut()` + "Accesso non autorizzato". `getSession()` all'avvio per non richiedere login a ogni refresh.
 - **Tab Panoramica**: KPI card (totale stabilimenti, proprietari, stagionali, credito totale in circolazione, WhatsApp attivo X/Y, ombrelloni attivi/totali, clienti in attesa di approvazione, clienti totali).
 - **Tab Stabilimenti**: tabella una riga per stabilimento (nome+città, proprietario, creato il, ombrelloni attivi/totali, clienti approvati/attesa/rifiutati/totali, credito, badge WhatsApp, date stagione) + search testuale su nome/città + riga espandibile con il dettaglio. Pulsante "Entra come proprietario" presente ma **disabilitato** con tooltip "Prossimamente" (predisposizione Fase 3).
 - Fetch completo delle tabelle (`.select('*').limit(1000)`) e aggregazione lato client, stesso approccio di `js/admin.js`. Scala attuale: ~4 stabilimenti, poche decine di righe.
 
 ## Decisioni prese
 
-- **Account admin per il login = `matteo.posterli+admin@gmail.com`** (NON `matteo.posterli@gmail.com`: quest'ultimo, usato dal gate di `devboard.html`, non ha i permessi RLS admin sul DB e vedrebbe query vuote). L'autorizzazione passa da `public.admins` + `public.is_admin(uid)` (migration `20260424000000_admin_section.sql`).
+- **Account admin per il login = `matteo.posterli@gmail.com`** (prefillato nel campo email del gate). Questo account è stato **aggiunto a `public.admins`** il 2026-07-19 (`INSERT INTO public.admins (user_id) VALUES ('b6bea9e9-71b3-493b-9fe2-d1b79b336e1b')`) proprio per poter usare l'email primaria come login di Regia; senza quella riga vedrebbe query RLS vuote. È un account con anche `ruolo='proprietario'` in `profiles` (deroga alla convenzione "admin senza profilo", ma funzionalmente ok: `is_admin()` controlla solo `public.admins`). Resta valido anche `matteo.posterli+admin@gmail.com` (admin dal 2026-04-24). L'autorizzazione passa da `public.admins` + `public.is_admin(uid)` (migration `20260424000000_admin_section.sql`).
 - **Niente colonna `email` su `profiles`** — non disponibile lato client, non mostrata.
 - **RLS admin già pronta** su `profiles`, `stabilimenti`, `ombrelloni`, `clienti_stagionali` (SELECT coperto). **NON** su `audit_log` / `wa_messages_log`: quelli arrivano in Fase 2 con migration dedicata — non toccati in Fase 1.
 - Config Supabase (`SUPABASE_URL`, publishable `SUPABASE_KEY`) copiata da `devboard.html`.
