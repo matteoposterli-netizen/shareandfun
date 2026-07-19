@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Admin — SpiaggiaMia</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -215,8 +216,10 @@ function AdminDashboard() {
           <Panoramica data={data} />
         ) : tab === "stabilimenti" ? (
           <Stabilimenti data={data} />
-        ) : (
+        ) : tab === "tabelle" ? (
           <Tabelle />
+        ) : (
+          <Log data={data} />
         )}
       </div>
     </div>
@@ -228,6 +231,7 @@ function Header({ tab, setTab, onReload, loading }) {
     { id: "panoramica", label: "📊 Panoramica" },
     { id: "stabilimenti", label: "🏖️ Stabilimenti" },
     { id: "tabelle", label: "🗄️ Tabelle" },
+    { id: "log", label: "📋 Log" },
   ];
   return (
     <div style={{ background: "linear-gradient(90deg, #0369a1, #0ea5e9)", padding: "14px 20px", boxShadow: "0 2px 12px rgba(3,105,161,0.3)" }}>
@@ -846,6 +850,372 @@ function RowEditor({ table, schema, row, onClose, onSaved }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ---- Tab Log (audit cross-tenant, ex "Log attività" per-proprietario) ------
+// Legge public.audit_log via RLS admin (policy audit_log_select_admin →
+// accesso a TUTTI gli stabilimenti). Filtri + paginazione server-side su
+// created_at DESC. Le anagrafiche per la colonna "Coinvolto" e per il
+// filtro stabilimento arrivano dal fetch globale del dashboard (data.*).
+const AUDIT_ENTITY_LABELS = {
+  transazione: "Transazione credito",
+  disponibilita: "Prenotazione / Disponibilità",
+  cliente_stagionale: "Cliente stagionale",
+  ombrellone: "Ombrellone",
+  stabilimento: "Stabilimento",
+  profile: "Profilo utente",
+  email: "Email inviata",
+  auth: "Accesso",
+  import: "Import batch",
+  regola_stato: "Regola calendario",
+  backup_stagione: "Backup stagione",
+};
+const AUDIT_ACTION_LABELS = {
+  insert: "Creazione",
+  update: "Modifica",
+  delete: "Eliminazione",
+  login: "Login",
+  email_sent: "Email inviata",
+  email_batch_sent: "Email broadcast",
+  import_batch: "Import batch",
+  create_backup: "Backup creato",
+  reset: "Reset stagione",
+  restore: "Ripristino backup",
+};
+const AUDIT_ACTOR_LABELS = {
+  proprietario: "Proprietario",
+  stagionale: "Cliente stagionale",
+  admin: "Admin",
+  sistema: "Sistema / automazione",
+};
+const AUDIT_PAGE_SIZES = [30, 50, 100];
+
+function auditExtractInvolvedIds(row) {
+  const a = row.after || {};
+  const b = row.before || {};
+  let ombrelloneId = a.ombrellone_id || b.ombrellone_id || null;
+  let clienteId = a.cliente_id || b.cliente_id || null;
+  if (row.entity_type === "ombrellone" && row.entity_id) ombrelloneId = ombrelloneId || row.entity_id;
+  if (row.entity_type === "cliente_stagionale" && row.entity_id) clienteId = clienteId || row.entity_id;
+  return { ombrelloneId, clienteId };
+}
+
+function daysAgoIso(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+function todayIso() { return new Date().toISOString().slice(0, 10); }
+
+const DEFAULT_AUDIT_FILTERS = () => ({
+  stabId: "", from: daysAgoIso(7), to: todayIso(),
+  actorType: "", entityType: "", action: "", search: "",
+});
+
+function Log({ data }) {
+  // Lookup dalle anagrafiche globali già caricate dal dashboard.
+  const stabById = useMemo(() => new Map((data.stabilimenti || []).map(s => [s.id, s])), [data.stabilimenti]);
+  const ombById = useMemo(() => new Map((data.ombrelloni || []).map(o => [o.id, o])), [data.ombrelloni]);
+  const cliById = useMemo(() => new Map((data.clienti || []).map(c => [c.id, c])), [data.clienti]);
+
+  const [filters, setFilters] = useState(DEFAULT_AUDIT_FILTERS);
+  const [applied, setApplied] = useState(DEFAULT_AUDIT_FILTERS);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(30);
+  const [rows, setRows] = useState([]);
+  const [count, setCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [expanded, setExpanded] = useState(() => new Set());
+  const [exporting, setExporting] = useState(false);
+
+  function setFilter(k, v) { setFilters(prev => ({ ...prev, [k]: v })); }
+
+  function buildQuery(f, withCount) {
+    let q = sb.from("audit_log").select("*", withCount ? { count: "exact" } : undefined);
+    if (f.stabId) q = q.eq("stabilimento_id", f.stabId);
+    if (f.from) q = q.gte("created_at", `${f.from}T00:00:00`);
+    if (f.to) q = q.lte("created_at", `${f.to}T23:59:59.999`);
+    if (f.actorType) q = q.eq("actor_type", f.actorType);
+    if (f.entityType) q = q.eq("entity_type", f.entityType);
+    if (f.action) q = q.eq("action", f.action);
+    if (f.search) {
+      const s = f.search.trim().replace(/[%_]/g, m => "\\" + m);
+      q = q.or(`description.ilike.%${s}%,actor_label.ilike.%${s}%`);
+    }
+    return q.order("created_at", { ascending: false });
+  }
+
+  async function load(f, pg, size) {
+    setLoading(true); setErr("");
+    const from = (pg - 1) * size;
+    const to = from + size - 1;
+    const { data: d, count: c, error } = await buildQuery(f, true).range(from, to);
+    if (error) { setErr(error.message); setRows([]); setCount(0); setLoading(false); return; }
+    setRows(d || []); setCount(c || 0); setExpanded(new Set()); setLoading(false);
+  }
+
+  useEffect(() => { load(applied, page, pageSize); }, [applied, page, pageSize]);
+
+  function applyFilters() { setApplied({ ...filters }); setPage(1); }
+  function resetFilters() {
+    const def = DEFAULT_AUDIT_FILTERS();
+    setFilters(def); setApplied(def); setPage(1);
+  }
+
+  function stabLabel(id) {
+    const s = stabById.get(id);
+    return s ? (s.nome || "—") : (id ? id.slice(0, 8) : "—");
+  }
+  function involvedParts(row) {
+    const { ombrelloneId, clienteId } = auditExtractInvolvedIds(row);
+    const parts = [];
+    if (ombrelloneId) {
+      const o = ombById.get(ombrelloneId);
+      parts.push({ icon: "⛱", txt: o ? o.codice : "Ombrellone eliminato" });
+    }
+    if (clienteId) {
+      const c = cliById.get(clienteId);
+      const lbl = c ? (`${c.nome || ""} ${c.cognome || ""}`.trim() || c.email || "–") : "Cliente eliminato";
+      parts.push({ icon: "👤", txt: lbl });
+    }
+    return parts;
+  }
+
+  async function exportXlsx() {
+    setExporting(true); setErr("");
+    try {
+      const CHUNK = 1000;
+      let offset = 0; const all = [];
+      while (true) {
+        const { data: d, error } = await buildQuery(applied, false).range(offset, offset + CHUNK - 1);
+        if (error) throw error;
+        if (!d || !d.length) break;
+        all.push(...d);
+        if (d.length < CHUNK) break;
+        offset += CHUNK;
+        if (all.length > 50000) break;
+      }
+      const out = all.map(r => {
+        const inv = involvedParts(r).map(p => p.txt).join(" · ");
+        return {
+          Data: new Date(r.created_at).toLocaleString("it-IT"),
+          Stabilimento: stabLabel(r.stabilimento_id),
+          Attore: r.actor_label || "",
+          "Tipo attore": AUDIT_ACTOR_LABELS[r.actor_type] || r.actor_type,
+          Entità: AUDIT_ENTITY_LABELS[r.entity_type] || r.entity_type,
+          Azione: AUDIT_ACTION_LABELS[r.action] || r.action,
+          Coinvolto: inv,
+          Descrizione: r.description || "",
+          "ID entità": r.entity_id || "",
+          Before: r.before ? JSON.stringify(r.before) : "",
+          After: r.after ? JSON.stringify(r.after) : "",
+          Diff: r.diff ? JSON.stringify(r.diff) : "",
+        };
+      });
+      const ws = XLSX.utils.json_to_sheet(out);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Log attività");
+      const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      XLSX.writeFile(wb, `audit-log-${ts}.xlsx`);
+    } catch (e) {
+      setErr("Export fallito: " + (e && e.message ? e.message : String(e)));
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const totalPages = Math.max(1, Math.ceil(count / pageSize));
+  const fromN = count === 0 ? 0 : (page - 1) * pageSize + 1;
+  const toN = Math.min(page * pageSize, count);
+
+  const selStyle = { ...inputStyle, width: "auto", minWidth: 130, padding: "7px 9px" };
+  const filterLabel = { display: "block", fontSize: 11, fontWeight: "bold", color: "#64748b", textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 3 };
+
+  const actorOptions = Object.keys(AUDIT_ACTOR_LABELS);
+  const entityOptions = Object.keys(AUDIT_ENTITY_LABELS);
+  const actionOptions = Object.keys(AUDIT_ACTION_LABELS);
+
+  return (
+    <div>
+      {/* Filtri */}
+      <div style={{ ...S.card, padding: 16, marginBottom: 14 }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div>
+            <label style={filterLabel}>Stabilimento</label>
+            <select value={filters.stabId} onChange={e => setFilter("stabId", e.target.value)} style={selStyle}>
+              <option value="">Tutti</option>
+              {(data.stabilimenti || []).slice().sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "it")).map(s => (
+                <option key={s.id} value={s.id}>{s.nome || s.id.slice(0, 8)}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={filterLabel}>Dal</label>
+            <input type="date" value={filters.from} onChange={e => setFilter("from", e.target.value)} style={{ ...selStyle, minWidth: 0 }} />
+          </div>
+          <div>
+            <label style={filterLabel}>Al</label>
+            <input type="date" value={filters.to} onChange={e => setFilter("to", e.target.value)} style={{ ...selStyle, minWidth: 0 }} />
+          </div>
+          <div>
+            <label style={filterLabel}>Tipo attore</label>
+            <select value={filters.actorType} onChange={e => setFilter("actorType", e.target.value)} style={selStyle}>
+              <option value="">Tutti</option>
+              {actorOptions.map(a => <option key={a} value={a}>{AUDIT_ACTOR_LABELS[a]}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={filterLabel}>Entità</label>
+            <select value={filters.entityType} onChange={e => setFilter("entityType", e.target.value)} style={selStyle}>
+              <option value="">Tutte</option>
+              {entityOptions.map(en => <option key={en} value={en}>{AUDIT_ENTITY_LABELS[en]}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={filterLabel}>Azione</label>
+            <select value={filters.action} onChange={e => setFilter("action", e.target.value)} style={selStyle}>
+              <option value="">Tutte</option>
+              {actionOptions.map(ac => <option key={ac} value={ac}>{AUDIT_ACTION_LABELS[ac]}</option>)}
+            </select>
+          </div>
+          <div style={{ flex: "1 1 180px" }}>
+            <label style={filterLabel}>Cerca (descrizione / attore)</label>
+            <input type="text" value={filters.search} onChange={e => setFilter("search", e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") applyFilters(); }}
+              placeholder="testo libero…" style={{ ...inputStyle, padding: "7px 9px" }} />
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={applyFilters}
+              style={{ background: "linear-gradient(90deg, #0369a1, #0ea5e9)", color: "white", border: "none", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 13, fontWeight: "bold" }}>
+              Applica
+            </button>
+            <button onClick={resetFilters}
+              style={{ background: "white", color: "#64748b", border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13, fontWeight: "bold" }}>
+              Azzera
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Barra conteggio + export + page size */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+        <span style={{ color: "#64748b", fontSize: 13 }}>
+          {loading ? "Caricamento…" : `${fromN}–${toN} di ${count} eventi`}
+        </span>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+          <label style={{ color: "#64748b", fontSize: 12 }}>Per pagina</label>
+          <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }} style={{ ...selStyle, minWidth: 0, padding: "6px 8px" }}>
+            {AUDIT_PAGE_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <button onClick={exportXlsx} disabled={exporting || count === 0}
+            style={{ background: "white", color: "#0369a1", border: "1px solid #bae6fd", borderRadius: 8, padding: "7px 12px", cursor: (exporting || count === 0) ? "not-allowed" : "pointer", fontSize: 13, fontWeight: "bold" }}>
+            {exporting ? "Export…" : "📥 Esporta Excel"}
+          </button>
+        </div>
+      </div>
+
+      {err && (
+        <div style={{ ...S.card, borderColor: "#fecaca", padding: 12, marginBottom: 14, color: "#b91c1c", fontSize: 13 }}>⚠️ {err}</div>
+      )}
+
+      <div style={{ ...S.card, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 860, fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#f0f9ff", color: "#0369a1", textAlign: "left" }}>
+                <th style={thStyle}>Data</th>
+                <th style={thStyle}>Stabilimento</th>
+                <th style={thStyle}>Attore</th>
+                <th style={thStyle}>Entità / Azione</th>
+                <th style={thStyle}>Coinvolto</th>
+                <th style={thStyle}>Descrizione</th>
+                <th style={{ ...thStyle, textAlign: "right" }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={7} style={{ padding: "30px 12px", textAlign: "center", color: "#94a3b8" }}>Caricamento…</td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td colSpan={7} style={{ padding: "30px 12px", textAlign: "center", color: "#94a3b8" }}>Nessun evento nel periodo/filtri selezionati</td></tr>
+              ) : rows.map(row => {
+                const dt = new Date(row.created_at).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                const actionColor = row.action === "delete" ? "#c0392b" : row.action === "insert" ? "#047857" : (row.action === "email_sent" || row.action === "email_batch_sent") ? "#1B6CA8" : "#64748b";
+                const isOpen = expanded.has(row.id);
+                const inv = involvedParts(row);
+                return (
+                  <React.Fragment key={row.id}>
+                    <tr>
+                      <td style={{ ...tdStyle, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", color: "#64748b", fontSize: 12 }}>{dt}</td>
+                      <td style={tdStyle}><span style={{ fontWeight: 600, color: "#0369a1" }}>{stabLabel(row.stabilimento_id)}</span></td>
+                      <td style={tdStyle}>
+                        <div>{row.actor_label || AUDIT_ACTOR_LABELS[row.actor_type] || "–"}</div>
+                        <div style={{ fontSize: 11, color: "#94a3b8" }}>{AUDIT_ACTOR_LABELS[row.actor_type] || row.actor_type}</div>
+                      </td>
+                      <td style={tdStyle}>
+                        <div>{AUDIT_ENTITY_LABELS[row.entity_type] || row.entity_type}</div>
+                        <span style={{ color: actionColor, fontSize: 11, fontWeight: 600 }}>{AUDIT_ACTION_LABELS[row.action] || row.action}</span>
+                      </td>
+                      <td style={tdStyle}>
+                        {inv.length === 0 ? <span style={{ color: "#cbd5e1" }}>–</span> : inv.map((p, i) => (
+                          <div key={i} style={{ fontSize: 12 }}><span style={{ color: "#94a3b8" }}>{p.icon}</span> {p.txt}</div>
+                        ))}
+                      </td>
+                      <td style={{ ...tdStyle, maxWidth: 320 }}>{row.description || "–"}</td>
+                      <td style={{ ...tdStyle, textAlign: "right", whiteSpace: "nowrap" }}>
+                        <button onClick={() => setExpanded(prev => { const n = new Set(prev); n.has(row.id) ? n.delete(row.id) : n.add(row.id); return n; })}
+                          style={{ background: "white", color: "#0369a1", border: "1px solid #bae6fd", borderRadius: 6, padding: "3px 9px", cursor: "pointer", fontSize: 11, fontWeight: "bold" }}>
+                          {isOpen ? "▴ Nascondi" : "▾ Dettagli"}
+                        </button>
+                      </td>
+                    </tr>
+                    {isOpen && (
+                      <tr>
+                        <td colSpan={7} style={{ background: "#f8fafc", padding: "12px 16px" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, fontSize: 12, fontFamily: "ui-monospace, Menlo, Consolas, monospace" }}>
+                            {row.diff && <JsonBlock title="Diff" value={row.diff} />}
+                            {row.before && <JsonBlock title="Before" value={row.before} />}
+                            {row.after && <JsonBlock title="After" value={row.after} />}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
+                            ID evento: {row.id}{row.entity_id ? ` · ID entità: ${row.entity_id}` : ""}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Pager */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "center", marginTop: 14 }}>
+        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={loading || page <= 1}
+          style={{ background: "white", color: "#0369a1", border: "1px solid #bae6fd", borderRadius: 8, padding: "6px 14px", cursor: (loading || page <= 1) ? "not-allowed" : "pointer", fontSize: 13, fontWeight: "bold", opacity: page <= 1 ? 0.5 : 1 }}>
+          ← Prec
+        </button>
+        <span style={{ color: "#64748b", fontSize: 13 }}>Pagina {page} / {totalPages}</span>
+        <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={loading || page >= totalPages}
+          style={{ background: "white", color: "#0369a1", border: "1px solid #bae6fd", borderRadius: 8, padding: "6px 14px", cursor: (loading || page >= totalPages) ? "not-allowed" : "pointer", fontSize: 13, fontWeight: "bold", opacity: page >= totalPages ? 0.5 : 1 }}>
+          Succ →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function JsonBlock({ title, value }) {
+  return (
+    <div>
+      <strong>{title}</strong>
+      <pre style={{ margin: "4px 0 0", whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 240, overflow: "auto", background: "white", padding: 8, borderRadius: 4, border: "1px solid #e0f2fe" }}>
+        {JSON.stringify(value, null, 2)}
+      </pre>
     </div>
   );
 }
