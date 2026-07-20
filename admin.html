@@ -49,7 +49,7 @@
     <div class="gate-title">🔐 Admin — SpiaggiaMia</div>
     <div class="gate-sub">Area riservata agli amministratori di sistema.</div>
     <form id="gate-form" onsubmit="return false;">
-      <input id="gate-email" class="gate-input" type="email" placeholder="Email admin" autocomplete="username" value="matteo.posterli@gmail.com" />
+      <input id="gate-email" class="gate-input" type="email" placeholder="Email admin" autocomplete="username" value="matteo.posterli+admin@gmail.com" />
       <input id="gate-password" class="gate-input" type="password" placeholder="Password" autocomplete="current-password" />
       <button id="gate-btn" class="gate-btn" type="submit">Accedi</button>
       <div id="gate-err" class="gate-err"></div>
@@ -914,7 +914,35 @@ const DEFAULT_AUDIT_FILTERS = () => ({
   actorType: "", entityType: "", action: "", search: "",
 });
 
+// Wrapper con toggle Audit / WhatsApp. Entrambe le sotto-viste sono
+// cross-tenant (RLS admin: audit_log_select_admin / wa_messages_log_select_admin).
 function Log({ data }) {
+  const [sub, setSub] = useState("audit");
+  const tabs = [
+    { id: "audit", label: "Audit" },
+    { id: "whatsapp", label: "WhatsApp" },
+  ];
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setSub(t.id)}
+            style={{
+              background: sub === t.id ? "linear-gradient(90deg, #0369a1, #0ea5e9)" : "white",
+              color: sub === t.id ? "white" : "#0369a1",
+              border: sub === t.id ? "none" : "1px solid #bae6fd",
+              borderRadius: 8, padding: "7px 16px", cursor: "pointer", fontSize: 13, fontWeight: "bold",
+            }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {sub === "audit" ? <LogAudit data={data} /> : <LogWhatsapp data={data} />}
+    </div>
+  );
+}
+
+function LogAudit({ data }) {
   // Lookup dalle anagrafiche globali già caricate dal dashboard.
   const stabById = useMemo(() => new Map((data.stabilimenti || []).map(s => [s.id, s])), [data.stabilimenti]);
   const ombById = useMemo(() => new Map((data.ombrelloni || []).map(o => [o.id, o])), [data.ombrelloni]);
@@ -1204,6 +1232,141 @@ function Log({ data }) {
           style={{ background: "white", color: "#0369a1", border: "1px solid #bae6fd", borderRadius: 8, padding: "6px 14px", cursor: (loading || page >= totalPages) ? "not-allowed" : "pointer", fontSize: 13, fontWeight: "bold", opacity: page >= totalPages ? 0.5 : 1 }}>
           Succ →
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ---- Sotto-vista WhatsApp (wa_messages_log, cross-tenant) -----------------
+// Etichette leggibili dei tipi di messaggio (vedi Edge Function invia-whatsapp).
+const WA_TIPO_LABELS = {
+  invito: "Invito",
+  benvenuto: "Benvenuto",
+  variazione_credito: "Variazione credito",
+  recupero_password: "Recupero password",
+};
+// Colore del badge di stato dedotto dal valore (nessun enum fisso: gli stati
+// Twilio possono cambiare). Successo → verde, errore → rosso, resto → grigio.
+function waStatusStyle(status) {
+  const s = (status || "").toLowerCase();
+  if (/(deliver|read|sent|receiv)/.test(s)) return { background: "#d1fae5", color: "#047857" };
+  if (/(fail|undeliver|error|reject)/.test(s)) return { background: "#fee2e2", color: "#b91c1c" };
+  return { background: "#f1f5f9", color: "#64748b" };
+}
+
+function LogWhatsapp({ data }) {
+  const stabById = useMemo(() => new Map((data.stabilimenti || []).map(s => [s.id, s])), [data.stabilimenti]);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [stabId, setStabId] = useState("");
+  const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true); setErr("");
+      const { data: d, error } = await sb
+        .from("wa_messages_log").select("*")
+        .order("created_at", { ascending: false }).limit(1000);
+      if (cancelled) return;
+      if (error) { setErr(error.message); setRows([]); }
+      else setRows(d || []);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  function stabLabel(id) {
+    const s = stabById.get(id);
+    return s ? (s.nome || "—") : (id ? id.slice(0, 8) : "—");
+  }
+
+  // Stati effettivamente presenti nei dati → opzioni del filtro (no enum hardcoded).
+  const statusOptions = useMemo(() => {
+    const set = new Set();
+    rows.forEach(r => { if (r.status) set.add(r.status); });
+    return Array.from(set).sort();
+  }, [rows]);
+
+  const filtered = useMemo(() => rows.filter(r =>
+    (!stabId || r.stabilimento_id === stabId) &&
+    (!status || r.status === status)
+  ), [rows, stabId, status]);
+
+  const selStyle = { ...inputStyle, width: "auto", minWidth: 130, padding: "7px 9px" };
+  const filterLabel = { display: "block", fontSize: 11, fontWeight: "bold", color: "#64748b", textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 3 };
+
+  return (
+    <div>
+      {/* Filtri */}
+      <div style={{ ...S.card, padding: 16, marginBottom: 14 }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div>
+            <label style={filterLabel}>Stabilimento</label>
+            <select value={stabId} onChange={e => setStabId(e.target.value)} style={selStyle}>
+              <option value="">Tutti</option>
+              {(data.stabilimenti || []).slice().sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "it")).map(s => (
+                <option key={s.id} value={s.id}>{s.nome || s.id.slice(0, 8)}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={filterLabel}>Stato</label>
+            <select value={status} onChange={e => setStatus(e.target.value)} style={selStyle}>
+              <option value="">Tutti</option>
+              {statusOptions.map(st => <option key={st} value={st}>{st}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ color: "#64748b", fontSize: 13, marginBottom: 12 }}>
+        {loading ? "Caricamento…" : `${filtered.length} messaggi${rows.length >= 1000 ? " (ultimi 1000)" : ""}`}
+      </div>
+
+      {err && (
+        <div style={{ ...S.card, borderColor: "#fecaca", padding: 12, marginBottom: 14, color: "#b91c1c", fontSize: 13 }}>⚠️ {err}</div>
+      )}
+
+      <div style={{ ...S.card, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 820, fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#f0f9ff", color: "#0369a1", textAlign: "left" }}>
+                <th style={thStyle}>Data</th>
+                <th style={thStyle}>Stabilimento</th>
+                <th style={thStyle}>Destinatario</th>
+                <th style={thStyle}>Tipo</th>
+                <th style={thStyle}>Stato</th>
+                <th style={thStyle}>Errore</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} style={{ padding: "30px 12px", textAlign: "center", color: "#94a3b8" }}>Caricamento…</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={6} style={{ padding: "30px 12px", textAlign: "center", color: "#94a3b8" }}>Nessun messaggio coi filtri selezionati</td></tr>
+              ) : filtered.map(row => {
+                const dt = new Date(row.created_at).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+                const badge = waStatusStyle(row.status);
+                const errTxt = [row.error_code, row.error_message].filter(x => x !== null && x !== undefined && x !== "").join(" · ");
+                return (
+                  <tr key={row.id}>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", color: "#64748b", fontSize: 12 }}>{dt}</td>
+                    <td style={tdStyle}><span style={{ fontWeight: 600, color: "#0369a1" }}>{stabLabel(row.stabilimento_id)}</span></td>
+                    <td style={{ ...tdStyle, fontVariantNumeric: "tabular-nums" }}>{row.to_number || "–"}</td>
+                    <td style={tdStyle}>{WA_TIPO_LABELS[row.tipo] || row.tipo || "–"}</td>
+                    <td style={tdStyle}>
+                      <span style={{ ...badge, fontSize: 11, fontWeight: "bold", padding: "2px 8px", borderRadius: 10 }}>{row.status || "–"}</span>
+                    </td>
+                    <td style={{ ...tdStyle, maxWidth: 280, color: errTxt ? "#b91c1c" : "#cbd5e1" }}>{errTxt || "–"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
