@@ -23,6 +23,15 @@ verify_jwt = true
 [functions.recupero-password]
 verify_jwt = false
 
+# admin-impersona-proprietario: chiamata SOLO da admin loggati (admin.html →
+# sb.functions.invoke con sessione admin attiva). Richiede una sessione valida:
+# verify_jwt=true rifiuta le chiamate anonime al gateway. Il JWT inviato e'
+# l'access_token della sessione admin (JWT firmato da Supabase Auth), quindi
+# supera verify_jwt. La function verifica poi che il chiamante sia in
+# public.admins (403 altrimenti).
+[functions.admin-impersona-proprietario]
+verify_jwt = true
+
 # invia-whatsapp: chiamata sia da utenti loggati (frontend manager via
 # inviaWhatsapp helper, e da richiedi-reset-cliente con user-JWT del
 # manager) sia server-to-server da recupero-password con
