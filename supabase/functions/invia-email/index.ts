@@ -5,6 +5,7 @@ const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "SpiaggiaMia <noreply@spiaggiamia.com>";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const APP_URL = Deno.env.get("APP_URL") ?? "https://spiaggiamia.com";
 
 // Headers CORS uniformi su tutte le response. Necessari su tutte le
 // risposte POST: senza, browser da origini come https://www.spiaggiamia.com
@@ -40,8 +41,8 @@ function buildFromHeader(displayName: string | undefined): string {
 }
 
 interface EmailRequest {
-  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "credito_revocato" | "chiusura_stagione" | "comunicazione" | "ombrellone_disattivato" | "reset_password";
-  email: string;
+  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "credito_revocato" | "chiusura_stagione" | "comunicazione" | "ombrellone_disattivato" | "reset_password" | "stabilimento_in_attesa" | "stabilimento_approvato" | "stabilimento_rifiutato";
+  email?: string;
   nome: string;
   cognome?: string;
   stabilimento_id?: string;
@@ -65,6 +66,10 @@ interface EmailRequest {
   testo_custom?: string;
   // Reset password (manager-driven, popolato da richiedi-reset-cliente)
   recovery_link?: string;
+  // Email di piattaforma verso il proprietario (approvazione stabilimento).
+  // Se `email` non e' fornita per i tipi stabilimento_*, l'email destinataria
+  // (e il login_link) vengono risolti server-side via getUserById.
+  proprietario_id?: string;
 }
 
 interface EmailContentOpts {
@@ -214,9 +219,32 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Body non valido" }, 400);
   }
 
-  const { tipo, email, nome, cognome = "", stabilimento_id, stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, login_link, importo_formatted, saldo_formatted, nota, gg_disponibilita, gg_subaffittato, coin_ricevuti_formatted, coin_spesi_formatted, oggetto_custom, testo_custom, recovery_link } = body;
+  const { tipo, email, nome, cognome = "", stabilimento_id, stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, login_link, importo_formatted, saldo_formatted, nota, gg_disponibilita, gg_subaffittato, coin_ricevuti_formatted, coin_spesi_formatted, oggetto_custom, testo_custom, recovery_link, proprietario_id } = body;
 
-  if (!tipo || !email || !nome) {
+  // Tipi "di piattaforma" verso il proprietario: contenuto FISSO (non
+  // personalizzabile per stabilimento). Per questi, admin.html non puo'
+  // leggere l'email del proprietario (vive solo in auth.users, non in
+  // profiles), quindi la risolviamo server-side via service role a partire
+  // da proprietario_id. Il login_link (CTA della mail di approvazione) viene
+  // costruito dallo stesso indirizzo se non passato dal chiamante.
+  const PLATFORM_STAB_TYPES = new Set(["stabilimento_in_attesa", "stabilimento_approvato", "stabilimento_rifiutato"]);
+  let recipientEmail = email ?? "";
+  let effectiveLoginLink = login_link ?? "";
+  if (PLATFORM_STAB_TYPES.has(tipo) && proprietario_id && (!recipientEmail || !effectiveLoginLink)) {
+    try {
+      const svc = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+      const { data: ownerData } = await svc.auth.admin.getUserById(proprietario_id);
+      const ownerEmail = ownerData?.user?.email ?? "";
+      if (!recipientEmail) recipientEmail = ownerEmail;
+      if (!effectiveLoginLink && ownerEmail) {
+        effectiveLoginLink = `${APP_URL}/?login=${encodeURIComponent(ownerEmail)}`;
+      }
+    } catch (e) {
+      console.error("getUserById proprietario_id fallita:", e);
+    }
+  }
+
+  if (!tipo || !recipientEmail || !nome) {
     return jsonResponse({ error: "Parametri mancanti: tipo, email, nome" }, 400);
   }
 
@@ -485,6 +513,65 @@ Deno.serve(async (req: Request) => {
       footer_extra: `Se non hai richiesto questo reset, contatta direttamente <strong>${stabilimento_nome}</strong>. Il link e' valido per un'ora.`,
     };
 
+  } else if (tipo === "stabilimento_in_attesa") {
+    // Email di piattaforma (contenuto FISSO): inviata al proprietario subito
+    // dopo la creazione dello stabilimento, mentre e' in attesa di verifica.
+    subject = `Benvenuto su SpiaggiaMia, ${nome} — la tua richiesta è in revisione`;
+    opts = {
+      headerColor: "linear-gradient(135deg,#1B6CA8 0%,#2B8DC8 100%)",
+      headerEmoji: "🌊 ☂️",
+      headerSub: "La tua richiesta è in revisione",
+      nome,
+      testoPrincipale: `grazie per aver registrato <strong>${stabilimento_nome}</strong> su SpiaggiaMia!<br><br>Il tuo account è stato creato correttamente. Prima di darti accesso alla piattaforma, verifichiamo manualmente ogni nuova iscrizione — un passaggio che facciamo per garantire qualità e sicurezza a tutti gli stabilimenti che usano SpiaggiaMia.`,
+      boxColor: "#FDF8E8",
+      boxBorderColor: "#F0B429",
+      boxTitoloColor: "#856404",
+      boxTitolo: "⏳ Richiesta in revisione",
+      boxTesto: "Ti contatteremo appena la verifica sarà completata. Non devi fare nulla nel frattempo: riceverai un'altra email non appena il tuo account sarà attivo.",
+      stabilimento_nome,
+      footer_extra: `Domande? Rispondi pure a questa email.<br><br>A presto,<br>Il team di SpiaggiaMia`,
+    };
+
+  } else if (tipo === "stabilimento_approvato") {
+    // Email di piattaforma (contenuto FISSO): inviata al click "Approva" in
+    // admin.html. CTA verso il login (effectiveLoginLink).
+    subject = `🎉 Il tuo account SpiaggiaMia è attivo!`;
+    opts = {
+      headerColor: "linear-gradient(135deg,#2EAA6B 0%,#38c97e 100%)",
+      headerEmoji: "🎉 🌊",
+      headerSub: "Account attivo!",
+      nome,
+      testoPrincipale: `buone notizie: <strong>${stabilimento_nome}</strong> è stato approvato ed è ora attivo su SpiaggiaMia!`,
+      boxColor: "#E8F8F0",
+      boxBorderColor: "#2EAA6B",
+      boxTitoloColor: "#1a7a4a",
+      boxTitolo: "🏖️ Inizia subito",
+      boxTesto: "Puoi accedere subito e iniziare a configurare la mappa ombrelloni e a gestire i tuoi clienti stagionali.",
+      ctaLabel: effectiveLoginLink ? "Accedi a SpiaggiaMia →" : undefined,
+      ctaLink: effectiveLoginLink || undefined,
+      stabilimento_nome,
+      footer_extra: `Se ti serve una mano per iniziare, rispondi pure a questa email.<br><br>Buon lavoro,<br>Il team di SpiaggiaMia`,
+    };
+
+  } else if (tipo === "stabilimento_rifiutato") {
+    // Email di piattaforma (contenuto FISSO): inviata al click "Rifiuta" in
+    // admin.html. Tono neutro/grigio.
+    subject = `Aggiornamento sulla tua richiesta SpiaggiaMia`;
+    opts = {
+      headerColor: "linear-gradient(135deg,#5A6A7A 0%,#7A8A9A 100%)",
+      headerEmoji: "📋",
+      headerSub: "Aggiornamento sulla tua richiesta",
+      nome,
+      testoPrincipale: `ti scriviamo in merito alla richiesta di iscrizione per <strong>${stabilimento_nome}</strong>: al momento non siamo in grado di approvarla.`,
+      boxColor: "#F4F6F8",
+      boxBorderColor: "#9AAABB",
+      boxTitoloColor: "#5A6A7A",
+      boxTitolo: "📋 Hai bisogno di chiarimenti?",
+      boxTesto: "Se vuoi maggiori informazioni, o pensi si tratti di un errore, scrivici rispondendo a questa email: siamo felici di chiarire insieme.",
+      stabilimento_nome,
+      footer_extra: `Grazie per l'interesse in SpiaggiaMia.<br><br>Il team di SpiaggiaMia`,
+    };
+
   } else {
     return jsonResponse({ error: "Tipo non valido" }, 400);
   }
@@ -500,7 +587,7 @@ Deno.serve(async (req: Request) => {
   const unsubscribeMailto = stabilimento_email || "noreply@spiaggiamia.com";
   const payload: Record<string, unknown> = {
     from: buildFromHeader(stabilimento_nome),
-    to: email,
+    to: recipientEmail,
     subject,
     html,
     text,
@@ -546,8 +633,8 @@ Deno.serve(async (req: Request) => {
           p_stabilimento_id: stabilimento_id,
           p_entity_type: "email",
           p_action: "email_sent",
-          p_description: `Email "${tipo}" inviata a ${email}`,
-          p_metadata: { tipo, to: email, subject, resend_id: data?.id ?? null },
+          p_description: `Email "${tipo}" inviata a ${recipientEmail}`,
+          p_metadata: { tipo, to: recipientEmail, subject, resend_id: data?.id ?? null },
         }),
       });
       if (!logRes.ok) {

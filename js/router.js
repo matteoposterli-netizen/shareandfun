@@ -62,6 +62,11 @@ async function loadUserAndRoute() {
     const { data: stab } = await sb.from('stabilimenti').select('*').eq('proprietario_id', currentUser.id).single();
     if (!stab) { showView('setup'); return; }
     currentStabilimento = stab;
+    // Gate approvazione: uno stabilimento non ancora approvato (o rifiutato) non
+    // accede al manager. Lo stato di default per una nuova riga è
+    // approvato=false, rifiutato=false → resta "in attesa".
+    if (stab.rifiutato) { showView('rifiutato'); return; }
+    if (!stab.approvato) { showView('in-attesa'); return; }
     const onboardingAttivo = await checkOnboardingMappa(currentStabilimento.id);
     if (onboardingAttivo) return;
     await loadManagerData();

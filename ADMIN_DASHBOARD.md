@@ -67,8 +67,29 @@ impersonazione, log tecnici, approvazioni).
 
 **Limite noto — persistenza sessione**: supabase-js persiste la sessione in `localStorage`, **condiviso per origine tra tutte le schede** dello stesso browser, e sincronizza lo stato auth via `storage` event. Se l'admin ha già un'altra scheda aperta su `spiaggiamia.com` con una sessione diversa, può esserci interferenza tra schede (la sessione impersonata può propagarsi/sovrascrivere). Il flag `sm_admin_impersonation` è invece in `sessionStorage` (isolato per scheda) e serve solo a mostrare il banner nella scheda corretta. Mitigazione in Fase 3: banner molto visibile + pulsante "Esci" facilmente raggiungibile, per ridurre il tempo in cui la sessione impersonata resta attiva. Non è previsto codice difensivo più sofisticato (es. storage isolato per scheda) in questa fase.
 
+## Fase 5 — Approvazione creazione stabilimenti (codice pronto, in attesa di deploy)
+
+**Stato**: codice completo sul branch. Migration **già applicata in prod** (via Supabase MCP): `stabilimenti.approvato` (boolean NOT NULL DEFAULT false) + `stabilimenti.rifiutato` (boolean NOT NULL DEFAULT false); i 2 stabilimenti preesistenti backfillati `approvato=true`. Da ora ogni nuovo stabilimento nasce `approvato=false, rifiutato=false` e resta "in attesa" finché un admin non lo approva/rifiuta da `admin.html`. **In attesa del deploy** della nuova Edge Function `notifica-nuovo-stabilimento` e del redeploy di `invia-email` (3 nuovi tipi) prima del test end-to-end.
+
+**Gate lato proprietario** (2 punti):
+1. `js/setup.js → saveStabilimento()`: dopo l'insert riuscito NON entra nel manager, ma mostra la view `in-attesa`. Lancia in fire-and-forget (non bloccanti): (a) email `stabilimento_in_attesa` al proprietario via `inviaEmail`, (b) notifica admin via `sb.functions.invoke('notifica-nuovo-stabilimento', …)`.
+2. `js/router.js → loadUserAndRoute()` (ramo proprietario, dopo `currentStabilimento = stab`): `if (stab.rifiutato) showView('rifiutato')`; `else if (!stab.approvato) showView('in-attesa')`; altrimenti prosegue come prima (onboarding mappa → manager).
+
+**Nuove view statiche** (`index.html`, stile `setup-container`): `#view-in-attesa` ("Richiesta in revisione" + logout) e `#view-rifiutato` ("Richiesta non approvata" + contatto `[EMAIL SUPPORTO]` placeholder da sostituire + logout).
+
+**Gate lato admin** (`admin.html`):
+- Tab **Panoramica**: nuova KPI card "Stabilimenti in attesa" (`stabInAttesa` in `computeStats`, count `!approvato && !rifiutato` — nessuna query aggiuntiva).
+- Tab **Stabilimenti**: nuova colonna "Stato" con badge 🟡 In attesa / 🟢 Approvato / 🔴 Rifiutato (componente `StabStatoCell`). Per le righe 🟡, bottoni "✅ Approva" / "❌ Rifiuta" con conferma esplicita (nome proprietario + stabilimento). Al click: `sb.from('stabilimenti').update({approvato/rifiutato}).eq('id', …)` (RLS admin), patch locale `AdminDashboard.patchStab` (aggiorna badge **e** KPI, entrambi derivati da `data.stabilimenti`), + email di esito fire-and-forget (`stabilimento_approvato`/`stabilimento_rifiutato`). L'audit è coperto dal trigger su UPDATE stabilimenti.
+
+**3 nuovi tipi email** in `invia-email` (contenuto FISSO di piattaforma, NON personalizzabile per stabilimento): `stabilimento_in_attesa`, `stabilimento_approvato`, `stabilimento_rifiutato`. Destinatario = email del **proprietario** (da `auth.users`, non `stabilimenti.email`). Poiché `profiles` non ha colonna email e `admin.html` non può leggere `auth.users` lato client, questi tipi accettano `proprietario_id` e risolvono l'email destinataria (+ costruiscono `login_link = APP_URL + '/?login=' + email` per il tipo approvato) **server-side** via `auth.admin.getUserById`. `setup.js` passa invece direttamente `email` (= `currentUser.email`). Nuova env opzionale `APP_URL` (default `https://spiaggiamia.com`).
+
+**Nuova Edge Function `notifica-nuovo-stabilimento`** (`verify_jwt=true` in `config.toml`; chiamante sempre autenticato = proprietario appena registrato). Input `{ stabilimento_nome, citta, proprietario_nome, proprietario_cognome, proprietario_email }`. Fa due cose indipendenti via `Promise.allSettled` (un fallimento non blocca l'altro, mai propagato al chiamante): (1) email a `matteo.posterli@gmail.com` via Resend (stesso provider di `invia-email`, chiamata diretta all'API Resend) con nome/città stabilimento + dati proprietario + link `https://spiaggiamia.com/admin.html`; (2) messaggio Telegram via `POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`. **Secret Telegram richiesti** (da impostare su Supabase prima del deploy): `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_CHAT_ID` — se uno manca a runtime il canale Telegram viene saltato silenziosamente (log + skip), senza rompere la registrazione. Riusa anche `RESEND_API_KEY`/`FROM_EMAIL` già configurate.
+
+**DA FARE A MANO prima del test end-to-end**: (a) deploy `notifica-nuovo-stabilimento`; (b) redeploy `invia-email` (3 nuovi tipi + risoluzione `proprietario_id`); (c) impostare i secret `TELEGRAM_BOT_TOKEN`/`TELEGRAM_ADMIN_CHAT_ID` (+ opzionale `APP_URL`); (d) sostituire il placeholder `[EMAIL SUPPORTO]` nella view `#view-rifiutato`.
+
 ## Note operative
 
 - Non mergiare su `main`: attendere preview Vercel del branch + conferma.
 - Non c'è build step / `node --check`: JSX transpilato a runtime da Babel standalone (come `devboard.html`).
 - **Fase 3**: prima del merge serve il deploy della Edge Function `admin-impersona-proprietario` (Supabase MCP, previa conferma). Il codice della function è in `supabase/functions/admin-impersona-proprietario/index.ts`.
+- **Fase 5**: prima del test end-to-end serve il deploy di `notifica-nuovo-stabilimento` + redeploy di `invia-email`, e i secret Telegram. Vedi sezione "Fase 5" sopra.

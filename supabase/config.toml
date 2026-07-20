@@ -3,6 +3,13 @@ project_id = "btnyzzpibedkslhtiizu"
 [functions.invia-email]
 verify_jwt = true
 
+# notifica-nuovo-stabilimento: chiamata da js/setup.js subito dopo la
+# registrazione di un nuovo stabilimento (utente proprietario con sessione
+# valida). Notifica gli admin via email + Telegram. verify_jwt=true: stesso
+# ragionamento di invia-email (chiamante sempre autenticato).
+[functions.notifica-nuovo-stabilimento]
+verify_jwt = true
+
 [functions.create-utility-backup-templates]
 verify_jwt = true
 
