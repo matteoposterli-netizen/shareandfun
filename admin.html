@@ -450,12 +450,72 @@ function StabDetail({ r, stagione }) {
         ))}
       </div>
       <div style={{ marginTop: 12 }}>
-        <button disabled title="Prossimamente (Fase 3)"
-          style={{ background: "#f1f5f9", color: "#94a3b8", border: "1px solid #e2e8f0", borderRadius: 8, padding: "7px 14px", cursor: "not-allowed", fontSize: 12, fontWeight: "bold" }}>
-          Entra come proprietario
-        </button>
-        <span style={{ color: "#cbd5e1", fontSize: 11, marginLeft: 10 }}>Prossimamente</span>
+        <ImpersonaButton r={r} />
       </div>
+    </div>
+  );
+}
+
+// Pulsante "Entra come proprietario": chiama la Edge Function
+// admin-impersona-proprietario, che genera un magic link per lo stabilimento;
+// il link viene aperto in una NUOVA scheda (window.open) così la scheda admin
+// corrente resta autenticata come admin.
+function ImpersonaButton({ r }) {
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  const owner = r._owner || "il proprietario";
+  const stabNome = r.nome || "questo stabilimento";
+  const canImpersonate = !!r.proprietario_id;
+
+  async function handleClick() {
+    setErr("");
+    if (!canImpersonate) {
+      setErr("Nessun proprietario associato a questo stabilimento.");
+      return;
+    }
+    const ok = window.confirm(
+      `Entrare come proprietario?\n\n` +
+      `Aprirai una NUOVA scheda con una sessione reale (scrivibile) come ` +
+      `${owner}, nel contesto di "${stabNome}".\n\n` +
+      `La scheda admin corrente resterà autenticata come admin.`
+    );
+    if (!ok) return;
+    setLoading(true);
+    try {
+      const { data, error } = await sb.functions.invoke("admin-impersona-proprietario", {
+        body: { stabilimento_id: r.id, redirect_origin: location.origin },
+      });
+      if (error) throw error;
+      if (!data || !data.link) {
+        throw new Error((data && data.error) || "Risposta non valida dalla function.");
+      }
+      window.open(data.link, "_blank");
+    } catch (e) {
+      console.error("Impersonazione fallita", e);
+      setErr(e?.message || "Impossibile avviare la sessione impersonata.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <button
+        onClick={handleClick}
+        disabled={loading || !canImpersonate}
+        title={canImpersonate ? "Apri una sessione reale come il proprietario in una nuova scheda" : "Nessun proprietario associato"}
+        style={{
+          background: (loading || !canImpersonate) ? "#f1f5f9" : "#0369a1",
+          color: (loading || !canImpersonate) ? "#94a3b8" : "white",
+          border: "1px solid " + ((loading || !canImpersonate) ? "#e2e8f0" : "#0369a1"),
+          borderRadius: 8, padding: "7px 14px",
+          cursor: (loading || !canImpersonate) ? "not-allowed" : "pointer",
+          fontSize: 12, fontWeight: "bold",
+        }}>
+        {loading ? "Avvio in corso…" : "Entra come proprietario"}
+      </button>
+      {err && <span style={{ color: "#ef4444", fontSize: 12 }}>{err}</span>}
     </div>
   );
 }

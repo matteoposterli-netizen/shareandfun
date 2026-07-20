@@ -14,7 +14,7 @@ impersonazione, log tecnici, approvazioni).
 
 1. **Dashboard base** — vista sola lettura: KPI di piattaforma + tabella stabilimenti + tab "Tabelle" (CRUD grezzo, ex `?admin=1`). ✅
 2. **Log cross-tenant** — audit + WhatsApp unificati su tutti gli stabilimenti (tab "📋 Log", toggle Audit/WhatsApp). ✅ **Nessuna migration aggiuntiva in questa fase**: la policy `audit_log_select_admin` (in `20260424500000_audit_log.sql`) concede già agli admin SELECT su tutto l'`audit_log`; per `wa_messages_log` la policy `wa_messages_log_select_admin` (sola lettura) è stata aggiunta con una migration dedicata, già applicata in prod.
-3. **Impersonazione proprietario** — pulsante "Entra come proprietario" per operare nel contesto di uno stabilimento.
+3. **Impersonazione proprietario** — pulsante "Entra come proprietario" per operare nel contesto di uno stabilimento. 🟡 **codice pronto, in attesa di deploy Edge Function `admin-impersona-proprietario` da parte di Matteo/Claude** (vedi sezione "Fase 3" più sotto).
 4. **Log tecnici** — visibilità su log Edge Function / Vercel.
 5. **Approvazione creazione stabilimenti** — flusso di review/approvazione dei nuovi stabilimenti.
 
@@ -49,7 +49,26 @@ impersonazione, log tecnici, approvazioni).
   - `ombrelloni`: id, stabilimento_id, codice, attivo, credito_giornaliero
   - `clienti_stagionali`: id, stabilimento_id, credito_saldo, approvato, rifiutato
 
+## Fase 3 — Impersonazione proprietario (codice pronto, in attesa di deploy)
+
+**Stato**: codice pronto sul branch, **in attesa di deploy della Edge Function `admin-impersona-proprietario` da parte di Matteo/Claude** (via Supabase MCP). Il merge della PR aspetta il deploy perché il flusso non è testabile finché la function non è live. Nessuna migration necessaria (l'audit log usa valori già ammessi dai CHECK constraint).
+
+**Cosa fa**: attiva il pulsante "Entra come proprietario" nel tab Stabilimenti (riga espandibile). Al click:
+1. Conferma esplicita (`window.confirm`) con nome proprietario + stabilimento.
+2. `sb.functions.invoke('admin-impersona-proprietario', { body: { stabilimento_id, redirect_origin: location.origin } })`.
+3. La Edge Function (service-role) verifica che il chiamante sia in `public.admins` (403 altrimenti), risolve `proprietario_id` dello stabilimento (404 se assente), recupera l'email del proprietario via `auth.admin.getUserById`, genera un magic link `generateLink({ type: 'magiclink', redirectTo: '<redirect_origin>/index.html?impersonated=1' })`, logga un evento in `audit_log` (`actor_type='admin'`, `actor_label`=email admin, `entity_type='auth'`, `action='login'`, `stabilimento_id` target) e ritorna `{ ok: true, link }`.
+4. Il client apre il link con `window.open(link, '_blank')` — **nuova scheda**, così la scheda admin resta autenticata come admin.
+
+`redirect_origin` è calcolato lato client da `location.origin` (NON hardcodato), così la function funziona identica su preview Vercel e in produzione.
+
+**Config**: `[functions.admin-impersona-proprietario] verify_jwt = true` in `config.toml` (richiede sessione admin valida; il JWT inviato è l'access_token della sessione admin, un JWT firmato che supera il gate).
+
+**Banner lato impersonato** (`js/main.js`): all'avvio, se l'URL contiene `?impersonated=1` E la sessione si stabilisce, viene settato il flag `sessionStorage['sm_admin_impersonation']` (JSON con nome/email proprietario), il query param viene ripulito via `history.replaceState` (preservando l'hash con i token magic link), e viene mostrato un banner fisso in basso (scuro/arancione, `#impersonation-banner` in `styles.css`) "🔐 Modalità admin — stai operando come [proprietario]" con pulsante "Esci da questa sessione" (`exitImpersonation`: `signOut` + `window.close()`, con fallback a un messaggio se il browser rifiuta la chiusura programmatica della scheda).
+
+**Limite noto — persistenza sessione**: supabase-js persiste la sessione in `localStorage`, **condiviso per origine tra tutte le schede** dello stesso browser, e sincronizza lo stato auth via `storage` event. Se l'admin ha già un'altra scheda aperta su `spiaggiamia.com` con una sessione diversa, può esserci interferenza tra schede (la sessione impersonata può propagarsi/sovrascrivere). Il flag `sm_admin_impersonation` è invece in `sessionStorage` (isolato per scheda) e serve solo a mostrare il banner nella scheda corretta. Mitigazione in Fase 3: banner molto visibile + pulsante "Esci" facilmente raggiungibile, per ridurre il tempo in cui la sessione impersonata resta attiva. Non è previsto codice difensivo più sofisticato (es. storage isolato per scheda) in questa fase.
+
 ## Note operative
 
 - Non mergiare su `main`: attendere preview Vercel del branch + conferma.
 - Non c'è build step / `node --check`: JSX transpilato a runtime da Babel standalone (come `devboard.html`).
+- **Fase 3**: prima del merge serve il deploy della Edge Function `admin-impersona-proprietario` (Supabase MCP, previa conferma). Il codice della function è in `supabase/functions/admin-impersona-proprietario/index.ts`.
