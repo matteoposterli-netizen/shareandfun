@@ -30,6 +30,19 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 }
 
+// Allow-list esplicita per redirect_origin: l'origine arriva dal client
+// (location.origin) e viene usata per costruire il redirectTo del magic link,
+// quindi va validata server-side invece di fidarsi ciecamente dell'input.
+function isAllowedOrigin(origin: string): boolean {
+  if (origin === "https://spiaggiamia.com") return true;
+  if (origin === "https://www.spiaggiamia.com") return true;
+  // Preview Vercel di QUESTO progetto (owner/team specifico, non *.vercel.app
+  // generico — quel dominio è hosting condiviso, un wildcard troppo ampio
+  // vanificherebbe l'allow-list).
+  if (/^https:\/\/shareandfun-[a-z0-9-]+-matteoposterli-8649s-projects\.vercel\.app$/.test(origin)) return true;
+  return false;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -78,6 +91,9 @@ Deno.serve(async (req: Request) => {
     }
     if (!redirectOrigin) {
       return jsonResponse({ error: "redirect_origin mancante" }, 400);
+    }
+    if (!isAllowedOrigin(redirectOrigin)) {
+      return jsonResponse({ error: "redirect_origin non consentito" }, 400);
     }
 
     const { data: stab, error: stabErr } = await supabaseAdmin
