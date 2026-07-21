@@ -87,16 +87,24 @@ Deno.serve(async (req: Request) => {
     const redirectTo = `${redirectOrigin}/?verifica_email=1`;
 
     // 4) Magic link verso l'email del chiamante.
+    //    NON usiamo `action_link` (l'endpoint di verifica diretto di Supabase):
+    //    molti client email aziendali (es. Microsoft Defender "Safe Links")
+    //    prescansiona i link e, di fatto, "clicca" il link monouso prima
+    //    dell'utente, consumandolo — al click reale l'utente ottiene
+    //    "otp_expired". Usiamo invece `hashed_token` e costruiamo un link verso
+    //    la NOSTRA pagina; sarà il JS lato client a chiamare verifyOtp() per
+    //    consumare davvero il token (uno scanner HTTP senza JS non lo attiva).
     const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email: callerEmail,
       options: { redirectTo },
     });
-    if (linkErr || !linkData?.properties?.action_link) {
+    if (linkErr || !linkData?.properties?.hashed_token) {
       console.error("invia-verifica-email generateLink error", linkErr);
       return jsonResponse({ error: "Generazione link fallita" }, 500);
     }
-    const actionLink = linkData.properties.action_link;
+    const hashedToken = linkData.properties.hashed_token;
+    const confirmLink = `${redirectOrigin}/?verifica_email=1&token_hash=${encodeURIComponent(hashedToken)}`;
 
     // 5) Nome del proprietario dal profilo (best-effort, per personalizzare
     //    l'email). Se non disponibile passiamo stringa vuota: la function
@@ -129,7 +137,7 @@ Deno.serve(async (req: Request) => {
         email: callerEmail,
         nome,
         stabilimento_nome: "SpiaggiaMia",
-        ctaLink: actionLink,
+        ctaLink: confirmLink,
       }),
     });
     if (!emailRes.ok) {
