@@ -93,8 +93,12 @@ async function doRegister() {
 
   // Caso B: email confirmation disabilitata → sessione disponibile subito
   currentUser = data.user;
+  // email_verificata: false è impostato SOLO qui (unico percorso di
+  // auto-registrazione proprietario che passa da questo INSERT). Il default a
+  // livello di colonna è true, così gli account esistenti e gli stagionali non
+  // sono toccati dal gate di verifica.
   const { error: pe } = await sb.from('profiles').insert({
-    id: currentUser.id, nome, cognome, telefono, ruolo: 'proprietario'
+    id: currentUser.id, nome, cognome, telefono, ruolo: 'proprietario', email_verificata: false
   });
   if (pe) {
     showAlert('register-alert', pe.message, 'error');
@@ -103,8 +107,60 @@ async function doRegister() {
   const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
   currentProfile = profile;
   updateNav();
-  showView('setup');
+
+  // Prima di procedere al setup, il proprietario deve confermare la propria
+  // email di accesso. Inviamo il magic link di verifica e mostriamo la view
+  // dedicata. NON è fire-and-forget: se l'invio fallisce l'account esiste già
+  // ma l'utente non può proseguire, quindi lasciamo un pulsante per ritentare.
+  const ver = await inviaVerificaEmail();
+  if (!ver.ok) {
+    showAlert('register-alert',
+      'Account creato, ma non siamo riusciti a inviare l\'email di verifica. ' +
+      '<button type="button" class="btn btn-outline btn-sm" style="margin-top:8px" onclick="retryInviaVerificaEmail(this,\'register-alert\')">Invia di nuovo</button>',
+      'error');
+    btn.disabled = false; btn.textContent = 'Crea account';
+    return;
+  }
+  showView('verifica-email');
   btn.disabled = false; btn.textContent = 'Crea account';
+}
+
+// Invia (o re-invia) il magic link di verifica dell'email di accesso al
+// proprietario autenticato. L'email da verificare è sempre quella del chiamante
+// (risolta server-side dal JWT), qui passiamo solo l'origine per il redirectTo.
+// Ritorna { ok: true } oppure { ok: false, error }.
+async function inviaVerificaEmail() {
+  try {
+    const { data, error } = await sb.functions.invoke('invia-verifica-email', {
+      body: { redirect_origin: location.origin },
+    });
+    if (error) return { ok: false, error };
+    if (data && data.ok === false) return { ok: false, error: data.error || 'errore' };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e };
+  }
+}
+
+// Handler condiviso per i pulsanti "Invia di nuovo" (view verifica-email +
+// eventuale retry nel form di registrazione). Gestisce loading/disabled e
+// mostra un messaggio di conferma o errore nel container indicato.
+async function retryInviaVerificaEmail(btn, alertContainerId) {
+  if (btn) { btn.disabled = true; btn.dataset.prevText = btn.textContent; btn.textContent = 'Invio...'; }
+  const ver = await inviaVerificaEmail();
+  if (btn) { btn.disabled = false; btn.textContent = btn.dataset.prevText || 'Invia di nuovo'; }
+  if (alertContainerId) {
+    if (ver.ok) {
+      showAlert(alertContainerId, '✉️ Email di verifica inviata di nuovo. Controlla la tua casella (anche lo spam).', 'success');
+    } else {
+      showAlert(alertContainerId, 'Invio non riuscito. Riprova tra qualche istante.', 'error');
+    }
+  }
+  // Se siamo nel form di registrazione e l'invio è andato a buon fine,
+  // portiamo l'utente alla view dedicata.
+  if (ver.ok && alertContainerId === 'register-alert') {
+    showView('verifica-email');
+  }
 }
 
 async function doForgotPassword() {

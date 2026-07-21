@@ -20,6 +20,18 @@ window.addEventListener('DOMContentLoaded', async () => {
     const qs = params.toString();
     window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : '') + (window.location.hash || ''));
   }
+  // Verifica email proprietario: il magic link generato da invia-verifica-email
+  // reindirizza a /?verifica_email=1 (con i token di sessione nell'hash, letti
+  // da supabase-js). Segniamo un flag, ripuliamo il query param preservando
+  // l'hash, e più sotto — una volta stabilita la sessione — chiamiamo la RPC
+  // conferma_email_proprietario() prima del normale routing.
+  let verificaEmailPending = false;
+  if (params.get('verifica_email') === '1') {
+    verificaEmailPending = true;
+    params.delete('verifica_email');
+    const qs = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : '') + (window.location.hash || ''));
+  }
   if (params.get('admin') === '1') {
     // La modalità admin è ora una pagina dedicata (admin.html); ?admin=1 resta
     // solo come redirect legacy.
@@ -65,6 +77,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   const { data: { session } } = await sb.auth.getSession();
   if (session && !isPasswordRecovery) {
     currentUser = session.user;
+    // Se veniamo dal link di conferma email, marca l'email come verificata
+    // PRIMA del routing, così loadUserAndRoute non ricade sul gate.
+    if (verificaEmailPending) {
+      try { await sb.rpc('conferma_email_proprietario'); }
+      catch (e) { console.warn('conferma_email_proprietario RPC failed', e); }
+    }
     await loadUserAndRoute();
     // Banner impersonazione: solo se il flag è presente E la sessione si è
     // stabilita correttamente (currentUser valorizzato dopo il routing).

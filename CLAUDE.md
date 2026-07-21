@@ -333,6 +333,46 @@ I clienti senza email sono sempre esclusi dal pool inviabile, ma il riepilogo de
       `APP_URL`); sostituire `[EMAIL SUPPORTO]`. Nessun deploy
       automatico in questa sessione. Vedi `ADMIN_DASHBOARD.md § Fase 5`.
 
+- **21 lug 2026** — Verifica email obbligatoria (proprietario
+  auto-registrato) (codice pronto, function non ancora deployate):
+  (a) DB (migration GIÀ applicata in prod via MCP, non in questo
+      branch): `profiles.email_verificata` (bool DEFAULT true —
+      backfill automatico sulle righe esistenti) + RPC
+      `conferma_email_proprietario()` (SECURITY DEFINER, imposta
+      `email_verificata=true` su `auth.uid()`). Scope: SOLO i
+      proprietari che si auto-registrano; account esistenti e
+      stagionali (invitati) non toccati (default colonna = true).
+  (b) Nuova Edge Function `invia-verifica-email` (verify_jwt=true):
+      valida il JWT del chiamante, genera un magic link
+      (`generateLink type='magiclink'`) verso `ud.user.email`
+      (SEMPRE l'email del chiamante, MAI dal body) con redirectTo
+      `${origin}/?verifica_email=1`, poi chiama `invia-email`
+      server-to-server (Authorization = SERVICE_KEY) con tipo
+      `conferma_email`. NON fire-and-forget: propaga l'errore così la
+      UI può offrire un retry. Allow-list `isAllowedOrigin` identica a
+      `admin-impersona-proprietario`.
+  (c) `invia-email`: nuovo tipo PIATTAFORMA a contenuto FISSO
+      `conferma_email` (nuovo campo `ctaLink` = magic link;
+      `nome` opzionale per questo tipo — fallback saluto neutro).
+      Footer ricade automaticamente sul "team di SpiaggiaMia" (no
+      stabilimento con email/telefono).
+  (d) Frontend: `js/auth.js → doRegister` (Caso B) aggiunge
+      `email_verificata: false` all'INSERT profilo (UNICO punto che lo
+      fa) e, invece di `showView('setup')`, chiama (await) il nuovo
+      helper `inviaVerificaEmail()` → `showView('verifica-email')`
+      (retry con `retryInviaVerificaEmail` se l'invio fallisce).
+      `js/router.js → loadUserAndRoute` (ramo proprietario): gate
+      `if (!profile.email_verificata) showView('verifica-email')`
+      prima del lookup stabilimento. Nuova view statica
+      `#view-verifica-email` in `index.html` (pulsante "Invia di
+      nuovo" + logout). `js/main.js`: gestione `?verifica_email=1`
+      (accanto a `?impersonated=1`) → una volta stabilita la sessione
+      chiama `sb.rpc('conferma_email_proprietario')`, pulisce il param
+      e prosegue con `loadUserAndRoute`.
+  (e) DA FARE A MANO: deploy `invia-verifica-email` + redeploy
+      `invia-email` (tipo `conferma_email`). Nessun deploy automatico
+      in questa sessione.
+
 ## Mantenimento di questo file
 
 Quando una sessione introduce un cambiamento **strutturale** — nuova tabella, nuova colonna/FK rilevante, nuova RPC, nuova Edge Function, nuovo env var, nuova convenzione, cambio di workflow git — **aggiorna `CLAUDE.md` nella stessa sessione** (preferibilmente nello stesso commit del cambiamento).
