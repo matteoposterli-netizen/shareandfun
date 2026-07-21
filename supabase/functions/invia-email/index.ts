@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "SpiaggiaMia <noreply@spiaggiamia.com>";
+const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "SpiaggiaMia <supporto@spiaggiamia.com>";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const APP_URL = Deno.env.get("APP_URL") ?? "https://spiaggiamia.com";
@@ -92,6 +92,9 @@ interface EmailContentOpts {
   stabilimento_telefono?: string;
   stabilimento_email?: string;
   footer_extra?: string;
+  // Frase footer: dove finisce davvero una risposta del destinatario.
+  // Valorizzata per OGNI tipo prima di costruire html/text (vedi Deno.serve).
+  replyNote?: string;
 }
 
 function stripHtml(s: string): string {
@@ -127,13 +130,13 @@ function buildEmailText(opts: EmailContentOpts): string {
     linee.push("", stripHtml(opts.footer_extra));
   }
   linee.push("", "—", opts.stabilimento_nome);
+  const hasContatti = !!(opts.stabilimento_telefono || opts.stabilimento_email);
   if (opts.stabilimento_telefono) linee.push(`Tel: ${opts.stabilimento_telefono}`);
   if (opts.stabilimento_email) linee.push(`Email: ${opts.stabilimento_email}`);
-  linee.push(
-    "",
-    "Questa è un'email automatica inviata da un indirizzo no-reply: le risposte non vengono lette.",
-    `Per qualsiasi necessità contatta direttamente ${opts.stabilimento_nome} ai recapiti qui sopra.`,
-  );
+  linee.push("", stripHtml(opts.replyNote ?? ""));
+  if (hasContatti) {
+    linee.push(`Oppure contatta direttamente ${opts.stabilimento_nome} ai recapiti qui sopra.`);
+  }
   return linee.join("\n");
 }
 
@@ -178,8 +181,8 @@ function buildEmailHtml(opts: EmailContentOpts): string {
         <tr><td style="background:#F5F0E8;padding:20px 40px;text-align:center;border-top:1px solid #E8DDD0">
           <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#1A2332">🏖️ ${opts.stabilimento_nome}</p>
           ${contatti ? `<p style="margin:0 0 14px;font-size:13px;color:#1A2332;line-height:1.6">${contatti}</p>` : ""}
-          <p style="margin:0 0 6px;font-size:11px;color:#9AAABB;line-height:1.5">Questa è un'email automatica inviata da un indirizzo <strong>no-reply</strong>: le risposte non vengono lette.</p>
-          <p style="margin:0;font-size:11px;color:#9AAABB;line-height:1.5">Per qualsiasi necessità contatta direttamente <strong>${opts.stabilimento_nome}</strong> ai recapiti qui sopra.</p>
+          <p style="margin:0${contatti ? " 0 6px" : ""};font-size:11px;color:#9AAABB;line-height:1.5">${opts.replyNote ?? ""}</p>
+          ${contatti ? `<p style="margin:0;font-size:11px;color:#9AAABB;line-height:1.5">Oppure contatta direttamente <strong>${opts.stabilimento_nome}</strong> ai recapiti qui sopra.</p>` : ""}
         </td></tr>
       </table>
     </td></tr>
@@ -254,6 +257,17 @@ Deno.serve(async (req: Request) => {
   if (!tipo || !recipientEmail || (nomeRichiesto && !nome)) {
     return jsonResponse({ error: "Parametri mancanti: tipo, email, nome" }, 400);
   }
+
+  // Dove finisce davvero una risposta del destinatario. Il Reply-To viene
+  // impostato su stabilimento_email solo se NON e' un freemail (vedi payload
+  // piu' sotto): riusiamo la stessa condizione qui per costruire la frase del
+  // footer, cosi' che il testo rifletta la verita'. Per i tipi di piattaforma
+  // (stabilimento_*, conferma_email) stabilimento_email non e' valorizzata,
+  // quindi replyGoesToStabilimento e' false → footer "team di SpiaggiaMia".
+  const replyGoesToStabilimento = !!(stabilimento_email && !isFreemail(stabilimento_email));
+  const replyNote = replyGoesToStabilimento
+    ? `Puoi rispondere direttamente a questa email — ti risponderà <strong>${stabilimento_nome}</strong>.`
+    : `Puoi rispondere direttamente a questa email — ti risponderà il team di <strong>SpiaggiaMia</strong>.`;
 
   let subject: string;
   let opts: EmailContentOpts;
@@ -606,6 +620,8 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Tipo non valido" }, 400);
   }
 
+  opts.replyNote = replyNote;
+
   const html = buildEmailHtml(opts);
   const text = buildEmailText(opts);
 
@@ -625,7 +641,7 @@ Deno.serve(async (req: Request) => {
       "List-Unsubscribe": `<mailto:${unsubscribeMailto}?subject=Unsubscribe>`,
     },
   };
-  if (stabilimento_email && !isFreemail(stabilimento_email)) {
+  if (replyGoesToStabilimento) {
     payload.reply_to = stabilimento_email;
   }
 
