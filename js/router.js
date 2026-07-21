@@ -59,6 +59,10 @@ async function loadUserAndRoute() {
     showView('auth', 'register'); return;
   }
   if (profile.ruolo === 'proprietario') {
+    // Gate verifica email: un proprietario auto-registrato deve confermare la
+    // propria email di accesso prima di procedere. Gli account esistenti hanno
+    // email_verificata=true (default colonna), quindi non sono impattati.
+    if (!profile.email_verificata) { showView('verifica-email'); return; }
     const { data: stab } = await sb.from('stabilimenti').select('*').eq('proprietario_id', currentUser.id).single();
     if (!stab) { showView('setup'); return; }
     currentStabilimento = stab;

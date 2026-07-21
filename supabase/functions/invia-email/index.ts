@@ -41,7 +41,7 @@ function buildFromHeader(displayName: string | undefined): string {
 }
 
 interface EmailRequest {
-  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "credito_revocato" | "chiusura_stagione" | "comunicazione" | "ombrellone_disattivato" | "reset_password" | "stabilimento_in_attesa" | "stabilimento_approvato" | "stabilimento_rifiutato";
+  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "credito_revocato" | "chiusura_stagione" | "comunicazione" | "ombrellone_disattivato" | "reset_password" | "stabilimento_in_attesa" | "stabilimento_approvato" | "stabilimento_rifiutato" | "conferma_email";
   email?: string;
   nome: string;
   cognome?: string;
@@ -66,6 +66,9 @@ interface EmailRequest {
   testo_custom?: string;
   // Reset password (manager-driven, popolato da richiedi-reset-cliente)
   recovery_link?: string;
+  // Verifica email proprietario (popolato da invia-verifica-email): magic link
+  // di conferma dell'email di accesso.
+  ctaLink?: string;
   // Email di piattaforma verso il proprietario (approvazione stabilimento).
   // Se `email` non e' fornita per i tipi stabilimento_*, l'email destinataria
   // (e il login_link) vengono risolti server-side via getUserById.
@@ -219,7 +222,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Body non valido" }, 400);
   }
 
-  const { tipo, email, nome, cognome = "", stabilimento_id, stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, login_link, importo_formatted, saldo_formatted, nota, gg_disponibilita, gg_subaffittato, coin_ricevuti_formatted, coin_spesi_formatted, oggetto_custom, testo_custom, recovery_link, proprietario_id } = body;
+  const { tipo, email, nome, cognome = "", stabilimento_id, stabilimento_nome, stabilimento_telefono, stabilimento_email, ombrellone, invite_link, login_link, importo_formatted, saldo_formatted, nota, gg_disponibilita, gg_subaffittato, coin_ricevuti_formatted, coin_spesi_formatted, oggetto_custom, testo_custom, recovery_link, proprietario_id, ctaLink } = body;
 
   // Tipi "di piattaforma" verso il proprietario: contenuto FISSO (non
   // personalizzabile per stabilimento). Per questi, admin.html non puo'
@@ -244,7 +247,11 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  if (!tipo || !recipientEmail || !nome) {
+  // Il tipo conferma_email (email di piattaforma per la verifica dell'indirizzo
+  // di accesso) puo' arrivare senza nome (profilo appena creato / lookup
+  // fallito): in quel caso il template ricade su un saluto neutro.
+  const nomeRichiesto = tipo !== "conferma_email";
+  if (!tipo || !recipientEmail || (nomeRichiesto && !nome)) {
     return jsonResponse({ error: "Parametri mancanti: tipo, email, nome" }, 400);
   }
 
@@ -570,6 +577,29 @@ Deno.serve(async (req: Request) => {
       boxTesto: "Se vuoi maggiori informazioni, o pensi si tratti di un errore, scrivici rispondendo a questa email: siamo felici di chiarire insieme.",
       stabilimento_nome,
       footer_extra: `Grazie per l'interesse in SpiaggiaMia.<br><br>Il team di SpiaggiaMia`,
+    };
+
+  } else if (tipo === "conferma_email") {
+    // Email di piattaforma (contenuto FISSO): inviata al proprietario appena
+    // auto-registrato per verificare la sua email di accesso. Il ctaLink e' un
+    // magic link generato da invia-verifica-email. Nessuno stabilimento con
+    // email/telefono → footer ricade automaticamente sul "team di SpiaggiaMia".
+    subject = `Conferma la tua email per SpiaggiaMia`;
+    opts = {
+      headerColor: "linear-gradient(135deg,#1B6CA8 0%,#2B8DC8 100%)",
+      headerEmoji: "✉️ 🌊",
+      headerSub: "Conferma la tua email",
+      nome,
+      testoPrincipale: `grazie per esserti registrato su <strong>SpiaggiaMia</strong>! Conferma il tuo indirizzo email per continuare con l'attivazione del tuo account.`,
+      boxColor: "#E8F4FD",
+      boxBorderColor: "#4A9FD4",
+      boxTitoloColor: "#1B6CA8",
+      boxTitolo: "✉️ Conferma la tua email",
+      boxTesto: "Clicca il pulsante qui sotto per confermare che questo indirizzo è tuo. Ti serve un attimo, poi potrai proseguire con la configurazione del tuo stabilimento.",
+      ctaLabel: ctaLink ? "Conferma la mia email →" : undefined,
+      ctaLink: ctaLink || undefined,
+      stabilimento_nome,
+      footer_extra: "Se non hai richiesto tu questa registrazione, ignora pure questa email.",
     };
 
   } else {

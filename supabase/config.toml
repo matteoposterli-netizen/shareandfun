@@ -39,6 +39,14 @@ verify_jwt = false
 [functions.admin-impersona-proprietario]
 verify_jwt = true
 
+# invia-verifica-email: chiamata SOLO da proprietari appena auto-registrati
+# (sessione valida). Genera un magic link di verifica per la propria email di
+# accesso e lo invia via invia-email (server-to-server con SERVICE_KEY).
+# verify_jwt=true: l'email da verificare è sempre quella del chiamante (letta
+# dal JWT, mai dal body), quindi serve una sessione autenticata al gateway.
+[functions.invia-verifica-email]
+verify_jwt = true
+
 # invia-whatsapp: chiamata sia da utenti loggati (frontend manager via
 # inviaWhatsapp helper, e da richiedi-reset-cliente con user-JWT del
 # manager) sia server-to-server da recupero-password con

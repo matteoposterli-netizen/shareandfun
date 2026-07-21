@@ -278,6 +278,25 @@
   </div>
 </div>
 
+<!-- VERIFICA EMAIL (proprietario auto-registrato, email non ancora confermata) -->
+<div id="view-verifica-email" class="view">
+  <div class="setup-container">
+    <div class="setup-step active">
+      <div style="text-align:center;font-size:48px;margin-bottom:8px">✉️</div>
+      <div class="setup-title" style="text-align:center">Conferma la tua email</div>
+      <div class="setup-sub" style="text-align:center">Ti abbiamo inviato un'email con un link di conferma. Clicca il link per continuare — se non la trovi controlla anche lo spam.</div>
+      <div id="verifica-email-alert"></div>
+      <div class="card"><div class="card-body">
+        <p style="font-size:14px;color:var(--text-mid);line-height:1.7;margin-bottom:8px">
+          Non hai ricevuto l'email? Puoi richiederne l'invio di nuovo.
+        </p>
+        <button class="btn btn-primary btn-full" onclick="retryInviaVerificaEmail(this,'verifica-email-alert')" style="margin-top:8px">Invia di nuovo</button>
+        <button class="btn btn-outline btn-full" onclick="doLogout()" style="margin-top:12px">Esci</button>
+      </div></div>
+    </div>
+  </div>
+</div>
+
 <!-- DASHBOARD MANAGER -->
 <div id="view-manager" class="view">
   <div class="dash-layout">
