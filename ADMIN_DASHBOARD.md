@@ -37,17 +37,97 @@ impersonazione, log tecnici, approvazioni).
   - **Sotto-vista WhatsApp** (`LogWhatsapp`): log dei messaggi WhatsApp su `public.wa_messages_log`, cross-tenant via policy `wa_messages_log_select_admin` (sola lettura). Fetch semplice `select('*').order('created_at' desc).limit(1000)` (volume oggi contenuto, niente paginazione avanzata). Filtri client-side: stabilimento (dropdown) + stato (opzioni derivate dai valori effettivamente presenti nei dati, nessun enum hardcoded). Colonne: Data, Stabilimento (nome risolto da `data.stabilimenti`), Destinatario (`to_number`), Tipo (etichette `WA_TIPO_LABELS`), Stato (badge colorato dedotto dal valore via `waStatusStyle`: verde per delivered/read/sent, rosso per failed/undelivered, grigio per gli altri), Errore (`error_code` · `error_message` se presenti).
 - Panoramica/Stabilimenti fanno fetch completo delle tabelle (`.select('*').limit(1000)`) e aggregazione lato client, stesso approccio di com'era `js/admin.js`. Scala attuale: ~4 stabilimenti, poche decine di righe.
 
+## Panoramica cliccabile + tab di dettaglio
+
+La barra tab ha **8 voci** (il `flex-wrap` dell'`Header` gestisce l'overflow su mobile):
+`panoramica`, `stabilimenti`, `proprietari` (👤), `stagionali` (🧑), `clienti` (🎫),
+`ombrelloni` (⛱️), `tabelle`, `log`. Tutti i tab sono raggiungibili anche direttamente
+dalla barra, senza passare dalla Panoramica.
+
+**Nessuna query Supabase aggiuntiva e nessuna migration**: i 4 nuovi tab aggregano lato
+client i dati già caricati da `loadAll()` in `data.{stabilimenti, profiles, ombrelloni,
+clienti}`.
+
+### Meccanismo di navigazione (`goTo` / `navPreset`)
+
+`AdminDashboard` mantiene `const [navPreset, setNavPreset] = useState(null)` e una
+funzione `goTo(tabId, preset)` che imposta il preset e cambia tab. `goTo` è passata a
+`<Panoramica onNavigate={goTo}>`. I due soli tab che ricevono un preset dalle card —
+`Stabilimenti` e `Clienti` — ricevono anche `navPreset` + `onPresetConsumed={() =>
+setNavPreset(null)}` e lo consumano al mount/aggiornamento con un `useEffect` che applica
+i filtri e poi chiama `onPresetConsumed()`. Il preset **preimposta** i filtri ma resta
+sempre modificabile a mano dall'utente.
+
+### KpiCard cliccabile
+
+`KpiCard` accetta una prop opzionale `onClick`: se presente, il contenitore diventa
+`cursor: pointer` con un effetto hover (boxShadow più marcato + bordo `#7dd3fc` +
+leggero `translateY`). Senza `onClick` la card resta statica come prima.
+
+### Mappatura KPI card → destinazione
+
+| Card Panoramica | Destinazione (`goTo`) |
+|---|---|
+| Stabilimenti | `stabilimenti` `{ stato: "tutti", wa: "tutti" }` |
+| Stabilimenti in attesa | `stabilimenti` `{ stato: "attesa" }` |
+| Proprietari | `proprietari` |
+| Stagionali | `stagionali` |
+| Credito in circolazione | `clienti` `{ stato: "tutti", sort: "credito_desc" }` |
+| WhatsApp attivo | `stabilimenti` `{ wa: "attivo" }` |
+| Ombrelloni | `ombrelloni` |
+| Clienti in attesa | `clienti` `{ stato: "attesa" }` |
+| Clienti stagionali | `clienti` `{ stato: "tutti" }` |
+
+### Tab Stabilimenti — filtri aggiuntivi
+
+Oltre alla search testuale su nome/città, due `<select>` combinati in AND (stessa
+`useMemo`): **Stato** (Tutti / 🟡 In attesa `!approvato && !rifiutato` / 🟢 Approvato
+`approvato && !rifiutato` / 🔴 Rifiutato `rifiutato`) e **WhatsApp** (Tutti / Attivo /
+Non attivo → `wa_enabled`). Consuma `navPreset` (campi `stato` / `wa`). Le azioni
+preesistenti (`StabStatoCell` Approva/Rifiuta, riga espandibile, "Entra come
+proprietario") sono invariate.
+
+### Tab Proprietari (`profiles.ruolo === "proprietario"`)
+
+Colonne: Nome Cognome | Email | Telefono | Stabilimento/i | Creato il. Lo/gli
+stabilimento/i sono risolti da `data.stabilimenti` dove `proprietario_id === profilo.id`
+(può essercene più d'uno → nomi separati da virgola; "—" se nessuno). Solo search
+testuale (nome/cognome/email/telefono/stabilimento risolto), nessun dropdown.
+
+### Tab Stagionali (`profiles.ruolo === "stagionale"`)
+
+Colonne: Nome Cognome | Email | Telefono | Stabilimento | Creato il. Lo stabilimento è
+risolto via `data.clienti` dove `user_id === profilo.id` → `stabilimento_id` → nome (se
+più record collegati si prende il primo, senza bloccare il rendering). Filtri: search
+testuale (nome/cognome/email/telefono) + dropdown Stabilimento.
+
+### Tab Clienti (`data.clienti`, cross-tenant — `clienti_stagionali`)
+
+Colonne: Nome Cognome | Stabilimento | Telefono/Email | Credito saldo | Stato (badge
+🟡/🟢/🔴 **sola lettura**, nessuna azione approva/rifiuta) | Ombrellone (codice risolto
+da `data.ombrelloni` via `ombrellone_id`, "—" se null) | Registrato (Sì se `user_id`
+presente) | Creato il. Filtri: dropdown Stabilimento, dropdown Stato (Tutti / In attesa
+/ Approvato / Rifiutato), search testuale (nome/cognome/telefono/email), dropdown Ordina
+per (Data creazione `created_at desc` default / Credito decrescente / Nome A-Z). Consuma
+`navPreset` (campi `stato` + `sort`).
+
+### Tab Ombrelloni (`data.ombrelloni`, cross-tenant)
+
+Colonne: Codice | Stabilimento | Posizione (`pos_x, pos_y`) | Credito giornaliero |
+Stato (badge `S.badgeOn`/`S.badgeOff` da `attivo`) | Creato il. Filtri: dropdown
+Stabilimento, dropdown Stato (Tutti / Attivo / Non attivo), search testuale sul codice.
+
 ## Decisioni prese
 
 - **Account admin per il login**: il campo email del gate è prefillato con `matteo.posterli+admin@gmail.com` (admin dal 2026-04-24; in Fase 2 corretto il refuso di Fase 1 che prefillava l'email primaria). Sono comunque admin **due** account: `matteo.posterli+admin@gmail.com` e l'email primaria `matteo.posterli@gmail.com`. Quest'ultima è stata **aggiunta a `public.admins`** il 2026-07-19 (`INSERT INTO public.admins (user_id) VALUES ('b6bea9e9-71b3-493b-9fe2-d1b79b336e1b')`) per poter usare anche l'email primaria come login di Regia; senza quella riga vedrebbe query RLS vuote. L'email primaria è un account con anche `ruolo='proprietario'` in `profiles` (deroga alla convenzione "admin senza profilo", ma funzionalmente ok: `is_admin()` controlla solo `public.admins`). L'autorizzazione passa da `public.admins` + `public.is_admin(uid)` (migration `20260424000000_admin_section.sql`).
-- **Niente colonna `email` su `profiles`** — non disponibile lato client, non mostrata.
+- **Colonna `email` su `profiles`**: in produzione `profiles.email` **esiste** (text nullable) ed è leggibile lato client via RLS admin. È usata nei tab **Proprietari** e **Stagionali** (colonna Email). Nota storica: in Fase 1/2 era considerata assente e non veniva mostrata; da questa fase è esposta.
 - **RLS admin già pronta** su `profiles`, `stabilimenti`, `ombrelloni`, `clienti_stagionali` (SELECT coperto). Per il tab Log: `audit_log_select_admin` esisteva già (`20260424500000_audit_log.sql`); `wa_messages_log_select_admin` (sola lettura) aggiunta con migration dedicata, già applicata in prod. Nessun'altra migration necessaria per la Fase 2.
 - Config Supabase (`SUPABASE_URL`, publishable `SUPABASE_KEY`) copiata da `devboard.html`.
 - Colonne usate (verificate in produzione):
-  - `stabilimenti`: id, nome, citta, proprietario_id, created_at, wa_enabled, data_inizio_stagione, data_fine_stagione, nome_credito
-  - `profiles`: id, nome, cognome, telefono, ruolo (nessuna email)
-  - `ombrelloni`: id, stabilimento_id, codice, attivo, credito_giornaliero
-  - `clienti_stagionali`: id, stabilimento_id, credito_saldo, approvato, rifiutato
+  - `stabilimenti`: id, nome, citta, proprietario_id, created_at, wa_enabled, approvato, rifiutato, data_inizio_stagione, data_fine_stagione, nome_credito
+  - `profiles`: id, nome, cognome, telefono, ruolo, email, created_at
+  - `ombrelloni`: id, stabilimento_id, codice, pos_x, pos_y, attivo, credito_giornaliero, created_at
+  - `clienti_stagionali`: id, stabilimento_id, ombrellone_id, user_id, nome, cognome, email, telefono, credito_saldo, approvato, rifiutato, created_at
 
 ## Fase 3 — Impersonazione proprietario (codice pronto, in attesa di deploy)
 

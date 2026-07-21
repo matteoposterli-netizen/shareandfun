@@ -166,9 +166,18 @@ const S = {
 
 function AdminDashboard() {
   const [tab, setTab] = useState("panoramica");
+  const [navPreset, setNavPreset] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [data, setData] = useState({ stabilimenti: [], profiles: [], ombrelloni: [], clienti: [] });
+
+  // Navigazione da una KPI card verso un tab, con eventuale filtro
+  // preimpostato (sempre modificabile). navPreset viene consumato dal
+  // componente destinazione tramite useEffect + onPresetConsumed.
+  function goTo(tabId, preset) {
+    setNavPreset(preset || null);
+    setTab(tabId);
+  }
 
   async function loadAll() {
     setLoading(true); setErr("");
@@ -222,9 +231,17 @@ function AdminDashboard() {
             <div style={{ marginTop: 8 }}>Caricamento…</div>
           </div>
         ) : tab === "panoramica" ? (
-          <Panoramica data={data} />
+          <Panoramica data={data} onNavigate={goTo} />
         ) : tab === "stabilimenti" ? (
-          <Stabilimenti data={data} onPatchStab={patchStab} />
+          <Stabilimenti data={data} onPatchStab={patchStab} navPreset={navPreset} onPresetConsumed={() => setNavPreset(null)} />
+        ) : tab === "proprietari" ? (
+          <Proprietari data={data} />
+        ) : tab === "stagionali" ? (
+          <Stagionali data={data} />
+        ) : tab === "clienti" ? (
+          <Clienti data={data} navPreset={navPreset} onPresetConsumed={() => setNavPreset(null)} />
+        ) : tab === "ombrelloni" ? (
+          <Ombrelloni data={data} />
         ) : tab === "tabelle" ? (
           <Tabelle />
         ) : (
@@ -239,6 +256,10 @@ function Header({ tab, setTab, onReload, loading }) {
   const tabs = [
     { id: "panoramica", label: "📊 Panoramica" },
     { id: "stabilimenti", label: "🏖️ Stabilimenti" },
+    { id: "proprietari", label: "👤 Proprietari" },
+    { id: "stagionali", label: "🧑 Stagionali" },
+    { id: "clienti", label: "🎫 Clienti" },
+    { id: "ombrelloni", label: "⛱️ Ombrelloni" },
     { id: "tabelle", label: "🗄️ Tabelle" },
     { id: "log", label: "📋 Log" },
   ];
@@ -316,9 +337,23 @@ function perStabilimento(data) {
 }
 
 // ---- Tab Panoramica -------------------------------------------------------
-function KpiCard({ label, value, sub, accent }) {
+function KpiCard({ label, value, sub, accent, onClick }) {
+  const [hover, setHover] = useState(false);
+  const clickable = typeof onClick === "function";
   return (
-    <div style={{ ...S.card, padding: "16px 18px" }}>
+    <div
+      onClick={onClick}
+      onMouseEnter={clickable ? () => setHover(true) : undefined}
+      onMouseLeave={clickable ? () => setHover(false) : undefined}
+      style={{
+        ...S.card,
+        padding: "16px 18px",
+        cursor: clickable ? "pointer" : "default",
+        transition: "box-shadow 0.15s, border-color 0.15s, transform 0.15s",
+        ...(clickable && hover
+          ? { boxShadow: "0 6px 20px rgba(14,165,233,0.22)", borderColor: "#7dd3fc", transform: "translateY(-2px)" }
+          : null),
+      }}>
       <div style={{ color: "#64748b", fontSize: 12, marginBottom: 6, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</div>
       <div style={{ color: accent || "#0369a1", fontSize: 30, fontWeight: "bold", lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>{sub}</div>}
@@ -326,43 +361,84 @@ function KpiCard({ label, value, sub, accent }) {
   );
 }
 
-function Panoramica({ data }) {
+function Panoramica({ data, onNavigate }) {
   const k = useMemo(() => computeStats(data), [data]);
+  const go = onNavigate || (() => {});
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
-      <KpiCard label="Stabilimenti" value={k.totStab} />
-      <KpiCard label="Stabilimenti in attesa" value={k.stabInAttesa} sub="approvato=false, rifiutato=false" accent="#f59e0b" />
-      <KpiCard label="Proprietari" value={k.proprietari} accent="#0ea5e9" />
-      <KpiCard label="Stagionali" value={k.stagionali} accent="#0ea5e9" />
-      <KpiCard label="Credito in circolazione" value={fmtCoin(k.creditoTot)} sub="somma saldi clienti" accent="#f59e0b" />
-      <KpiCard label="WhatsApp attivo" value={`${k.waOn} / ${k.waTot}`} sub="stabilimenti con notifiche WA" accent="#10b981" />
-      <KpiCard label="Ombrelloni" value={`${k.ombAttivi} / ${k.ombTot}`} sub="attivi su totali" accent="#0369a1" />
-      <KpiCard label="Clienti in attesa" value={k.inAttesa} sub="approvato=false, rifiutato=false" accent="#ef4444" />
-      <KpiCard label="Clienti stagionali" value={k.clientiTot} sub="totale piattaforma" accent="#0ea5e9" />
+      <KpiCard label="Stabilimenti" value={k.totStab}
+        onClick={() => go("stabilimenti", { stato: "tutti", wa: "tutti" })} />
+      <KpiCard label="Stabilimenti in attesa" value={k.stabInAttesa} sub="approvato=false, rifiutato=false" accent="#f59e0b"
+        onClick={() => go("stabilimenti", { stato: "attesa" })} />
+      <KpiCard label="Proprietari" value={k.proprietari} accent="#0ea5e9"
+        onClick={() => go("proprietari")} />
+      <KpiCard label="Stagionali" value={k.stagionali} accent="#0ea5e9"
+        onClick={() => go("stagionali")} />
+      <KpiCard label="Credito in circolazione" value={fmtCoin(k.creditoTot)} sub="somma saldi clienti" accent="#f59e0b"
+        onClick={() => go("clienti", { stato: "tutti", sort: "credito_desc" })} />
+      <KpiCard label="WhatsApp attivo" value={`${k.waOn} / ${k.waTot}`} sub="stabilimenti con notifiche WA" accent="#10b981"
+        onClick={() => go("stabilimenti", { wa: "attivo" })} />
+      <KpiCard label="Ombrelloni" value={`${k.ombAttivi} / ${k.ombTot}`} sub="attivi su totali" accent="#0369a1"
+        onClick={() => go("ombrelloni")} />
+      <KpiCard label="Clienti in attesa" value={k.inAttesa} sub="approvato=false, rifiutato=false" accent="#ef4444"
+        onClick={() => go("clienti", { stato: "attesa" })} />
+      <KpiCard label="Clienti stagionali" value={k.clientiTot} sub="totale piattaforma" accent="#0ea5e9"
+        onClick={() => go("clienti", { stato: "tutti" })} />
     </div>
   );
 }
 
 // ---- Tab Stabilimenti -----------------------------------------------------
-function Stabilimenti({ data, onPatchStab }) {
+function Stabilimenti({ data, onPatchStab, navPreset, onPresetConsumed }) {
   const rows = useMemo(() => perStabilimento(data), [data]);
   const [q, setQ] = useState("");
+  const [statoFilter, setStatoFilter] = useState("tutti");
+  const [waFilter, setWaFilter] = useState("tutti");
   const [expanded, setExpanded] = useState(null);
+
+  // Consuma il preset arrivato da una KPI card (stato / wa). Sempre modificabile
+  // dopo dall'utente tramite i dropdown.
+  useEffect(() => {
+    if (!navPreset) return;
+    if (navPreset.stato) setStatoFilter(navPreset.stato);
+    if (navPreset.wa) setWaFilter(navPreset.wa);
+    if (onPresetConsumed) onPresetConsumed();
+  }, [navPreset]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return rows;
-    return rows.filter(r =>
-      (r.nome || "").toLowerCase().includes(needle) ||
-      (r.citta || "").toLowerCase().includes(needle)
-    );
-  }, [rows, q]);
+    return rows.filter(r => {
+      if (needle && !(
+        (r.nome || "").toLowerCase().includes(needle) ||
+        (r.citta || "").toLowerCase().includes(needle)
+      )) return false;
+      if (statoFilter === "attesa" && !(!r.approvato && !r.rifiutato)) return false;
+      if (statoFilter === "approvato" && !(r.approvato && !r.rifiutato)) return false;
+      if (statoFilter === "rifiutato" && !r.rifiutato) return false;
+      if (waFilter === "attivo" && !r.wa_enabled) return false;
+      if (waFilter === "non_attivo" && r.wa_enabled) return false;
+      return true;
+    });
+  }, [rows, q, statoFilter, waFilter]);
+
+  const selStyle = { border: "1px solid #bae6fd", borderRadius: 8, padding: "9px 12px", fontSize: 14, outline: "none", color: "#1e293b", background: "white" };
 
   return (
     <div>
       <div style={{ marginBottom: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Cerca per nome o città…"
           style={{ flex: "1 1 240px", maxWidth: 340, border: "1px solid #bae6fd", borderRadius: 8, padding: "9px 12px", fontSize: 14, outline: "none", color: "#1e293b" }} />
+        <select value={statoFilter} onChange={e => setStatoFilter(e.target.value)} style={selStyle} title="Filtra per stato">
+          <option value="tutti">Stato: tutti</option>
+          <option value="attesa">🟡 In attesa</option>
+          <option value="approvato">🟢 Approvato</option>
+          <option value="rifiutato">🔴 Rifiutato</option>
+        </select>
+        <select value={waFilter} onChange={e => setWaFilter(e.target.value)} style={selStyle} title="Filtra per WhatsApp">
+          <option value="tutti">WhatsApp: tutti</option>
+          <option value="attivo">Attivo</option>
+          <option value="non_attivo">Non attivo</option>
+        </select>
         <span style={{ color: "#64748b", fontSize: 12 }}>{filtered.length} stabiliment{filtered.length === 1 ? "o" : "i"}</span>
       </div>
 
@@ -608,6 +684,393 @@ function ImpersonaButton({ r }) {
         {loading ? "Avvio in corso…" : "Entra come proprietario"}
       </button>
       {err && <span style={{ color: "#ef4444", fontSize: 12 }}>{err}</span>}
+    </div>
+  );
+}
+
+// ---- Helper condivisi per i nuovi tab -------------------------------------
+// Stile dei dropdown di filtro, coerente col pattern selStyle di LogAudit.
+// NB: campi duplicati da inputStyle (non spread) perché questo const viene
+// inizializzato a load-time PRIMA della definizione di inputStyle (TDZ).
+const filtroSelStyle = {
+  width: "auto", minWidth: 150, padding: "9px 11px",
+  border: "1px solid #bae6fd", borderRadius: 8, fontSize: 14,
+  outline: "none", color: "#1e293b", background: "white", fontFamily: "inherit",
+};
+const filtroLabelStyle = { display: "block", fontSize: 11, fontWeight: "bold", color: "#64748b", textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 3 };
+
+// Badge stato cliente (in attesa / approvato / rifiutato), SOLA LETTURA.
+function statoClienteBadge(c) {
+  if (c.rifiutato) return { txt: "🔴 Rifiutato", bg: "#fee2e2", color: "#b91c1c" };
+  if (c.approvato) return { txt: "🟢 Approvato", bg: "#d1fae5", color: "#047857" };
+  return { txt: "🟡 In attesa", bg: "#fef3c7", color: "#92400e" };
+}
+function nomeCompleto(p) {
+  const s = `${p.nome || ""} ${p.cognome || ""}`.trim();
+  return s || "—";
+}
+// Dropdown Stabilimento riutilizzabile (opzioni ordinate per nome).
+function StabilimentoSelect({ stabilimenti, value, onChange }) {
+  return (
+    <select value={value} onChange={e => onChange(e.target.value)} style={filtroSelStyle}>
+      <option value="">Tutti gli stabilimenti</option>
+      {(stabilimenti || []).slice().sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "it")).map(s => (
+        <option key={s.id} value={s.id}>{s.nome || s.id.slice(0, 8)}</option>
+      ))}
+    </select>
+  );
+}
+
+// ---- Tab Proprietari (profiles.ruolo === 'proprietario') ------------------
+function Proprietari({ data }) {
+  const [q, setQ] = useState("");
+  const rows = useMemo(() => {
+    const stabByOwner = new Map();
+    (data.stabilimenti || []).forEach(s => {
+      if (!s.proprietario_id) return;
+      if (!stabByOwner.has(s.proprietario_id)) stabByOwner.set(s.proprietario_id, []);
+      stabByOwner.get(s.proprietario_id).push(s.nome || "—");
+    });
+    return (data.profiles || [])
+      .filter(p => p.ruolo === "proprietario")
+      .map(p => ({ ...p, _stab: (stabByOwner.get(p.id) || []).join(", ") || "—" }));
+  }, [data]);
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter(r =>
+      nomeCompleto(r).toLowerCase().includes(needle) ||
+      (r.email || "").toLowerCase().includes(needle) ||
+      (r.telefono || "").toLowerCase().includes(needle) ||
+      (r._stab || "").toLowerCase().includes(needle)
+    );
+  }, [rows, q]);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Cerca per nome, email, telefono o stabilimento…"
+          style={{ flex: "1 1 260px", maxWidth: 380, ...inputStyle, width: "auto", padding: "9px 12px" }} />
+        <span style={{ color: "#64748b", fontSize: 12 }}>{filtered.length} proprietar{filtered.length === 1 ? "io" : "i"}</span>
+      </div>
+      <div style={{ ...S.card, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 720, fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#f0f9ff", color: "#0369a1", textAlign: "left" }}>
+                <th style={thStyle}>Nome</th>
+                <th style={thStyle}>Email</th>
+                <th style={thStyle}>Telefono</th>
+                <th style={thStyle}>Stabilimento/i</th>
+                <th style={thStyle}>Creato il</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={5} style={{ padding: "30px 12px", textAlign: "center", color: "#94a3b8" }}>Nessun risultato.</td></tr>
+              ) : filtered.map(r => (
+                <tr key={r.id}>
+                  <td style={tdStyle}><span style={{ fontWeight: "bold", color: "#0369a1" }}>{nomeCompleto(r)}</span></td>
+                  <td style={tdStyle}>{r.email || "—"}</td>
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{r.telefono || "—"}</td>
+                  <td style={tdStyle}>{r._stab}</td>
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{fmtDate(r.created_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Tab Stagionali (profiles.ruolo === 'stagionale') ---------------------
+function Stagionali({ data }) {
+  const [q, setQ] = useState("");
+  const [stabId, setStabId] = useState("");
+
+  const rows = useMemo(() => {
+    const stabById = new Map((data.stabilimenti || []).map(s => [s.id, s]));
+    // Un profilo stagionale è collegato via clienti_stagionali.user_id.
+    const cliByUser = new Map();
+    (data.clienti || []).forEach(c => {
+      if (c.user_id && !cliByUser.has(c.user_id)) cliByUser.set(c.user_id, c);
+    });
+    return (data.profiles || [])
+      .filter(p => p.ruolo === "stagionale")
+      .map(p => {
+        const cli = cliByUser.get(p.id) || null;
+        const stab = cli ? stabById.get(cli.stabilimento_id) : null;
+        return { ...p, _stabId: stab ? stab.id : "", _stab: stab ? (stab.nome || "—") : "—" };
+      });
+  }, [data]);
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return rows.filter(r => {
+      if (stabId && r._stabId !== stabId) return false;
+      if (needle && !(
+        nomeCompleto(r).toLowerCase().includes(needle) ||
+        (r.email || "").toLowerCase().includes(needle) ||
+        (r.telefono || "").toLowerCase().includes(needle)
+      )) return false;
+      return true;
+    });
+  }, [rows, q, stabId]);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 14, display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div>
+          <label style={filtroLabelStyle}>Stabilimento</label>
+          <StabilimentoSelect stabilimenti={data.stabilimenti} value={stabId} onChange={setStabId} />
+        </div>
+        <div style={{ flex: "1 1 240px", maxWidth: 360 }}>
+          <label style={filtroLabelStyle}>Cerca</label>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Nome, email o telefono…"
+            style={{ ...inputStyle, padding: "9px 12px" }} />
+        </div>
+        <span style={{ color: "#64748b", fontSize: 12, paddingBottom: 10 }}>{filtered.length} stagional{filtered.length === 1 ? "e" : "i"}</span>
+      </div>
+      <div style={{ ...S.card, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 720, fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#f0f9ff", color: "#0369a1", textAlign: "left" }}>
+                <th style={thStyle}>Nome</th>
+                <th style={thStyle}>Email</th>
+                <th style={thStyle}>Telefono</th>
+                <th style={thStyle}>Stabilimento</th>
+                <th style={thStyle}>Creato il</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={5} style={{ padding: "30px 12px", textAlign: "center", color: "#94a3b8" }}>Nessun risultato.</td></tr>
+              ) : filtered.map(r => (
+                <tr key={r.id}>
+                  <td style={tdStyle}><span style={{ fontWeight: "bold", color: "#0369a1" }}>{nomeCompleto(r)}</span></td>
+                  <td style={tdStyle}>{r.email || "—"}</td>
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{r.telefono || "—"}</td>
+                  <td style={tdStyle}>{r._stab}</td>
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{fmtDate(r.created_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Tab Clienti (clienti_stagionali, cross-tenant) -----------------------
+function Clienti({ data, navPreset, onPresetConsumed }) {
+  const [q, setQ] = useState("");
+  const [stabId, setStabId] = useState("");
+  const [statoFilter, setStatoFilter] = useState("tutti");
+  const [sort, setSort] = useState("created_desc");
+
+  useEffect(() => {
+    if (!navPreset) return;
+    if (navPreset.stato) setStatoFilter(navPreset.stato);
+    if (navPreset.sort) setSort(navPreset.sort);
+    if (onPresetConsumed) onPresetConsumed();
+  }, [navPreset]);
+
+  const rows = useMemo(() => {
+    const stabById = new Map((data.stabilimenti || []).map(s => [s.id, s]));
+    const ombById = new Map((data.ombrelloni || []).map(o => [o.id, o]));
+    return (data.clienti || []).map(c => {
+      const stab = stabById.get(c.stabilimento_id);
+      const omb = c.ombrellone_id ? ombById.get(c.ombrellone_id) : null;
+      return {
+        ...c,
+        _stab: stab ? (stab.nome || "—") : "—",
+        _omb: omb ? omb.codice : "—",
+      };
+    });
+  }, [data]);
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    let out = rows.filter(r => {
+      if (stabId && r.stabilimento_id !== stabId) return false;
+      if (statoFilter === "attesa" && !(!r.approvato && !r.rifiutato)) return false;
+      if (statoFilter === "approvato" && !(r.approvato && !r.rifiutato)) return false;
+      if (statoFilter === "rifiutato" && !r.rifiutato) return false;
+      if (needle && !(
+        nomeCompleto(r).toLowerCase().includes(needle) ||
+        (r.telefono || "").toLowerCase().includes(needle) ||
+        (r.email || "").toLowerCase().includes(needle)
+      )) return false;
+      return true;
+    });
+    out = out.slice();
+    if (sort === "credito_desc") out.sort((a, b) => (Number(b.credito_saldo) || 0) - (Number(a.credito_saldo) || 0));
+    else if (sort === "nome_asc") out.sort((a, b) => nomeCompleto(a).localeCompare(nomeCompleto(b), "it"));
+    else out.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    return out;
+  }, [rows, q, stabId, statoFilter, sort]);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 14, display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div>
+          <label style={filtroLabelStyle}>Stabilimento</label>
+          <StabilimentoSelect stabilimenti={data.stabilimenti} value={stabId} onChange={setStabId} />
+        </div>
+        <div>
+          <label style={filtroLabelStyle}>Stato</label>
+          <select value={statoFilter} onChange={e => setStatoFilter(e.target.value)} style={filtroSelStyle}>
+            <option value="tutti">Tutti</option>
+            <option value="attesa">🟡 In attesa</option>
+            <option value="approvato">🟢 Approvato</option>
+            <option value="rifiutato">🔴 Rifiutato</option>
+          </select>
+        </div>
+        <div>
+          <label style={filtroLabelStyle}>Ordina per</label>
+          <select value={sort} onChange={e => setSort(e.target.value)} style={filtroSelStyle}>
+            <option value="created_desc">Data creazione</option>
+            <option value="credito_desc">Credito decrescente</option>
+            <option value="nome_asc">Nome (A-Z)</option>
+          </select>
+        </div>
+        <div style={{ flex: "1 1 200px", maxWidth: 320 }}>
+          <label style={filtroLabelStyle}>Cerca</label>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Nome, telefono o email…"
+            style={{ ...inputStyle, padding: "9px 12px" }} />
+        </div>
+        <span style={{ color: "#64748b", fontSize: 12, paddingBottom: 10 }}>{filtered.length} client{filtered.length === 1 ? "e" : "i"}</span>
+      </div>
+      <div style={{ ...S.card, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 860, fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#f0f9ff", color: "#0369a1", textAlign: "left" }}>
+                <th style={thStyle}>Nome</th>
+                <th style={thStyle}>Stabilimento</th>
+                <th style={thStyle}>Telefono / Email</th>
+                <th style={thStyle}>Credito</th>
+                <th style={thStyle}>Stato</th>
+                <th style={thStyle}>Ombrellone</th>
+                <th style={thStyle}>Registrato</th>
+                <th style={thStyle}>Creato il</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={8} style={{ padding: "30px 12px", textAlign: "center", color: "#94a3b8" }}>Nessun risultato.</td></tr>
+              ) : filtered.map(r => {
+                const badge = statoClienteBadge(r);
+                return (
+                  <tr key={r.id}>
+                    <td style={tdStyle}><span style={{ fontWeight: "bold", color: "#0369a1" }}>{nomeCompleto(r)}</span></td>
+                    <td style={tdStyle}>{r._stab}</td>
+                    <td style={tdStyle}>
+                      <div>{r.telefono || "—"}</div>
+                      <div style={{ color: "#94a3b8", fontSize: 12 }}>{r.email || "—"}</div>
+                    </td>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{fmtCoin(r.credito_saldo)}</td>
+                    <td style={tdStyle}>
+                      <span style={{ background: badge.bg, color: badge.color, fontSize: 11, fontWeight: "bold", padding: "2px 8px", borderRadius: 10, whiteSpace: "nowrap" }}>{badge.txt}</span>
+                    </td>
+                    <td style={tdStyle}>{r._omb}</td>
+                    <td style={tdStyle}>{r.user_id ? "Sì" : "No"}</td>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{fmtDate(r.created_at)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Tab Ombrelloni (ombrelloni, cross-tenant) ----------------------------
+function Ombrelloni({ data }) {
+  const [q, setQ] = useState("");
+  const [stabId, setStabId] = useState("");
+  const [statoFilter, setStatoFilter] = useState("tutti");
+
+  const rows = useMemo(() => {
+    const stabById = new Map((data.stabilimenti || []).map(s => [s.id, s]));
+    return (data.ombrelloni || []).map(o => ({
+      ...o,
+      _stab: stabById.get(o.stabilimento_id) ? (stabById.get(o.stabilimento_id).nome || "—") : "—",
+    }));
+  }, [data]);
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return rows.filter(r => {
+      if (stabId && r.stabilimento_id !== stabId) return false;
+      if (statoFilter === "attivo" && !r.attivo) return false;
+      if (statoFilter === "non_attivo" && r.attivo) return false;
+      if (needle && !String(r.codice ?? "").toLowerCase().includes(needle)) return false;
+      return true;
+    });
+  }, [rows, q, stabId, statoFilter]);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 14, display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div>
+          <label style={filtroLabelStyle}>Stabilimento</label>
+          <StabilimentoSelect stabilimenti={data.stabilimenti} value={stabId} onChange={setStabId} />
+        </div>
+        <div>
+          <label style={filtroLabelStyle}>Stato</label>
+          <select value={statoFilter} onChange={e => setStatoFilter(e.target.value)} style={filtroSelStyle}>
+            <option value="tutti">Tutti</option>
+            <option value="attivo">Attivo</option>
+            <option value="non_attivo">Non attivo</option>
+          </select>
+        </div>
+        <div style={{ flex: "1 1 200px", maxWidth: 300 }}>
+          <label style={filtroLabelStyle}>Cerca (codice)</label>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Codice ombrellone…"
+            style={{ ...inputStyle, padding: "9px 12px" }} />
+        </div>
+        <span style={{ color: "#64748b", fontSize: 12, paddingBottom: 10 }}>{filtered.length} ombrellon{filtered.length === 1 ? "e" : "i"}</span>
+      </div>
+      <div style={{ ...S.card, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 720, fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#f0f9ff", color: "#0369a1", textAlign: "left" }}>
+                <th style={thStyle}>Codice</th>
+                <th style={thStyle}>Stabilimento</th>
+                <th style={thStyle}>Posizione</th>
+                <th style={thStyle}>Credito giornaliero</th>
+                <th style={thStyle}>Stato</th>
+                <th style={thStyle}>Creato il</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={6} style={{ padding: "30px 12px", textAlign: "center", color: "#94a3b8" }}>Nessun risultato.</td></tr>
+              ) : filtered.map(r => (
+                <tr key={r.id}>
+                  <td style={tdStyle}><span style={{ fontWeight: "bold", color: "#0369a1" }}>{r.codice || "—"}</span></td>
+                  <td style={tdStyle}>{r._stab}</td>
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>({r.pos_x ?? "—"}, {r.pos_y ?? "—"})</td>
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{fmtCoin(r.credito_giornaliero)}</td>
+                  <td style={tdStyle}>
+                    <span style={r.attivo ? S.badgeOn : S.badgeOff}>{r.attivo ? "attivo" : "non attivo"}</span>
+                  </td>
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{fmtDate(r.created_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
