@@ -26,9 +26,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   // l'hash, e più sotto — una volta stabilita la sessione — chiamiamo la RPC
   // conferma_email_proprietario() prima del normale routing.
   let verificaEmailPending = false;
+  let verificaEmailTokenHash = null;
   if (params.get('verifica_email') === '1') {
     verificaEmailPending = true;
+    verificaEmailTokenHash = params.get('token_hash');
     params.delete('verifica_email');
+    params.delete('token_hash');
     const qs = params.toString();
     window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : '') + (window.location.hash || ''));
   }
@@ -73,6 +76,24 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (window.SpiaggiaMiaMobile && typeof window.SpiaggiaMiaMobile.tryBiometricUnlock === 'function') {
     const handled = await window.SpiaggiaMiaMobile.tryBiometricUnlock();
     if (handled) { enhanceDateInputs(); hideLoading(); return; }
+  }
+  // Verifica email: con il nuovo flusso il link punta alla NOSTRA pagina con
+  // ?token_hash=... (non all'endpoint diretto di Supabase). Il token viene
+  // consumato QUI, esplicitamente via verifyOtp — così uno scanner email che
+  // fa solo una GET (senza eseguire JS) non lo invalida. Va fatto PRIMA di
+  // getSession(), perché è verifyOtp a stabilire la sessione.
+  if (verificaEmailPending && verificaEmailTokenHash) {
+    const { error: otpErr } = await sb.auth.verifyOtp({
+      token_hash: verificaEmailTokenHash,
+      type: 'email',
+    });
+    if (otpErr) {
+      console.warn('verifica email verifyOtp failed', otpErr);
+      showView('verifica-email');
+      showAlert('verifica-email-alert', 'Il link non è più valido. Richiedi un nuovo invio qui sotto.', 'error');
+      hideLoading();
+      return;
+    }
   }
   const { data: { session } } = await sb.auth.getSession();
   if (session && !isPasswordRecovery) {
