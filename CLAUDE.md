@@ -293,6 +293,46 @@ I clienti senza email sono sempre esclusi dal pool inviabile, ma il riepilogo de
       `invia-email` (tipo `credito_revocato`) e `invia-whatsapp`
       (rename tipo). Nessun deploy automatico in questa sessione.
 
+- **20 lug 2026** — FASE 5 — Approvazione creazione stabilimenti
+  (codice pronto, function non ancora deployate):
+  (a) DB (migration GIÀ applicata in prod via MCP, non in questo
+      branch): `stabilimenti.approvato` (bool NOT NULL DEFAULT
+      false) + `stabilimenti.rifiutato` (bool NOT NULL DEFAULT
+      false). I 2 stabilimenti esistenti backfillati approvato=true.
+      Ogni NUOVO stabilimento nasce approvato=false/rifiutato=false
+      e resta "in attesa" finché un admin non lo approva/rifiuta.
+  (b) Gate proprietario: `js/setup.js → saveStabilimento` mostra la
+      view `in-attesa` (niente manager) + fire-and-forget email
+      `stabilimento_in_attesa` e `sb.functions.invoke('notifica-
+      nuovo-stabilimento')`. `js/router.js → loadUserAndRoute`
+      (ramo proprietario): `rifiutato`→view `rifiutato`,
+      `!approvato`→view `in-attesa`, altrimenti flusso invariato.
+  (c) Nuove view statiche `#view-in-attesa` / `#view-rifiutato` in
+      `index.html` (stile setup + logout; la seconda ha un
+      placeholder `[EMAIL SUPPORTO]` da sostituire).
+  (d) Gate admin (`admin.html`): KPI "Stabilimenti in attesa" in
+      Panoramica; colonna "Stato" (badge 🟡/🟢/🔴 + bottoni Approva/
+      Rifiuta con conferma) in Stabilimenti; UPDATE via RLS admin +
+      patch locale `patchStab` + email esito fire-and-forget.
+  (e) `invia-email`: 3 nuovi tipi PIATTAFORMA a contenuto FISSO
+      (`stabilimento_in_attesa`/`_approvato`/`_rifiutato`),
+      destinatario = email del proprietario (auth.users). Poiché
+      `profiles` non ha email e admin.html non legge auth.users,
+      questi tipi accettano `proprietario_id` e risolvono email +
+      `login_link` server-side via `getUserById`. Nuova env
+      opzionale `APP_URL` (default https://spiaggiamia.com).
+  (f) Nuova Edge Function `notifica-nuovo-stabilimento`
+      (verify_jwt=true): email a matteo.posterli@gmail.com (Resend)
+      + messaggio Telegram (`api.telegram.org/bot<token>/sendMessage`)
+      via `Promise.allSettled` (canali indipendenti, best-effort).
+      Nuovi secret richiesti: `TELEGRAM_BOT_TOKEN`,
+      `TELEGRAM_ADMIN_CHAT_ID` (se mancanti → canale Telegram
+      saltato senza rompere la registrazione).
+  (g) DA FARE A MANO: deploy `notifica-nuovo-stabilimento` +
+      redeploy `invia-email`; impostare i secret Telegram (+ opz.
+      `APP_URL`); sostituire `[EMAIL SUPPORTO]`. Nessun deploy
+      automatico in questa sessione. Vedi `ADMIN_DASHBOARD.md § Fase 5`.
+
 ## Mantenimento di questo file
 
 Quando una sessione introduce un cambiamento **strutturale** — nuova tabella, nuova colonna/FK rilevante, nuova RPC, nuova Edge Function, nuovo env var, nuova convenzione, cambio di workflow git — **aggiorna `CLAUDE.md` nella stessa sessione** (preferibilmente nello stesso commit del cambiamento).

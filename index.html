@@ -242,6 +242,42 @@
   </div>
 </div>
 
+<!-- RICHIESTA IN REVISIONE (stabilimento non ancora approvato) -->
+<div id="view-in-attesa" class="view">
+  <div class="setup-container">
+    <div class="setup-step active">
+      <div style="text-align:center;font-size:48px;margin-bottom:8px">⏳</div>
+      <div class="setup-title" style="text-align:center">Richiesta in revisione</div>
+      <div class="setup-sub" style="text-align:center">Grazie per esserti registrato! Il tuo account è in fase di verifica, ti contatteremo appena approvato.</div>
+      <div class="card"><div class="card-body">
+        <p style="font-size:14px;color:var(--text-mid);line-height:1.7;margin-bottom:8px">
+          Verifichiamo manualmente ogni nuova iscrizione per garantire qualità e sicurezza a tutti gli stabilimenti che usano SpiaggiaMia. Riceverai un'email non appena il tuo account sarà attivo — non devi fare nulla nel frattempo.
+        </p>
+        <button class="btn btn-outline btn-full" onclick="doLogout()" style="margin-top:12px">Esci</button>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<!-- RICHIESTA NON APPROVATA (stabilimento rifiutato) -->
+<div id="view-rifiutato" class="view">
+  <div class="setup-container">
+    <div class="setup-step active">
+      <div style="text-align:center;font-size:48px;margin-bottom:8px">📋</div>
+      <div class="setup-title" style="text-align:center">Richiesta non approvata</div>
+      <div class="setup-sub" style="text-align:center">Al momento non siamo in grado di approvare la tua richiesta di iscrizione.</div>
+      <div class="card"><div class="card-body">
+        <p style="font-size:14px;color:var(--text-mid);line-height:1.7;margin-bottom:8px">
+          Se vuoi maggiori informazioni o pensi si tratti di un errore, scrivici a
+          <a href="mailto:supporto@spiaggiamia.com" style="color:var(--ocean);font-weight:600">supporto@spiaggiamia.com</a>:
+          siamo felici di chiarire insieme.
+        </p>
+        <button class="btn btn-outline btn-full" onclick="doLogout()" style="margin-top:12px">Esci</button>
+      </div></div>
+    </div>
+  </div>
+</div>
+
 <!-- DASHBOARD MANAGER -->
 <div id="view-manager" class="view">
   <div class="dash-layout">

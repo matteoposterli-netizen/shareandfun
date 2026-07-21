@@ -198,6 +198,15 @@ function AdminDashboard() {
 
   useEffect(() => { loadAll(); }, []);
 
+  // Aggiorna localmente lo stato di uno stabilimento (badge + KPI) senza
+  // ricaricare tutto il dashboard dopo un'azione Approva/Rifiuta.
+  function patchStab(id, patch) {
+    setData(prev => ({
+      ...prev,
+      stabilimenti: prev.stabilimenti.map(s => s.id === id ? { ...s, ...patch } : s),
+    }));
+  }
+
   return (
     <div style={S.page}>
       <Header tab={tab} setTab={setTab} onReload={loadAll} loading={loading} />
@@ -215,7 +224,7 @@ function AdminDashboard() {
         ) : tab === "panoramica" ? (
           <Panoramica data={data} />
         ) : tab === "stabilimenti" ? (
-          <Stabilimenti data={data} />
+          <Stabilimenti data={data} onPatchStab={patchStab} />
         ) : tab === "tabelle" ? (
           <Tabelle />
         ) : (
@@ -271,6 +280,7 @@ function computeStats(data) {
   const waOn = stabilimenti.filter(s => s.wa_enabled).length;
   const ombAttivi = ombrelloni.filter(o => o.attivo).length;
   const inAttesa = clienti.filter(c => !c.approvato && !c.rifiutato).length;
+  const stabInAttesa = stabilimenti.filter(s => !s.approvato && !s.rifiutato).length;
   return {
     totStab: stabilimenti.length,
     proprietari, stagionali,
@@ -279,6 +289,7 @@ function computeStats(data) {
     ombAttivi, ombTot: ombrelloni.length,
     clientiTot: clienti.length,
     inAttesa,
+    stabInAttesa,
   };
 }
 
@@ -320,6 +331,7 @@ function Panoramica({ data }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
       <KpiCard label="Stabilimenti" value={k.totStab} />
+      <KpiCard label="Stabilimenti in attesa" value={k.stabInAttesa} sub="approvato=false, rifiutato=false" accent="#f59e0b" />
       <KpiCard label="Proprietari" value={k.proprietari} accent="#0ea5e9" />
       <KpiCard label="Stagionali" value={k.stagionali} accent="#0ea5e9" />
       <KpiCard label="Credito in circolazione" value={fmtCoin(k.creditoTot)} sub="somma saldi clienti" accent="#f59e0b" />
@@ -332,7 +344,7 @@ function Panoramica({ data }) {
 }
 
 // ---- Tab Stabilimenti -----------------------------------------------------
-function Stabilimenti({ data }) {
+function Stabilimenti({ data, onPatchStab }) {
   const rows = useMemo(() => perStabilimento(data), [data]);
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState(null);
@@ -367,14 +379,15 @@ function Stabilimenti({ data }) {
                 <th style={thStyle}>Credito</th>
                 <th style={thStyle}>WhatsApp</th>
                 <th style={thStyle}>Stagione</th>
+                <th style={thStyle}>Stato</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={8} style={{ padding: "30px 12px", textAlign: "center", color: "#94a3b8" }}>Nessun risultato.</td></tr>
+                <tr><td colSpan={9} style={{ padding: "30px 12px", textAlign: "center", color: "#94a3b8" }}>Nessun risultato.</td></tr>
               )}
               {filtered.map(r => (
-                <StabRow key={r.id} r={r} expanded={expanded === r.id} onToggle={() => setExpanded(expanded === r.id ? null : r.id)} />
+                <StabRow key={r.id} r={r} expanded={expanded === r.id} onToggle={() => setExpanded(expanded === r.id ? null : r.id)} onPatchStab={onPatchStab} />
               ))}
             </tbody>
           </table>
@@ -387,7 +400,7 @@ function Stabilimenti({ data }) {
 const thStyle = { padding: "10px 12px", fontSize: 11, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 0.4, borderBottom: "1px solid #e0f2fe", whiteSpace: "nowrap" };
 const tdStyle = { padding: "10px 12px", borderBottom: "1px solid #f1f5f9", verticalAlign: "top", color: "#1e293b" };
 
-function StabRow({ r, expanded, onToggle }) {
+function StabRow({ r, expanded, onToggle, onPatchStab }) {
   const stagione = (r.data_inizio_stagione && r.data_fine_stagione)
     ? `${fmtDateShort(r.data_inizio_stagione)} – ${fmtDateShort(r.data_fine_stagione)}`
     : "—";
@@ -411,15 +424,94 @@ function StabRow({ r, expanded, onToggle }) {
           <span style={r.wa_enabled ? S.badgeOn : S.badgeOff}>{r.wa_enabled ? "attivo" : "non attivo"}</span>
         </td>
         <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{stagione}</td>
+        <td style={tdStyle} onClick={e => e.stopPropagation()}>
+          <StabStatoCell r={r} onPatchStab={onPatchStab} />
+        </td>
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={8} style={{ padding: "0 12px 14px", background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
+          <td colSpan={9} style={{ padding: "0 12px 14px", background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
             <StabDetail r={r} stagione={stagione} />
           </td>
         </tr>
       )}
     </>
+  );
+}
+
+// Cella "Stato" della tabella Stabilimenti: badge 🟡/🟢/🔴 + azioni
+// Approva/Rifiuta per gli stabilimenti in attesa. L'UPDATE passa da sb
+// (RLS admin, stesso client del resto della pagina); l'email di esito al
+// proprietario e' fire-and-forget via invia-email (tipo stabilimento_*).
+function StabStatoCell({ r, onPatchStab }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const inAttesa = !r.approvato && !r.rifiutato;
+  const badge = r.rifiutato
+    ? { txt: "🔴 Rifiutato", bg: "#fee2e2", color: "#b91c1c" }
+    : r.approvato
+      ? { txt: "🟢 Approvato", bg: "#d1fae5", color: "#047857" }
+      : { txt: "🟡 In attesa", bg: "#fef3c7", color: "#92400e" };
+
+  async function decide(approva) {
+    setErr("");
+    const owner = r._owner || "il proprietario";
+    const stabNome = r.nome || "questo stabilimento";
+    const azione = approva ? "APPROVARE" : "RIFIUTARE";
+    if (!window.confirm(
+      `${azione} lo stabilimento?\n\n` +
+      `Stabilimento: ${stabNome}\n` +
+      `Proprietario: ${owner}\n\n` +
+      (approva
+        ? `Il proprietario potrà accedere subito alla piattaforma e riceverà un'email di conferma.`
+        : `Il proprietario non potrà accedere e riceverà un'email di esito.`)
+    )) return;
+
+    setBusy(true);
+    const patch = approva ? { approvato: true, rifiutato: false } : { approvato: false, rifiutato: true };
+    const { error } = await sb.from("stabilimenti").update(patch).eq("id", r.id);
+    if (error) { setErr(error.message); setBusy(false); return; }
+
+    // Stato locale aggiornato (badge + KPI Panoramica derivano da data.stabilimenti).
+    if (onPatchStab) onPatchStab(r.id, patch);
+
+    // Fire-and-forget: email di esito al proprietario. invia-email risolve
+    // l'email del proprietario da proprietario_id (non leggibile client-side).
+    try {
+      sb.functions.invoke("invia-email", {
+        body: {
+          tipo: approva ? "stabilimento_approvato" : "stabilimento_rifiutato",
+          proprietario_id: r.proprietario_id,
+          nome: (r._owner && r._owner !== "—") ? r._owner.split(" ")[0] : "",
+          stabilimento_id: r.id,
+          stabilimento_nome: r.nome || "",
+        },
+      }).catch(e => console.warn("email esito stabilimento (non blocking)", e));
+    } catch (e) { console.warn("email esito stabilimento (non blocking)", e); }
+
+    setBusy(false);
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
+      <span style={{ background: badge.bg, color: badge.color, fontSize: 11, fontWeight: "bold", padding: "2px 8px", borderRadius: 10, whiteSpace: "nowrap" }}>
+        {badge.txt}
+      </span>
+      {inAttesa && (
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => decide(true)} disabled={busy}
+            style={{ background: busy ? "#f1f5f9" : "#047857", color: busy ? "#94a3b8" : "white", border: "none", borderRadius: 6, padding: "4px 8px", cursor: busy ? "not-allowed" : "pointer", fontSize: 11, fontWeight: "bold", whiteSpace: "nowrap" }}>
+            ✅ Approva
+          </button>
+          <button onClick={() => decide(false)} disabled={busy}
+            style={{ background: busy ? "#f1f5f9" : "white", color: busy ? "#94a3b8" : "#b91c1c", border: "1px solid #f5c6cb", borderRadius: 6, padding: "4px 8px", cursor: busy ? "not-allowed" : "pointer", fontSize: 11, fontWeight: "bold", whiteSpace: "nowrap" }}>
+            ❌ Rifiuta
+          </button>
+        </div>
+      )}
+      {err && <span style={{ color: "#ef4444", fontSize: 11 }}>{err}</span>}
+    </div>
   );
 }
 
