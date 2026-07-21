@@ -40,12 +40,12 @@ impersonazione, log tecnici, approvazioni).
 ## Decisioni prese
 
 - **Account admin per il login**: il campo email del gate è prefillato con `matteo.posterli+admin@gmail.com` (admin dal 2026-04-24; in Fase 2 corretto il refuso di Fase 1 che prefillava l'email primaria). Sono comunque admin **due** account: `matteo.posterli+admin@gmail.com` e l'email primaria `matteo.posterli@gmail.com`. Quest'ultima è stata **aggiunta a `public.admins`** il 2026-07-19 (`INSERT INTO public.admins (user_id) VALUES ('b6bea9e9-71b3-493b-9fe2-d1b79b336e1b')`) per poter usare anche l'email primaria come login di Regia; senza quella riga vedrebbe query RLS vuote. L'email primaria è un account con anche `ruolo='proprietario'` in `profiles` (deroga alla convenzione "admin senza profilo", ma funzionalmente ok: `is_admin()` controlla solo `public.admins`). L'autorizzazione passa da `public.admins` + `public.is_admin(uid)` (migration `20260424000000_admin_section.sql`).
-- **Niente colonna `email` su `profiles`** — non disponibile lato client, non mostrata.
+- **Colonna `email` su `profiles`** — aggiunta il 2026-07-21 (migration `add_profile_email_sync`), sincronizzata automaticamente da `auth.users` tramite due trigger (`on_profile_insert_set_email` su INSERT profiles, `on_auth_user_email_updated` su UPDATE email in auth.users). Mostrata nel tab Stabilimenti → riga dettaglio (telefono/email proprietario, telefono/email stabilimento) e nel tab Tabelle (sola lettura).
 - **RLS admin già pronta** su `profiles`, `stabilimenti`, `ombrelloni`, `clienti_stagionali` (SELECT coperto). Per il tab Log: `audit_log_select_admin` esisteva già (`20260424500000_audit_log.sql`); `wa_messages_log_select_admin` (sola lettura) aggiunta con migration dedicata, già applicata in prod. Nessun'altra migration necessaria per la Fase 2.
 - Config Supabase (`SUPABASE_URL`, publishable `SUPABASE_KEY`) copiata da `devboard.html`.
 - Colonne usate (verificate in produzione):
   - `stabilimenti`: id, nome, citta, proprietario_id, created_at, wa_enabled, data_inizio_stagione, data_fine_stagione, nome_credito
-  - `profiles`: id, nome, cognome, telefono, ruolo (nessuna email)
+  - `profiles`: id, nome, cognome, telefono, email (sync automatico da auth.users), ruolo
   - `ombrelloni`: id, stabilimento_id, codice, attivo, credito_giornaliero
   - `clienti_stagionali`: id, stabilimento_id, credito_saldo, approvato, rifiutato
 
