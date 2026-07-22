@@ -41,7 +41,7 @@ function buildFromHeader(displayName: string | undefined): string {
 }
 
 interface EmailRequest {
-  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "credito_revocato" | "chiusura_stagione" | "comunicazione" | "ombrellone_disattivato" | "reset_password" | "stabilimento_in_attesa" | "stabilimento_approvato" | "stabilimento_rifiutato" | "conferma_email";
+  tipo: "benvenuto" | "attesa" | "approvazione" | "invito" | "credito_accreditato" | "credito_ritirato" | "credito_revocato" | "chiusura_stagione" | "comunicazione" | "ombrellone_disattivato" | "reset_password" | "stabilimento_in_attesa" | "stabilimento_approvato" | "stabilimento_rifiutato" | "conferma_email" | "account_eliminato";
   email?: string;
   nome: string;
   cognome?: string;
@@ -591,6 +591,29 @@ Deno.serve(async (req: Request) => {
       boxTesto: "Se vuoi maggiori informazioni, o pensi si tratti di un errore, scrivici rispondendo a questa email: siamo felici di chiarire insieme.",
       stabilimento_nome,
       footer_extra: `Grazie per l'interesse in SpiaggiaMia.<br><br>Il team di SpiaggiaMia`,
+    };
+
+  } else if (tipo === "account_eliminato") {
+    // Email di piattaforma (contenuto FISSO): inviata quando un admin
+    // cancella uno stabilimento dalla tab Tabelle di admin.html tramite la
+    // RPC admin_elimina_stabilimento. A quel punto l'account del
+    // proprietario è già stato cancellato da auth.users, quindi email/nome
+    // arrivano espliciti dal chiamante (non risolvibili via proprietario_id
+    // come nei tipi stabilimento_*, perché l'utente non esiste più).
+    subject = `Il tuo account SpiaggiaMia è stato rimosso`;
+    opts = {
+      headerColor: "linear-gradient(135deg,#5A6A7A 0%,#7A8A9A 100%)",
+      headerEmoji: "📋",
+      headerSub: "Account rimosso",
+      nome,
+      testoPrincipale: `ti informiamo che il tuo stabilimento <strong>${stabilimento_nome}</strong> e il relativo account su SpiaggiaMia sono stati rimossi dalla piattaforma.`,
+      boxColor: "#F4F6F8",
+      boxBorderColor: "#9AAABB",
+      boxTitoloColor: "#5A6A7A",
+      boxTitolo: "📋 Non riconosci questa richiesta?",
+      boxTesto: "Se pensi si tratti di un errore, rispondi a questa email: siamo felici di chiarire insieme.",
+      stabilimento_nome,
+      footer_extra: `Grazie per aver fatto parte di SpiaggiaMia.<br><br>Il team di SpiaggiaMia`,
     };
 
   } else if (tipo === "conferma_email") {

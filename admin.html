@@ -1235,8 +1235,44 @@ function Tabelle() {
     return rows.filter(r => schema.list.some(c => String(r[c] ?? "").toLowerCase().includes(needle)));
   }, [rows, q, schema]);
 
+  // Per "stabilimenti" usiamo la RPC admin_elimina_stabilimento invece del
+  // DELETE diretto: cancella anche l'account del proprietario collegato
+  // (auth.users -> cascade su profiles) e invia l'email di notifica.
+  // Per tutte le altre tabelle il comportamento resta invariato.
   async function handleDelete(row) {
     const pkVal = row[schema.pk];
+
+    if (table === "stabilimenti") {
+      if (!window.confirm(
+        `Eliminare questo stabilimento?\n\n` +
+        `Nome: ${row.nome || pkVal}\n\n` +
+        `Verranno cancellati TUTTI i dati collegati (ombrelloni, clienti, transazioni) ` +
+        `E L'ACCOUNT DEL PROPRIETARIO, che non potrà più accedere alla piattaforma.\n` +
+        `Il proprietario riceverà un'email di notifica.\n\n` +
+        `Azione NON reversibile.`
+      )) return;
+
+      const { data, error } = await sb.rpc("admin_elimina_stabilimento", { p_stabilimento_id: pkVal });
+      if (error) { setErr(`Errore eliminazione: ${error.message}`); return; }
+
+      const res = Array.isArray(data) ? data[0] : data;
+      if (res && res.proprietario_email) {
+        try {
+          sb.functions.invoke("invia-email", {
+            body: {
+              tipo: "account_eliminato",
+              email: res.proprietario_email,
+              nome: res.proprietario_nome || "",
+              stabilimento_nome: res.stabilimento_nome || row.nome || "",
+            },
+          }).catch(e => console.warn("email account_eliminato (non blocking)", e));
+        } catch (e) { console.warn("email account_eliminato (non blocking)", e); }
+      }
+
+      await loadTable(table);
+      return;
+    }
+
     if (!window.confirm(`Eliminare questa riga di ${schema.label}?\n\n${schema.pk}: ${pkVal}\n\nAzione NON reversibile.`)) return;
     const { error } = await sb.from(table).delete().eq(schema.pk, pkVal);
     if (error) { setErr(`Errore eliminazione: ${error.message}`); return; }
