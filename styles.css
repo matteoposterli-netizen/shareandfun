@@ -97,6 +97,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .btn-hero-primary:hover { background: #1f3240; transform: translateY(-1px); }
 .btn-hero-outline { background: transparent; color: var(--ink); border: 1px solid var(--border); padding: 16px 30px; border-radius: 999px; font-family: inherit; font-size: 15px; font-weight: 500; cursor: pointer; }
 .btn-hero-outline:hover { background: #fff; }
+.cta-short { display: none; }
+@media (max-width: 480px) { .cta-full { display: none; } .cta-short { display: inline; } }
 
 .landing-content { max-width: 1080px; margin: 0 auto; padding: 72px 24px; }
 .section-label { font-size: 12px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--text-mid); margin-bottom: 14px; }
@@ -141,7 +143,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 .cf-step.cf-reverse .cf-copy p { margin-left: auto; }
 .cf-media { display: flex; }
 .cf-step.cf-reverse .cf-media { justify-content: flex-end; }
-.cf-phone-frame { width: 220px; background: var(--ink); border-radius: 30px; padding: 9px; box-shadow: var(--shadow-md); }
+.cf-phone-frame { width: 100%; max-width: 220px; background: var(--ink); border-radius: 30px; padding: 9px; box-shadow: var(--shadow-md); }
 .cf-phone-frame .cf-notch { width: 64px; height: 16px; background: var(--ink); border-radius: 0 0 10px 10px; margin: 0 auto; }
 .cf-phone-frame .cf-screen { border-radius: 20px; overflow: hidden; background: #fff; }
 .cf-phone-frame .cf-screen img { display: block; width: 100%; height: auto; }
@@ -166,6 +168,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
   .cf-copy p { max-width: none; }
   .cf-badge { left: 28px; top: 18px; transform: translate(-50%,0); width: 34px; height: 34px; font-size: 14px; }
   .cf-callout { flex-direction: column; }
+  .section-title { font-size: 28px; }
+  .roles-grid { grid-template-columns: 1fr; }
 }
 /* ============ FINE COME FUNZIONA ============ */
 .landing-footer-contacts { display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; }
