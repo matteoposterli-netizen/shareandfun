@@ -167,6 +167,16 @@ Stabilimento, dropdown Stato (Tutti / Attivo / Non attivo), search testuale sul 
 
 **DA FARE A MANO prima del test end-to-end**: (a) deploy `notifica-nuovo-stabilimento`; (b) redeploy `invia-email` (3 nuovi tipi + risoluzione `proprietario_id`); (c) impostare i secret `TELEGRAM_BOT_TOKEN`/`TELEGRAM_ADMIN_CHAT_ID` (+ opzionale `APP_URL`); (d) sostituire il placeholder `[EMAIL SUPPORTO]` nella view `#view-rifiutato`.
 
+## Eliminazione stabilimento (tab Tabelle → stabilimenti)
+
+Nella tab **🗄️ Tabelle**, per la tabella `stabilimenti` il bottone "Elimina" non fa più un DELETE diretto ma chiama la RPC **`admin_elimina_stabilimento(p_stabilimento_id)`** (SECURITY DEFINER, solo admin via `public.is_admin(auth.uid())`, **già applicata in prod**). La RPC cancella lo stabilimento e tutto l'indotto (ombrelloni, clienti, disponibilità, transazioni, regole, backup, audit — stesso ordine di `cancella_account_proprietario`), poi cancella la riga `auth.users` del proprietario (cascade su `profiles`), così il proprietario non può più accedere alla piattaforma. Ritorna `TABLE(proprietario_email text, proprietario_nome text, stabilimento_nome text)`.
+
+- **Conferma**: `handleDelete` in `Tabelle()` mostra, per `table === "stabilimenti"`, un `confirm()` dedicato che avverte della cancellazione dei dati collegati **e** dell'account proprietario.
+- **Email di notifica**: dopo la RPC riuscita, se `proprietario_email` è valorizzata, invio fire-and-forget (non bloccante) di `sb.functions.invoke("invia-email", { tipo: "account_eliminato", email, nome, stabilimento_nome })`.
+- **Nuovo tipo email `account_eliminato`** in `invia-email` (contenuto FISSO di piattaforma, header grigio "Account rimosso"). A differenza dei tipi `stabilimento_*`, NON risolve il destinatario da `proprietario_id` (l'utente è già cancellato da `auth.users`): `email` e `nome` arrivano già valorizzati dal chiamante (dai valori restituiti dalla RPC).
+- Per **tutte le altre tabelle** il comportamento di `handleDelete` resta invariato (DELETE diretto via RLS).
+- **DA FARE A MANO**: redeploy di `invia-email` per attivare il nuovo tipo `account_eliminato` (la RPC è già in prod).
+
 ## Note operative
 
 - Non mergiare su `main`: attendere preview Vercel del branch + conferma.
