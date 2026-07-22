@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /devboard.html
+
+Sitemap: https://spiaggiamia.com/sitemap.xml
