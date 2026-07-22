@@ -3,14 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SpiaggiaMia</title>
+<title>SpiaggiaMia — Gestionale per Stabilimenti Balneari | Stagionali, Sub-affitti e Crediti</title>
+<meta name="description" content="Gestionale per stabilimenti balneari: mappa ombrelloni, calendario stagionali, sub-affitto automatico dei giorni liberi e notifiche WhatsApp.">
+<link rel="canonical" href="https://spiaggiamia.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SpiaggiaMia">
+<meta property="og:title" content="SpiaggiaMia — Gestionale per Stabilimenti Balneari">
+<meta property="og:description" content="Gestionale per stabilimenti balneari: mappa ombrelloni, calendario stagionali, sub-affitto automatico dei giorni liberi e notifiche WhatsApp.">
+<meta property="og:url" content="https://spiaggiamia.com/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="SpiaggiaMia — Gestionale per Stabilimenti Balneari">
+<meta name="twitter:description" content="Gestionale per stabilimenti balneari: mappa ombrelloni, calendario stagionali, sub-affitto automatico dei giorni liberi e notifiche WhatsApp.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "SpiaggiaMia",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "description": "Gestionale per stabilimenti balneari: mappa ombrelloni, calendario stagionali, sub-affitto automatico dei giorni liberi e notifiche WhatsApp.",
+  "url": "https://spiaggiamia.com/"
+}
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/it.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260713a">
+<link rel="stylesheet" href="styles.css?v=20260722a">
 </head>
 <body>
 
@@ -25,7 +46,7 @@
   <div class="logo" onclick="goHome()">🌊 SpiaggiaMia</div>
   <div class="nav-right" id="nav-right">
     <button class="btn-nav" onclick="showView('auth', 'login')">Accedi</button>
-    <button class="btn-nav filled" onclick="showView('auth', 'register')">Registra stabilimento</button>
+    <button class="btn-nav filled" onclick="showView('auth', 'register')">Registra stabilimento balneare</button>
   </div>
   <button class="hamburger-btn" id="hamburger-btn" onclick="openDrawer()" aria-label="Apri menu">☰</button>
 </nav>
@@ -37,31 +58,91 @@
 <div id="view-landing" class="view active">
   <div class="hero">
     <div class="hero-waves">☀️ 🌊 ☂️</div>
-    <h1>Ogni ombrellone vuoto<br><span>è un'opportunità persa.</span></h1>
-    <p>SpiaggiaMia connette gli stabilimenti balneari con i loro clienti stagionali per trasformare i giorni liberi in valore per tutti.</p>
+    <h1>Il gestionale per stabilimenti balneari<br><span>che non lascia vuoto nessun ombrellone.</span></h1>
+    <p>Quando il tuo cliente stagionale non c'è, per te è come avere un ombrellone in più da affittare. SpiaggiaMia te lo segnala e te lo fa sub-affittare — senza cambiare il modo in cui lavori oggi.</p>
     <div class="hero-ctas">
-      <button class="btn-hero-primary" onclick="showView('auth','register')">Registra il tuo stabilimento →</button>
+      <button class="btn-hero-primary" onclick="showView('auth','register')">Registra il tuo stabilimento balneare →</button>
       <button class="btn-hero-outline" onclick="showView('auth','login')">Hai già un account? Accedi</button>
     </div>
-    <p style="margin-top:18px;font-size:13px;opacity:0.85;font-weight:300">Sei un cliente stagionale? Accedi solo su invito del tuo stabilimento.</p>
+    <p style="margin-top:18px;font-size:13px;opacity:0.85;font-weight:300">Sei un cliente stagionale? Accedi solo su invito del tuo stabilimento balneare.</p>
+  </div>
+  <div class="manifesto-quote">
+    <p>Non un gestionale in più da imparare. Uno strumento solo, per un problema solo: trasformare ogni ombrellone stagionale assente in un ombrellone in più da affittare.</p>
   </div>
   <div class="landing-content">
     <div class="section-label">Come funziona</div>
-    <div class="section-title">Semplice per tutti</div>
-    <div class="how-steps">
-      <div class="step-card"><div class="step-icon">🏖️</div><h3>Lo stabilimento registra la mappa</h3><p>Il proprietario carica gli ombrelloni, associa ogni cliente stagionale e imposta il credito per ogni posizione.</p></div>
-      <div class="step-card"><div class="step-icon">📅</div><h3>Il stagionale dichiara i giorni liberi</h3><p>Con un click sul calendario, il cliente indica i giorni in cui non userà il suo ombrellone.</p></div>
-      <div class="step-card"><div class="step-icon">💰</div><h3>Lo stabilimento sub-affitta e tutti guadagnano</h3><p>L'ombrellone viene affittato a un cliente giornaliero e il tuo cliente stagionale riceve dei crediti che può spendere solo al tuo bar.</p></div>
+    <h2 class="section-title">Un esempio, passo per passo</h2>
+    <p class="cf-intro">Un cliente stagionale non userà il suo ombrellone martedì. Ecco cosa succede, in ordine.</p>
+    <div class="cf-flow">
+      <div class="cf-step">
+        <div class="cf-badge">1</div>
+        <div class="cf-media">
+          <div class="cf-phone-frame">
+            <div class="cf-notch"></div>
+            <div class="cf-screen"><img src="assets/come-funziona/step1-calendario-stagionale.jpg" alt="Calendario del cliente stagionale con i giorni liberi segnati" loading="lazy"></div>
+          </div>
+        </div>
+        <div class="cf-copy">
+          <div class="cf-eyebrow">☂️ Cliente stagionale</div>
+          <h3>Segna il giorno libero</h3>
+          <p>Apre l'app dal telefono e tocca i giorni in cui non userà l'ombrellone. Un tocco, niente telefonate.</p>
+        </div>
+      </div>
+      <div class="cf-step cf-reverse">
+        <div class="cf-badge">2</div>
+        <div class="cf-media">
+          <div class="cf-browser-frame">
+            <div class="cf-browser-bar"><span></span><span></span><span></span><div class="cf-browser-url">spiaggiamia.com</div></div>
+            <div class="cf-screen"><img src="assets/come-funziona/step2-mappa-libero.jpg" alt="Mappa ombrelloni del gestore con il posto diventato disponibile" loading="lazy"></div>
+          </div>
+        </div>
+        <div class="cf-copy">
+          <div class="cf-eyebrow cf-role-stab">🏖️ Stabilimento balneare</div>
+          <h3>Lo vedi subito in mappa</h3>
+          <p>L'ombrellone diventa disponibile per il sub-affitto in tempo reale, senza bisogno che tu lo aggiorni a mano.</p>
+        </div>
+      </div>
+      <div class="cf-step">
+        <div class="cf-badge">3</div>
+        <div class="cf-media">
+          <div class="cf-browser-frame">
+            <div class="cf-browser-bar"><span></span><span></span><span></span><div class="cf-browser-url">spiaggiamia.com</div></div>
+            <div class="cf-screen"><img src="assets/come-funziona/step3-assegnazione.jpg" alt="Assegnazione del sub-affitto dalla mappa ombrelloni" loading="lazy"></div>
+          </div>
+        </div>
+        <div class="cf-copy">
+          <div class="cf-eyebrow cf-role-stab">🏖️ Stabilimento balneare</div>
+          <h3>Lo assegni in pochi click</h3>
+          <p>Selezioni il posto libero e finalizzi il sub-affitto a un cliente giornaliero direttamente dalla mappa.</p>
+        </div>
+      </div>
+      <div class="cf-step cf-reverse">
+        <div class="cf-badge">4</div>
+        <div class="cf-media">
+          <div class="cf-phone-frame">
+            <div class="cf-notch"></div>
+            <div class="cf-screen"><img src="assets/come-funziona/step4-whatsapp-credito.jpg" alt="Notifica WhatsApp con la conferma del credito accreditato" loading="lazy"></div>
+          </div>
+        </div>
+        <div class="cf-copy">
+          <div class="cf-eyebrow">☂️ Cliente stagionale</div>
+          <h3>Riceve conferma e credito</h3>
+          <p>Una notifica WhatsApp lo avvisa: il credito è già accreditato, pronto da spendere al tuo bar.</p>
+        </div>
+      </div>
     </div>
-    <div class="section-label">Due strumenti, un'unica piattaforma</div>
-    <div class="section-title">Progettato per entrambi</div>
+    <div class="cf-callout">
+      <div class="cf-callout-icon">📞</div>
+      <p><strong>Il tuo cliente preferisce dirtelo a voce?</strong> Nessun problema: segni tu il giorno libero sulla mappa in due click — lui riceve comunque la notifica quando l'ombrellone viene sub-affittato.</p>
+    </div>
+    <h2 class="section-title">Semplice per te. Trasparente per lui.</h2>
     <div class="roles-grid">
       <div class="role-card manager">
-        <h3>🏖️ Proprietario dello Stabilimento</h3>
-        <div class="role-sub">Visibilità totale, controllo completo</div>
+        <h3>🏖️ Proprietario dello Stabilimento Balneare</h3>
+        <div class="role-sub">Una cosa sola, fatta bene.</div>
         <ul class="feature-list">
+          <li>Vedi subito quali ombrelloni stagionali sono liberi oggi — è come avere posti in più da affittare, senza aggiungere un metro di spiaggia</li>
           <li>Mappa visuale degli ombrelloni in tempo reale</li>
-          <li>Vedi subito quali ombrelloni sono liberi oggi</li>
           <li>Imposta il credito per ogni ombrellone</li>
           <li>Caricamento massivo via Excel</li>
           <li>Log completo di tutte le transazioni</li>
@@ -70,7 +151,7 @@
       </div>
       <div class="role-card seasonal">
         <h3>☂️ Cliente Stagionale</h3>
-        <div class="role-sub">Accesso solo su invito del tuo stabilimento</div>
+        <div class="role-sub">Sa sempre cosa succede al suo ombrellone.</div>
         <ul class="feature-list">
           <li>Calendario per dichiarare i giorni liberi</li>
           <li>Notifica se l'ombrellone viene sub-affittato</li>
@@ -2759,7 +2840,7 @@ document.addEventListener('click', function(e) {
 <script src="js/router.js"></script>
 <script src="js/auth.js?v=20260605a"></script>
 <script src="js/setup.js"></script>
-<script src="js/manager.js?v=20260713a"></script>
+<script src="js/manager.js?v=20260722a"></script>
 <script src="js/dd-common.js"></script>
 <script src="js/panoramica.js"></script>
 <script src="js/configurazioni.js"></script>

@@ -121,6 +121,53 @@ body { font-family: 'DM Sans', sans-serif; background: var(--sand); color: var(-
 
 .landing-footer { border-top: 1px solid var(--border); padding: 40px 24px; text-align: center; }
 .landing-footer .section-label { margin-bottom: 16px; }
+
+/* ============ COME FUNZIONA — flusso visivo (luglio 2026) ============ */
+.manifesto-quote { max-width: 720px; margin: 0 auto; padding: 0 24px 8px; text-align: center; }
+.manifesto-quote p { font-family: 'DM Serif Display', serif; font-style: italic; font-size: 22px; line-height: 1.45; color: var(--ink); }
+.cf-intro { font-size: 16px; color: var(--text-mid); max-width: 520px; margin: -28px auto 56px; line-height: 1.55; }
+.cf-flow { position: relative; margin-bottom: 64px; }
+.cf-flow::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: repeating-linear-gradient(to bottom, var(--ocean-mid) 0 8px, transparent 8px 16px); transform: translateX(-50%); z-index: 0; }
+.cf-step { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 48px; margin-bottom: 72px; position: relative; z-index: 1; }
+.cf-step:last-child { margin-bottom: 0; }
+.cf-step.cf-reverse .cf-media { order: 2; }
+.cf-step.cf-reverse .cf-copy { order: 1; text-align: right; }
+.cf-step.cf-reverse .cf-copy .cf-eyebrow { justify-content: flex-end; }
+.cf-badge { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 40px; height: 40px; border-radius: 50%; background: var(--ocean); color: #fff; display: flex; align-items: center; justify-content: center; font-family: 'DM Serif Display', serif; font-size: 17px; box-shadow: 0 0 0 6px var(--sand); z-index: 2; }
+.cf-eyebrow { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--coral); margin-bottom: 10px; }
+.cf-eyebrow.cf-role-stab { color: var(--ocean); }
+.cf-copy h3 { font-family: 'DM Serif Display', serif; font-weight: normal; font-size: 24px; line-height: 1.2; margin-bottom: 8px; color: var(--ink); }
+.cf-copy p { font-size: 14px; color: var(--text-mid); line-height: 1.6; max-width: 360px; }
+.cf-step.cf-reverse .cf-copy p { margin-left: auto; }
+.cf-media { display: flex; }
+.cf-step.cf-reverse .cf-media { justify-content: flex-end; }
+.cf-phone-frame { width: 220px; background: var(--ink); border-radius: 30px; padding: 9px; box-shadow: var(--shadow-md); }
+.cf-phone-frame .cf-notch { width: 64px; height: 16px; background: var(--ink); border-radius: 0 0 10px 10px; margin: 0 auto; }
+.cf-phone-frame .cf-screen { border-radius: 20px; overflow: hidden; background: #fff; }
+.cf-phone-frame .cf-screen img { display: block; width: 100%; height: auto; }
+.cf-browser-frame { width: 100%; max-width: 400px; background: #fff; border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-md); border: 1px solid var(--border); }
+.cf-browser-bar { display: flex; align-items: center; gap: 6px; padding: 9px 12px; background: var(--sand-warm); border-bottom: 1px solid var(--border); }
+.cf-browser-bar span { width: 8px; height: 8px; border-radius: 50%; background: var(--sand-dark); display: inline-block; }
+.cf-browser-url { margin-left: 6px; font-size: 11px; color: var(--text-light); background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 3px 12px; flex: 1; }
+.cf-browser-frame .cf-screen img { display: block; width: 100%; height: auto; }
+.cf-callout { background: var(--sand-warm); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px 30px; display: flex; align-items: flex-start; gap: 16px; }
+.cf-callout-icon { font-size: 20px; flex-shrink: 0; width: 42px; height: 42px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm); }
+.cf-callout p { font-size: 14px; color: var(--text-mid); line-height: 1.65; }
+.cf-callout strong { color: var(--ink); }
+.cf-demo-note { text-align: center; font-size: 11px; color: var(--text-light); margin-top: 20px; }
+@media (max-width: 860px) {
+  .manifesto-quote p { font-size: 18px; }
+  .cf-flow::before { left: 28px; }
+  .cf-step, .cf-step.cf-reverse { grid-template-columns: 1fr; gap: 18px; margin-bottom: 56px; padding-left: 58px; text-align: left !important; }
+  .cf-step.cf-reverse .cf-media { order: initial; justify-content: flex-start; }
+  .cf-step.cf-reverse .cf-copy { order: initial; text-align: left !important; }
+  .cf-step.cf-reverse .cf-copy .cf-eyebrow { justify-content: flex-start; }
+  .cf-step.cf-reverse .cf-copy p { margin-left: 0; }
+  .cf-copy p { max-width: none; }
+  .cf-badge { left: 28px; top: 18px; transform: translate(-50%,0); width: 34px; height: 34px; font-size: 14px; }
+  .cf-callout { flex-direction: column; }
+}
+/* ============ FINE COME FUNZIONA ============ */
 .landing-footer-contacts { display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; }
 .landing-footer-contacts a { font-size: 15px; color: var(--ocean); text-decoration: none; font-weight: 500; }
 .landing-footer-contacts a:hover { text-decoration: underline; }
