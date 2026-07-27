@@ -3245,7 +3245,9 @@ function editRowCalClick(dateStr) {
   let action;
   if (editRowDayMode === 'force_sub') {
     if (!editRowOmbHasCliente(editRowDayOmbId)) return; // nessun cliente: nessun accredito possibile
-    action = 'force_sub';
+    const statoSub = editRowDayMap[dateStr]?.stato || 'occupied';
+    // Giorno già sub-affittato -> annullamento; altrimenti sub-affitto diretto.
+    action = statoSub === 'sub_affittato' ? 'cancel_sub' : 'force_sub';
   } else {
     const stato = editRowDayMap[dateStr]?.stato || 'occupied';
     action = stato === 'libero' ? 'remove' : 'force';
@@ -3283,10 +3285,10 @@ async function loadEditRowDayList(ombId) {
     return;
   }
   listEl.innerHTML = '<div style="padding:14px;font-size:13px;color:var(--text-light)">Caricamento...</div>';
-  if (infoEl) infoEl.innerHTML = `Stagione <strong>${formatDate(inizio)} → ${formatDate(fine)}</strong>. I sub-affitti già confermati non sono modificabili da qui.`;
+  if (infoEl) infoEl.innerHTML = `Stagione <strong>${formatDate(inizio)} → ${formatDate(fine)}</strong>. In modalità <strong>💰 Sub-affittato</strong> puoi anche annullare un sub-affitto esistente: il giorno torna disponibile e il credito viene revocato al cliente.`;
 
   const [{ data: disp }, { data: rules }] = await Promise.all([
-    sb.from('disponibilita').select('id,data,stato,cliente_id')
+    sb.from('disponibilita').select('id,data,stato,cliente_id,nome_prenotazione')
       .eq('ombrellone_id', ombId)
       .gte('data', inizio).lte('data', fine)
       .order('data', { ascending: true }),
@@ -3345,6 +3347,9 @@ function renderEditRowDayList() {
   const offset = (firstDay + 6) % 7; // griglia lunedì-based
   const daysInMonth = new Date(y, mo + 1, 0).getDate();
   const todayS = todayStr();
+  // In modalità "💰 Sub-affittato" i giorni già sub-affittati diventano cliccabili
+  // per essere annullati (richiede un cliente assegnato: il credito va revocato a lui).
+  const canCancelSub = !inattivo && editRowDayMode === 'force_sub' && editRowOmbHasCliente(editRowDayOmbId);
 
   const cells = [];
   for (let i = 0; i < offset; i++) cells.push('<div class="cal-day empty"></div>');
@@ -3360,7 +3365,7 @@ function renderEditRowDayList() {
     const pending = editRowPending[dateStr];
     const isToday = dateStr === todayS;
     const isChiusura = rule && rule.type === 'chiusura_speciale';
-    const readonly = inattivo || isChiusura || stato === 'sub_affittato';
+    const readonly = inattivo || isChiusura || (stato === 'sub_affittato' && !canCancelSub);
 
     let cls = 'cal-day';
     if (stato === 'libero') cls += ' free';
@@ -3381,14 +3386,16 @@ function renderEditRowDayList() {
         if (pending === 'force') cls += ' pending-add';
         else if (pending === 'remove') cls += ' pending-remove';
         else if (pending === 'force_sub') cls += ' pending-sub';
+        else if (pending === 'cancel_sub') cls += ' pending-cancel-sub';
       }
       title = (rule ? rule.label + ' · ' : '') + stTxt;
       if (pending === 'force') title = 'Da salvare: rendi libero';
       else if (pending === 'remove') title = 'Da salvare: rimuovi disponibilità';
       else if (pending === 'force_sub') title = 'Da salvare: rendi sub-affittato (credito al cliente)';
+      else if (pending === 'cancel_sub') title = 'Da salvare: annulla sub-affitto (credito revocato al cliente)';
     }
     if (inattivo) { cls += ' cal-day-readonly'; title = 'Ombrellone non attivo'; }
-    else if (stato === 'sub_affittato' && !isChiusura) { cls += ' cal-day-readonly'; title = 'Sub-affittato (annulla dalla tab Prenotazioni)'; }
+    else if (stato === 'sub_affittato' && !isChiusura && !canCancelSub) { cls += ' cal-day-readonly'; title = 'Sub-affittato — passa alla modalità 💰 Sub-affittato per annullarlo'; }
 
     const onclick = readonly ? '' : ` onclick="editRowCalClick('${dateStr}')"`;
     cells.push(`<div class="${cls}" title="${escapeHtml(title)}"${onclick}>${d}</div>`);
@@ -3416,10 +3423,12 @@ function editRowRenderPendingBar() {
   if (!entries.length) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
   const adds = entries.filter(([, a]) => a === 'force').length;
   const subs = entries.filter(([, a]) => a === 'force_sub').length;
+  const cancels = entries.filter(([, a]) => a === 'cancel_sub').length;
   const removes = entries.filter(([, a]) => a === 'remove').length;
   const parts = [];
   if (adds)    parts.push(`<strong>${adds}</strong> ${adds === 1 ? 'giorno da rendere libero' : 'giorni da rendere liberi'}`);
   if (subs)    parts.push(`<strong>${subs}</strong> ${subs === 1 ? 'giorno da rendere sub-affittato' : 'giorni da rendere sub-affittati'}`);
+  if (cancels) parts.push(`<strong>${cancels}</strong> ${cancels === 1 ? 'sub-affitto da annullare' : 'sub-affitti da annullare'}`);
   if (removes) parts.push(`<strong>${removes}</strong> ${removes === 1 ? 'giorno da rimuovere' : 'giorni da rimuovere'}`);
   bar.style.display = '';
   bar.innerHTML = `
@@ -3435,13 +3444,43 @@ function editRowAnnullaPending() {
   renderEditRowDayList();
 }
 
+// Entry point del bottone "💾 Salva modifiche".
+// Se ci sono annullamenti di sub-affitto, prima passa dal modal di conferma.
 async function editRowSalvaPending() {
   if (!editRowDayOmbId) return;
   const entries = Object.entries(editRowPending);
   if (!entries.length) return;
+  const cancelDates = entries.filter(([, a]) => a === 'cancel_sub').map(([d]) => d).sort();
+  if (cancelDates.length) { openEditRowCancelSubModal(cancelDates); return; }
+  await editRowApplyPending();
+}
+
+// Applica il buffer pending. Ordine obbligatorio: cancel_sub -> force -> force_sub -> remove.
+// cancel_sub va per primo perché riporta i giorni a stato 'libero' e le azioni successive
+// devono vedere lo stato aggiornato.
+async function editRowApplyPending() {
+  if (!editRowDayOmbId) return;
+  const entries = Object.entries(editRowPending);
+  if (!entries.length) return;
+  const cancelDates = entries.filter(([, a]) => a === 'cancel_sub').map(([d]) => d).sort();
   const forceDates  = entries.filter(([, a]) => a === 'force').map(([d]) => d).sort();
   const subDates    = entries.filter(([, a]) => a === 'force_sub').map(([d]) => d).sort();
   const removeDates = entries.filter(([, a]) => a === 'remove').map(([d]) => d).sort();
+
+  if (cancelDates.length) {
+    const items = cancelDates
+      .map(d => editRowDayMap[d])
+      .filter(r => r && r.id && r.stato === 'sub_affittato')
+      .map(r => ({ id: r.id, data: r.data, cliente_id: r.cliente_id, ombrellone_id: editRowDayOmbId }));
+    if (items.length) {
+      const nomi = [...new Set(cancelDates
+        .map(d => (editRowDayMap[d]?.nome_prenotazione || '').trim())
+        .filter(Boolean))];
+      const group = { nome: nomi.length === 1 ? nomi[0] : null };
+      const ok = await freeBookingItems(items, group, 'edit-row-alert');
+      if (ok === false) return;
+    }
+  }
   if (forceDates.length) {
     const ok = await applyForceDisponibile([editRowDayOmbId], forceDates, 'edit-row-alert');
     if (ok === false) return;
@@ -3460,6 +3499,58 @@ async function editRowSalvaPending() {
   editRowPending = {};
   await loadManagerData();
   await loadEditRowDayList(editRowDayOmbId);
+}
+
+// --- Modal di conferma annullamento sub-affitto (scheda cliente) ---
+
+function openEditRowCancelSubModal(dates) {
+  const omb = (ombrelloniList || []).find(o => o.id === editRowDayOmbId);
+  const cliente = (clientiList || []).find(c => !c.rifiutato && c.ombrellone_id === editRowDayOmbId) || null;
+  const creditoGg = omb ? parseFloat(omb.credito_giornaliero || 0) : 0;
+  const totale = creditoGg * dates.length;
+
+  // Raggruppa i giorni selezionati per nome_prenotazione.
+  const byPren = new Map();
+  dates.forEach(d => {
+    const nome = (editRowDayMap[d]?.nome_prenotazione || '').trim();
+    const k = nome || '__senza_nome__';
+    if (!byPren.has(k)) byPren.set(k, []);
+    byPren.get(k).push(d);
+  });
+  const prenHtml = Array.from(byPren.entries()).map(([nome, ds]) => {
+    const label = nome === '__senza_nome__'
+      ? '<em style="color:var(--text-light)">Prenotazione senza nome</em>'
+      : `<strong>${escapeHtml(nome)}</strong>`;
+    return `<li>${label} — ${ds.length} ${ds.length === 1 ? 'giornata' : 'giornate'}: ${ds.map(formatDate).join(', ')}</li>`;
+  }).join('');
+
+  let clienteHtml = '';
+  if (cliente) {
+    const saldoAttuale = parseFloat(cliente.credito_saldo || 0);
+    const saldoNuovo = saldoAttuale - totale;
+    const warn = saldoNuovo < 0
+      ? ' <span style="color:var(--coral);font-weight:600">(il saldo andrà negativo)</span>'
+      : '';
+    clienteHtml = `<div style="margin-top:10px"><strong>Cliente impattato:</strong> ${escapeHtml(cliente.nome || '')} ${escapeHtml(cliente.cognome || '')} — saldo ${formatCoin(saldoAttuale.toFixed(2), currentStabilimento)} → <strong>${formatCoin(saldoNuovo.toFixed(2), currentStabilimento)}</strong>${warn}</div>`;
+  }
+
+  const summary = document.getElementById('edit-row-cancel-sub-summary');
+  if (summary) {
+    summary.innerHTML = `
+      <div><strong>Ombrellone:</strong> ${escapeHtml(omb?.codice || '—')}</div>
+      <div style="margin-top:4px"><strong>Sub-affitti da annullare:</strong> ${dates.length}</div>
+      <div style="margin-top:4px"><strong>Credito totale revocato:</strong> ${formatCoin(totale.toFixed(2), currentStabilimento)}</div>
+      <div style="margin-top:10px"><strong>Prenotazioni impattate:</strong><ul style="margin:6px 0 0 18px;line-height:1.6">${prenHtml}</ul></div>
+      ${clienteHtml}
+    `;
+  }
+  showAlert('edit-row-cancel-sub-alert', '', '');
+  document.getElementById('modal-edit-row-cancel-sub').classList.remove('hidden');
+}
+
+async function confirmEditRowCancelSub() {
+  closeModal('modal-edit-row-cancel-sub');
+  await editRowApplyPending();
 }
 
 // Marca direttamente come sub-affittato uno o più giorni di UN ombrellone,
