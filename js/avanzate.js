@@ -50,8 +50,9 @@ function applyAvanzateRange(from, to) {
 
 /* ---------- Init / range picker ---------- */
 
-function avanzateInit() {
+async function avanzateInit() {
   if (!currentStabilimento) return;
+  await refreshStagioneDates();
   if (!avanzateRangePickerInstance) initAvanzateRangePicker(todayStr());
   // Sincronizza sempre minDate/maxDate con Date object locale (non stringa ISO):
   // flatpickr con dateFormat 'd/m/Y' non riesce a parsare le stringhe YYYY-MM-DD

@@ -128,6 +128,8 @@ async function refreshMap() {
   const dates = getDatesInRange(from, to);
   if (dates.length === 0) return;
 
+  await refreshStagioneDates();
+
   const ombIds = ombrelloniList.map(o => o.id);
   let disp, regole;
   const res = await Promise.all([

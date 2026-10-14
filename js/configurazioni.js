@@ -95,17 +95,30 @@ async function saveStagione() {
     if (alert) alert.innerHTML = '<div class="alert alert-coral">La fine deve essere uguale o successiva all\'inizio.</div>';
     return;
   }
-  const { error } = await sb.from('stabilimenti')
+  // .select() obbligatorio: se la RLS non matcha nessuna riga PostgREST NON
+  // restituisce errore, quindi senza le righe di ritorno non sapremmo se
+  // l'UPDATE è stato applicato.
+  const { data: rows, error } = await sb.from('stabilimenti')
     .update({ data_inizio_stagione: inizio, data_fine_stagione: fine })
-    .eq('id', currentStabilimento.id);
+    .eq('id', currentStabilimento.id)
+    .select('data_inizio_stagione, data_fine_stagione');
   if (error) {
     if (alert) alert.innerHTML = `<div class="alert alert-coral">Errore: ${escapeHtml(error.message)}</div>`;
     return;
   }
-  currentStabilimento.data_inizio_stagione = inizio;
-  currentStabilimento.data_fine_stagione = fine;
+  if (!rows || !rows.length) {
+    if (alert) alert.innerHTML = '<div class="alert alert-coral">Salvataggio non riuscito: nessuna modifica applicata (permessi). Ricarica la pagina e riprova.</div>';
+    return;
+  }
+  const saved = rows[0];
+  currentStabilimento.data_inizio_stagione = saved.data_inizio_stagione;
+  currentStabilimento.data_fine_stagione = saved.data_fine_stagione;
   if (alert) alert.innerHTML = '<div class="alert alert-info">✓ Date stagione salvate.</div>';
-  renderStagioneSummary(inizio, fine);
+  renderStagioneSummary(saved.data_inizio_stagione, saved.data_fine_stagione);
+  // Se la mappa "Gestisci Prenotazioni" è già montata, ricaricala con le nuove date.
+  if (typeof refreshMap === 'function' && document.getElementById('map-date-from')?.value) {
+    try { await refreshMap(); } catch (e) { console.error(e); }
+  }
   setTimeout(() => { if (alert) alert.innerHTML = ''; }, 3000);
 }
 

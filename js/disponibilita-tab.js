@@ -28,7 +28,7 @@ function switchPrenSubtab(name, btn) {
   }
 }
 
-function initDispView() {
+async function initDispView() {
   // Default: copia il range del primo tab; se non disponibile usa oggi.
   const fromMap = document.getElementById('map-date-from')?.value;
   const toMap = document.getElementById('map-date-to')?.value;
@@ -40,6 +40,7 @@ function initDispView() {
     fromEl.value = f;
     toEl.value = clampDispRange(f, t).to;
   }
+  await refreshStagioneDates();
   initDispRangePicker(fromEl.value, toEl.value);
   populateDispFilaCheckboxes();
   loadDispStabRegoleTipi().then(() => {
@@ -106,9 +107,14 @@ function initDispRangePicker(fromStr, toStr) {
   if (!input) return;
   const fromDate = new Date(fromStr + 'T00:00:00');
   const toDate = new Date(toStr + 'T00:00:00');
+  // Date object locali, non stringhe ISO: con dateFormat 'd/m/Y' flatpickr
+  // parserebbe male 'YYYY-MM-DD' (stesso fix di avanzateInit).
+  const toFpDate = s => s ? new Date(String(s).slice(0, 10) + 'T00:00:00') : undefined;
+  const minD = toFpDate(currentStabilimento?.data_inizio_stagione);
+  const maxD = toFpDate(currentStabilimento?.data_fine_stagione);
   if (dispRangePickerInstance) {
-    dispRangePickerInstance.set('minDate', currentStabilimento?.data_inizio_stagione || undefined);
-    dispRangePickerInstance.set('maxDate', currentStabilimento?.data_fine_stagione || undefined);
+    dispRangePickerInstance.set('minDate', minD);
+    dispRangePickerInstance.set('maxDate', maxD);
     dispRangePickerInstance.setDate([fromDate, toDate], false);
     return;
   }
@@ -119,8 +125,8 @@ function initDispRangePicker(fromStr, toStr) {
     defaultDate: [fromDate, toDate],
     showMonths: 1,
     disableMobile: true,
-    minDate: currentStabilimento?.data_inizio_stagione || undefined,
-    maxDate: currentStabilimento?.data_fine_stagione || undefined,
+    minDate: minD,
+    maxDate: maxD,
     onChange: (selectedDates) => {
       if (selectedDates.length === 2) {
         let from = toLocalDateStr(selectedDates[0]);

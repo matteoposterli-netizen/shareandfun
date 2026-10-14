@@ -396,3 +396,18 @@ async function richiediResetCliente(clienteId, canale) {
     return { ok: false, error: e?.message || 'exception' };
   }
 }
+
+// Rilegge dal DB le date stagione dello stabilimento corrente e aggiorna
+// currentStabilimento in memoria. currentStabilimento viene caricato una sola
+// volta al login: senza questo refresh, una modifica fatta da un'altra scheda
+// o dispositivo non verrebbe vista da mappa/picker fino a un hard refresh.
+async function refreshStagioneDates() {
+  if (typeof currentStabilimento === 'undefined' || !currentStabilimento?.id) return;
+  const { data, error } = await sb.from('stabilimenti')
+    .select('data_inizio_stagione, data_fine_stagione')
+    .eq('id', currentStabilimento.id)
+    .maybeSingle();
+  if (error || !data) return;
+  currentStabilimento.data_inizio_stagione = data.data_inizio_stagione;
+  currentStabilimento.data_fine_stagione = data.data_fine_stagione;
+}
