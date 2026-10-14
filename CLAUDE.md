@@ -38,7 +38,7 @@ RLS attiva ovunque. Policy consolidate (una per tabella/comando) con `(select au
 
 **Convenzione timestamp**: tutte le colonne `created_at` (e simili) devono essere `timestamptz`. Il baseline le aveva definite come `timestamp` (naive) sulle 6 tabelle business — convertite a `timestamptz` con la migrazione `20260429010000_created_at_to_timestamptz.sql` (USING `AT TIME ZONE 'UTC'`, dato che Supabase scrive `now()` in sessioni UTC). Senza tz PostgREST le serializza senza marker e il browser le interpreta come ora locale, mostrando -2h in CEST. Le tabelle aggiunte dopo il baseline (audit_log, regole_stato_ombrelloni, stagioni_backup, email_bozze, admins) erano già timestamptz.
 
-> Tutte le migrazioni in `supabase/migrations/` sono state applicate sul DB di produzione. **Ultima migration applicata**: `20260608140000_aggiorna_mappa_ombrelloni.sql` (drop tabella `whatsapp_config`, resa obsoleta dalla gestione centralizzata via env var). Inclusa la `20260524000000_ombrellone_codice_mappa.sql` (aggiunta `codice`/`pos_x`/`pos_y` a `ombrelloni`, `mappa_passerelle` a `stabilimenti`, drop `fila`/`numero`) — applicata in produzione. Cumulative su `reset_stagione`: la 500000 rimpiazza la 300000 (reset dello stato di registrazione + cleanup auth.users per user_id), la 20260426000000 rimpiazza la 500000 (estende la cleanup auth.users anche al match per email + introduce la RPC `unblock_invito_email`).
+> Tutte le migrazioni in `supabase/migrations/` sono state applicate sul DB di produzione. **Ultima migration applicata**: `20260608140000_aggiorna_mappa_ombrelloni.sql` (la `20261014120000_stagione_change_rematerialize.sql` è nel repo ma NON ancora applicata) (drop tabella `whatsapp_config`, resa obsoleta dalla gestione centralizzata via env var). Inclusa la `20260524000000_ombrellone_codice_mappa.sql` (aggiunta `codice`/`pos_x`/`pos_y` a `ombrelloni`, `mappa_passerelle` a `stabilimenti`, drop `fila`/`numero`) — applicata in produzione. Cumulative su `reset_stagione`: la 500000 rimpiazza la 300000 (reset dello stato di registrazione + cleanup auth.users per user_id), la 20260426000000 rimpiazza la 500000 (estende la cleanup auth.users anche al match per email + introduce la RPC `unblock_invito_email`).
 >
 > Applicare nuove migrazioni via Supabase dashboard (SQL Editor), `supabase db push` o `psql`.
 >
@@ -373,6 +373,29 @@ I clienti senza email sono sempre esclusi dal pool inviabile, ma il riepilogo de
   (e) DA FARE A MANO: deploy `invia-verifica-email` + redeploy
       `invia-email` (tipo `conferma_email`). Nessun deploy automatico
       in questa sessione.
+
+- **14 ott 2026** — FIX date stagione non recepite dalla mappa
+  "Gestisci Prenotazioni":
+  (a) `js/configurazioni.js → saveStagione`: UPDATE con `.select()`;
+      se 0 righe (RLS non matcha) mostra errore invece del falso
+      "✓ salvate". `currentStabilimento` aggiornato coi valori
+      restituiti dal DB; poi `refreshMap()` se la mappa è montata.
+  (b) Nuovo helper `refreshStagioneDates()` in `js/utils.js` (rilegge
+      `data_inizio/fine_stagione` dal DB in `currentStabilimento`),
+      chiamato in `refreshMap()` (`js/manager.js`), `avanzateInit()`
+      (`js/avanzate.js`, ora async) e `initDispView()`
+      (`js/disponibilita-tab.js`, ora async). `initDispRangePicker`
+      passa ora Date object a flatpickr per min/maxDate (le stringhe
+      ISO venivano parsate male con dateFormat 'd/m/Y').
+  (c) Migration `20261014120000_stagione_change_rematerialize.sql`
+      (NON ancora applicata in prod): helper
+      `_riallinea_default_libero_stagione(p_stabilimento_id)` + trigger
+      `stabilimenti_stagione_rematerialize_after_update` (AFTER UPDATE
+      OF data_*_stagione, WHEN date cambiate): DELETE default-libero
+      future fuori range (solo `libero`+`cliente_id NULL`) e
+      `_materialize_default_libero` sugli ombrelloni attivi senza
+      cliente. Backfill una tantum su tutti gli stabilimenti. Guard
+      iniziale che annulla la migration se funzione/colonne mancano.
 
 ## Mantenimento di questo file
 
